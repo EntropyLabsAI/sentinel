@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Approval Interface</title>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .card {
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+      background-color: #f9f9f9;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    h3 {
+      margin-top: 0;
+    }
+
+    button {
+      padding: 10px 20px;
+      margin-right: 10px;
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    #acceptBtn {
+      background-color: #4CAF50;
+    }
+
+    #rejectBtn {
+      background-color: #f44336;
+    }
+
+    #terminateBtn {
+      background-color: #555;
+    }
+
+    /* Center the loading message */
+    #loading {
+      text-align: center;
+      font-size: 18px;
+      color: #777;
+    }
+  </style>
+  <script>
+    var socket = new WebSocket("ws://" + location.host + "/ws");
+
+    socket.onmessage = function (event) {
+      var data = JSON.parse(event.data);
+
+      // Hide the loading message
+      document.getElementById("loading").classList.add("hidden");
+
+      // Show the content
+      document.getElementById("content").classList.remove("hidden");
+
+      document.getElementById("context").innerText = data.context;
+      document.getElementById("proposedAction").innerText = data.proposed_action;
+      document.getElementById("requestId").value = data.id;
+    };
+
+    function sendResponse(decision) {
+      var response = {
+        id: document.getElementById("requestId").value,
+        decision: decision
+      };
+      socket.send(JSON.stringify(response));
+      // Clear the context and proposed action
+      document.getElementById("context").innerText = "";
+      document.getElementById("proposedAction").innerText = "";
+      document.getElementById("requestId").value = "";
+
+      // Hide the content
+      document.getElementById("content").classList.add("hidden");
+
+      // Show the loading message
+      document.getElementById("loading").classList.remove("hidden");
+    }
+  </script>
+</head>
+
+<body>
+  <div class="container">
+    <h1>Approval Interface</h1>
+
+    <!-- Loading message -->
+    <div id="loading">
+      <p>Waiting for review requests...</p>
+    </div>
+
+    <!-- Content to display when a review request is received -->
+    <div id="content" class="hidden">
+      <div class="card">
+        <h3>Context Window</h3>
+        <pre id="context"></pre>
+      </div>
+
+      <div class="card">
+        <h3>Proposed Action</h3>
+        <p id="proposedAction"></p>
+      </div>
+
+      <input type="hidden" id="requestId" value="">
+
+      <button id="acceptBtn" onclick="sendResponse('approve')">Accept</button>
+      <button id="rejectBtn" onclick="sendResponse('reject')">Reject</button>
+      <button id="terminateBtn" onclick="sendResponse('terminate')">Terminate</button>
+    </div>
+  </div>
+</body>
+
+</html>
