@@ -25,6 +25,7 @@ func main() {
 	http.HandleFunc("/api/review", func(w http.ResponseWriter, r *http.Request) {
 		apiReviewHandler(hub, w, r)
 	})
+	http.HandleFunc("/api/review/status", apiReviewStatusHandler)
 
 	// Serve static files
 	fs := http.FileServer(http.Dir("./static/"))

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"container/list"
 	"encoding/json"
 	"log"
@@ -55,48 +54,42 @@ func (h *Hub) Run() {
 		select {
 		case client := <-h.Register:
 			h.Clients[client] = true
-			go h.processQueue() // Try to process queue when a new client connects
 		case client := <-h.Unregister:
 			if _, ok := h.Clients[client]; ok {
 				delete(h.Clients, client)
 				close(client.Send)
 			}
 		case review := <-h.Review:
-			h.QueueMutex.Lock()
-			h.Queue.PushBack(review)
-			h.QueueMutex.Unlock()
-			go h.processQueue()
+			h.sendToOneClient(review)
 		}
 	}
 }
 
-func (h *Hub) processQueue() {
-	h.QueueMutex.Lock()
-	defer h.QueueMutex.Unlock()
-
-	if h.Queue.Len() == 0 || len(h.Clients) == 0 {
+func (h *Hub) sendToOneClient(review ReviewRequest) {
+	if len(h.Clients) == 0 {
+		// No clients connected, add to queue
+		h.QueueMutex.Lock()
+		h.Queue.PushBack(review)
+		h.QueueMutex.Unlock()
 		return
 	}
 
+	// Select a random client
 	clients := make([]*Client, 0, len(h.Clients))
 	for client := range h.Clients {
 		clients = append(clients, client)
 	}
+	randomClient := clients[rand.Intn(len(clients))]
 
-	for h.Queue.Len() > 0 && len(clients) > 0 {
-		review := h.Queue.Remove(h.Queue.Front()).(ReviewRequest)
-		randomClient := clients[rand.Intn(len(clients))]
-
-		select {
-		case randomClient.Send <- review:
-			// Review sent successfully
-		default:
-			// Client's channel is full, remove it and try again
-			close(randomClient.Send)
-			delete(h.Clients, randomClient)
-			clients = clients[:len(clients)-1]
-			h.Queue.PushFront(review) // Put the review back in the queue
-		}
+	// Try to send the review to the selected client
+	select {
+	case randomClient.Send <- review:
+		// Review sent successfully
+	default:
+		// Client's channel is full, remove it and try again
+		close(randomClient.Send)
+		delete(h.Clients, randomClient)
+		h.sendToOneClient(review) // Recursively try again
 	}
 }
 
@@ -144,23 +137,11 @@ func (c *Client) ReadPump() {
 func (c *Client) WritePump() {
 	defer c.Conn.Close()
 
-	for {
-		select {
-		case review, ok := <-c.Send:
-			if !ok {
-				// Channel closed
-				err := c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
-				if err != nil {
-					log.Println("Error closing WebSocket connection:", err)
-				}
-				return
-			}
-			// Send review request to client
-			err := c.Conn.WriteJSON(review)
-			if err != nil {
-				log.Println("Error sending review to client:", err)
-				break
-			}
+	for review := range c.Send {
+		err := c.Conn.WriteJSON(review)
+		if err != nil {
+			log.Println("Error sending review to client:", err)
+			return
 		}
 	}
 }
@@ -178,23 +159,4 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	// Start reading and writing pumps
 	go client.WritePump()
 	go client.ReadPump()
-}
-
-func sendResponseToAPI(response map[string]string) {
-	// Prepare the request
-	jsonData, err := json.Marshal(response)
-	if err != nil {
-		log.Println("Error marshaling response:", err)
-		return
-	}
-
-	// Send POST request to external API
-	resp, err := http.Post("https://external-api.example.com/response",
-		"application/json", bytes.NewBuffer(jsonData))
-	if err != nil {
-		log.Println("Error sending response to external API:", err)
-		return
-	}
-	defer resp.Body.Close()
-	log.Println("Response sent to external API with status:", resp.Status)
 }
