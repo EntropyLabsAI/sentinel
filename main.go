@@ -2,10 +2,15 @@ package main
 
 import (
 	"log"
+	"math/rand"
 	"net/http"
+	"time"
 )
 
 func main() {
+	// Seed the random number generator
+	rand.Seed(time.Now().UnixNano())
+
 	// Initialize the WebSocket hub
 	hub := NewHub()
 	go hub.Run()

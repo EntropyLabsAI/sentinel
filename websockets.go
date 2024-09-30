@@ -2,9 +2,12 @@ package main
 
 import (
 	"bytes"
+	"container/list"
 	"encoding/json"
 	"log"
+	"math/rand"
 	"net/http"
+	"sync"
 
 	"github.com/gorilla/websocket"
 )
@@ -22,9 +25,11 @@ type ReviewRequest struct {
 // Hub maintains active connections and broadcasts messages
 type Hub struct {
 	Clients    map[*Client]bool
-	Broadcast  chan ReviewRequest
+	Review     chan ReviewRequest
 	Register   chan *Client
 	Unregister chan *Client
+	Queue      *list.List
+	QueueMutex sync.Mutex
 }
 
 // ReviewerResponse represents the response from the reviewer
@@ -36,10 +41,11 @@ type ReviewerResponse struct {
 // NewHub initializes a new Hub
 func NewHub() *Hub {
 	return &Hub{
-		Broadcast:  make(chan ReviewRequest),
+		Review:     make(chan ReviewRequest),
 		Register:   make(chan *Client),
 		Unregister: make(chan *Client),
 		Clients:    make(map[*Client]bool),
+		Queue:      list.New(),
 	}
 }
 
@@ -49,21 +55,47 @@ func (h *Hub) Run() {
 		select {
 		case client := <-h.Register:
 			h.Clients[client] = true
+			go h.processQueue() // Try to process queue when a new client connects
 		case client := <-h.Unregister:
 			if _, ok := h.Clients[client]; ok {
 				delete(h.Clients, client)
 				close(client.Send)
 			}
-		case review := <-h.Broadcast:
-			// Broadcast review to all connected clients
-			for client := range h.Clients {
-				select {
-				case client.Send <- review:
-				default:
-					close(client.Send)
-					delete(h.Clients, client)
-				}
-			}
+		case review := <-h.Review:
+			h.QueueMutex.Lock()
+			h.Queue.PushBack(review)
+			h.QueueMutex.Unlock()
+			go h.processQueue()
+		}
+	}
+}
+
+func (h *Hub) processQueue() {
+	h.QueueMutex.Lock()
+	defer h.QueueMutex.Unlock()
+
+	if h.Queue.Len() == 0 || len(h.Clients) == 0 {
+		return
+	}
+
+	clients := make([]*Client, 0, len(h.Clients))
+	for client := range h.Clients {
+		clients = append(clients, client)
+	}
+
+	for h.Queue.Len() > 0 && len(clients) > 0 {
+		review := h.Queue.Remove(h.Queue.Front()).(ReviewRequest)
+		randomClient := clients[rand.Intn(len(clients))]
+
+		select {
+		case randomClient.Send <- review:
+			// Review sent successfully
+		default:
+			// Client's channel is full, remove it and try again
+			close(randomClient.Send)
+			delete(h.Clients, randomClient)
+			clients = clients[:len(clients)-1]
+			h.Queue.PushFront(review) // Put the review back in the queue
 		}
 	}
 }
@@ -111,16 +143,24 @@ func (c *Client) ReadPump() {
 // WritePump sends messages to the WebSocket client
 func (c *Client) WritePump() {
 	defer c.Conn.Close()
+
 	for {
 		select {
 		case review, ok := <-c.Send:
 			if !ok {
 				// Channel closed
-				c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
+				err := c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
+				if err != nil {
+					log.Println("Error closing WebSocket connection:", err)
+				}
 				return
 			}
 			// Send review request to client
-			c.Conn.WriteJSON(review)
+			err := c.Conn.WriteJSON(review)
+			if err != nil {
+				log.Println("Error sending review to client:", err)
+				break
+			}
 		}
 	}
 }

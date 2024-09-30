@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"html/template"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -15,13 +16,18 @@ var reviewChannels = &sync.Map{}
 const reviewTimeout = 5 * time.Minute
 
 // serveTemplate renders the index.html template
-func serveTemplate(w http.ResponseWriter, r *http.Request) {
+func serveTemplate(w http.ResponseWriter, _ *http.Request) {
 	tmpl, err := template.ParseFiles("templates/index.html")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	tmpl.Execute(w, nil)
+
+	err = tmpl.Execute(w, nil)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 // apiReviewHandler receives review requests via the HTTP API
@@ -33,23 +39,23 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create a channel to wait for the reviewer's response
-	responseChan := make(chan ReviewerResponse)
-	// Store the channel in the map with the request ID as the key
-	reviewChannels.Store(reviewRequest.ID, responseChan)
-	defer reviewChannels.Delete(reviewRequest.ID) // Clean up after we're done
+	// Generate a unique ID for the review request
+	reviewRequest.ID = generateUniqueID()
 
-	// Send the review request to the frontend via WebSocket
-	hub.Broadcast <- reviewRequest
+	// Add the review request to the queue
+	hub.Review <- reviewRequest
 
-	// Wait for the reviewer's response or timeout
-	select {
-	case reviewerResponse := <-responseChan:
-		// Send the response back to the HTTP client
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(reviewerResponse)
-	case <-time.After(reviewTimeout):
-		// Timeout reached, send an error response
-		http.Error(w, "Timeout waiting for reviewer response", http.StatusGatewayTimeout)
+	// Respond immediately with 200 OK
+	w.WriteHeader(http.StatusOK)
+
+	err = json.NewEncoder(w).Encode(map[string]string{"status": "queued", "id": reviewRequest.ID})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+}
+
+func generateUniqueID() string {
+	// Implement a method to generate a unique ID, e.g., using UUID
+	return "unique-id-" + strconv.FormatInt(time.Now().UnixNano(), 10)
 }
