@@ -54,24 +54,21 @@ func (h *Hub) Run() {
 		select {
 		case client := <-h.Register:
 			h.Clients[client] = true
+			go h.processQueue() // Process queue when a new client connects
 		case client := <-h.Unregister:
 			if _, ok := h.Clients[client]; ok {
 				delete(h.Clients, client)
 				close(client.Send)
 			}
 		case review := <-h.Review:
-			h.sendToOneClient(review)
+			h.addReview(review)
 		}
 	}
 }
 
-func (h *Hub) sendToOneClient(review ReviewRequest) {
+func (h *Hub) sendToOneClient(review ReviewRequest) bool {
 	if len(h.Clients) == 0 {
-		// No clients connected, add to queue
-		h.QueueMutex.Lock()
-		h.Queue.PushBack(review)
-		h.QueueMutex.Unlock()
-		return
+		return false
 	}
 
 	// Select a random client
@@ -84,12 +81,36 @@ func (h *Hub) sendToOneClient(review ReviewRequest) {
 	// Try to send the review to the selected client
 	select {
 	case randomClient.Send <- review:
-		// Review sent successfully
+		return true
 	default:
-		// Client's channel is full, remove it and try again
+		// Client's channel is full, remove it
 		close(randomClient.Send)
 		delete(h.Clients, randomClient)
-		h.sendToOneClient(review) // Recursively try again
+		return false
+	}
+}
+
+func (h *Hub) processQueue() {
+	h.QueueMutex.Lock()
+	defer h.QueueMutex.Unlock()
+
+	for h.Queue.Len() > 0 {
+		element := h.Queue.Front()
+		review := element.Value.(ReviewRequest)
+		if h.sendToOneClient(review) {
+			h.Queue.Remove(element)
+		} else {
+			// If we couldn't send to any client, stop processing
+			break
+		}
+	}
+}
+
+func (h *Hub) addReview(review ReviewRequest) {
+	if !h.sendToOneClient(review) {
+		h.QueueMutex.Lock()
+		h.Queue.PushBack(review)
+		h.QueueMutex.Unlock()
 	}
 }
 
