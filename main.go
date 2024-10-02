@@ -16,9 +16,9 @@ func main() {
 	go hub.Run()
 
 	// Set up HTTP routes
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		serveTemplate(w, r)
-	})
+	// http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	// 	serveTemplate(w, r)
+	// })
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		serveWs(hub, w, r)
 	})

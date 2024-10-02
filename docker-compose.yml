@@ -1,8 +1,34 @@
+version: '3.8'
+
 services:
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "8080:8080"
     volumes:
       - .:/app
     command: go run main.go types.go handlers.go websockets.go reviewstore.go
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    # volumes:
+    #   - ./web:/app
+    #   - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      - app
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

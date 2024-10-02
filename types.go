@@ -8,6 +8,19 @@ const (
 	RoleTool      = "tool"
 )
 
+// ReviewRequest represents the review data structure
+type ReviewRequest struct {
+	ID             string        `json:"id"`
+	Context        ReviewContext `json:"context"`
+	ProposedAction string        `json:"proposed_action"`
+}
+
+// ReviewerResponse represents the response from the reviewer
+type ReviewerResponse struct {
+	ID       string `json:"id"`
+	Decision string `json:"decision"`
+}
+
 // ReviewContext represents the entire context of a review.
 type ReviewContext struct {
 	Messages   []Message              `json:"messages"`

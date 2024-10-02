@@ -17,19 +17,6 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin:     func(r *http.Request) bool { return true }, // Adjust as needed for security
 }
 
-// ReviewRequest represents the review data structure
-type ReviewRequest struct {
-	ID             string        `json:"id"`
-	Context        ReviewContext `json:"context"`
-	ProposedAction string        `json:"proposed_action"`
-}
-
-// ReviewerResponse represents the response from the reviewer
-type ReviewerResponse struct {
-	ID       string `json:"id"`
-	Decision string `json:"decision"`
-}
-
 // Hub maintains active connections and broadcasts messages
 type Hub struct {
 	Clients         map[*Client]bool
