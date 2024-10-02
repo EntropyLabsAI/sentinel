@@ -5,4 +5,4 @@ services:
       - "8080:8080"
     volumes:
       - .:/app
-    command: go run main.go handlers.go websockets.go reviewstore.go
+    command: go run main.go types.go handlers.go websockets.go reviewstore.go

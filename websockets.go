@@ -19,9 +19,9 @@ var upgrader = websocket.Upgrader{
 
 // ReviewRequest represents the review data structure
 type ReviewRequest struct {
-	ID             string `json:"id"`
-	Context        string `json:"context"`
-	ProposedAction string `json:"proposed_action"`
+	ID             string        `json:"id"`
+	Context        ReviewContext `json:"context"`
+	ProposedAction string        `json:"proposed_action"`
 }
 
 // ReviewerResponse represents the response from the reviewer
