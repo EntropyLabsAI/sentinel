@@ -44,7 +44,7 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	reviewRequest.ID = generateUniqueID()
 
 	// Add the review request to the queue
-	hub.Review <- reviewRequest
+	hub.ReviewChan <- reviewRequest
 	log.Printf("Received new review request ID %s via API.", reviewRequest.ID)
 
 	// Create a channel for this review request
