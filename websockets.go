@@ -45,7 +45,7 @@ type Hub struct {
 func NewHub() *Hub {
 	return &Hub{
 		Clients:         make(map[*Client]bool),
-		ReviewChan:      make(chan ReviewRequest),
+		ReviewChan:      make(chan ReviewRequest, 100),
 		Register:        make(chan *Client),
 		Unregister:      make(chan *Client),
 		FreeClients:     make(chan *Client, 100),
@@ -169,6 +169,7 @@ type Client struct {
 	Send chan ReviewRequest
 }
 
+// websockets.go
 func (c *Client) ReadPump() {
 	defer func() {
 		c.Hub.Unregister <- c
@@ -188,13 +189,27 @@ func (c *Client) ReadPump() {
 			continue
 		}
 
-		// Handle the response (e.g., send to HTTP handler or process internally)
-		// Implement reviewChannels or alternative handling as needed
+		// Handle the response by sending it to the corresponding response channel
+		if chInterface, ok := reviewChannels.Load(response.ID); ok {
+			responseChan, ok := chInterface.(chan ReviewerResponse)
+			if ok {
+				// Send the response non-blocking to prevent potential deadlocks
+				select {
+				case responseChan <- response:
+					log.Printf("ReviewerResponse for ID %s sent to response channel.", response.ID)
+				default:
+					log.Printf("Response channel for ID %s is blocked. Skipping.", response.ID)
+				}
+			} else {
+				log.Printf("Response channel for ID %s has an unexpected type.", response.ID)
+			}
+		} else {
+			log.Printf("No response channel found for ID %s.", response.ID)
+		}
 
 		// Mark the client as available after processing
 		if _, exists := c.Hub.AssignedReviews[response.ID]; exists {
 			delete(c.Hub.AssignedReviews, response.ID)
-			c.Hub.ReviewStore.Delete(response.ID)
 			c.Hub.FreeClients <- c
 			log.Printf("Client marked as available after handling review ID %s.", response.ID)
 		}

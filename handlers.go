@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -96,6 +97,7 @@ func apiReviewStatusHandler(w http.ResponseWriter, r *http.Request) {
 	// Check if there's a channel waiting for this review
 	if _, ok := reviewChannels.Load(reviewID); ok {
 		// There's a pending review
+		fmt.Printf("Review ID %s is pending", reviewID)
 		w.WriteHeader(http.StatusOK)
 		err := json.NewEncoder(w).Encode(map[string]string{"status": "pending"})
 		if err != nil {
@@ -105,6 +107,7 @@ func apiReviewStatusHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Check if there's a stored response for this review
 		if response, ok := completedReviews.Load(reviewID); ok {
+			fmt.Printf("Review ID %s has a stored response: %v", reviewID, response)
 			w.WriteHeader(http.StatusOK)
 			err := json.NewEncoder(w).Encode(response)
 			if err != nil {
