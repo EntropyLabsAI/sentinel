@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ReviewRequest } from './review';
+import ReviewRequestDisplay from './components/review_request';
 
 const ApprovalsInterface: React.FC = () => {
   const [reviewData, setReviewData] = useState<ReviewRequest | null>(null);
@@ -52,18 +53,7 @@ const ApprovalsInterface: React.FC = () => {
         </div>
       ) : (
         <div id="content" className="space-y-6">
-          <div className="bg-white shadow-md rounded-lg p-6">
-            <h3 className="text-xl font-semibold mb-4">Context Window</h3>
-            {/* <pre id="context" className="whitespace-pre-wrap">{JSON.stringify(reviewData?.context, null, 2)}</pre> */}
-          </div>
-
-          <div className="bg-white shadow-md rounded-lg p-6">
-            <h3 className="text-xl font-semibold mb-4">Proposed Action</h3>
-            {/* <p id="proposedAction" className="text-lg">{reviewData?.proposed_action}</p> */}
-          </div>
-
-          <input type="hidden" id="requestId" value={reviewData?.id} />
-
+          {reviewData && <ReviewRequestDisplay reviewRequest={reviewData} />}
           <div className="flex space-x-4">
             <button
               id="acceptBtn"

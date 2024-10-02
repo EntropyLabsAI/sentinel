@@ -19,11 +19,12 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
-    # volumes:
-    #   - ./web:/app
-    #   - /app/node_modules
+    volumes:
+      - ./web:/app
+      - /app/node_modules
     environment:
       - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
     depends_on:
       - app
     networks:
