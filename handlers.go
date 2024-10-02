@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"html/template"
+	"log"
 	"net/http"
 	"strconv"
 	"sync"
@@ -44,6 +45,7 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 
 	// Add the review request to the queue
 	hub.Review <- reviewRequest
+	log.Printf("Received new review request ID %s via API.", reviewRequest.ID)
 
 	// Create a channel for this review request
 	responseChan := make(chan ReviewerResponse)
@@ -56,6 +58,7 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 			// Store the completed review
 			completedReviews.Store(response.ID, response)
 			reviewChannels.Delete(response.ID)
+			log.Printf("Review ID %s completed with decision: %s.", response.ID, response.Decision)
 		case <-time.After(reviewTimeout):
 			// Timeout occurred
 			completedReviews.Store(reviewRequest.ID, map[string]string{
@@ -63,6 +66,7 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 				"id":     reviewRequest.ID,
 			})
 			reviewChannels.Delete(reviewRequest.ID)
+			log.Printf("Review ID %s timed out.", reviewRequest.ID)
 		}
 	}()
 
