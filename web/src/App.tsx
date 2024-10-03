@@ -48,7 +48,7 @@ const ApprovalsInterface: React.FC = () => {
       <h1 className="text-3xl font-bold mb-6">Approval Interface</h1>
 
       {isLoading ? (
-        <div id="loading" className="text-center">
+        <div id="loading" className="text-left">
           <p className="text-lg">Waiting for review requests...</p>
         </div>
       ) : (

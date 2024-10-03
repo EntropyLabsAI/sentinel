@@ -4,7 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { MessageSquare, Info, Hammer, Text, EyeOff, Eye, Code, Check, X, MessageSquare as MessageSquareIcon, SkullIcon } from "lucide-react"
 import { Message, Output, TaskState, ReviewRequest, Tool } from "../review"
 import ToolChoiceDisplay from "./tool_call"
-import React, { useState } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { Button } from "./ui/button"
 
 interface ReviewRequestProps {
@@ -14,16 +14,16 @@ interface ReviewRequestProps {
 
 export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: ReviewRequestProps) {
   return (
-    <div className="w-full h-screen max-w-full mx-auto overflow-hidden flex flex-col xl:flex-row">
+    <div className="w-full max-w-full mx-auto flex flex-col xl:flex-row">
       {/* Left column (top on large and smaller screens) */}
       <div className="w-full xl:w-1/3 flex-shrink-0 py-4 border-b xl:border-b-0">
-        <h2 className="text-2xl font-bold mb-4">Review Request: {reviewRequest.id}</h2>
+        <h2 className="text-2xl mb-4">Agent #<code>{reviewRequest.id.slice(0, 8)}</code> is requesting approval</h2>
         {reviewRequest.tool_choice && <ToolChoiceDisplay toolChoice={reviewRequest.tool_choice} />}
         <div className="mt-4 flex flex-wrap gap-2">
           <Button
             variant="default"
             size="sm"
-            className="flex-1 bg-green-500 hover:bg-green-600"
+            className="flex-1 bg-green-500 hover:bg-green-600 text-white"
             onClick={() => sendResponse('approve')}
           >
             <Check className="mr-2 h-4 w-4" /> Approve
@@ -31,7 +31,7 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
           <Button
             variant="default"
             size="sm"
-            className="flex-1 bg-red-500 hover:bg-red-600"
+            className="flex-1 bg-red-500 hover:bg-red-600 text-white"
             onClick={() => sendResponse('reject')}
           >
             <X className="mr-2 h-4 w-4" /> Reject
@@ -39,7 +39,7 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
           <Button
             variant="default"
             size="sm"
-            className="flex-1 bg-yellow-500 hover:bg-yellow-600"
+            className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white"
             onClick={() => sendResponse('terminate')}
           >
             <SkullIcon className="mr-2 h-4 w-4" /> Kill Agent
@@ -62,7 +62,7 @@ function ContextDisplay({ context }: { context: TaskState }) {
       <MessagesDisplay messages={context.messages} />
       {context.tools && context.tools.length > 0 && <ToolsDisplay tools={context.tools} />}
       {context.output && <OutputDisplay output={context.output} />}
-      <div className="flex items-center justify-between">
+      {/* <div className="flex items-center justify-between">
         <Badge variant={context.completed ? "default" : "secondary"}>
           {context.completed ? "Completed" : "In Progress"}
         </Badge>
@@ -71,27 +71,45 @@ function ContextDisplay({ context }: { context: TaskState }) {
             Metadata: {JSON.stringify(context.metadata)}
           </span>
         )}
-      </div>
+      </div> */}
     </div>
   )
 }
 
 function MessagesDisplay({ messages }: { messages: Message[] }) {
-  const getBadgeColor = (role: string) => {
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    setIsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (isLoaded && scrollAreaRef.current) {
+      setTimeout(() => {
+        if (scrollAreaRef.current) {
+          scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+        }
+      }, 100);
+    }
+  }, [messages, isLoaded]);
+
+  const getBubbleStyle = (role: string) => {
+    const baseStyle = "rounded-2xl p-3 mb-2 max-w-[80%] break-words";
     switch (role.toLowerCase()) {
       case 'assistant':
-        return 'bg-blue-500 hover:bg-blue-600';
+        return `${baseStyle} bg-blue-500 text-white`;
       case 'user':
-        return 'bg-green-500 hover:bg-green-600';
+        return `${baseStyle} bg-gray-200 text-gray-800`;
       case 'system':
-        return 'bg-purple-500 hover:bg-purple-600';
+        return `${baseStyle} bg-gray-300 text-gray-800 italic`;
       default:
-        return 'bg-gray-500 hover:bg-gray-600';
+        return `${baseStyle} bg-gray-400 text-white`;
     }
   };
 
   return (
-    <Card className="">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center">
           <MessageSquare className="mr-2" />
@@ -99,29 +117,31 @@ function MessagesDisplay({ messages }: { messages: Message[] }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[500px]">
+        <div className="h-[500px] overflow-auto" ref={scrollAreaRef}>
           {messages.map((message, index) => (
-            <div key={index} className="mb-4 last:mb-0">
-              <Badge className={`mb-1 ${getBadgeColor(message.role)}`}>
-                {message.role}
-              </Badge>
-              <p className="text-sm">{message.content}</p>
-              {message.source && (
-                <span className="text-xs text-muted-foreground">Source: {message.source}</span>
-              )}
-              {message.tool_calls && (
-                <div className="mt-2">
-                  <span className="text-xs font-semibold">Tool Calls:</span>
-                  {message.tool_calls.map((toolCall, idx) => (
-                    <div key={idx} className="ml-2 text-xs">
-                      <span className="font-semibold">{toolCall.function}:</span> {JSON.stringify(toolCall.arguments)}
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div key={index} className={`flex flex-col ${message.role.toLowerCase() === 'user' ? 'items-end' : 'items-start'} mb-4 last:mb-0`}>
+              <div className={getBubbleStyle(message.role)}>
+                <p className="text-sm font-semibold mb-1">{message.role}</p>
+                <p className="text-sm">{message.content}</p>
+                {message.source && (
+                  <p className="text-xs opacity-70 mt-1">Source: {message.source}</p>
+                )}
+                {message.tool_calls && (
+                  <div className="mt-2">
+                    <p className="text-xs font-semibold">Tool Calls:</p>
+                    <code>
+                      {message.tool_calls.map((toolCall, idx) => (
+                        <div key={idx} className="ml-2 text-xs">
+                          <span className="font-semibold">{toolCall.function}:</span> {JSON.stringify(toolCall.arguments)}
+                        </div>
+                      ))}
+                    </code>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
-        </ScrollArea>
+        </div>
       </CardContent>
     </Card>
   )
@@ -138,19 +158,17 @@ function ToolsDisplay({ tools }: { tools: Tool[] }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[150px]">
-          {tools.map((tool, index) => (
-            <div key={index} className="mb-2 last:mb-0">
-              <Badge variant="outline" className="mb-1">{tool.name}</Badge>
-              {tool.description && <p className="text-sm">{tool.description}</p>}
-              {tool.attributes && (
-                <pre className="text-xs mt-1 bg-muted p-2 rounded">
-                  {JSON.stringify(tool.attributes, null, 2)}
-                </pre>
-              )}
-            </div>
-          ))}
-        </ScrollArea>
+        {tools.map((tool, index) => (
+          <div key={index} className="mb-2 last:mb-0">
+            <Badge variant="outline" className="mb-1">{tool.name}</Badge>
+            {tool.description && <p className="text-sm">{tool.description}</p>}
+            {tool.attributes && (
+              <pre className="text-xs mt-1 bg-muted p-2 rounded">
+                {JSON.stringify(tool.attributes, null, 2)}
+              </pre>
+            )}
+          </div>
+        ))}
       </CardContent>
     </Card>
   )
@@ -187,7 +205,7 @@ function OutputDisplay({ output }: { output: Output }) {
 }
 
 function JsonDisplay({ reviewRequest }: { reviewRequest: ReviewRequest }) {
-  const [showJson, setShowJson] = useState(false)
+  const [showJson, setShowJson] = useState(true)
   return (
     <Card className="mt-4">
       <CardHeader>

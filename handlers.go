@@ -6,9 +6,10 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 var completedReviews = &sync.Map{}
@@ -41,10 +42,8 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("Received new review request: %v", reviewRequest)
-
 	// Generate a unique ID for the review request
-	reviewRequest.ID = generateUniqueID()
+	reviewRequest.ID = uuid.New().String()
 
 	// Add the review request to the queue
 	hub.ReviewChan <- reviewRequest
@@ -80,11 +79,6 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-}
-
-func generateUniqueID() string {
-	// Implement a method to generate a unique ID, e.g., using UUID
-	return "unique-id-" + strconv.FormatInt(time.Now().UnixNano(), 10)
 }
 
 // apiReviewStatusHandler checks the status of a review request

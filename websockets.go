@@ -197,8 +197,26 @@ func (c *Client) ReadPump() {
 		// Mark the client as available after processing
 		if _, exists := c.Hub.AssignedReviews[response.ID]; exists {
 			delete(c.Hub.AssignedReviews, response.ID)
-			c.Hub.FreeClients <- c
-			log.Printf("Client marked as available after handling review ID %s.", response.ID)
+
+			// Check for queued reviews and assign one if available
+			if c.Hub.Queue.Len() > 0 {
+				element := c.Hub.Queue.Front()
+				review := element.Value.(ReviewRequest)
+
+				select {
+				case c.Send <- review:
+					c.Hub.AssignedReviews[review.ID] = c
+					c.Hub.ReviewStore.Add(review)
+					c.Hub.Queue.Remove(element)
+					log.Printf("Assigned queued review ID %s to client.", review.ID)
+				default:
+					log.Printf("Client's send channel full. Keeping review ID %s in queue.", review.ID)
+					c.Hub.FreeClients <- c
+				}
+			} else {
+				c.Hub.FreeClients <- c
+				log.Printf("Client marked as available after handling review ID %s.", response.ID)
+			}
 		}
 	}
 }
