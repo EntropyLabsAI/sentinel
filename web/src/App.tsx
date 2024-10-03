@@ -53,30 +53,7 @@ const ApprovalsInterface: React.FC = () => {
         </div>
       ) : (
         <div id="content" className="space-y-6">
-          {reviewData && <ReviewRequestDisplay reviewRequest={reviewData} />}
-          <div className="flex space-x-4">
-            <button
-              id="acceptBtn"
-              onClick={() => sendResponse('approve')}
-              className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded"
-            >
-              Accept
-            </button>
-            <button
-              id="rejectBtn"
-              onClick={() => sendResponse('reject')}
-              className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded"
-            >
-              Reject
-            </button>
-            <button
-              id="terminateBtn"
-              onClick={() => sendResponse('terminate')}
-              className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded"
-            >
-              Terminate
-            </button>
-          </div>
+          {reviewData && <ReviewRequestDisplay reviewRequest={reviewData} sendResponse={sendResponse} />}
         </div>
       )}
     </div>

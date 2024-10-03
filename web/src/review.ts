@@ -1,10 +1,10 @@
 export interface ReviewRequest {
   id: string;
-  context: ReviewContext;
-  proposed_action: string;
+  task_state: TaskState;
+  tool_choice: ToolChoice;
 }
 
-export interface ReviewContext {
+export interface TaskState {
   messages: Message[];
   tools: Tool[];
   tool_choice?: ToolChoice;
