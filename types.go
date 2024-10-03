@@ -10,9 +10,9 @@ const (
 
 // ReviewRequest represents the review data structure
 type ReviewRequest struct {
-	ID             string        `json:"id"`
-	Context        ReviewContext `json:"context"`
-	ProposedAction string        `json:"proposed_action"`
+	ID         string     `json:"id"`
+	TaskState  TaskState  `json:"task_state"`
+	ToolChoice ToolChoice `json:"tool_choice"`
 }
 
 // ReviewerResponse represents the response from the reviewer
@@ -21,8 +21,8 @@ type ReviewerResponse struct {
 	Decision string `json:"decision"`
 }
 
-// ReviewContext represents the entire context of a review.
-type ReviewContext struct {
+// TaskState represents the entire context of a review.
+type TaskState struct {
 	Messages   []Message              `json:"messages"`
 	Tools      []Tool                 `json:"tools"`
 	ToolChoice *ToolChoice            `json:"tool_choice,omitempty"`
@@ -86,10 +86,11 @@ type AssistantMessage struct {
 
 // ToolCall represents a function call made by a tool.
 type ToolCall struct {
-	ID        string                 `json:"id"`
-	Function  string                 `json:"function"`
-	Arguments map[string]interface{} `json:"arguments"`
-	Type      string                 `json:"type"`
+	ID         string                 `json:"id"`
+	Function   string                 `json:"function"`
+	Arguments  map[string]interface{} `json:"arguments"`
+	Type       string                 `json:"type"`
+	ParseError *string                `json:"parse_error"`
 }
 
 // Usage represents the token usage statistics.
