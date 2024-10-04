@@ -13,11 +13,12 @@ interface ReviewRequestProps {
 }
 
 export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: ReviewRequestProps) {
+  console.log(reviewRequest)
   return (
     <div className="w-full max-w-full mx-auto flex flex-col xl:flex-row">
       {/* Left column (top on large and smaller screens) */}
       <div className="w-full xl:w-1/3 flex-shrink-0 py-4 border-b xl:border-b-0">
-        <h2 className="text-2xl mb-4">Agent #<code>{reviewRequest.id.slice(0, 8)}</code> is requesting approval</h2>
+        <h2 className="text-2xl mb-4">Agent #<code>{reviewRequest.agent_id.slice(0, 8)}</code> is requesting approval</h2>
         {reviewRequest.tool_choice && <ToolChoiceDisplay toolChoice={reviewRequest.tool_choice} />}
         <div className="mt-4 flex flex-wrap gap-2">
           <Button
@@ -186,7 +187,7 @@ function OutputDisplay({ output }: { output: Output }) {
       <CardContent>
         <p className="text-sm mb-2"><span className="font-semibold">Model:</span> {output.model}</p>
         <div className="space-y-2">
-          {output.choices.map((choice, index) => (
+          {output.choices && output.choices.map((choice, index) => (
             <div key={index} className="border-t pt-2 first:border-t-0 first:pt-0">
               <Badge className="mb-1">{choice.message.role}</Badge>
               <p className="text-sm">{choice.message.content}</p>

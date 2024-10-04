@@ -10,7 +10,8 @@ const (
 
 // ReviewRequest represents the review data structure
 type ReviewRequest struct {
-	ID         string     `json:"id"`
+	RequestID  string     `json:"request_id"`
+	AgentID    string     `json:"agent_id"`
 	TaskState  TaskState  `json:"task_state"`
 	ToolChoice ToolChoice `json:"tool_choice"`
 }
@@ -59,7 +60,8 @@ type ToolChoice struct {
 
 // Arguments represents the arguments passed to a tool function.
 type Arguments struct {
-	Cmd string `json:"cmd"`
+	Cmd  string `json:"cmd,omitempty"`
+	Code string `json:"code,omitempty"`
 	// Add other fields if there are more arguments
 }
 

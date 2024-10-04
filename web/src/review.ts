@@ -1,5 +1,6 @@
 export interface ReviewRequest {
-  id: string;
+  agent_id: string;
+  request_id: string;
   task_state: TaskState;
   tool_choice: ToolChoice;
 }
@@ -38,6 +39,7 @@ export interface ToolChoice {
 
 export interface Arguments {
   cmd: string;
+  code: string;
   // Add other fields if there are more arguments
 }
 

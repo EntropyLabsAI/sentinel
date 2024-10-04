@@ -16,7 +16,7 @@ func NewReviewStore() *ReviewStore {
 func (rs *ReviewStore) Add(review ReviewRequest) {
 	rs.Lock()
 	defer rs.Unlock()
-	rs.Reviews[review.ID] = review
+	rs.Reviews[review.RequestID] = review
 }
 
 func (rs *ReviewStore) Get(reviewID string) (ReviewRequest, bool) {

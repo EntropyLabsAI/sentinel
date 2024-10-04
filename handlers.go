@@ -35,23 +35,25 @@ func serveTemplate(w http.ResponseWriter, _ *http.Request) {
 
 // apiReviewHandler receives review requests via the HTTP API
 func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
-	var reviewRequest ReviewRequest
-	err := json.NewDecoder(r.Body).Decode(&reviewRequest)
+	var request ReviewRequest
+	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
+	fmt.Printf("Received new review request: %v", request)
+
 	// Generate a unique ID for the review request
-	reviewRequest.ID = uuid.New().String()
+	request.RequestID = uuid.New().String()
 
 	// Add the review request to the queue
-	hub.ReviewChan <- reviewRequest
-	log.Printf("Received new review request ID %s via API.", reviewRequest.ID)
+	hub.ReviewChan <- request
+	log.Printf("Received new review request ID %s via API.", request.RequestID)
 
 	// Create a channel for this review request
 	responseChan := make(chan ReviewerResponse)
-	reviewChannels.Store(reviewRequest.ID, responseChan)
+	reviewChannels.Store(request.RequestID, responseChan)
 
 	// Start a goroutine to wait for the response
 	go func() {
@@ -63,18 +65,18 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 			log.Printf("Review ID %s completed with decision: %s.", response.ID, response.Decision)
 		case <-time.After(reviewTimeout):
 			// Timeout occurred
-			completedReviews.Store(reviewRequest.ID, map[string]string{
+			completedReviews.Store(request.RequestID, map[string]string{
 				"status": "timeout",
-				"id":     reviewRequest.ID,
+				"id":     request.RequestID,
 			})
-			reviewChannels.Delete(reviewRequest.ID)
-			log.Printf("Review ID %s timed out.", reviewRequest.ID)
+			reviewChannels.Delete(request.RequestID)
+			log.Printf("Review ID %s timed out.", request.RequestID)
 		}
 	}()
 
 	// Respond immediately with 200 OK
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(map[string]string{"status": "queued", "id": reviewRequest.ID})
+	err = json.NewEncoder(w).Encode(map[string]string{"status": "queued", "id": request.RequestID})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -83,10 +85,10 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 
 // apiReviewStatusHandler checks the status of a review request
 func apiReviewStatusHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract the review ID from the query parameters
+	// Extract the review.RequestID from the query parameters
 	reviewID := r.URL.Query().Get("id")
 	if reviewID == "" {
-		http.Error(w, "Missing review ID", http.StatusBadRequest)
+		http.Error(w, "Missing review.RequestID", http.StatusBadRequest)
 		return
 	}
 

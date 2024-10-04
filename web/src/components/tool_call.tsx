@@ -1,5 +1,5 @@
 import { ToolChoice } from "@/review";
-import { Code2, Terminal } from "lucide-react"
+import { Code, Code2, Terminal } from "lucide-react"
 import React from "react";
 
 interface ToolChoiceProps {
@@ -8,8 +8,11 @@ interface ToolChoiceProps {
 
 export default function ToolChoiceDisplay({ toolChoice }: ToolChoiceProps) {
   const isBashCommand = toolChoice.function === "bash"
+  const code = isBashCommand ? toolChoice.arguments.cmd : toolChoice.arguments.code
 
+  console.log(toolChoice)
   return (
+
     <div className="bg-white shadow-md rounded-lg p-6 max-w-2xl">
       <h2 className="text-2xl font-bold mb-4 flex items-center">
         <Code2 className="mr-2" />
@@ -37,9 +40,15 @@ export default function ToolChoiceDisplay({ toolChoice }: ToolChoiceProps) {
               </div>
             </div>
           ) : (
-            <pre className="bg-gray-100 p-2 rounded-md mt-2 overflow-x-auto">
-              {JSON.stringify(toolChoice.arguments, null, 2)}
-            </pre>
+            <div className="mt-2 bg-black text-white p-4 rounded-md font-mono">
+              <div className="flex items-center mb-2">
+                <Code className="mr-2" size={18} />
+                <span className="text-green-400">python</span>
+              </div>
+              <div className="pl-6">
+                {code}
+              </div>
+            </div>
           )}
         </div>
       </div>

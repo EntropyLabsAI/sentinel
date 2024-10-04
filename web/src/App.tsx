@@ -32,7 +32,7 @@ const ApprovalsInterface: React.FC = () => {
   const sendResponse = (decision: string) => {
     if (socket && socket.readyState === WebSocket.OPEN && reviewData) {
       const response = {
-        id: reviewData.id,
+        id: reviewData.request_id,
         decision: decision
       };
       socket.send(JSON.stringify(response));

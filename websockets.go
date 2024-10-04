@@ -50,7 +50,7 @@ func (h *Hub) Run() {
 		case client := <-h.Unregister:
 			h.unregisterClient(client)
 		case review := <-h.ReviewChan:
-			fmt.Printf("Received review from ReviewChan: %v\n", review.ID)
+			fmt.Printf("Received review from ReviewChan: %v\n", review.RequestID)
 			h.assignReview(review)
 		}
 	}
@@ -76,24 +76,24 @@ func (h *Hub) assignReview(review ReviewRequest) {
 	select {
 	case client := <-h.FreeClients:
 		if _, exists := h.Clients[client]; !exists {
-			log.Printf("Client was unregistered. Skipping review ID %s.", review.ID)
+			log.Printf("Client was unregistered. Skipping review.RequestID %s.", review.RequestID)
 			h.assignReview(review) // Retry assignment
 			return
 		}
 
 		select {
 		case client.Send <- review:
-			h.AssignedReviews[review.ID] = client
+			h.AssignedReviews[review.RequestID] = client
 			h.ReviewStore.Add(review)
-			log.Printf("Assigned review ID %s to a client.", review.ID)
+			log.Printf("Assigned review.RequestID %s to a client.", review.RequestID)
 		default:
 			h.Queue.PushBack(review)
-			log.Printf("Client's send channel full. Queued review ID %s.", review.ID)
+			log.Printf("Client's send channel full. Queued review.RequestID %s.", review.RequestID)
 			h.FreeClients <- client // Put the client back as it's still available
 		}
 	default:
 		h.Queue.PushBack(review)
-		log.Printf("No available clients. Queued review ID %s.", review.ID)
+		log.Printf("No available clients. Queued review.RequestID %s.", review.RequestID)
 	}
 }
 
@@ -111,12 +111,12 @@ func (h *Hub) processQueue() {
 
 			select {
 			case client.Send <- review:
-				h.AssignedReviews[review.ID] = client
+				h.AssignedReviews[review.RequestID] = client
 				h.ReviewStore.Add(review)
 				h.Queue.Remove(element)
-				log.Printf("Assigned queued review ID %s to a client.", review.ID)
+				log.Printf("Assigned queued review.RequestID %s to a client.", review.RequestID)
 			default:
-				log.Printf("Client's send channel full. Keeping review ID %s in queue.", review.ID)
+				log.Printf("Client's send channel full. Keeping review.RequestID %s in queue.", review.RequestID)
 				h.FreeClients <- client // Put the client back as it's still available
 				return
 			}
@@ -144,7 +144,7 @@ func (h *Hub) requeueAssignedReviews(client *Client) {
 			delete(h.AssignedReviews, reviewID)
 			fmt.Printf("Review details for ID %s have been deleted from the AssignedReviews map\n", reviewID)
 
-			log.Printf("Re-queuing review ID %s as client disconnected.", reviewID)
+			log.Printf("Re-queuing review.RequestID %s as client disconnected.", reviewID)
 		}
 	}
 }
@@ -205,17 +205,17 @@ func (c *Client) ReadPump() {
 
 				select {
 				case c.Send <- review:
-					c.Hub.AssignedReviews[review.ID] = c
+					c.Hub.AssignedReviews[review.RequestID] = c
 					c.Hub.ReviewStore.Add(review)
 					c.Hub.Queue.Remove(element)
-					log.Printf("Assigned queued review ID %s to client.", review.ID)
+					log.Printf("Assigned queued review.RequestID %s to client.", review.RequestID)
 				default:
-					log.Printf("Client's send channel full. Keeping review ID %s in queue.", review.ID)
+					log.Printf("Client's send channel full. Keeping review.RequestID %s in queue.", review.RequestID)
 					c.Hub.FreeClients <- c
 				}
 			} else {
 				c.Hub.FreeClients <- c
-				log.Printf("Client marked as available after handling review ID %s.", response.ID)
+				log.Printf("Client marked as available after handling review.RequestID %s.", response.ID)
 			}
 		}
 	}
@@ -232,7 +232,7 @@ func (c *Client) WritePump() {
 			log.Println("Error sending review to client:", err)
 			break
 		}
-		log.Printf("Sent review ID %s to client.", review.ID)
+		log.Printf("Sent review.RequestID %s to client.", review.RequestID)
 	}
 }
 
