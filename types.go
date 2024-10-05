@@ -18,8 +18,9 @@ type ReviewRequest struct {
 
 // ReviewerResponse represents the response from the reviewer
 type ReviewerResponse struct {
-	ID       string `json:"id"`
-	Decision string `json:"decision"`
+	ID         string     `json:"id"`
+	ToolChoice ToolChoice `json:"tool_choice"`
+	Decision   string     `json:"decision"`
 }
 
 // TaskState represents the entire context of a review.

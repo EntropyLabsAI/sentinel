@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ReviewRequest } from './review';
+import { ReviewRequest, ToolChoice } from './review';
 import ReviewRequestDisplay from './components/review_request';
 
 const ApprovalsInterface: React.FC = () => {
@@ -39,12 +39,13 @@ const ApprovalsInterface: React.FC = () => {
     };
   }, []);
 
-  const sendResponse = (decision: string, requestId: string) => {
+  const sendResponse = (decision: string, requestId: string, reviewRequest: ReviewRequest) => {
     console.log(`Sending response for request ${requestId}: ${decision}`);
     if (socket && socket.readyState === WebSocket.OPEN) {
       const response = {
         id: requestId,
         decision: decision,
+        tool_choice: reviewRequest.tool_choice
       };
       socket.send(JSON.stringify(response));
 
@@ -113,8 +114,8 @@ const ApprovalsInterface: React.FC = () => {
           <div id="content" className="space-y-6">
             <ReviewRequestDisplay
               reviewRequest={selectedReviewRequest}
-              sendResponse={(decision) =>
-                sendResponse(decision, selectedReviewRequest.request_id)
+              sendResponse={(decision: string, reviewRequest: ReviewRequest) =>
+                sendResponse(decision, selectedReviewRequest.request_id, reviewRequest)
               }
             />
           </div>

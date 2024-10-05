@@ -35,9 +35,6 @@ export default function ExplainButton({ text, onExplanation }: ExplainButtonProp
   };
 
   return (
-    // <Button onClick={handleExplain} variant="ghost" size="sm" className="ml-2" disabled={isLoading}>
-    //   <HelpCircle className="mr-2" size={18} />
-    // </Button>
     <Button
       size="icon"
       onClick={handleExplain}

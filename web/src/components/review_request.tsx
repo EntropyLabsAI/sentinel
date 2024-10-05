@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { MessageSquare, Info, Hammer, Text, EyeOff, Eye, Code, Check, X, MessageSquare as MessageSquareIcon, SkullIcon } from "lucide-react"
-import { Message, Output, TaskState, ReviewRequest, Tool } from "../review"
+import { Message, Output, TaskState, ReviewRequest, Tool, ToolChoice } from "../review"
 import ToolChoiceDisplay from "./tool_call"
 import React, { useState, useEffect, useRef } from "react"
 import { Button } from "./ui/button"
@@ -10,25 +10,38 @@ import CopyButton from "./copy_button"
 
 interface ReviewRequestProps {
   reviewRequest: ReviewRequest;
-  sendResponse: (decision: string) => void;
+  sendResponse: (decision: string, updatedReviewRequest: ReviewRequest) => void;
 }
 
 export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: ReviewRequestProps) {
+  const [updatedReviewRequest, setUpdatedReviewRequest] = useState(reviewRequest);
 
+  // Add this useEffect to update the state when the prop changes
+  useEffect(() => {
+    setUpdatedReviewRequest(reviewRequest);
+  }, [reviewRequest]);
 
+  function handleToolChoiceChange(updatedToolChoice: ToolChoice) {
+    const r = {
+      ...updatedReviewRequest,
+      tool_choice: updatedToolChoice
+    };
 
-  console.log(reviewRequest)
+    setUpdatedReviewRequest(r);
+  }
+
+  console.log(updatedReviewRequest);
   return (
     <div className="w-full max-w-full mx-auto flex flex-col space-y-4">
       {/* Button/Tool column (always on top) */}
       <div className="w-full flex-shrink-0">
-        <h2 className="text-2xl mb-4">Agent #<code>{reviewRequest.agent_id.slice(0, 8)}</code> is requesting approval</h2>
+        <h2 className="text-2xl mb-4">Agent #<code>{updatedReviewRequest.agent_id.slice(0, 8)}</code> is requesting approval</h2>
         <div className="my-4 flex flex-wrap gap-2">
           <Button
             variant="default"
             size="sm"
             className="flex-1 bg-green-500 hover:bg-green-600 text-white"
-            onClick={() => sendResponse('approve')}
+            onClick={() => sendResponse('approve', updatedReviewRequest)}
           >
             <Check className="mr-2 h-4 w-4" /> Approve
           </Button>
@@ -36,7 +49,7 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
             variant="default"
             size="sm"
             className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white"
-            onClick={() => sendResponse('reject')}
+            onClick={() => sendResponse('reject', updatedReviewRequest)}
           >
             <X className="mr-2 h-4 w-4" /> Reject
           </Button>
@@ -44,18 +57,18 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
             variant="default"
             size="sm"
             className="flex-1 bg-red-500 hover:bg-red-600 text-white"
-            onClick={() => sendResponse('terminate')}
+            onClick={() => sendResponse('terminate', updatedReviewRequest)}
           >
             <SkullIcon className="mr-2 h-4 w-4" /> Kill Agent
           </Button>
         </div>
-        {reviewRequest.tool_choice && <ToolChoiceDisplay toolChoice={reviewRequest.tool_choice} />}
+        {updatedReviewRequest.tool_choice && <ToolChoiceDisplay toolChoice={updatedReviewRequest.tool_choice} onToolChoiceChange={handleToolChoiceChange} />}
       </div>
 
       {/* Context column (always below) */}
       <div className="w-full flex-grow overflow-auto">
-        <ContextDisplay context={reviewRequest.task_state} />
-        <JsonDisplay reviewRequest={reviewRequest} />
+        <ContextDisplay context={updatedReviewRequest.task_state} />
+        <JsonDisplay reviewRequest={updatedReviewRequest} />
       </div>
     </div>
   )
