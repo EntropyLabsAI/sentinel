@@ -6,6 +6,7 @@ import { Message, Output, TaskState, ReviewRequest, Tool } from "../review"
 import ToolChoiceDisplay from "./tool_call"
 import React, { useState, useEffect, useRef } from "react"
 import { Button } from "./ui/button"
+import CopyButton from "./copy_button"
 
 interface ReviewRequestProps {
   reviewRequest: ReviewRequest;
@@ -15,12 +16,11 @@ interface ReviewRequestProps {
 export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: ReviewRequestProps) {
   console.log(reviewRequest)
   return (
-    <div className="w-full max-w-full mx-auto flex flex-col xl:flex-row">
-      {/* Left column (top on large and smaller screens) */}
-      <div className="w-full xl:w-1/3 flex-shrink-0 py-4 border-b xl:border-b-0">
+    <div className="w-full max-w-full mx-auto flex flex-col space-y-4">
+      {/* Button/Tool column (always on top) */}
+      <div className="w-full flex-shrink-0">
         <h2 className="text-2xl mb-4">Agent #<code>{reviewRequest.agent_id.slice(0, 8)}</code> is requesting approval</h2>
-        {reviewRequest.tool_choice && <ToolChoiceDisplay toolChoice={reviewRequest.tool_choice} />}
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="my-4 flex flex-wrap gap-2">
           <Button
             variant="default"
             size="sm"
@@ -32,7 +32,7 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
           <Button
             variant="default"
             size="sm"
-            className="flex-1 bg-red-500 hover:bg-red-600 text-white"
+            className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white"
             onClick={() => sendResponse('reject')}
           >
             <X className="mr-2 h-4 w-4" /> Reject
@@ -40,16 +40,17 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
           <Button
             variant="default"
             size="sm"
-            className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white"
+            className="flex-1 bg-red-500 hover:bg-red-600 text-white"
             onClick={() => sendResponse('terminate')}
           >
             <SkullIcon className="mr-2 h-4 w-4" /> Kill Agent
           </Button>
         </div>
+        {reviewRequest.tool_choice && <ToolChoiceDisplay toolChoice={reviewRequest.tool_choice} />}
       </div>
 
-      {/* Right column (bottom on large and smaller screens) */}
-      <div className="w-full xl:w-2/3 flex-grow overflow-auto p-4">
+      {/* Context column (always below) */}
+      <div className="w-full flex-grow overflow-auto">
         <ContextDisplay context={reviewRequest.task_state} />
         <JsonDisplay reviewRequest={reviewRequest} />
       </div>
@@ -96,7 +97,7 @@ function MessagesDisplay({ messages }: { messages: Message[] }) {
   }, [messages, isLoaded]);
 
   const getBubbleStyle = (role: string) => {
-    const baseStyle = "rounded-2xl p-3 mb-2 max-w-[80%] break-words";
+    const baseStyle = "rounded-2xl p-3 mb-2 break-words";
     switch (role.toLowerCase()) {
       case 'assistant':
         return `${baseStyle} bg-blue-500 text-white`;
@@ -107,6 +108,13 @@ function MessagesDisplay({ messages }: { messages: Message[] }) {
       default:
         return `${baseStyle} bg-gray-400 text-white`;
     }
+  };
+
+  const formatContent = (content: string) => {
+    // Split the content by newlines and wrap each line in a <p> tag
+    return content.split('\n').map((line, index) => (
+      <p key={index} className="whitespace-pre-wrap">{line}</p>
+    ));
   };
 
   return (
@@ -123,7 +131,7 @@ function MessagesDisplay({ messages }: { messages: Message[] }) {
             <div key={index} className={`flex flex-col ${message.role.toLowerCase() === 'user' ? 'items-end' : 'items-start'} mb-4 last:mb-0`}>
               <div className={getBubbleStyle(message.role)}>
                 <p className="text-sm font-semibold mb-1">{message.role}</p>
-                <p className="text-sm">{message.content}</p>
+                <div className="text-sm">{formatContent(message.content)}</div>
                 {message.source && (
                   <p className="text-xs opacity-70 mt-1">Source: {message.source}</p>
                 )}
@@ -207,27 +215,33 @@ function OutputDisplay({ output }: { output: Output }) {
 
 function JsonDisplay({ reviewRequest }: { reviewRequest: ReviewRequest }) {
   const [showJson, setShowJson] = useState(true)
+  const jsonString = JSON.stringify(reviewRequest, null, 2)
+
   return (
     <Card className="mt-4">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span className="flex items-center">
             <Code className="mr-2" />
-            JSON Data
+            Task State JSON
           </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowJson(!showJson)}
-          >
-            {showJson ? "Hide" : "Show"} JSON
-          </Button>
+          <div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowJson(!showJson)}
+              className="mr-2"
+            >
+              {showJson ? "Hide" : "Show"} JSON
+            </Button>
+            {showJson && <CopyButton text={jsonString} />}
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent>
         {showJson && (
           <ScrollArea className="h-[300px]">
-            <pre className="text-xs">{JSON.stringify(reviewRequest, null, 2)}</pre>
+            <pre className="text-xs">{jsonString}</pre>
           </ScrollArea>
         )}
       </CardContent>

@@ -24,7 +24,7 @@ type Hub struct {
 	Register        chan *Client
 	Unregister      chan *Client
 	FreeClients     chan *Client
-	AssignedReviews map[string]*Client
+	AssignedReviews map[*Client]map[string]bool // Map of clients to their assigned review IDs
 	ReviewStore     *ReviewStore
 	Queue           *list.List
 }
@@ -36,7 +36,7 @@ func NewHub() *Hub {
 		Register:        make(chan *Client),
 		Unregister:      make(chan *Client),
 		FreeClients:     make(chan *Client, 100),
-		AssignedReviews: make(map[string]*Client),
+		AssignedReviews: make(map[*Client]map[string]bool),
 		ReviewStore:     NewReviewStore(),
 		Queue:           list.New(),
 	}
@@ -58,6 +58,7 @@ func (h *Hub) Run() {
 
 func (h *Hub) registerClient(client *Client) {
 	h.Clients[client] = true
+	h.AssignedReviews[client] = make(map[string]bool)
 	h.FreeClients <- client
 	log.Println("Client registered and marked as available.")
 	h.processQueue()
@@ -69,31 +70,41 @@ func (h *Hub) unregisterClient(client *Client) {
 		close(client.Send)
 		log.Println("Client unregistered.")
 		h.requeueAssignedReviews(client)
+		delete(h.AssignedReviews, client)
 	}
 }
 
 func (h *Hub) assignReview(review ReviewRequest) {
-	select {
-	case client := <-h.FreeClients:
-		if _, exists := h.Clients[client]; !exists {
-			log.Printf("Client was unregistered. Skipping review.RequestID %s.", review.RequestID)
-			h.assignReview(review) // Retry assignment
-			return
-		}
-
+	for {
 		select {
-		case client.Send <- review:
-			h.AssignedReviews[review.RequestID] = client
-			h.ReviewStore.Add(review)
-			log.Printf("Assigned review.RequestID %s to a client.", review.RequestID)
+		case client := <-h.FreeClients:
+			if _, exists := h.Clients[client]; !exists {
+				log.Printf("Client was unregistered. Skipping review.RequestID %s.", review.RequestID)
+				continue // Try next client
+			}
+			if len(client.Send) < cap(client.Send) {
+				// Assign the review to the client
+				client.Send <- review
+				h.ReviewStore.Add(review)
+				h.AssignedReviews[client][review.RequestID] = true
+				log.Printf("Assigned review.RequestID %s to a client.", review.RequestID)
+
+				// Return client to FreeClients if they still have capacity
+				if len(client.Send) < cap(client.Send) {
+					h.FreeClients <- client
+				}
+			} else {
+				// Client's send channel is full, try next client
+				// Return client back to FreeClients as it may be able to accept more reviews later
+				h.FreeClients <- client
+				continue
+			}
+			return // Review assigned
 		default:
 			h.Queue.PushBack(review)
-			log.Printf("Client's send channel full. Queued review.RequestID %s.", review.RequestID)
-			h.FreeClients <- client // Put the client back as it's still available
+			log.Printf("No available clients. Queued review.RequestID %s.", review.RequestID)
+			return
 		}
-	default:
-		h.Queue.PushBack(review)
-		log.Printf("No available clients. Queued review.RequestID %s.", review.RequestID)
 	}
 }
 
@@ -105,30 +116,36 @@ func (h *Hub) processQueue() {
 				log.Println("Client was unregistered while processing queue.")
 				continue
 			}
-
 			element := h.Queue.Front()
 			review := element.Value.(ReviewRequest)
 
-			select {
-			case client.Send <- review:
-				h.AssignedReviews[review.RequestID] = client
+			if len(client.Send) < cap(client.Send) {
+				client.Send <- review
 				h.ReviewStore.Add(review)
+				h.AssignedReviews[client][review.RequestID] = true
 				h.Queue.Remove(element)
-				log.Printf("Assigned queued review.RequestID %s to a client.", review.RequestID)
-			default:
-				log.Printf("Client's send channel full. Keeping review.RequestID %s in queue.", review.RequestID)
-				h.FreeClients <- client // Put the client back as it's still available
-				return
+				log.Printf("Assigned queued review.RequestID %s to client.", review.RequestID)
+
+				// Return client to FreeClients if they still have capacity
+				if len(client.Send) < cap(client.Send) {
+					h.FreeClients <- client
+				}
+			} else {
+				// Client's send channel is full, try next client
+				// Return client back to FreeClients as it may be able to accept more reviews later
+				h.FreeClients <- client
+				continue
 			}
 		default:
+			// No free clients available
 			return
 		}
 	}
 }
 
 func (h *Hub) requeueAssignedReviews(client *Client) {
-	for reviewID, assignedClient := range h.AssignedReviews {
-		if assignedClient == client {
+	if assignedReviews, ok := h.AssignedReviews[client]; ok {
+		for reviewID := range assignedReviews {
 			review, exists := h.ReviewStore.Get(reviewID)
 			fmt.Printf("Review details for ID %s: %v\n", reviewID, review)
 			if !exists {
@@ -141,8 +158,6 @@ func (h *Hub) requeueAssignedReviews(client *Client) {
 			fmt.Printf("Review details for ID %s have been deleted from the store\n", reviewID)
 			h.ReviewChan <- review
 			fmt.Printf("Review details for ID %s have been sent to the ReviewChan\n", reviewID)
-			delete(h.AssignedReviews, reviewID)
-			fmt.Printf("Review details for ID %s have been deleted from the AssignedReviews map\n", reviewID)
 
 			log.Printf("Re-queuing review.RequestID %s as client disconnected.", reviewID)
 		}
@@ -156,7 +171,6 @@ type Client struct {
 	Send chan ReviewRequest
 }
 
-// websockets.go
 func (c *Client) ReadPump() {
 	defer func() {
 		c.Hub.Unregister <- c
@@ -194,29 +208,18 @@ func (c *Client) ReadPump() {
 			log.Printf("No response channel found for ID %s.", response.ID)
 		}
 
-		// Mark the client as available after processing
-		if _, exists := c.Hub.AssignedReviews[response.ID]; exists {
-			delete(c.Hub.AssignedReviews, response.ID)
+		// Remove the review ID from the client's assigned reviews
+		if _, exists := c.Hub.AssignedReviews[c]; exists {
+			delete(c.Hub.AssignedReviews[c], response.ID)
+		}
 
-			// Check for queued reviews and assign one if available
-			if c.Hub.Queue.Len() > 0 {
-				element := c.Hub.Queue.Front()
-				review := element.Value.(ReviewRequest)
+		// Remove the review from the ReviewStore
+		c.Hub.ReviewStore.Delete(response.ID)
 
-				select {
-				case c.Send <- review:
-					c.Hub.AssignedReviews[review.RequestID] = c
-					c.Hub.ReviewStore.Add(review)
-					c.Hub.Queue.Remove(element)
-					log.Printf("Assigned queued review.RequestID %s to client.", review.RequestID)
-				default:
-					log.Printf("Client's send channel full. Keeping review.RequestID %s in queue.", review.RequestID)
-					c.Hub.FreeClients <- c
-				}
-			} else {
-				c.Hub.FreeClients <- c
-				log.Printf("Client marked as available after handling review.RequestID %s.", response.ID)
-			}
+		// If client has capacity, add back to FreeClients
+		if len(c.Send) < cap(c.Send) {
+			c.Hub.FreeClients <- c
+			log.Printf("Client marked as available after handling review.RequestID %s.", response.ID)
 		}
 	}
 }
@@ -234,22 +237,4 @@ func (c *Client) WritePump() {
 		}
 		log.Printf("Sent review.RequestID %s to client.", review.RequestID)
 	}
-}
-
-func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println("Upgrade error:", err)
-		return
-	}
-
-	client := &Client{
-		Hub:  hub,
-		Conn: conn,
-		Send: make(chan ReviewRequest, 1),
-	}
-	hub.Register <- client
-
-	go client.WritePump()
-	go client.ReadPump()
 }

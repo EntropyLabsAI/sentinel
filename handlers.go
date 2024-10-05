@@ -1,15 +1,18 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"log"
 	"net/http"
 	"sync"
 	"time"
 
+	"os"
+
 	"github.com/google/uuid"
+	"github.com/sashabaranov/go-openai"
 )
 
 var completedReviews = &sync.Map{}
@@ -18,19 +21,22 @@ var reviewChannels = &sync.Map{}
 // Timeout duration for waiting for the reviewer to respond
 const reviewTimeout = 5 * time.Minute
 
-// serveTemplate renders the index.html template
-func serveTemplate(w http.ResponseWriter, _ *http.Request) {
-	tmpl, err := template.ParseFiles("templates/index.html")
+func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Println("Upgrade error:", err)
 		return
 	}
 
-	err = tmpl.Execute(w, nil)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	client := &Client{
+		Hub:  hub,
+		Conn: conn,
+		Send: make(chan ReviewRequest, 3), // Buffer size of 3 reviews
 	}
+	hub.Register <- client
+
+	go client.WritePump()
+	go client.ReadPump()
 }
 
 // apiReviewHandler receives review requests via the HTTP API
@@ -122,4 +128,72 @@ func apiReviewStatusHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+}
+
+func apiExplainHandler(w http.ResponseWriter, r *http.Request) {
+	// Enable CORS
+	enableCors(&w)
+
+	// Handle preflight request
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	var request struct {
+		Text string `json:"text"`
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	explanation, err := getExplanationFromLLM(request.Text)
+	if err != nil {
+		http.Error(w, "Failed to get explanation from LLM", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"explanation": explanation})
+}
+
+func getExplanationFromLLM(text string) (string, error) {
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	if apiKey == "" {
+		return "", fmt.Errorf("OPENAI_API_KEY environment variable not set")
+	}
+
+	client := openai.NewClient(apiKey)
+	resp, err := client.CreateChatCompletion(
+		context.Background(),
+		openai.ChatCompletionRequest{
+			Model: openai.GPT3Dot5Turbo,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleSystem,
+					Content: "You are a helpful assistant that explains technical concepts.",
+				},
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: "Please explain the following text: " + text,
+				},
+			},
+		},
+	)
+
+	if err != nil {
+		return "", err
+	}
+
+	return resp.Choices[0].Message.Content, nil
+}
+
+// Add this new helper function
+func enableCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+	(*w).Header().Set("Access-Control-Allow-Methods", "GET")
+	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 }

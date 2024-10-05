@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   app:
     build:
@@ -10,6 +8,8 @@ services:
     volumes:
       - .:/app
     command: go run main.go types.go handlers.go websockets.go reviewstore.go
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     networks:
       - app-network
 

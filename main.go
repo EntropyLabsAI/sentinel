@@ -2,23 +2,15 @@ package main
 
 import (
 	"log"
-	"math/rand"
 	"net/http"
-	"time"
 )
 
 func main() {
-	// Seed the random number generator
-	rand.Seed(time.Now().UnixNano())
-
 	// Initialize the WebSocket hub
 	hub := NewHub()
 	go hub.Run()
 
 	// Set up HTTP routes
-	// http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-	// 	serveTemplate(w, r)
-	// })
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		serveWs(hub, w, r)
 	})
@@ -26,6 +18,7 @@ func main() {
 		apiReviewHandler(hub, w, r)
 	})
 	http.HandleFunc("/api/review/status", apiReviewStatusHandler)
+	http.HandleFunc("/api/explain", apiExplainHandler)
 
 	// Serve static files
 	fs := http.FileServer(http.Dir("./static/"))
