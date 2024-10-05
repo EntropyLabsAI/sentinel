@@ -1,9 +1,10 @@
 import { ToolChoice } from "@/review";
-import { Code, Code2 } from "lucide-react"
+import { Code, Code2, X } from "lucide-react"
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import CopyButton from "./copy_button"
 import ExplainButton from "./ask_lm"
+import { Button } from "./ui/button";
 
 interface ToolChoiceProps {
   toolChoice: ToolChoice
@@ -13,6 +14,10 @@ export default function ToolChoiceDisplay({ toolChoice }: ToolChoiceProps) {
   const isBashCommand = toolChoice.function === "bash"
   const code = isBashCommand ? toolChoice.arguments.cmd : toolChoice.arguments.code
   const [explanation, setExplanation] = useState<string | null>(null)
+
+  function resetExplanation() {
+    setExplanation(null)
+  }
 
   return (
     <Card>
@@ -44,8 +49,16 @@ export default function ToolChoiceDisplay({ toolChoice }: ToolChoiceProps) {
                   </div>
                 </div>
                 {explanation && (
-                  <div className="mt-2 text-sm text-gray-300 bg-gray-800 p-2 rounded">
-                    <strong>Explanation:</strong> {explanation}
+                  <div className="mt-2 text-sm text-gray-300 bg-gray-800 p-2 rounded flex flex-row justify-between">
+                    <p>{explanation}
+                    </p>
+                    <Button
+                      size="icon"
+                      onClick={resetExplanation}
+                      className="ml-2 p-2 bg-gray-700 hover:bg-gray-600 outline-none"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
                 )}
               </div>
@@ -65,7 +78,9 @@ export default function ToolChoiceDisplay({ toolChoice }: ToolChoiceProps) {
                   {code}
                 </div>
                 {explanation && (
+
                   <div className="mt-2 text-sm text-gray-300 bg-gray-800 p-2 rounded">
+                    <Button onClick={resetExplanation} variant="ghost" size="sm" className="ml-2 bg-gray-700 hover:bg-gray-600 outline-none"></Button>
                     <strong>Explanation:</strong> {explanation}
                   </div>
                 )}
@@ -74,6 +89,6 @@ export default function ToolChoiceDisplay({ toolChoice }: ToolChoiceProps) {
           </div>
         </div>
       </CardContent>
-    </Card>
+    </Card >
   )
 }

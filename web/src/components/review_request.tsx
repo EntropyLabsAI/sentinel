@@ -14,6 +14,9 @@ interface ReviewRequestProps {
 }
 
 export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: ReviewRequestProps) {
+
+
+
   console.log(reviewRequest)
   return (
     <div className="w-full max-w-full mx-auto flex flex-col space-y-4">

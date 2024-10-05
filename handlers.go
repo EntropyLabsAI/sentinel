@@ -157,7 +157,11 @@ func apiExplainHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"explanation": explanation})
+	err = json.NewEncoder(w).Encode(map[string]string{"explanation": explanation})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func getExplanationFromLLM(text string) (string, error) {
@@ -192,6 +196,7 @@ func getExplanationFromLLM(text string) (string, error) {
 }
 
 // Add this new helper function
+// TODO: do this in a more secure way
 func enableCors(w *http.ResponseWriter) {
 	(*w).Header().Set("Access-Control-Allow-Origin", "*")
 	(*w).Header().Set("Access-Control-Allow-Methods", "GET")
