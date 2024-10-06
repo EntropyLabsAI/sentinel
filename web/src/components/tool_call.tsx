@@ -19,6 +19,7 @@ export default function ToolChoiceDisplay({ toolChoice, onToolChoiceChange }: To
     isBashCommand ? toolChoice.arguments.cmd : toolChoice.arguments.code
   );
   const [explanation, setExplanation] = useState<string | null>(null);
+  const [score, setScore] = useState<string | null>(null);
 
   useEffect(() => {
     setCode(isBashCommand ? toolChoice.arguments.cmd : toolChoice.arguments.code);
@@ -26,6 +27,10 @@ export default function ToolChoiceDisplay({ toolChoice, onToolChoiceChange }: To
 
   function resetExplanation() {
     setExplanation(null);
+  }
+
+  function resetScore() {
+    setScore(null);
   }
 
   function handleCodeChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -63,7 +68,10 @@ export default function ToolChoiceDisplay({ toolChoice, onToolChoiceChange }: To
             handleCodeChange={handleCodeChange}
             explanation={explanation}
             setExplanation={setExplanation}
+            score={score}
+            setScore={setScore}
             resetExplanation={resetExplanation}
+            resetScore={resetScore}
           />
         </div>
       </CardContent>

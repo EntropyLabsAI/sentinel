@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,7 +32,7 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	client := &Client{
 		Hub:  hub,
 		Conn: conn,
-		Send: make(chan ReviewRequest, 3), // Buffer size of 3 reviews
+		Send: make(chan ReviewRequest),
 	}
 	hub.Register <- client
 
@@ -147,49 +148,63 @@ func apiExplainHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	explanation, err := getExplanationFromLLM(request.Text)
+	explanation, score, err := getExplanationFromLLM(request.Text)
 	if err != nil {
 		http.Error(w, "Failed to get explanation from LLM", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(map[string]string{"explanation": explanation})
+	err = json.NewEncoder(w).Encode(map[string]string{"explanation": explanation, "score": score})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
-func getExplanationFromLLM(text string) (string, error) {
+func getExplanationFromLLM(text string) (string, string, error) {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
-		return "", fmt.Errorf("OPENAI_API_KEY environment variable not set")
+		return "", "", fmt.Errorf("OPENAI_API_KEY environment variable not set")
 	}
 
 	client := openai.NewClient(apiKey)
 	resp, err := client.CreateChatCompletion(
 		context.Background(),
 		openai.ChatCompletionRequest{
-			Model: openai.GPT3Dot5Turbo,
+			Model: openai.GPT4oMini,
 			Messages: []openai.ChatCompletionMessage{
 				{
 					Role:    openai.ChatMessageRoleSystem,
-					Content: "You are a helpful assistant that explains technical concepts.",
+					Content: "You are tasked with analysing some code and providing a summary for a technical reader and a danger score out of 3 choices. Please provide a succint summary and finish with your evaluation of the code's potential danger score, out of 'harmless', 'risky' or 'dangerous'. Give your summary inside <summary></summary> tags and your score inside <score></score> tags. Start your response with <summary> and finish it with </score>. For example: <summary>The code is a simple implementation of a REST API using the Gin framework.</summary><score>harmless</score>",
 				},
 				{
 					Role:    openai.ChatMessageRoleUser,
-					Content: "Please explain the following text: " + text,
+					Content: "<code>" + text + "</code>",
 				},
 			},
 		},
 	)
 
 	if err != nil {
-		return "", err
+		return "", "", fmt.Errorf("error creating chat completion: %v", err)
 	}
 
-	return resp.Choices[0].Message.Content, nil
+	response := resp.Choices[0].Message.Content
+	summaryStart := "<summary>"
+	summaryEnd := "</summary>"
+	scoreStart := "<score>"
+	scoreEnd := "</score>"
+
+	summaryIndex := strings.Index(response, summaryStart)
+	summaryEndIndex := strings.Index(response, summaryEnd)
+	scoreIndex := strings.Index(response, scoreStart)
+	scoreEndIndex := strings.Index(response, scoreEnd)
+
+	summary := response[summaryIndex+len(summaryStart) : summaryEndIndex]
+	score := response[scoreIndex+len(scoreStart) : scoreEndIndex]
+
+	return summary, score, nil
 }
 
 // Add this new helper function

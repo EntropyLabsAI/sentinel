@@ -11,6 +11,7 @@ interface HubStats {
   busy_clients: number;
   assigned_reviews: { [key: string]: number };
   review_distribution: { [key: number]: number };
+  completed_reviews: number;
 }
 
 const ApprovalsInterface: React.FC = () => {
@@ -60,7 +61,7 @@ const ApprovalsInterface: React.FC = () => {
       }
     };
 
-    // Fetch stats immediately and then every 5 seconds
+    // Fetch stats immediately and then every second
     fetchStats();
     const statsInterval = setInterval(fetchStats, 1000);
 

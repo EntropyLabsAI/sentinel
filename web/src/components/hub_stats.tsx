@@ -9,16 +9,20 @@ interface HubStatsProps {
     busy_clients: number;
     assigned_reviews: { [key: string]: number };
     review_distribution: { [key: number]: number };
+    completed_reviews: number;
   };
 }
 
 const HubStats: React.FC<HubStatsProps> = ({ stats }) => {
   return (
     <div className="bg-gray-100 p-4 rounded-lg">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+        <StatItem label="Reviews waiting to be assigned (server-side)" value={stats.queued_reviews} />
+        <StatItem label="Reviews in progress (client-side)" value={stats.stored_reviews} />
+        <StatItem label="Completed Reviews" value={stats.completed_reviews} />
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <StatItem label="Connected Clients" value={stats.connected_clients} />
-        <StatItem label="Queued Reviews" value={stats.queued_reviews} />
-        <StatItem label="Stored Reviews" value={stats.stored_reviews} />
         <StatItem label="Free Clients" value={stats.free_clients} />
         <StatItem label="Busy Clients" value={stats.busy_clients} />
       </div>
