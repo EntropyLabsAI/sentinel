@@ -51,9 +51,11 @@ export default function ToolCodeBlock({
     <div
       ref={ref}
       className="mt-2 bg-black p-4 rounded-md font-mono"
-      onClick={() => setEditting(true)}
     >
-      <div className="flex items-center">
+      <div
+        className="flex items-center"
+        onClick={() => setEditting(true)}
+      >
         {/* Left side: $ or Python icon */}
         <div className="flex items-center mr-2">
           {isBashCommand ? (
