@@ -11,7 +11,7 @@ Currently, the functionality is in a separate branch. Follow these steps:
 2. Clone the feature/approvals branch:
 
    ```
-   cd inspect_approval_example
+   cd inspect_example
    git clone -b feature/approvals https://github.com/UKGovernmentBEIS/inspect_ai.git inspect_ai_feature_approvals
    ```
 
@@ -30,6 +30,6 @@ Currently, the functionality is in a separate branch. Follow these steps:
 5. Run the example:
 
    ```
-   cd inspect_approval_example
+   cd inspect_example
    inspect eval approval.py --approval approval.yaml --trace --model openai/gpt-4o
    ```
