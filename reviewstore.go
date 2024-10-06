@@ -31,3 +31,9 @@ func (rs *ReviewStore) Delete(reviewID string) {
 	defer rs.Unlock()
 	delete(rs.Reviews, reviewID)
 }
+
+func (rs *ReviewStore) Count() int {
+	rs.RLock()
+	defer rs.RUnlock()
+	return len(rs.Reviews)
+}

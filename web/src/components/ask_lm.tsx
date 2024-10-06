@@ -10,7 +10,6 @@ interface ExplainButtonProps {
 export default function ExplainButton({ text, onExplanation }: ExplainButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
 
-
   const handleExplain = async () => {
     setIsLoading(true);
     try {
@@ -23,7 +22,6 @@ export default function ExplainButton({ text, onExplanation }: ExplainButtonProp
       });
 
       const explanation = await completion.json();
-      console.log(explanation);
 
       onExplanation(explanation.explanation || 'No explanation provided.');
     } catch (error) {

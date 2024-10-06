@@ -10,6 +10,8 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const MAX_REVIEWS_PER_CLIENT = 3
+
 // Upgrade HTTP connection to WebSocket with proper settings
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -27,6 +29,37 @@ type Hub struct {
 	AssignedReviews map[*Client]map[string]bool // Map of clients to their assigned review IDs
 	ReviewStore     *ReviewStore
 	Queue           *list.List
+}
+
+func (h *Hub) hubStats() {
+	fmt.Println("\n📊 Hub Statistics 📊")
+	fmt.Println("====================")
+
+	fmt.Printf("👥 Connected Clients: %d\n", len(h.Clients))
+	fmt.Printf("🔄 Queued Reviews: %d\n", h.Queue.Len())
+	fmt.Printf("💾 Stored Reviews: %d\n", h.ReviewStore.Count())
+
+	freeClientsCount := len(h.FreeClients)
+	fmt.Printf("🆓 Free Clients: %d\n", freeClientsCount)
+
+	busyClientsCount := len(h.Clients) - freeClientsCount
+	fmt.Printf("🔨 Busy Clients: %d\n", busyClientsCount)
+
+	fmt.Println("\n📝 Assigned Reviews per Client:")
+	for client, reviews := range h.AssignedReviews {
+		fmt.Printf("  Client %p: %d/%d\n", client, len(reviews), MAX_REVIEWS_PER_CLIENT)
+	}
+
+	fmt.Println("\n🔍 Review Distribution:")
+	reviewCounts := make(map[int]int)
+	for _, reviews := range h.AssignedReviews {
+		reviewCounts[len(reviews)]++
+	}
+	for i := 0; i <= MAX_REVIEWS_PER_CLIENT; i++ {
+		fmt.Printf("  %d review(s): %d client(s)\n", i, reviewCounts[i])
+	}
+
+	fmt.Println("====================")
 }
 
 func NewHub() *Hub {
@@ -82,7 +115,11 @@ func (h *Hub) assignReview(review ReviewRequest) {
 				log.Printf("Client was unregistered. Skipping review.RequestID %s.", review.RequestID)
 				continue // Try next client
 			}
-			if len(client.Send) < cap(client.Send) {
+
+			assignedReviewsCount := len(h.AssignedReviews[client])
+
+			// Check if the client has capacity to accept more reviews
+			if assignedReviewsCount < MAX_REVIEWS_PER_CLIENT {
 				// Assign the review to the client
 				client.Send <- review
 				h.ReviewStore.Add(review)
@@ -95,8 +132,6 @@ func (h *Hub) assignReview(review ReviewRequest) {
 				}
 			} else {
 				// Client's send channel is full, try next client
-				// Return client back to FreeClients as it may be able to accept more reviews later
-				h.FreeClients <- client
 				continue
 			}
 			return // Review assigned
@@ -119,7 +154,11 @@ func (h *Hub) processQueue() {
 			element := h.Queue.Front()
 			review := element.Value.(ReviewRequest)
 
-			if len(client.Send) < cap(client.Send) {
+			// Count the number of reviews that the client has been assigned
+			assignedReviewsCount := len(h.AssignedReviews[client])
+
+			// Check if the client has capacity to accept more reviews
+			if assignedReviewsCount < MAX_REVIEWS_PER_CLIENT {
 				client.Send <- review
 				h.ReviewStore.Add(review)
 				h.AssignedReviews[client][review.RequestID] = true
@@ -132,8 +171,6 @@ func (h *Hub) processQueue() {
 				}
 			} else {
 				// Client's send channel is full, try next client
-				// Return client back to FreeClients as it may be able to accept more reviews later
-				h.FreeClients <- client
 				continue
 			}
 		default:
@@ -217,7 +254,8 @@ func (c *Client) ReadPump() {
 		c.Hub.ReviewStore.Delete(response.ID)
 
 		// If client has capacity, add back to FreeClients
-		if len(c.Send) < cap(c.Send) {
+		assignedReviewsCount := len(c.Hub.AssignedReviews[c])
+		if assignedReviewsCount < MAX_REVIEWS_PER_CLIENT {
 			c.Hub.FreeClients <- c
 			log.Printf("Client marked as available after handling review.RequestID %s.", response.ID)
 		}
@@ -237,4 +275,34 @@ func (c *Client) WritePump() {
 		}
 		log.Printf("Sent review.RequestID %s to client.", review.RequestID)
 	}
+}
+
+type HubStats struct {
+	ConnectedClients   int            `json:"connected_clients"`
+	QueuedReviews      int            `json:"queued_reviews"`
+	StoredReviews      int            `json:"stored_reviews"`
+	FreeClients        int            `json:"free_clients"`
+	BusyClients        int            `json:"busy_clients"`
+	AssignedReviews    map[string]int `json:"assigned_reviews"`
+	ReviewDistribution map[int]int    `json:"review_distribution"`
+}
+
+func (h *Hub) getStats() HubStats {
+	stats := HubStats{
+		ConnectedClients:   len(h.Clients),
+		QueuedReviews:      h.Queue.Len(),
+		StoredReviews:      h.ReviewStore.Count(),
+		FreeClients:        len(h.FreeClients),
+		BusyClients:        len(h.Clients) - len(h.FreeClients),
+		AssignedReviews:    make(map[string]int),
+		ReviewDistribution: make(map[int]int),
+	}
+
+	for client, reviews := range h.AssignedReviews {
+		clientKey := fmt.Sprintf("%p", client)
+		stats.AssignedReviews[clientKey] = len(reviews)
+		stats.ReviewDistribution[len(reviews)]++
+	}
+
+	return stats
 }

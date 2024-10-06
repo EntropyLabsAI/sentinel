@@ -30,7 +30,6 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
     setUpdatedReviewRequest(r);
   }
 
-  console.log(updatedReviewRequest);
   return (
     <div className="w-full max-w-full mx-auto flex flex-col space-y-4">
       {/* Button/Tool column (always on top) */}
@@ -173,7 +172,6 @@ function MessagesDisplay({ messages }: { messages: Message[] }) {
 }
 
 function ToolsDisplay({ tools }: { tools: Tool[] }) {
-  console.log(tools)
   return (
     <Card>
       <CardHeader>

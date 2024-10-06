@@ -48,8 +48,6 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("Received new review request: %v", request)
-
 	// Generate a unique ID for the review request
 	request.RequestID = uuid.New().String()
 
@@ -101,7 +99,6 @@ func apiReviewStatusHandler(w http.ResponseWriter, r *http.Request) {
 	// Check if there's a channel waiting for this review
 	if _, ok := reviewChannels.Load(reviewID); ok {
 		// There's a pending review
-		fmt.Printf("Review ID %s is pending", reviewID)
 		w.WriteHeader(http.StatusOK)
 		err := json.NewEncoder(w).Encode(map[string]string{"status": "pending"})
 		if err != nil {
@@ -111,7 +108,7 @@ func apiReviewStatusHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Check if there's a stored response for this review
 		if response, ok := completedReviews.Load(reviewID); ok {
-			fmt.Printf("Review ID %s has a stored response: %v", reviewID, response)
+			fmt.Printf("Status request for review ID %s: completed\n", reviewID)
 			w.WriteHeader(http.StatusOK)
 			err := json.NewEncoder(w).Encode(response)
 			if err != nil {
@@ -201,4 +198,24 @@ func enableCors(w *http.ResponseWriter) {
 	(*w).Header().Set("Access-Control-Allow-Origin", "*")
 	(*w).Header().Set("Access-Control-Allow-Methods", "GET")
 	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+}
+
+func apiHubStatsHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
+	// Enable CORS
+	enableCors(&w)
+
+	// Handle preflight request
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	stats := hub.getStats()
+
+	w.Header().Set("Content-Type", "application/json")
+	err := json.NewEncoder(w).Encode(stats)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }

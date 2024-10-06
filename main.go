@@ -17,8 +17,15 @@ func main() {
 	http.HandleFunc("/api/review", func(w http.ResponseWriter, r *http.Request) {
 		apiReviewHandler(hub, w, r)
 	})
-	http.HandleFunc("/api/review/status", apiReviewStatusHandler)
-	http.HandleFunc("/api/explain", apiExplainHandler)
+	http.HandleFunc("/api/review/status", func(w http.ResponseWriter, r *http.Request) {
+		apiReviewStatusHandler(w, r)
+	})
+	http.HandleFunc("/api/explain", func(w http.ResponseWriter, r *http.Request) {
+		apiExplainHandler(w, r)
+	})
+	http.HandleFunc("/api/stats", func(w http.ResponseWriter, r *http.Request) {
+		apiHubStatsHandler(hub, w, r)
+	})
 
 	// Serve static files
 	fs := http.FileServer(http.Dir("./static/"))
