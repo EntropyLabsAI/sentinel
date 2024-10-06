@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/gorilla/websocket"
 )
@@ -21,45 +22,15 @@ var upgrader = websocket.Upgrader{
 
 // Hub maintains active connections and broadcasts messages
 type Hub struct {
-	Clients         map[*Client]bool
-	ReviewChan      chan ReviewRequest
-	Register        chan *Client
-	Unregister      chan *Client
-	FreeClients     chan *Client
-	AssignedReviews map[*Client]map[string]bool // Map of clients to their assigned review IDs
-	ReviewStore     *ReviewStore
-	Queue           *list.List
-}
-
-func (h *Hub) hubStats() {
-	fmt.Println("\n📊 Hub Statistics 📊")
-	fmt.Println("====================")
-
-	fmt.Printf("👥 Connected Clients: %d\n", len(h.Clients))
-	fmt.Printf("🔄 Queued Reviews: %d\n", h.Queue.Len())
-	fmt.Printf("💾 Stored Reviews: %d\n", h.ReviewStore.Count())
-
-	freeClientsCount := len(h.FreeClients)
-	fmt.Printf("🆓 Free Clients: %d\n", freeClientsCount)
-
-	busyClientsCount := len(h.Clients) - freeClientsCount
-	fmt.Printf("🔨 Busy Clients: %d\n", busyClientsCount)
-
-	fmt.Println("\n📝 Assigned Reviews per Client:")
-	for client, reviews := range h.AssignedReviews {
-		fmt.Printf("  Client %p: %d/%d\n", client, len(reviews), MAX_REVIEWS_PER_CLIENT)
-	}
-
-	fmt.Println("\n🔍 Review Distribution:")
-	reviewCounts := make(map[int]int)
-	for _, reviews := range h.AssignedReviews {
-		reviewCounts[len(reviews)]++
-	}
-	for i := 0; i <= MAX_REVIEWS_PER_CLIENT; i++ {
-		fmt.Printf("  %d review(s): %d client(s)\n", i, reviewCounts[i])
-	}
-
-	fmt.Println("====================")
+	Clients              map[*Client]bool
+	ClientsMutex         sync.RWMutex
+	ReviewChan           chan ReviewRequest
+	Register             chan *Client
+	Unregister           chan *Client
+	AssignedReviews      map[*Client]map[string]bool
+	AssignedReviewsMutex sync.RWMutex
+	ReviewStore          *ReviewStore
+	Queue                *list.List
 }
 
 func NewHub() *Hub {
@@ -68,7 +39,6 @@ func NewHub() *Hub {
 		ReviewChan:      make(chan ReviewRequest, 100),
 		Register:        make(chan *Client),
 		Unregister:      make(chan *Client),
-		FreeClients:     make(chan *Client, 100),
 		AssignedReviews: make(map[*Client]map[string]bool),
 		ReviewStore:     NewReviewStore(),
 		Queue:           list.New(),
@@ -90,92 +60,87 @@ func (h *Hub) Run() {
 }
 
 func (h *Hub) registerClient(client *Client) {
+	h.ClientsMutex.Lock()
+	h.AssignedReviewsMutex.Lock()
 	h.Clients[client] = true
 	h.AssignedReviews[client] = make(map[string]bool)
-	h.FreeClients <- client
-	log.Println("Client registered and marked as available.")
+	h.AssignedReviewsMutex.Unlock()
+	h.ClientsMutex.Unlock()
+
+	log.Println("Client registered.")
 	h.processQueue()
 }
 
 func (h *Hub) unregisterClient(client *Client) {
+	h.ClientsMutex.Lock()
 	if _, exists := h.Clients[client]; exists {
 		delete(h.Clients, client)
-		close(client.Send)
-		log.Println("Client unregistered.")
+		h.ClientsMutex.Unlock()
+
+		h.AssignedReviewsMutex.Lock()
 		h.requeueAssignedReviews(client)
 		delete(h.AssignedReviews, client)
+		h.AssignedReviewsMutex.Unlock()
+
+		close(client.Send)
+		log.Println("Client unregistered.")
+	} else {
+		h.ClientsMutex.Unlock()
 	}
 }
 
 func (h *Hub) assignReview(review ReviewRequest) {
-	for {
-		select {
-		case client := <-h.FreeClients:
-			if _, exists := h.Clients[client]; !exists {
-				log.Printf("Client was unregistered. Skipping review.RequestID %s.", review.RequestID)
-				continue // Try next client
-			}
+	h.ClientsMutex.RLock()
+	defer h.ClientsMutex.RUnlock()
+	h.AssignedReviewsMutex.Lock()
+	defer h.AssignedReviewsMutex.Unlock()
 
+	for client := range h.Clients {
+		assignedReviewsCount := len(h.AssignedReviews[client])
+		if assignedReviewsCount < MAX_REVIEWS_PER_CLIENT {
+			// Assign the review to the client
+			client.Send <- review
+			h.ReviewStore.Add(review)
+			h.AssignedReviews[client][review.RequestID] = true
+			log.Printf("Assigned review.RequestID %s to a client.", review.RequestID)
+			return // Review assigned
+		}
+	}
+
+	// If no client is available, queue the review
+	h.Queue.PushBack(review)
+	log.Printf("No available clients with capacity. Queued review.RequestID %s.", review.RequestID)
+}
+
+func (h *Hub) processQueue() {
+	h.ClientsMutex.RLock()
+	defer h.ClientsMutex.RUnlock()
+	h.AssignedReviewsMutex.Lock()
+	defer h.AssignedReviewsMutex.Unlock()
+
+	var next *list.Element
+	for e := h.Queue.Front(); e != nil; e = next {
+		next = e.Next()
+		review := e.Value.(ReviewRequest)
+		assigned := false
+
+		for client := range h.Clients {
 			assignedReviewsCount := len(h.AssignedReviews[client])
-
-			// Check if the client has capacity to accept more reviews
 			if assignedReviewsCount < MAX_REVIEWS_PER_CLIENT {
 				// Assign the review to the client
 				client.Send <- review
 				h.ReviewStore.Add(review)
 				h.AssignedReviews[client][review.RequestID] = true
-				log.Printf("Assigned review.RequestID %s to a client.", review.RequestID)
-
-				// Return client to FreeClients if they still have capacity
-				if len(client.Send) < cap(client.Send) {
-					h.FreeClients <- client
-				}
-			} else {
-				// Client's send channel is full, try next client
-				continue
-			}
-			return // Review assigned
-		default:
-			h.Queue.PushBack(review)
-			log.Printf("No available clients. Queued review.RequestID %s.", review.RequestID)
-			return
-		}
-	}
-}
-
-func (h *Hub) processQueue() {
-	for h.Queue.Len() > 0 {
-		select {
-		case client := <-h.FreeClients:
-			if _, exists := h.Clients[client]; !exists {
-				log.Println("Client was unregistered while processing queue.")
-				continue
-			}
-			element := h.Queue.Front()
-			review := element.Value.(ReviewRequest)
-
-			// Count the number of reviews that the client has been assigned
-			assignedReviewsCount := len(h.AssignedReviews[client])
-
-			// Check if the client has capacity to accept more reviews
-			if assignedReviewsCount < MAX_REVIEWS_PER_CLIENT {
-				client.Send <- review
-				h.ReviewStore.Add(review)
-				h.AssignedReviews[client][review.RequestID] = true
-				h.Queue.Remove(element)
 				log.Printf("Assigned queued review.RequestID %s to client.", review.RequestID)
-
-				// Return client to FreeClients if they still have capacity
-				if len(client.Send) < cap(client.Send) {
-					h.FreeClients <- client
-				}
-			} else {
-				// Client's send channel is full, try next client
-				continue
+				h.Queue.Remove(e)
+				assigned = true
+				break
 			}
-		default:
-			// No free clients available
-			return
+		}
+
+		if !assigned {
+			// No clients with capacity available at this time
+			break
 		}
 	}
 }
@@ -227,7 +192,7 @@ func (c *Client) ReadPump() {
 			continue
 		}
 
-		// Handle the response by sending it to the corresponding response channel
+		// Handle the response
 		if chInterface, ok := reviewChannels.Load(response.ID); ok {
 			responseChan, ok := chInterface.(chan ReviewerResponse)
 			if ok {
@@ -245,20 +210,15 @@ func (c *Client) ReadPump() {
 			log.Printf("No response channel found for ID %s.", response.ID)
 		}
 
-		// Remove the review ID from the client's assigned reviews
+		// Thread-safe removal of the review ID from assigned reviews
+		c.Hub.AssignedReviewsMutex.Lock()
 		if _, exists := c.Hub.AssignedReviews[c]; exists {
 			delete(c.Hub.AssignedReviews[c], response.ID)
 		}
+		c.Hub.AssignedReviewsMutex.Unlock()
 
 		// Remove the review from the ReviewStore
 		c.Hub.ReviewStore.Delete(response.ID)
-
-		// If client has capacity, add back to FreeClients
-		assignedReviewsCount := len(c.Hub.AssignedReviews[c])
-		if assignedReviewsCount < MAX_REVIEWS_PER_CLIENT {
-			c.Hub.FreeClients <- c
-			log.Printf("Client marked as available after handling review.RequestID %s.", response.ID)
-		}
 	}
 }
 
@@ -292,16 +252,34 @@ func (h *Hub) getStats() HubStats {
 		ConnectedClients:   len(h.Clients),
 		QueuedReviews:      h.Queue.Len(),
 		StoredReviews:      h.ReviewStore.Count(),
-		FreeClients:        len(h.FreeClients),
-		BusyClients:        len(h.Clients) - len(h.FreeClients),
 		AssignedReviews:    make(map[string]int),
 		ReviewDistribution: make(map[int]int),
 	}
 
+	totalAssignedReviews := 0
+
+	h.AssignedReviewsMutex.RLock()
 	for client, reviews := range h.AssignedReviews {
 		clientKey := fmt.Sprintf("%p", client)
-		stats.AssignedReviews[clientKey] = len(reviews)
-		stats.ReviewDistribution[len(reviews)]++
+		assignedCount := len(reviews)
+		stats.AssignedReviews[clientKey] = assignedCount
+		stats.ReviewDistribution[assignedCount]++
+		totalAssignedReviews += assignedCount
+	}
+	h.AssignedReviewsMutex.RUnlock()
+
+	stats.BusyClients = 0
+	stats.FreeClients = 0
+
+	h.ClientsMutex.RLock()
+	h.ClientsMutex.RUnlock()
+
+	for _, assignedCount := range stats.ReviewDistribution {
+		if assignedCount < MAX_REVIEWS_PER_CLIENT {
+			stats.FreeClients++
+		} else {
+			stats.BusyClients++
+		}
 	}
 
 	return stats
