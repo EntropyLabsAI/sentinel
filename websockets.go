@@ -108,9 +108,6 @@ func (h *Hub) assignReview(review ReviewRequest) {
 	h.ClientsMutex.RLock()
 	defer h.ClientsMutex.RUnlock()
 
-	h.AssignedReviewsMutex.Lock()
-	defer h.AssignedReviewsMutex.Unlock()
-
 	// Attempt to assign the review to a client
 	if !h.assignReviewToClient(review) {
 		// If no client is available, queue the review
@@ -123,8 +120,6 @@ func (h *Hub) assignReview(review ReviewRequest) {
 func (h *Hub) processQueue() {
 	h.ClientsMutex.RLock()
 	defer h.ClientsMutex.RUnlock()
-	h.AssignedReviewsMutex.Lock()
-	defer h.AssignedReviewsMutex.Unlock()
 
 	var next *list.Element
 	for e := h.Queue.Front(); e != nil; e = next {
