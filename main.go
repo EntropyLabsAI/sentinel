@@ -27,7 +27,7 @@ func main() {
 		apiHubStatsHandler(hub, w, r)
 	})
 
-	// Serve static files
+	// Serve wstatic files
 	fs := http.FileServer(http.Dir("./static/"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 

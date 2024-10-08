@@ -1,4 +1,4 @@
-import { ToolChoice } from "@/review";
+import { Message, ToolChoice } from "@/review";
 import { Code, Code2, X } from "lucide-react"
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,12 +8,13 @@ import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea"; // Make sure to import Textarea
 import ToolCodeBlock from "./tool_code_block";
 
-interface ToolChoiceProps {
+interface ToolChoiceDisplayProps {
   toolChoice: ToolChoice;
-  onToolChoiceChange: (updatedToolChoice: ToolChoice) => void; // New prop for handling changes
+  lastMessage: Message;
+  onToolChoiceChange: (updatedToolChoice: ToolChoice) => void;
 }
 
-export default function ToolChoiceDisplay({ toolChoice, onToolChoiceChange }: ToolChoiceProps) {
+const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({ toolChoice, lastMessage, onToolChoiceChange }) => {
   const isBashCommand = toolChoice.function === "bash";
   const [code, setCode] = useState(
     isBashCommand ? toolChoice.arguments.cmd : toolChoice.arguments.code
@@ -77,4 +78,6 @@ export default function ToolChoiceDisplay({ toolChoice, onToolChoiceChange }: To
       </CardContent>
     </Card>
   );
-}
+};
+
+export default ToolChoiceDisplay;

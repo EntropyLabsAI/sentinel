@@ -16,25 +16,30 @@ interface ReviewRequestProps {
 export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: ReviewRequestProps) {
   const [updatedReviewRequest, setUpdatedReviewRequest] = useState(reviewRequest);
 
-  // Add this useEffect to update the state when the prop changes
+  // Update the state when the prop changes
   useEffect(() => {
     setUpdatedReviewRequest(reviewRequest);
   }, [reviewRequest]);
 
-  function handleToolChoiceChange(updatedToolChoice: ToolChoice) {
-    const r = {
+  function handleToolChoiceChange(updatedToolChoice: ToolChoice, index: number) {
+    const updatedToolChoices = [...(updatedReviewRequest.tool_choices || [])];
+    updatedToolChoices[index] = updatedToolChoice;
+
+    const updatedReview = {
       ...updatedReviewRequest,
-      tool_choice: updatedToolChoice
+      tool_choice: updatedToolChoices,
     };
 
-    setUpdatedReviewRequest(r);
+    setUpdatedReviewRequest(updatedReview);
   }
 
   return (
     <div className="w-full max-w-full mx-auto flex flex-col space-y-4">
       {/* Button/Tool column (always on top) */}
       <div className="w-full flex-shrink-0">
-        <h2 className="text-2xl mb-4">Agent #<code>{updatedReviewRequest.agent_id.slice(0, 8)}</code> is requesting approval</h2>
+        <h2 className="text-2xl mb-4">
+          Agent #<code>{updatedReviewRequest.agent_id.slice(0, 8)}</code> is requesting approval
+        </h2>
         <div className="my-4 flex flex-wrap gap-2">
           <Button
             variant="default"
@@ -61,7 +66,18 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
             <SkullIcon className="mr-2 h-4 w-4" /> Kill Agent
           </Button>
         </div>
-        {updatedReviewRequest.tool_choice && <ToolChoiceDisplay toolChoice={updatedReviewRequest.tool_choice} onToolChoiceChange={handleToolChoiceChange} />}
+
+        {/* Map over the arrays of tool_choice and last_message */}
+        {updatedReviewRequest.tool_choices &&
+          updatedReviewRequest.last_messages &&
+          updatedReviewRequest.tool_choices.map((toolChoice, index) => (
+            <ToolChoiceDisplay
+              key={index}
+              toolChoice={toolChoice}
+              lastMessage={updatedReviewRequest.last_messages[index]}
+              onToolChoiceChange={(updatedToolChoice) => handleToolChoiceChange(updatedToolChoice, index)}
+            />
+          ))}
       </div>
 
       {/* Context column (always below) */}

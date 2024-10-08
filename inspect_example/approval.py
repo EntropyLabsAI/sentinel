@@ -417,7 +417,7 @@ def human_api_sample_n(approval_api_endpoint: str, agent_id: str, n: int = 5, ti
         payload = {
             "agent_id": agent_id,
             "task_state": state_json,
-            "tool_options": tool_options,
+            "tool_choices": tool_options,
             "last_messages": last_messages_json,
         }
 

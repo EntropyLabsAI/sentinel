@@ -80,6 +80,7 @@ const ApprovalsInterface: React.FC = () => {
     setSocket(ws);
 
     ws.onmessage = (event) => {
+      console.log("Received message:", event.data);
       const data: ReviewRequest = JSON.parse(event.data);
 
       // Use functional update to ensure we have the latest state
@@ -130,7 +131,7 @@ const ApprovalsInterface: React.FC = () => {
       const response = {
         id: requestId,
         decision: decision,
-        tool_choice: reviewRequest.tool_choice
+        tool_choice: reviewRequest.tool_choices
       };
       socket.send(JSON.stringify(response));
 
@@ -197,8 +198,8 @@ const ApprovalsInterface: React.FC = () => {
                       >
                         <div className="font-semibold">Agent #{req.agent_id.slice(0, 8)}</div>
                         <div className="text-sm">Request ID: {req.request_id.slice(0, 8)}</div>
-                        {req.tool_choice && (
-                          <div className="text-xs italic mt-1">Tool: {req.tool_choice.function}</div>
+                        {req.tool_choices && (
+                          <div className="text-xs italic mt-1">Tool: {req.tool_choices[0].function}</div>
                         )}
                       </li>
                     ))}
