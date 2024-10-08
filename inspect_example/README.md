@@ -5,13 +5,15 @@ Currently, the functionality is in a separate branch. Follow these steps:
 1. If inspect is already installed, uninstall it:
 
    ```
-   pip install inspect_ai
+   pip uninstall inspect_ai
    ```
 
 2. Install the package in editable mode with development dependencies:
 
    ```
-   pip install -e ".[dev]"
+    git clone https://github.com/UKGovernmentBEIS/inspect_ai.git
+ cd inspect_ai
+ pip install -e ".[dev]"
    ```
 
 3. Run the example:
