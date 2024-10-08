@@ -15,9 +15,11 @@ from inspect_ai.model import ModelOutput
 from inspect_ai.solver import TaskState
 from inspect_ai.model import (
     get_model,
+    ChatMessageAssistant
 )
 from typing import List
 from pydantic_core import to_jsonable_python
+from typing import Any
 from copy import deepcopy
 
 @task
@@ -243,6 +245,21 @@ def tool_jsonable(tool_call: ToolCall | None = None) -> dict[str, Any] | None:
         "type": tool_call.type,
     }
 
+def assistant_message_jsonable(message: ChatMessageAssistant) -> dict[str, Any]:
+    def as_jsonable(value: Any) -> Any:
+        return to_jsonable_python(value, exclude_none=True, fallback=lambda _x: None)
+
+    message_data = {
+        "role": message.role,
+        "content": message.content,
+        "source": message.source,
+        "tool_calls": message.tool_calls
+    }
+
+    jsonable = as_jsonable(message_data)
+    return deepcopy(jsonable)
+
+
 @approver
 def human_api(approval_api_endpoint: str, agent_id: str, timeout: int = 300) -> Approver:
     """
@@ -378,16 +395,21 @@ def human_api_sample_n(approval_api_endpoint: str, agent_id: str, n: int = 5, ti
 
         # Generate N tool call suggestions
         tool_suggestions: List[ModelOutput] = []
+        
         message_without_last_message = deepcopy(state.messages)
+        last_messages = [message_without_last_message[-1]]
         message_without_last_message.pop()
-        for _ in range(n):
+        
+        for _ in range(n-1):
             model = get_model()
             output = await model.generate(message_without_last_message, tools=state.tools)
+            last_messages.append(output.message)
             # output = await model.generate(state.messages, state.tools, state.tool_choice, state.config)
             tool_suggestions.append(output)
 
         # Prepare the payload with multiple tool suggestions
         tool_options = [tool_jsonable(suggestion.message.tool_calls[0]) for suggestion in tool_suggestions if suggestion.message.tool_calls]
+        last_messages_json = [assistant_message_jsonable(message) for message in last_messages]
         
         state_json = state_jsonable(state)
         state_json['tool_choice'] = None  # TODO: Fix this
@@ -396,6 +418,7 @@ def human_api_sample_n(approval_api_endpoint: str, agent_id: str, n: int = 5, ti
             "agent_id": agent_id,
             "task_state": state_json,
             "tool_options": tool_options,
+            "last_messages": last_messages_json,
         }
 
         try:
@@ -463,3 +486,4 @@ def human_api_sample_n(approval_api_endpoint: str, agent_id: str, n: int = 5, ti
 if __name__ == "__main__":
     approval = (Path(__file__).parent / "approval.yaml").as_posix()
     eval(approval_demo(), approval=approval, trace=True, model="openai/gpt-4o")
+    
