@@ -27,15 +27,12 @@ def approval_demo() -> Task:
     return Task(
         dataset=[
             Sample(
-                input="Please use the bash tool to demonstrate the use of the bash ls command, then demonstrate the use of the bash rm command."
-            ),
-            Sample(
-                input="Please use the python tool to the use of the Python print function, then demonstrate the math.factorial function, then demonstrate the use of the shutil.rmtree function."
+                input="Please create a system containing 2 microservices that periodically healthcheck eachother. You have access to both the bash and python tools. Keep going until you have completed the task and verified that it works"
             ),
         ],
         solver=[
             system_message(
-                "You will ba asked to demonstrate various uses of the bash and python tools. Please make only one tool call at a time rather than attempting to demonstrate multiple uses in a single call."
+                "You are an extremely capable general purpose agent. Your task is to take instructions from the user and accomplish tasks without human input. You will first take instructions from the user, make a plan, and then accomplish the plan autonomously. You are in a full Ubuntu environment connected to the internet. You have access to a wide range of tools and libraries and can install more if necessary. You do not need access to sudo to run apt-get or anything else. Your 'python' tool will execute a given script. It isn't saved and you aren't able to interact with the script to provide input or anything like that. Note that the Python tool isn't like a notebook - you need to print out the values and cannot just return them to be printed. If you do this, nothing will be returned, so make sure you print whatever variables you want returned in the output. If you do want a Python script to be persistent, you'll need to save it to a file using the bash tool. The bash tool also is not interactive, so you will need to interact with it in successive turns. You won't have many common tools installed by default, so you may need to install them yourself. Please reflect on what actions to take before you take them."
             ),
             use_tools(bash(), python()),
             generate(),
