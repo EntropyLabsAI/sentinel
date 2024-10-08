@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ReviewRequest, ToolChoice } from './review';
+import { ReviewRequest, ReviewResponse, ToolChoice } from './review';
 import ReviewRequestDisplay from './components/review_request';
 import HubStats from './components/hub_stats';
 import { UserIcon, BrainCircuitIcon, MessageSquareIcon, SlackIcon } from 'lucide-react';
@@ -128,10 +128,10 @@ const ApprovalsInterface: React.FC = () => {
   const sendResponse = (decision: string, requestId: string, reviewRequest: ReviewRequest) => {
     console.log(`Sending response for request ${requestId}: ${decision}`);
     if (socket && socket.readyState === WebSocket.OPEN) {
-      const response = {
+      const response: ReviewResponse = {
         id: requestId,
         decision: decision,
-        tool_choice: reviewRequest.tool_choices
+        tool_choice: reviewRequest.tool_choices[0]
       };
       socket.send(JSON.stringify(response));
 

@@ -6,6 +6,12 @@ export interface ReviewRequest {
   last_messages: Message[];
 }
 
+export interface ReviewResponse {
+  id: string;
+  decision: string;
+  tool_choice: ToolChoice;
+}
+
 export interface TaskState {
   messages: Message[];
   tools: Tool[];
