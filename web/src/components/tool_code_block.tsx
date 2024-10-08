@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Code, X } from "lucide-react";
+import { Code, X, AlertTriangle, AlertCircle, CheckCircle } from "lucide-react";
 import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
 import CopyButton from "./copy_button";
@@ -11,7 +11,10 @@ interface ToolCodeBlockProps {
   handleCodeChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   explanation: string | null;
   setExplanation: React.Dispatch<React.SetStateAction<string | null>>;
+  score: string | null;
+  setScore: React.Dispatch<React.SetStateAction<string | null>>;
   resetExplanation: () => void;
+  resetScore: () => void;
 }
 
 export default function ToolCodeBlock({
@@ -20,7 +23,10 @@ export default function ToolCodeBlock({
   handleCodeChange,
   explanation,
   setExplanation,
+  score,
+  setScore,
   resetExplanation,
+  resetScore,
 }: ToolCodeBlockProps) {
   const [editting, setEditting] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -47,6 +53,35 @@ export default function ToolCodeBlock({
     }
   }, [code]);
 
+  const getScoreStyle = (score: string) => {
+    switch (score.toLowerCase()) {
+      case 'harmless':
+        return {
+          bgColor: 'bg-green-800',
+          textColor: 'text-green-200',
+          Icon: CheckCircle
+        };
+      case 'risky':
+        return {
+          bgColor: 'bg-yellow-800',
+          textColor: 'text-yellow-200',
+          Icon: AlertTriangle
+        };
+      case 'dangerous':
+        return {
+          bgColor: 'bg-red-800',
+          textColor: 'text-red-200',
+          Icon: AlertCircle
+        };
+      default:
+        return {
+          bgColor: 'bg-gray-800',
+          textColor: 'text-gray-200',
+          Icon: AlertCircle
+        };
+    }
+  };
+
   return (
     <div
       ref={ref}
@@ -54,10 +89,9 @@ export default function ToolCodeBlock({
     >
       <div
         className="flex items-center"
-        onClick={() => setEditting(true)}
       >
         {/* Left side: $ or Python icon */}
-        <div className="flex items-center mr-2">
+        <div className="flex mr-2">
           {isBashCommand ? (
             <span className="text-green-400">$</span>
           ) : (
@@ -68,7 +102,10 @@ export default function ToolCodeBlock({
           )}
         </div>
         {/* Middle: Textarea or code display */}
-        <div className="flex-grow">
+        <div className="flex-grow"
+          onClick={() => setEditting(true)}
+
+        >
           {editting ? (
             <Textarea
               ref={textareaRef}
@@ -104,7 +141,7 @@ export default function ToolCodeBlock({
         {/* Right side: Buttons */}
         <div className="flex items-center ml-2">
           <CopyButton text={code} />
-          <ExplainButton text={code} onExplanation={setExplanation} />
+          <ExplainButton text={code} onExplanation={setExplanation} onScore={setScore} />
         </div>
       </div>
       {explanation && (
@@ -112,11 +149,20 @@ export default function ToolCodeBlock({
           <p>{explanation}</p>
           <Button
             size="icon"
-            onClick={resetExplanation}
+            onClick={() => {
+              resetExplanation();
+              resetScore();
+            }}
             className="ml-2 p-2 bg-gray-700 hover:bg-gray-600 outline-none"
           >
             <X className="h-4 w-4" />
           </Button>
+        </div>
+      )}
+      {score && (
+        <div className={`mt-2 text-sm p-2 rounded flex flex-row items-center ${getScoreStyle(score).bgColor} ${getScoreStyle(score).textColor}`}>
+          {React.createElement(getScoreStyle(score).Icon, { className: "h-4 w-4 mr-2" })}
+          <p className="flex-grow">{score}</p>
         </div>
       )}
     </div>

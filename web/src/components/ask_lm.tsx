@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 interface ExplainButtonProps {
   text: string;
   onExplanation: (explanation: string) => void;
+  onScore: (score: string) => void;
 }
 
-export default function ExplainButton({ text, onExplanation }: ExplainButtonProps) {
+export default function ExplainButton({ text, onExplanation, onScore }: ExplainButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleExplain = async () => {
@@ -24,9 +25,11 @@ export default function ExplainButton({ text, onExplanation }: ExplainButtonProp
       const explanation = await completion.json();
 
       onExplanation(explanation.explanation || 'No explanation provided.');
+      onScore(explanation.score || 'No score provided.');
     } catch (error) {
       console.error('Error getting explanation:', error);
       onExplanation('Failed to get explanation. Please try again.');
+      onScore('Failed to get score. Please try again.');
     } finally {
       setIsLoading(false);
     }
