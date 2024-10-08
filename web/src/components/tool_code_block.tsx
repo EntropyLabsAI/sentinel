@@ -45,6 +45,14 @@ export default function ToolCodeBlock({
     };
   }, [ref]);
 
+  // Auto-resize effect
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
+    }
+  }, [code]);
+
 
   const getScoreStyle = (score: string) => {
     switch (score.toLowerCase()) {

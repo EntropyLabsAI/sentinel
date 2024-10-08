@@ -11,15 +11,16 @@ import { MessagesDisplay } from "./messages"
 
 interface ReviewRequestProps {
   reviewRequest: ReviewRequest;
-  sendResponse: (decision: string, updatedReviewRequest: ReviewRequest) => void;
+  sendResponse: (decision: string, toolChoice: ToolChoice) => void;
 }
 
 export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: ReviewRequestProps) {
   const [updatedReviewRequest, setUpdatedReviewRequest] = useState(reviewRequest);
+  const [selectedToolIndex, setSelectedToolIndex] = useState(0); // Added state for selected tool
 
-  // Update the state when the prop changes
   useEffect(() => {
     setUpdatedReviewRequest(reviewRequest);
+    setSelectedToolIndex(0); // Initialize the first tool as selected
   }, [reviewRequest]);
 
   function handleToolChoiceChange(updatedToolChoice: ToolChoice, index: number) {
@@ -28,15 +29,20 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
 
     const updatedReview = {
       ...updatedReviewRequest,
-      tool_choice: updatedToolChoices,
+      tool_choices: updatedToolChoices,
     };
 
     setUpdatedReviewRequest(updatedReview);
   }
 
+  function handleSendResponse(decision: string) {
+    const selectedToolChoice = updatedReviewRequest.tool_choices[selectedToolIndex];
+    sendResponse(decision, selectedToolChoice);
+  }
+
   return (
     <div className="w-full max-w-full mx-auto flex flex-col space-y-4">
-      {/* Button/Tool column (always on top) */}
+      {/* Action Buttons */}
       <div className="w-full flex-shrink-0">
         <h2 className="text-2xl mb-4">
           Agent #<code>{updatedReviewRequest.agent_id.slice(0, 8)}</code> is requesting approval
@@ -46,7 +52,7 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
             variant="default"
             size="sm"
             className="flex-1 bg-green-500 hover:bg-green-600 text-white"
-            onClick={() => sendResponse('approve', updatedReviewRequest)}
+            onClick={() => handleSendResponse('approve')}
           >
             <Check className="mr-2 h-4 w-4" /> Approve
           </Button>
@@ -54,7 +60,7 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
             variant="default"
             size="sm"
             className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white"
-            onClick={() => sendResponse('reject', updatedReviewRequest)}
+            onClick={() => handleSendResponse('reject')}
           >
             <X className="mr-2 h-4 w-4" /> Reject
           </Button>
@@ -62,13 +68,13 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
             variant="default"
             size="sm"
             className="flex-1 bg-red-500 hover:bg-red-600 text-white"
-            onClick={() => sendResponse('terminate', updatedReviewRequest)}
+            onClick={() => handleSendResponse('terminate')}
           >
             <SkullIcon className="mr-2 h-4 w-4" /> Kill Agent
           </Button>
         </div>
 
-        {/* Map over the arrays of tool_choice and last_message */}
+        {/* Tool Choices */}
         <div className="space-y-4">
           {updatedReviewRequest.tool_choices &&
             updatedReviewRequest.last_messages &&
@@ -78,12 +84,14 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
                 toolChoice={toolChoice}
                 lastMessage={updatedReviewRequest.last_messages[index]}
                 onToolChoiceChange={(updatedToolChoice) => handleToolChoiceChange(updatedToolChoice, index)}
+                isSelected={selectedToolIndex === index}
+                onSelect={() => setSelectedToolIndex(index)}
               />
             ))}
         </div>
       </div>
 
-      {/* Context column (always below) */}
+      {/* Context Display */}
       <div className="w-full flex-grow overflow-auto">
         <ContextDisplay context={updatedReviewRequest.task_state} />
         <JsonDisplay reviewRequest={updatedReviewRequest} />

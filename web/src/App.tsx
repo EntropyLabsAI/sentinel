@@ -125,21 +125,19 @@ const ApprovalsInterface: React.FC = () => {
     };
   }, []);
 
-  const sendResponse = (decision: string, requestId: string, reviewRequest: ReviewRequest) => {
+  const sendResponse = (decision: string, requestId: string, toolChoice: ToolChoice) => {
     console.log(`Sending response for request ${requestId}: ${decision}`);
     if (socket && socket.readyState === WebSocket.OPEN) {
       const response: ReviewResponse = {
         id: requestId,
         decision: decision,
-        tool_choice: reviewRequest.tool_choices[0]
+        tool_choice: toolChoice
       };
       socket.send(JSON.stringify(response));
 
-      // Remove the handled review request from the list using functional update
+      // Remove the handled review request from the list
       setReviewDataList((prevList) => {
         const newList = prevList.filter((req) => req.request_id !== requestId);
-
-        // If the handled request was selected, select the next one
         setSelectedRequestId((prevSelectedId) => {
           if (prevSelectedId === requestId) {
             return newList.length > 0 ? newList[0].request_id : null;
@@ -147,7 +145,6 @@ const ApprovalsInterface: React.FC = () => {
             return prevSelectedId;
           }
         });
-
         return newList;
       });
     }
@@ -217,8 +214,8 @@ const ApprovalsInterface: React.FC = () => {
                   <div id="content" className="space-y-6">
                     <ReviewRequestDisplay
                       reviewRequest={selectedReviewRequest}
-                      sendResponse={(decision: string, reviewRequest: ReviewRequest) =>
-                        sendResponse(decision, selectedReviewRequest.request_id, reviewRequest)
+                      sendResponse={(decision: string, toolChoice: ToolChoice) =>
+                        sendResponse(decision, selectedReviewRequest.request_id, toolChoice)
                       }
                     />
                   </div>

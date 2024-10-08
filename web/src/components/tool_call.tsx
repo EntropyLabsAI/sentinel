@@ -13,9 +13,17 @@ interface ToolChoiceDisplayProps {
   toolChoice: ToolChoice;
   lastMessage: Message;
   onToolChoiceChange: (updatedToolChoice: ToolChoice) => void;
+  isSelected: boolean; // Added isSelected prop
+  onSelect: () => void; // Added onSelect prop
 }
 
-const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({ toolChoice, lastMessage, onToolChoiceChange }) => {
+const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
+  toolChoice,
+  lastMessage,
+  onToolChoiceChange,
+  isSelected,
+  onSelect,
+}) => {
   const isBashCommand = toolChoice.function === "bash";
   const [code, setCode] = useState(
     isBashCommand ? toolChoice.arguments.cmd : toolChoice.arguments.code
@@ -49,7 +57,7 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({ toolChoice, lastM
   }
 
   return (
-    <Card>
+    <Card className={isSelected ? "border-2 border-blue-500" : ""}>
       <CardHeader className="py-2">
         <CardTitle className="flex justify-between items-center">
           <div className="flex items-center">
@@ -66,11 +74,20 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({ toolChoice, lastM
             </Button>
             <span className="font-semibold"></span>
             <code className="">{toolChoice.id}</code>
-            {/* Copy button */}
             <CopyButton className="bg-transparent shadow-none text-gray-600 hover:text-gray-400 hover:bg-transparent outline-none" text={toolChoice.id} />
           </div>
-          <div>
-            <span className="font-semibold"></span> <code>{toolChoice.function}</code>
+          <div className="flex items-center">
+            <span className="font-semibold mr-2"></span>
+            <code>{toolChoice.function}</code>
+            <Button
+              size="sm"
+              variant={isSelected ? "default" : "outline"}
+              onClick={onSelect}
+              disabled={isSelected}
+              className="ml-4"
+            >
+              {isSelected ? "Selected" : "Select"}
+            </Button>
           </div>
         </CardTitle>
       </CardHeader>
