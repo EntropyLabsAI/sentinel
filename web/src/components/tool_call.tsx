@@ -1,5 +1,5 @@
 import { Message, ToolChoice } from "@/review";
-import { Code, Code2, X } from "lucide-react"
+import { Code, Code2, Link, X, MessageSquare } from "lucide-react"
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import CopyButton from "./copy_button"
@@ -7,6 +7,7 @@ import ExplainButton from "./ask_lm"
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea"; // Make sure to import Textarea
 import ToolCodeBlock from "./tool_code_block";
+import { MessageDisplay, MessagesDisplay } from "./messages";
 
 interface ToolChoiceDisplayProps {
   toolChoice: ToolChoice;
@@ -21,6 +22,7 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({ toolChoice, lastM
   );
   const [explanation, setExplanation] = useState<string | null>(null);
   const [score, setScore] = useState<string | null>(null);
+  const [showMessage, setShowMessage] = useState(false);
 
   useEffect(() => {
     setCode(isBashCommand ? toolChoice.arguments.cmd : toolChoice.arguments.code);
@@ -48,21 +50,32 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({ toolChoice, lastM
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center">
-          <Code2 className="mr-2" />
-          Tool Call
+      <CardHeader className="py-2">
+        <CardTitle className="flex justify-between items-center">
+          <div className="flex items-center">
+            <Code2 className="mr-2" />
+            Tool Call
+          </div>
+          <div className="flex items-center">
+            <Button
+              size="icon"
+              className={`outline-none bg-transparent shadow-none text-gray-600 hover:text-gray-400 hover:bg-transparent`}
+              onClick={() => setShowMessage(!showMessage)}
+            >
+              <MessageSquare size={16} />
+            </Button>
+            <span className="font-semibold"></span>
+            <code className="">{toolChoice.id}</code>
+            {/* Copy button */}
+            <CopyButton className="bg-transparent shadow-none text-gray-600 hover:text-gray-400 hover:bg-transparent outline-none" text={toolChoice.id} />
+          </div>
+          <div>
+            <span className="font-semibold"></span> <code>{toolChoice.function}</code>
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <div>
-            <span className="font-semibold">ID: </span>
-            <code>{toolChoice.id}</code>
-          </div>
-          <div>
-            <span className="font-semibold">Function:</span> <code>{toolChoice.function}</code>
-          </div>
           <ToolCodeBlock
             isBashCommand={isBashCommand}
             code={code}
@@ -74,6 +87,9 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({ toolChoice, lastM
             resetExplanation={resetExplanation}
             resetScore={resetScore}
           />
+          {showMessage && (
+            <MessageDisplay message={lastMessage} index={0} />
+          )}
         </div>
       </CardContent>
     </Card>

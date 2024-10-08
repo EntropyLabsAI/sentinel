@@ -3,7 +3,13 @@ import { useState } from "react"
 import { Button } from "./ui/button"
 import React from "react"
 
-export default function CopyButton({ text }: { text: string }) {
+// Props are text and className
+interface CopyButtonProps {
+  text: string
+  className?: string
+}
+
+export default function CopyButton({ text, className }: CopyButtonProps) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
@@ -16,7 +22,7 @@ export default function CopyButton({ text }: { text: string }) {
     <Button
       size="icon"
       onClick={handleCopy}
-      className="ml-2 bg-gray-700 hover:bg-gray-600 outline-none"
+      className={`outline-none ${className}`}
     >
       {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
     </Button>
