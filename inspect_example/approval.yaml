@@ -3,7 +3,8 @@ approvers:
     tools: "*bash*"
     allowed_commands: ["ls"]
 
-  - name: human_api
+  - name: human_api_sample_n
     tools: "*"
     approval_api_endpoint: "http://localhost:8080"
     agent_id: "1234"
+    n: 5

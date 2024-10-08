@@ -10,7 +10,13 @@ from inspect_ai.dataset import Sample
 from inspect_ai.solver import TaskState, generate, system_message, use_tools
 from inspect_ai.tool import ToolCall, ToolCallView, bash, python
 import asyncio
-from inspect_ai.solver._task_state import sample_state, state_jsonable
+from inspect_ai.solver._task_state import state_jsonable
+from inspect_ai.model import ModelOutput
+from inspect_ai.solver import TaskState
+from inspect_ai.model import (
+    get_model,
+)
+from typing import List
 from pydantic_core import to_jsonable_python
 from copy import deepcopy
 
@@ -339,6 +345,120 @@ def human_api(approval_api_endpoint: str, agent_id: str, timeout: int = 300) -> 
 
     return approve
 
+
+
+@approver
+def human_api_sample_n(approval_api_endpoint: str, agent_id: str, n: int = 5, timeout: int = 300) -> Approver:
+    """
+    Create an approver that generates N tool call suggestions and sends them to an external API for human selection.
+
+    Args:
+        approval_api_endpoint (str): The URL of the remote approval API.
+        agent_id (str): The ID of the agent making the request.
+        model (Model): The model to use for generating tool call suggestions.
+        n (int): The number of tool call suggestions to generate. Defaults to 5.
+        timeout (int): The maximum time to wait for a response, in seconds. Defaults to 300 seconds (5 minutes).
+
+    Returns:
+        Approver: A function that sends multiple tool call suggestions to a remote API for human decision.
+    """
+    async def approve(
+        message: str,
+        call: ToolCall,
+        view: ToolCallView,
+        state: TaskState | None = None,
+    ) -> Approval:
+        if state is None:
+            return Approval(decision="escalate", explanation="TaskState is required for this approver.")
+
+        print(f"Generating {n} tool call suggestions for user review")
+
+        model = get_model()
+        # model = state.model
+
+        # Generate N tool call suggestions
+        tool_suggestions: List[ModelOutput] = []
+        message_without_last_message = deepcopy(state.messages)
+        message_without_last_message.pop()
+        for _ in range(n):
+            model = get_model()
+            output = await model.generate(message_without_last_message, tools=state.tools)
+            # output = await model.generate(state.messages, state.tools, state.tool_choice, state.config)
+            tool_suggestions.append(output)
+
+        # Prepare the payload with multiple tool suggestions
+        tool_options = [tool_jsonable(suggestion.message.tool_calls[0]) for suggestion in tool_suggestions if suggestion.message.tool_calls]
+        
+        state_json = state_jsonable(state)
+        state_json['tool_choice'] = None  # TODO: Fix this
+
+        payload = {
+            "agent_id": agent_id,
+            "task_state": state_json,
+            "tool_options": tool_options,
+        }
+
+        try:
+            response = requests.post(f'{approval_api_endpoint}/api/review', json=payload)
+            response.raise_for_status()
+            
+            review_id = response.json().get("id")
+            if not review_id:
+                return Approval(
+                    decision="escalate",
+                    explanation="Failed to get review ID from initial response",
+                )
+            
+            # Poll the status endpoint until we get a response
+            sleep_time = 2
+            max_attempts = timeout // sleep_time
+            print(f"Waiting for human approval for review {review_id}")
+            for _ in range(int(max_attempts)):
+                try:
+                    status_response = requests.get(f"{approval_api_endpoint}/api/review/status?id={review_id}")
+                    status_response.raise_for_status()
+
+                    status_data = status_response.json()
+                    print(f"Status data: {status_data}")
+                    
+                    if status_data.get("status") == "pending":
+                        await asyncio.sleep(sleep_time)  # Wait before polling again
+                        continue
+
+                    if "decision" in status_data:
+                        decision = status_data["decision"]
+                        explanation = status_data.get("explanation", "Human provided no explanation.")
+                        selected_index = status_data.get("selected_index")
+                        print(f"Selected index: {selected_index}")
+                        if selected_index is not None and 0 <= selected_index < len(tool_options):
+                            selected_tool_call = ToolCall(**tool_options[selected_index])
+                            return Approval(
+                                decision=decision,
+                                explanation=explanation,
+                                modified_tool_call=selected_tool_call,
+                            )
+                        else:
+                            return Approval(decision=decision, explanation=explanation)
+
+                    return Approval(
+                        decision="escalate",
+                        explanation=f"Unexpected response from status endpoint: {status_data}",
+                    )
+
+                except requests.RequestException as poll_error:
+                    print(f"Error polling status: {poll_error}")
+                    await asyncio.sleep(sleep_time)  # Wait before retrying
+                    continue
+
+            return Approval(
+                decision="escalate",
+                explanation="Timed out waiting for human approval",
+            )
+
+        except requests.RequestException as e:
+            return Approval(decision="escalate", explanation=f"Error communicating with remote approver: {str(e)}")
+
+    return approve
 
 if __name__ == "__main__":
     approval = (Path(__file__).parent / "approval.yaml").as_posix()
