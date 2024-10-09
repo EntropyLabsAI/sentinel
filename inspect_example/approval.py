@@ -310,10 +310,18 @@ def human_api(approval_api_endpoint: str, agent_id: str, timeout: int = 300) -> 
         state_json['tool_choice'] = None #TODO: Fix this
         tool_json = tool_jsonable(call)
 
+       # Create a list with a single tool choice
+        tool_choices = [tool_json]
+
+        # Create a list with a single last message
+        last_message = assistant_message_jsonable(state.messages[-1]) if state and state.messages else None
+        last_messages = [last_message] if last_message else []
+
         payload = {
             "agent_id": agent_id,
             "task_state": state_json,
-            "tool_choice": tool_json,
+            "tool_choices": tool_choices,
+            "last_messages": last_messages,
         }
 
         try:
@@ -421,6 +429,8 @@ def human_api_sample_n(approval_api_endpoint: str, agent_id: str, n: int = 5, ti
         last_messages = [message_without_last_message[-1]]
         tool_options = [tool_jsonable(state.messages[-1].tool_calls[0])] if state.messages[-1].tool_calls[0] else [None]
         message_without_last_message.pop()
+        copied_state = deepcopy(state)
+        copied_state.messages = message_without_last_message
         
         for _ in range(n-1):
             model = get_model()
@@ -434,7 +444,8 @@ def human_api_sample_n(approval_api_endpoint: str, agent_id: str, n: int = 5, ti
         last_messages_json = [assistant_message_jsonable(message) for message in last_messages]
         # in case tool calls are None, remove the corresponding last_message
         last_messages_json = [message for message in last_messages_json if message is not None]
-        state_json = state_jsonable(state)
+        
+        state_json = state_jsonable(copied_state)
         state_json['tool_choice'] = None  # TODO: Fix this
 
         payload = {
@@ -507,6 +518,6 @@ def human_api_sample_n(approval_api_endpoint: str, agent_id: str, n: int = 5, ti
     return approve
 
 if __name__ == "__main__":
-    approval = (Path(__file__).parent / "approval.yaml").as_posix()
+    approval = (Path(__file__).parent / "approval_2.yaml").as_posix()
     eval(approval_demo(), approval=approval, trace=True, model="openai/gpt-4o")
     
