@@ -4,7 +4,7 @@
 SESSION_NAME="my_session"
 
 # Number of tasks
-PANE_COUNT=60
+PANE_COUNT=16
 
 # Calculate the midpoint
 MIDPOINT=$((PANE_COUNT / 2))

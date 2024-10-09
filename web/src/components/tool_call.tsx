@@ -15,6 +15,7 @@ interface ToolChoiceDisplayProps {
   onToolChoiceChange: (updatedToolChoice: ToolChoice) => void;
   isSelected: boolean; // Added isSelected prop
   onSelect: () => void; // Added onSelect prop
+  index: number;
 }
 
 const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
@@ -23,6 +24,7 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
   onToolChoiceChange,
   isSelected,
   onSelect,
+  index,
 }) => {
   const isBashCommand = toolChoice.function === "bash";
   const [code, setCode] = useState(
@@ -60,9 +62,10 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
     <Card className={isSelected ? "border-2 border-blue-500" : ""}>
       <CardHeader className="py-2">
         <CardTitle className="flex justify-between items-center">
-          <div className="flex items-center">
+          <div className="flex items-center space-x-2">
             <Code2 className="mr-2" />
-            Tool Call
+            <p>Tool Call</p>
+            <p className="text-xs text-gray-500">option {index}</p>
           </div>
           <div className="flex items-center">
             <Button
@@ -81,10 +84,10 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
             <code>{toolChoice.function}</code>
             <Button
               size="sm"
-              variant={isSelected ? "default" : "outline"}
+              variant={isSelected ? "outline" : "outline"}
               onClick={onSelect}
               disabled={isSelected}
-              className="ml-4"
+              className="ml-4 bg-blue-500 hover:bg-blue-600 hover:text-white text-white"
             >
               {isSelected ? "Selected" : "Select"}
             </Button>

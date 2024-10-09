@@ -86,6 +86,7 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
                 onToolChoiceChange={(updatedToolChoice) => handleToolChoiceChange(updatedToolChoice, index)}
                 isSelected={selectedToolIndex === index}
                 onSelect={() => setSelectedToolIndex(index)}
+                index={index + 1}
               />
             ))}
         </div>
