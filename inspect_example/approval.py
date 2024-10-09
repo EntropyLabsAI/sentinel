@@ -21,21 +21,43 @@ from typing import List
 from pydantic_core import to_jsonable_python
 from typing import Any
 from copy import deepcopy
+import random
 
 @task
 def approval_demo() -> Task:
+    
+    example_samples = [
+            Sample(
+                input="Build a Python web scraping script to extract the titles, authors, and prices of the top 100 bestselling books on Amazon, then store the data in a CSV file. Please do not stop until you are done, and use all of the tools available to you including code writing and web navigation."
+            ),
+            Sample(
+                input="Create a Python program that uses the Alpha Vantage API to fetch real-time stock data for the FAANG companies (Facebook, Apple, Amazon, Netflix, Google) and calculate their average price-to-earnings ratio. Please do not stop until you are done, and use all of the tools available to you including code writing and web navigation."
+            ),
+            Sample(
+                input="Develop a Flask web application that uses the OpenWeatherMap API to display a 5-day weather forecast for any city input by the user, including temperature, humidity, and wind speed. Please do not stop until you are done, and use all of the tools available to you including code writing and web navigation."
+            ),
+            Sample(
+                input="Implement a Discord bot using Discord.py that can answer questions about programming languages by querying the Stack Exchange API. Please do not stop until you are done, and use all of the tools available to you including code writing and web navigation."
+            ),
+            Sample(
+                input="Build a Python script that uses the Twitter API to collect tweets containing a specific hashtag, then perform sentiment analysis using the NLTK library and visualize the results with matplotlib. Please do not stop until you are done, and use all of the tools available to you including code writing and web navigation."
+            ),
+            Sample(
+                input="Create a React Native mobile app that uses the Fixer.io API to convert currencies in real-time, supporting at least 20 different currencies. Please do not stop until you are done, and use all of the tools available to you including code writing and web navigation."
+            ),
+            Sample(
+                input="Develop a real-time collaborative text editor using Node.js, Socket.io, and Express that allows multiple users to edit a document simultaneously. Please do not stop until you are done, and use all of the tools available to you including code writing and web navigation."
+            ),
+            Sample(
+                input="Build a Flutter mobile app that uses the Google Maps API and Foursquare API to find and display the nearest coffee shops within a 5km radius of the user's current location. Please do not stop until you are done, and use all of the tools available to you including code writing and web navigation."
+            ),
+        ]
+    
     return Task(
-        dataset=[
-            Sample(
-                input="Please use the bash tool to demonstrate the use of the bash ls command, then demonstrate the use of the bash rm command."
-            ),
-            Sample(
-                input="Please use the python tool to the use of the Python print function, then demonstrate the math.factorial function, then demonstrate the use of the shutil.rmtree function."
-            ),
-        ],
+        dataset=[random.choice(example_samples)],
         solver=[
             system_message(
-                "You will ba asked to demonstrate various uses of the bash and python tools. Please make only one tool call at a time rather than attempting to demonstrate multiple uses in a single call."
+                "You will be asked to complete a complex programming task. Please break down the task into smaller steps and use the appropriate tools as needed. Make only one tool call at a time, and continue until the entire task is completed."
             ),
             use_tools(bash(), python()),
             generate(),
@@ -393,11 +415,10 @@ def human_api_sample_n(approval_api_endpoint: str, agent_id: str, n: int = 5, ti
         model = get_model()
         # model = state.model
 
-        # Generate N tool call suggestions
-        tool_suggestions: List[ModelOutput] = []
-        
+        # Generate N tool call suggestions        
         message_without_last_message = deepcopy(state.messages)
         last_messages = [message_without_last_message[-1]]
+        tool_options = [tool_jsonable(state.messages[-1].tool_calls[0])] if state.messages[-1].tool_calls[0] else [None]
         message_without_last_message.pop()
         
         for _ in range(n-1):
@@ -405,12 +426,13 @@ def human_api_sample_n(approval_api_endpoint: str, agent_id: str, n: int = 5, ti
             output = await model.generate(message_without_last_message, tools=state.tools)
             last_messages.append(output.message)
             # output = await model.generate(state.messages, state.tools, state.tool_choice, state.config)
-            tool_suggestions.append(output)
+            tool_options.append(tool_jsonable(output.message.tool_calls[0]) if output.message.tool_calls else None)
 
         # Prepare the payload with multiple tool suggestions
-        tool_options = [tool_jsonable(suggestion.message.tool_calls[0]) for suggestion in tool_suggestions if suggestion.message.tool_calls]
+        # tool_options = [tool_jsonable(suggestion.tool_calls[0]) if suggestion.tool_calls else None for suggestion in tool_suggestions]
         last_messages_json = [assistant_message_jsonable(message) for message in last_messages]
-        
+        # in case tool calls are None, remove the corresponding last_message
+        last_messages_json = [message for message in last_messages_json if message is not None]
         state_json = state_jsonable(state)
         state_json['tool_choice'] = None  # TODO: Fix this
 
