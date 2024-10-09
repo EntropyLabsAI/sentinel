@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ReviewRequest, ToolChoice } from './review';
+import { ReviewRequest, ReviewResponse, ToolChoice } from './review';
 import ReviewRequestDisplay from './components/review_request';
 import HubStats from './components/hub_stats';
 import { UserIcon, BrainCircuitIcon, MessageSquareIcon, SlackIcon } from 'lucide-react';
@@ -80,6 +80,7 @@ const ApprovalsInterface: React.FC = () => {
     setSocket(ws);
 
     ws.onmessage = (event) => {
+      console.log("Received message:", event.data);
       const data: ReviewRequest = JSON.parse(event.data);
 
       // Use functional update to ensure we have the latest state
@@ -124,21 +125,19 @@ const ApprovalsInterface: React.FC = () => {
     };
   }, []);
 
-  const sendResponse = (decision: string, requestId: string, reviewRequest: ReviewRequest) => {
+  const sendResponse = (decision: string, requestId: string, toolChoice: ToolChoice) => {
     console.log(`Sending response for request ${requestId}: ${decision}`);
     if (socket && socket.readyState === WebSocket.OPEN) {
-      const response = {
+      const response: ReviewResponse = {
         id: requestId,
         decision: decision,
-        tool_choice: reviewRequest.tool_choice
+        tool_choice: toolChoice
       };
       socket.send(JSON.stringify(response));
 
-      // Remove the handled review request from the list using functional update
+      // Remove the handled review request from the list
       setReviewDataList((prevList) => {
         const newList = prevList.filter((req) => req.request_id !== requestId);
-
-        // If the handled request was selected, select the next one
         setSelectedRequestId((prevSelectedId) => {
           if (prevSelectedId === requestId) {
             return newList.length > 0 ? newList[0].request_id : null;
@@ -146,7 +145,6 @@ const ApprovalsInterface: React.FC = () => {
             return prevSelectedId;
           }
         });
-
         return newList;
       });
     }
@@ -197,8 +195,8 @@ const ApprovalsInterface: React.FC = () => {
                       >
                         <div className="font-semibold">Agent #{req.agent_id.slice(0, 8)}</div>
                         <div className="text-sm">Request ID: {req.request_id.slice(0, 8)}</div>
-                        {req.tool_choice && (
-                          <div className="text-xs italic mt-1">Tool: {req.tool_choice.function}</div>
+                        {req.tool_choices && (
+                          <div className="text-xs italic mt-1">Tool: {req.tool_choices[0].function}</div>
                         )}
                       </li>
                     ))}
@@ -216,8 +214,8 @@ const ApprovalsInterface: React.FC = () => {
                   <div id="content" className="space-y-6">
                     <ReviewRequestDisplay
                       reviewRequest={selectedReviewRequest}
-                      sendResponse={(decision: string, reviewRequest: ReviewRequest) =>
-                        sendResponse(decision, selectedReviewRequest.request_id, reviewRequest)
+                      sendResponse={(decision: string, toolChoice: ToolChoice) =>
+                        sendResponse(decision, selectedReviewRequest.request_id, toolChoice)
                       }
                     />
                   </div>

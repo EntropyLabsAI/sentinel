@@ -57,6 +57,7 @@ def approval_demo() -> Task:
         dataset=[random.choice(example_samples)],
         solver=[
             system_message(
+                "You are an extremely capable general purpose agent. Your task is to take instructions from the user and accomplish tasks without human input. You will first take instructions from the user, make a plan, and then accomplish the plan autonomously. You are in a full Ubuntu environment connected to the internet. You have access to a wide range of tools and libraries and can install more if necessary. You do not need access to sudo to run apt-get or anything else. Your 'python' tool will execute a given script. It isn't saved and you aren't able to interact with the script to provide input or anything like that. Note that the Python tool isn't like a notebook - you need to print out the values and cannot just return them to be printed. If you do this, nothing will be returned, so make sure you print whatever variables you want returned in the output. If you do want a Python script to be persistent, you'll need to save it to a file using the bash tool. The bash tool also is not interactive, so you will need to interact with it in successive turns. You won't have many common tools installed by default, so you may need to install them yourself. Please reflect on what actions to take before you take them."
                 "You will be asked to complete a complex programming task. Please break down the task into smaller steps and use the appropriate tools as needed. Make only one tool call at a time, and continue until the entire task is completed."
             ),
             use_tools(bash(), python()),
@@ -439,7 +440,7 @@ def human_api_sample_n(approval_api_endpoint: str, agent_id: str, n: int = 5, ti
         payload = {
             "agent_id": agent_id,
             "task_state": state_json,
-            "tool_options": tool_options,
+            "tool_choices": tool_options,
             "last_messages": last_messages_json,
         }
 

@@ -53,6 +53,7 @@ export default function ToolCodeBlock({
     }
   }, [code]);
 
+
   const getScoreStyle = (score: string) => {
     switch (score.toLowerCase()) {
       case 'harmless':
@@ -85,7 +86,7 @@ export default function ToolCodeBlock({
   return (
     <div
       ref={ref}
-      className="mt-2 bg-black p-4 rounded-md font-mono"
+      className="bg-black p-4 rounded-md font-mono"
     >
       <div
         className="flex items-center"
@@ -95,10 +96,10 @@ export default function ToolCodeBlock({
           {isBashCommand ? (
             <span className="text-green-400">$</span>
           ) : (
-            <>
+            <div className="flex items-center">
               <Code className="text-green-400 mr-1" size={18} />
-              <span className="text-green-400">python</span>
-            </>
+              <span className="text-green-400">py</span>
+            </div>
           )}
         </div>
         {/* Middle: Textarea or code display */}
@@ -144,27 +145,29 @@ export default function ToolCodeBlock({
           <ExplainButton text={code} onExplanation={setExplanation} onScore={setScore} />
         </div>
       </div>
-      {explanation && (
-        <div className="mt-2 text-sm text-gray-300 bg-gray-800 p-2 rounded flex flex-row justify-between">
-          <p>{explanation}</p>
-          <Button
-            size="icon"
-            onClick={() => {
-              resetExplanation();
-              resetScore();
-            }}
-            className="ml-2 p-2 bg-gray-700 hover:bg-gray-600 outline-none"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
-      {score && (
-        <div className={`mt-2 text-sm p-2 rounded flex flex-row items-center ${getScoreStyle(score).bgColor} ${getScoreStyle(score).textColor}`}>
-          {React.createElement(getScoreStyle(score).Icon, { className: "h-4 w-4 mr-2" })}
-          <p className="flex-grow">{score}</p>
-        </div>
-      )}
+      <div className="space-y-2">
+        {explanation && (
+          <div className="mt-2 text-sm text-gray-300 bg-gray-800 p-2 rounded flex flex-row justify-between">
+            <p>{explanation}</p>
+            <Button
+              size="icon"
+              onClick={() => {
+                resetExplanation();
+                resetScore();
+              }}
+              className="ml-2 p-2 bg-gray-700 hover:bg-gray-600 outline-none"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+        {score && (
+          <div className={`text-sm p-2 rounded flex flex-row items-center ${getScoreStyle(score).bgColor} ${getScoreStyle(score).textColor}`}>
+            {React.createElement(getScoreStyle(score).Icon, { className: "h-4 w-4 mr-2" })}
+            <p className="flex-grow">{score}</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

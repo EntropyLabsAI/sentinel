@@ -39,7 +39,7 @@ export default function ExplainButton({ text, onExplanation, onScore }: ExplainB
     <Button
       size="icon"
       onClick={handleExplain}
-      className="ml-2 bg-gray-700 hover:bg-gray-600 outline-none"
+      className="ml-2"
     >
       {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <HelpCircle className="h-4 w-4" />}
     </Button>

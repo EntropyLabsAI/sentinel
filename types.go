@@ -10,10 +10,11 @@ const (
 
 // ReviewRequest represents the review data structure
 type ReviewRequest struct {
-	RequestID  string     `json:"request_id"`
-	AgentID    string     `json:"agent_id"`
-	TaskState  TaskState  `json:"task_state"`
-	ToolChoice ToolChoice `json:"tool_choice"`
+	RequestID    string       `json:"request_id"`
+	AgentID      string       `json:"agent_id"`
+	TaskState    TaskState    `json:"task_state"`
+	ToolChoices  []ToolChoice `json:"tool_choices"`
+	LastMessages []Message    `json:"last_messages"`
 }
 
 // ReviewerResponse represents the response from the reviewer

@@ -2,6 +2,13 @@ export interface ReviewRequest {
   agent_id: string;
   request_id: string;
   task_state: TaskState;
+  tool_choices: ToolChoice[];
+  last_messages: Message[];
+}
+
+export interface ReviewResponse {
+  id: string;
+  decision: string;
   tool_choice: ToolChoice;
 }
 

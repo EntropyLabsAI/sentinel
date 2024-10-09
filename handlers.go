@@ -49,6 +49,10 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fmt.Printf("Received new review request ID %s via API.\n", request.RequestID)
+	fmt.Printf("Request tool choice: %+v\n", request.ToolChoices)
+	fmt.Printf("Request tool message: %+v\n", request.LastMessages)
+
 	// Generate a unique ID for the review request
 	request.RequestID = uuid.New().String()
 

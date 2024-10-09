@@ -7,40 +7,52 @@ import ToolChoiceDisplay from "./tool_call"
 import React, { useState, useEffect, useRef } from "react"
 import { Button } from "./ui/button"
 import CopyButton from "./copy_button"
+import { MessagesDisplay } from "./messages"
 
 interface ReviewRequestProps {
   reviewRequest: ReviewRequest;
-  sendResponse: (decision: string, updatedReviewRequest: ReviewRequest) => void;
+  sendResponse: (decision: string, toolChoice: ToolChoice) => void;
 }
 
 export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: ReviewRequestProps) {
   const [updatedReviewRequest, setUpdatedReviewRequest] = useState(reviewRequest);
+  const [selectedToolIndex, setSelectedToolIndex] = useState(0); // Added state for selected tool
 
-  // Add this useEffect to update the state when the prop changes
   useEffect(() => {
     setUpdatedReviewRequest(reviewRequest);
+    setSelectedToolIndex(0); // Initialize the first tool as selected
   }, [reviewRequest]);
 
-  function handleToolChoiceChange(updatedToolChoice: ToolChoice) {
-    const r = {
+  function handleToolChoiceChange(updatedToolChoice: ToolChoice, index: number) {
+    const updatedToolChoices = [...(updatedReviewRequest.tool_choices || [])];
+    updatedToolChoices[index] = updatedToolChoice;
+
+    const updatedReview = {
       ...updatedReviewRequest,
-      tool_choice: updatedToolChoice
+      tool_choices: updatedToolChoices,
     };
 
-    setUpdatedReviewRequest(r);
+    setUpdatedReviewRequest(updatedReview);
+  }
+
+  function handleSendResponse(decision: string) {
+    const selectedToolChoice = updatedReviewRequest.tool_choices[selectedToolIndex];
+    sendResponse(decision, selectedToolChoice);
   }
 
   return (
     <div className="w-full max-w-full mx-auto flex flex-col space-y-4">
-      {/* Button/Tool column (always on top) */}
+      {/* Action Buttons */}
       <div className="w-full flex-shrink-0">
-        <h2 className="text-2xl mb-4">Agent #<code>{updatedReviewRequest.agent_id.slice(0, 8)}</code> is requesting approval</h2>
+        <h2 className="text-2xl mb-4">
+          Agent #<code>{updatedReviewRequest.agent_id.slice(0, 8)}</code> is requesting approval
+        </h2>
         <div className="my-4 flex flex-wrap gap-2">
           <Button
             variant="default"
             size="sm"
             className="flex-1 bg-green-500 hover:bg-green-600 text-white"
-            onClick={() => sendResponse('approve', updatedReviewRequest)}
+            onClick={() => handleSendResponse('approve')}
           >
             <Check className="mr-2 h-4 w-4" /> Approve
           </Button>
@@ -48,7 +60,7 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
             variant="default"
             size="sm"
             className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white"
-            onClick={() => sendResponse('reject', updatedReviewRequest)}
+            onClick={() => handleSendResponse('reject')}
           >
             <X className="mr-2 h-4 w-4" /> Reject
           </Button>
@@ -56,15 +68,30 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
             variant="default"
             size="sm"
             className="flex-1 bg-red-500 hover:bg-red-600 text-white"
-            onClick={() => sendResponse('terminate', updatedReviewRequest)}
+            onClick={() => handleSendResponse('terminate')}
           >
             <SkullIcon className="mr-2 h-4 w-4" /> Kill Agent
           </Button>
         </div>
-        {updatedReviewRequest.tool_choice && <ToolChoiceDisplay toolChoice={updatedReviewRequest.tool_choice} onToolChoiceChange={handleToolChoiceChange} />}
+
+        {/* Tool Choices */}
+        <div className="space-y-4">
+          {updatedReviewRequest.tool_choices &&
+            updatedReviewRequest.last_messages &&
+            updatedReviewRequest.tool_choices.map((toolChoice, index) => (
+              <ToolChoiceDisplay
+                key={index}
+                toolChoice={toolChoice}
+                lastMessage={updatedReviewRequest.last_messages[index]}
+                onToolChoiceChange={(updatedToolChoice) => handleToolChoiceChange(updatedToolChoice, index)}
+                isSelected={selectedToolIndex === index}
+                onSelect={() => setSelectedToolIndex(index)}
+              />
+            ))}
+        </div>
       </div>
 
-      {/* Context column (always below) */}
+      {/* Context Display */}
       <div className="w-full flex-grow overflow-auto">
         <ContextDisplay context={updatedReviewRequest.task_state} />
         <JsonDisplay reviewRequest={updatedReviewRequest} />
@@ -90,84 +117,6 @@ function ContextDisplay({ context }: { context: TaskState }) {
         )}
       </div> */}
     </div>
-  )
-}
-
-function MessagesDisplay({ messages }: { messages: Message[] }) {
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  useEffect(() => {
-    setIsLoaded(true);
-  }, []);
-
-  useEffect(() => {
-    if (isLoaded && scrollAreaRef.current) {
-      setTimeout(() => {
-        if (scrollAreaRef.current) {
-          scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
-        }
-      }, 100);
-    }
-  }, [messages, isLoaded]);
-
-  const getBubbleStyle = (role: string) => {
-    const baseStyle = "rounded-2xl p-3 mb-2 break-words";
-    switch (role.toLowerCase()) {
-      case 'assistant':
-        return `${baseStyle} bg-blue-500 text-white`;
-      case 'user':
-        return `${baseStyle} bg-gray-200 text-gray-800`;
-      case 'system':
-        return `${baseStyle} bg-gray-300 text-gray-800 italic`;
-      default:
-        return `${baseStyle} bg-gray-400 text-white`;
-    }
-  };
-
-  const formatContent = (content: string) => {
-    // Split the content by newlines and wrap each line in a <p> tag
-    return content.split('\n').map((line, index) => (
-      <p key={index} className="whitespace-pre-wrap">{line}</p>
-    ));
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center">
-          <MessageSquare className="mr-2" />
-          Messages
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="h-[500px] overflow-auto" ref={scrollAreaRef}>
-          {messages.map((message, index) => (
-            <div key={index} className={`flex flex-col ${message.role.toLowerCase() === 'user' ? 'items-end' : 'items-start'} mb-4 last:mb-0`}>
-              <div className={getBubbleStyle(message.role)}>
-                <p className="text-sm font-semibold mb-1">{message.role}</p>
-                <div className="text-sm">{formatContent(message.content)}</div>
-                {message.source && (
-                  <p className="text-xs opacity-70 mt-1">Source: {message.source}</p>
-                )}
-                {message.tool_calls && (
-                  <div className="mt-2">
-                    <p className="text-xs font-semibold">Tool Calls:</p>
-                    <code>
-                      {message.tool_calls.map((toolCall, idx) => (
-                        <div key={idx} className="ml-2 text-xs">
-                          <span className="font-semibold">{toolCall.function}:</span> {JSON.stringify(toolCall.arguments)}
-                        </div>
-                      ))}
-                    </code>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
   )
 }
 
