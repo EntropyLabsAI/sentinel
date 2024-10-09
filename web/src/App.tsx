@@ -193,7 +193,7 @@ const ApprovalsInterface: React.FC = () => {
                           }`}
                         onClick={() => selectReviewRequest(req.request_id)}
                       >
-                        <div className="font-semibold">Agent #{req.agent_id.slice(0, 8)}</div>
+                        <div className="font-semibold">Agent #{req.agent_id}</div>
                         <div className="text-sm">Request ID: {req.request_id.slice(0, 8)}</div>
                         {req.tool_choices && (
                           <div className="text-xs italic mt-1">Tool: {req.tool_choices[0].function}</div>

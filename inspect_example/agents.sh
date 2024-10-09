@@ -4,16 +4,19 @@
 SESSION_NAME="my_session"
 
 # Randomly set APPROVAL_YAML to approval_n.yaml or approval.yaml with 50% probability
-if (( RANDOM % 2 )); then
+if [ "$(shuf -i 1-2 -n 1)" -eq 1 ]; then
     APPROVAL_YAML="approval.yaml"
 else
-    APPROVAL_YAML="approval_n.yaml"
+    APPROVAL_YAML="approval_4.yaml"
 fi
+
+# Print the selected file for debugging
+echo "Selected approval file: $APPROVAL_YAML"
 
 # Read tasks into an array
 
 # Number of tasks
-PANE_COUNT=4
+PANE_COUNT=10
 
 # Start a new tmux session in detached mode
 tmux new-session -d -s $SESSION_NAME
