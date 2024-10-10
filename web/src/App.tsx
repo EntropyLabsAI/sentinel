@@ -4,6 +4,7 @@ import ReviewRequestDisplay from './components/review_request';
 import HubStats from './components/hub_stats';
 import { HubStats as HubStatsType } from './review';
 import { UserIcon, BrainCircuitIcon, MessageSquareIcon, SlackIcon } from 'lucide-react';
+import { fromTheme } from 'tailwind-merge';
 
 // ApproverNames is a list of names of the approvers
 const ApproverNames = [
@@ -77,7 +78,6 @@ const ApprovalsInterface: React.FC = () => {
     setSocket(ws);
 
     ws.onmessage = (event) => {
-      console.log("Received message:", event.data);
       const data: ReviewRequest = JSON.parse(event.data);
 
       // Use functional update to ensure we have the latest state
@@ -99,11 +99,13 @@ const ApprovalsInterface: React.FC = () => {
 
     return () => {
       ws.close();
+      // Wipe the review data list. The reviews will be reloaded from the server when the connection is re-established
+      setReviewDataList([]);
     };
   }, []);
 
   // Start a timer to fetch the hub stats every second
-  // TODO: this is a bit of a hack, but it works for now
+  // TODO: this is a hack, but it works for now
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -123,8 +125,20 @@ const ApprovalsInterface: React.FC = () => {
     };
   }, []);
 
-  // Send a response to the Approvals API
+  // toolChoiceModified is a helper function to check if the tool choice has been modified
+  const toolChoiceModified = (allToolChoices: ToolChoice[], toolChoice: ToolChoice) => {
+    const originalToolChoice = allToolChoices.find(t => t.id === toolChoice.id);
+    const modified = originalToolChoice && originalToolChoice.arguments !== toolChoice.arguments;
+    return modified;
+  };
+
+  // Send a response to the Approvals API with the decision and the tool choice
   const sendResponse = (decision: string, requestId: string, toolChoice: ToolChoice) => {
+    // Check if the tool args of the tool the user chose is not the same was it was originally
+    if (selectedReviewRequest && toolChoiceModified(selectedReviewRequest.tool_choices, toolChoice)) {
+      decision = "modify";
+    }
+
     if (socket && socket.readyState === WebSocket.OPEN) {
       const response: ReviewResponse = {
         id: requestId,
