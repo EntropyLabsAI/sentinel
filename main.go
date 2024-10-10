@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 )
 
 func main() {
@@ -10,7 +12,6 @@ func main() {
 	hub := NewHub()
 	go hub.Run()
 
-	// Set up HTTP routes
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		serveWs(hub, w, r)
 	})
@@ -32,9 +33,14 @@ func main() {
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
 	// Start the server
-	log.Println("Server started on :8080")
-	err := http.ListenAndServe(":8080", nil)
+	port := os.Getenv("APPROVAL_WEBSERVER_PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Printf("Server started on APPROVAL_WEBSERVER_PORT=%s", port)
+	err := http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
+		log.Fatal("error listening and serving: ", err)
 	}
 }

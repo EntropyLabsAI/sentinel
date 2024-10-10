@@ -13,8 +13,5 @@ RUN go mod download
 # Copy the source code
 COPY . .
 
-# Expose port 8080
-EXPOSE 8080
-
-# Command to run the application
-CMD ["go", "run", "main.go", "handlers.go", "websockets.go"]
+# Expose port $APPROVAL_WEBSERVER_PORT
+EXPOSE $APPROVAL_WEBSERVER_PORT

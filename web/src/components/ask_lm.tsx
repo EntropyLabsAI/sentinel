@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, HelpCircle, Loader2 } from 'lucide-react';
+import { HelpCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface ExplainButtonProps {
@@ -8,13 +8,17 @@ interface ExplainButtonProps {
   onScore: (score: string) => void;
 }
 
+// @ts-ignore
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://localhost:8080`;
+
+// Ask the language model for an explanation of the agents actions
 export default function ExplainButton({ text, onExplanation, onScore }: ExplainButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleExplain = async () => {
     setIsLoading(true);
     try {
-      const completion = await fetch("http://localhost:8080/api/explain", {
+      const completion = await fetch(`${API_BASE_URL}/api/explain`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

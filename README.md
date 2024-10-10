@@ -21,3 +21,10 @@ curl http://localhost:8080/api/review/status?id=request-123
 
 (replacing `request-123` with the ID of the review you submitted)
 
+### Environment variables
+
+The following environment variables can be set:
+
+- `API_BASE_URL`: The base URL for the Approvals API.
+- `WEBSOCKET_BASE_URL`: The base URL for the Approvals websocket.
+- `OPENAI_API_KEY`: Optional. API key to use for the OpenAI API. This is used for the language model explanations of the agents actions.

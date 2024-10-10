@@ -1,3 +1,14 @@
+export interface HubStats {
+  connected_clients: number;
+  queued_reviews: number;
+  stored_reviews: number;
+  free_clients: number;
+  busy_clients: number;
+  assigned_reviews: { [key: string]: number };
+  review_distribution: { [key: number]: number };
+  completed_reviews: number;
+}
+
 export interface ReviewRequest {
   agent_id: string;
   request_id: string;

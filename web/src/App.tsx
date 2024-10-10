@@ -2,18 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ReviewRequest, ReviewResponse, ToolChoice } from './review';
 import ReviewRequestDisplay from './components/review_request';
 import HubStats from './components/hub_stats';
+import { HubStats as HubStatsType } from './review';
 import { UserIcon, BrainCircuitIcon, MessageSquareIcon, SlackIcon } from 'lucide-react';
-
-interface HubStats {
-  connected_clients: number;
-  queued_reviews: number;
-  stored_reviews: number;
-  free_clients: number;
-  busy_clients: number;
-  assigned_reviews: { [key: string]: number };
-  review_distribution: { [key: number]: number };
-  completed_reviews: number;
-}
 
 // ApproverNames is a list of names of the approvers
 const ApproverNames = [
@@ -29,6 +19,13 @@ const ApproverIcons = {
   ApproverByDebate: MessageSquareIcon,
   SlackApprover: SlackIcon,
 };
+
+// The API base URL is set via an environment variable in the docker-compose.yml file
+// @ts-ignore
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://localhost:8080`;
+// The websocket base URL is set via an environment variable in the docker-compose.yml file
+// @ts-ignore
+const WEBSOCKET_BASE_URL = import.meta.env.VITE_WEBSOCKET_BASE_URL || `ws://localhost:8080/ws`;
 
 const ApproverSelection: React.FC<{ onSelect: (approver: string) => void }> = ({ onSelect }) => {
   return (
@@ -71,12 +68,12 @@ const ApprovalsInterface: React.FC = () => {
   const [reviewDataList, setReviewDataList] = useState<ReviewRequest[]>([]);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [socket, setSocket] = useState<WebSocket | null>(null);
-  const [hubStats, setHubStats] = useState<HubStats | null>(null);
+  const [hubStats, setHubStats] = useState<HubStatsType | null>(null);
   const [selectedApprover, setSelectedApprover] = useState<string | null>(null);
 
+  // Initialize WebSocket connection
   useEffect(() => {
-    // Initialize WebSocket connection
-    const ws = new WebSocket(`ws://localhost:8080/ws`);
+    const ws = new WebSocket(WEBSOCKET_BASE_URL);
     setSocket(ws);
 
     ws.onmessage = (event) => {
@@ -105,18 +102,19 @@ const ApprovalsInterface: React.FC = () => {
     };
   }, []);
 
+  // Start a timer to fetch the hub stats every second
+  // TODO: this is a bit of a hack, but it works for now
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await fetch('http://localhost:8080/api/stats');
-        const data: HubStats = await response.json();
+        const response = await fetch(`${API_BASE_URL}/api/stats`);
+        const data: HubStatsType = await response.json();
         setHubStats(data);
       } catch (error) {
         console.error('Error fetching hub stats:', error);
       }
     };
 
-    // Fetch stats immediately and then every second
     fetchStats();
     const statsInterval = setInterval(fetchStats, 1000);
 
@@ -125,8 +123,8 @@ const ApprovalsInterface: React.FC = () => {
     };
   }, []);
 
+  // Send a response to the Approvals API
   const sendResponse = (decision: string, requestId: string, toolChoice: ToolChoice) => {
-    console.log(`Sending response for request ${requestId}: ${decision}`);
     if (socket && socket.readyState === WebSocket.OPEN) {
       const response: ReviewResponse = {
         id: requestId,
@@ -150,14 +148,17 @@ const ApprovalsInterface: React.FC = () => {
     }
   };
 
+  // When the user selects a review request, set the selected request ID
   const selectReviewRequest = (requestId: string) => {
     setSelectedRequestId(requestId);
   };
 
+  // Find the selected review request
   const selectedReviewRequest = reviewDataList.find(
     (req) => req.request_id === selectedRequestId
   );
 
+  // When the user clicks the title, go home
   const handleGoHome = () => {
     setSelectedApprover(null);
   };

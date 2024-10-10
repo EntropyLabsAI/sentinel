@@ -17,11 +17,14 @@ import (
 )
 
 var completedReviews = &sync.Map{}
+
+// reviewChannels maps a reviews ID to the channel configured to receive the reviewer's response
 var reviewChannels = &sync.Map{}
 
 // Timeout duration for waiting for the reviewer to respond
-const reviewTimeout = 5 * time.Minute
+const reviewTimeout = 1440 * time.Minute
 
+// serveWs upgrades the HTTP connection to a WebSocket connection and registers the client with the hub
 func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -49,16 +52,12 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("Received new review request ID %s via API.\n", request.RequestID)
-	fmt.Printf("Request tool choice: %+v\n", request.ToolChoices)
-	fmt.Printf("Request tool message: %+v\n", request.LastMessages)
-
-	// Generate a unique ID for the review request
 	request.RequestID = uuid.New().String()
 
 	// Add the review request to the queue
 	hub.ReviewChan <- request
-	log.Printf("Received new review request ID %s via API.", request.RequestID)
+
+	log.Printf("received new review request ID %s via API.", request.RequestID)
 
 	// Create a channel for this review request
 	responseChan := make(chan ReviewerResponse)
@@ -71,7 +70,7 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 			// Store the completed review
 			completedReviews.Store(response.ID, response)
 			reviewChannels.Delete(response.ID)
-			log.Printf("Review ID %s completed with decision: %s.", response.ID, response.Decision)
+			log.Printf("review ID %s completed with decision: %s.", response.ID, response.Decision)
 		case <-time.After(reviewTimeout):
 			// Timeout occurred
 			completedReviews.Store(request.RequestID, map[string]string{
@@ -83,9 +82,15 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// Respond immediately with 200 OK
+	// Respond immediately with 200 OK.
+	// The client will receive and ID they can use to poll the status of their review
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(map[string]string{"status": "queued", "id": request.RequestID})
+	err = json.NewEncoder(w).Encode(
+		map[string]string{
+			"status": "queued",
+			"id":     request.RequestID,
+		},
+	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -93,11 +98,13 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 }
 
 // apiReviewStatusHandler checks the status of a review request
+// TODO: this requires that the agent polls the status endpoint until it gets a response
+// in future we can implement webhooks/SSE/long polling/events-based design to make this more efficient
 func apiReviewStatusHandler(w http.ResponseWriter, r *http.Request) {
 	// Extract the review.RequestID from the query parameters
 	reviewID := r.URL.Query().Get("id")
 	if reviewID == "" {
-		http.Error(w, "Missing review.RequestID", http.StatusBadRequest)
+		http.Error(w, "missing review.RequestID", http.StatusBadRequest)
 		return
 	}
 
@@ -113,7 +120,8 @@ func apiReviewStatusHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Check if there's a stored response for this review
 		if response, ok := completedReviews.Load(reviewID); ok {
-			fmt.Printf("Status request for review ID %s: completed\n", reviewID)
+			log.Printf("status request for review ID %s: completed\n", reviewID)
+
 			w.WriteHeader(http.StatusOK)
 			err := json.NewEncoder(w).Encode(response)
 			if err != nil {
@@ -132,8 +140,8 @@ func apiReviewStatusHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// apiExplainHandler receives a code snippet and returns an explanation and a danger score by calling an LLM
 func apiExplainHandler(w http.ResponseWriter, r *http.Request) {
-	// Enable CORS
 	enableCors(&w)
 
 	// Handle preflight request
@@ -211,16 +219,7 @@ func getExplanationFromLLM(text string) (string, string, error) {
 	return summary, score, nil
 }
 
-// Add this new helper function
-// TODO: do this in a more secure way
-func enableCors(w *http.ResponseWriter) {
-	(*w).Header().Set("Access-Control-Allow-Origin", "*")
-	(*w).Header().Set("Access-Control-Allow-Methods", "GET")
-	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-}
-
 func apiHubStatsHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
-	// Enable CORS
 	enableCors(&w)
 
 	// Handle preflight request
@@ -237,4 +236,11 @@ func apiHubStatsHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+// TODO: do this in a more secure way
+func enableCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+	(*w).Header().Set("Access-Control-Allow-Methods", "GET")
+	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 }

@@ -4,12 +4,13 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "${APPROVAL_WEBSERVER_PORT}:${APPROVAL_WEBSERVER_PORT}"
     volumes:
       - .:/app
     command: go run main.go types.go handlers.go websockets.go reviewstore.go
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - APPROVAL_WEBSERVER_PORT=${APPROVAL_WEBSERVER_PORT}
     networks:
       - app-network
 
@@ -25,6 +26,8 @@ services:
     environment:
       - NODE_ENV=development
       - CHOKIDAR_USEPOLLING=true
+      - VITE_API_BASE_URL=${APPROVAL_API_BASE_URL}
+      - VITE_WEBSOCKET_BASE_URL=${APPROVAL_WEBSOCKET_BASE_URL}
     depends_on:
       - app
     networks:
