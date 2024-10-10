@@ -8,9 +8,8 @@ services:
     volumes:
       - .:/app
     command: go run main.go types.go handlers.go websockets.go reviewstore.go
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - APPROVAL_WEBSERVER_PORT=${APPROVAL_WEBSERVER_PORT}
+    env_file:
+      - .env
     networks:
       - app-network
 
@@ -28,6 +27,8 @@ services:
       - CHOKIDAR_USEPOLLING=true
       - VITE_API_BASE_URL=${APPROVAL_API_BASE_URL}
       - VITE_WEBSOCKET_BASE_URL=${APPROVAL_WEBSOCKET_BASE_URL}
+    env_file:
+      - .env
     depends_on:
       - app
     networks:

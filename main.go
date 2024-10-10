@@ -28,11 +28,11 @@ func main() {
 		apiHubStatsHandler(hub, w, r)
 	})
 
-	// Serve wstatic files
+	// Serve static files
 	fs := http.FileServer(http.Dir("./static/"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
-	// Start the server
+	// Start the server, default to port 8080 if APPROVAL_WEBSERVER_PORT is not set
 	port := os.Getenv("APPROVAL_WEBSERVER_PORT")
 	if port == "" {
 		port = "8080"

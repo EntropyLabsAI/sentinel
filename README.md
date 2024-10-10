@@ -26,10 +26,10 @@ curl http://localhost:1255/api/review/status?id=request-123
 
 The following environment variables can be set in the `.env` file:
 
-- `API_BASE_URL`: The base URL for the Approvals API.
-- `WEBSOCKET_BASE_URL`: The base URL for the Approvals websocket.
+- `APPROVAL_API_BASE_URL`: The base URL for the Approvals API.
+- `APPROVAL_WEBSOCKET_BASE_URL`: The base URL for the Approvals websocket.
+- `APPROVAL_WEBSERVER_PORT`: The port for the Approvals webserver.
 - `OPENAI_API_KEY`: Optional. API key to use for the OpenAI API. This is used for the language model explanations of the agents actions.
-
 
 ## Runing Inspect AI eval example
 
