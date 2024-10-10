@@ -1,5 +1,3 @@
-<<<<<<< HEAD:inspect_example/README.md
-=======
 # How to run this before the inspect branch is merged
 
 Currently, the functionality is in a separate branch. Follow these steps:
@@ -24,4 +22,3 @@ Currently, the functionality is in a separate branch. Follow these steps:
    cd inspect_example
    inspect eval approval.py --approval approval_1.yaml --model openai/gpt-4o-mini
    ```
->>>>>>> 2707e48 (move examples to /examples):examples/inspect_example/README.md

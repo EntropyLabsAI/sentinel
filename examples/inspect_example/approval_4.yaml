@@ -3,3 +3,4 @@ approvers:
     tools: "*"
     approval_api_endpoint: "http://localhost:1255"
     agent_id: "sample_1_agent"
+    n: 1
