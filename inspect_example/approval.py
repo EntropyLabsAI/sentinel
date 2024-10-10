@@ -1,9 +1,8 @@
 import ast
 import shlex
 import requests
-import time
 from pathlib import Path
-from typing import Set, Optional, Any, cast, Dict
+from typing import Set, List, Dict, Optional
 from inspect_ai import Task, eval, task
 from inspect_ai.approval import Approval, Approver, approver
 from inspect_ai.dataset import Sample
@@ -11,20 +10,30 @@ from inspect_ai.solver import TaskState, generate, system_message, use_tools
 from inspect_ai.tool import ToolCall, ToolCallView, bash, python
 import asyncio
 from inspect_ai.solver._task_state import state_jsonable
-from inspect_ai.model import ModelOutput
+from inspect_ai.model import get_model, Model
 from inspect_ai.solver import TaskState
-from inspect_ai.model import (
-    get_model,
-    ChatMessageAssistant
-)
-from typing import List
-from pydantic_core import to_jsonable_python
-from typing import Any
 from copy import deepcopy
 import random
+from utils import generate_tool_call_change_explanation, tool_jsonable, chat_message_jsonable
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+DEFAULT_TIMEOUT = 300
+DEFAULT_SUGGESTIONS = 5
+SLEEP_TIME = 2
 
 @task
 def approval_demo() -> Task:
+    """
+    Creates a demonstration task for approval processes.
+
+    This function generates a Task object with a randomly selected sample input
+    from a predefined list of complex programming tasks. The task is designed to
+    showcase the capabilities of an AI agent in understanding and executing
+    multi-step programming tasks.
+    """
     
     example_samples = [
             Sample(
@@ -69,9 +78,9 @@ def approval_demo() -> Task:
 
 @approver
 def bash_allowlist(
-    allowed_commands: list[str],
+    allowed_commands: List[str],
     allow_sudo: bool = False,
-    command_specific_rules: dict[str, list[str]] | None = None,
+    command_specific_rules: Optional[Dict[str, List[str]]] = None,
 ) -> Approver:
     """
     Create an approver that checks if a bash command is in an allowed list.
@@ -92,10 +101,9 @@ def bash_allowlist(
         message: str,
         call: ToolCall,
         view: ToolCallView,
-        state: TaskState | None = None,
+        state: Optional[TaskState] = None,
     ) -> Approval:
-        # evaluate the first argument no matter its name (for compatiblity
-        # with a broader range of bash command executing tools)
+
         command = str(next(iter(call.arguments.values()))).strip()
         if not command:
             return Approval(decision="reject", explanation="Empty command")
@@ -148,20 +156,20 @@ def bash_allowlist(
 
 @approver
 def python_allowlist(
-    allowed_modules: list[str],
-    allowed_functions: list[str],
-    disallowed_builtins: Set[str] | None = None,
-    sensitive_modules: Set[str] | None = None,
+    allowed_modules: List[str],
+    allowed_functions: List[str],
+    disallowed_builtins: Optional[Set[str]] = None,
+    sensitive_modules: Optional[Set[str]] = None,
     allow_system_state_modification: bool = False,
 ) -> Approver:
     """
     Create an approver that checks if Python code uses only allowed modules and functions, and applies additional safety checks.
 
     Args:
-        allowed_modules (list[str]): List of allowed Python modules.
-        allowed_functions (list[str]): List of allowed built-in functions.
-        disallowed_builtins (Set[str] | None): Set of disallowed built-in functions.
-        sensitive_modules (Set[str] | None): Set of sensitive modules to be blocked.
+        allowed_modules (List[str]): List of allowed Python modules.
+        allowed_functions (List[str]): List of allowed built-in functions.
+        disallowed_builtins (Optional[Set[str]]): Set of disallowed built-in functions.
+        sensitive_modules (Optional[Set[str]]): Set of sensitive modules to be blocked.
         allow_system_state_modification (bool): Whether to allow modification of system state.
 
     Returns:
@@ -189,10 +197,9 @@ def python_allowlist(
         message: str,
         call: ToolCall,
         view: ToolCallView,
-        state: TaskState | None = None,
+        state: Optional[TaskState] = None,
     ) -> Approval:
-        # evaluate the first argument no matter its name (for compatiblity
-        # with a broader range of python code executing tools)
+
         code = str(next(iter(call.arguments.values()))).strip()
         if not code:
             return Approval(decision="reject", explanation="Empty code")
@@ -257,153 +264,14 @@ def python_allowlist(
     return approve
 
 
-def tool_jsonable(tool_call: ToolCall | None = None) -> dict[str, Any] | None:
-    if tool_call is None:
-        return None
-
-    return {
-        "id": tool_call.id,
-        "function": tool_call.function,
-        "arguments": tool_call.arguments,
-        "type": tool_call.type,
-    }
-
-def assistant_message_jsonable(message: ChatMessageAssistant) -> dict[str, Any]:
-    def as_jsonable(value: Any) -> Any:
-        return to_jsonable_python(value, exclude_none=True, fallback=lambda _x: None)
-
-    message_data = {
-        "role": message.role,
-        "content": message.content,
-        "source": message.source,
-        "tool_calls": message.tool_calls
-    }
-
-    jsonable = as_jsonable(message_data)
-    return deepcopy(jsonable)
-
-
 @approver
-def human_api(approval_api_endpoint: str, agent_id: str, timeout: int = 300) -> Approver:
-    """
-    Create an approver that calls an external API to approve the tool call.
-
-    Args:
-        approval_api_endpoint (str): The URL of the remote approval API.
-        agent_id (str): The ID of the agent making the request.
-        timeout (int): The maximum time to wait for a response, in seconds. Defaults to 300 seconds (5 minutes).
-
-    Returns:
-        Approver: A function that sends approval requests to a remote API for human decision.
-    """
-    async def approve(
-        message: str,
-        call: ToolCall,
-        view: ToolCallView,
-        state: TaskState | None = None,
-    ) -> Approval:
-        print(f"Sending tool call request to user: {call.function} {call.arguments}")
-
-        # Serialize the state and tool call to JSON-compatible format
-        
-        state_json = state_jsonable(state)
-        state_json['tool_choice'] = None #TODO: Fix this
-        tool_json = tool_jsonable(call)
-
-       # Create a list with a single tool choice
-        tool_choices = [tool_json]
-
-        # Create a list with a single last message
-        last_message = assistant_message_jsonable(state.messages[-1]) if state and state.messages else None
-        last_messages = [last_message] if last_message else []
-
-        payload = {
-            "agent_id": agent_id,
-            "task_state": state_json,
-            "tool_choices": tool_choices,
-            "last_messages": last_messages,
-        }
-
-        try:
-            response = requests.post(f'{approval_api_endpoint}/api/review', json=payload)
-            response.raise_for_status()
-            
-            review_id = response.json().get("id")
-            if not review_id:
-                return Approval(
-                    decision="escalate",
-                    explanation="Failed to get review ID from initial response",
-                )
-            
-            # Poll the status endpoint until we get a response
-            sleep_time = 2
-            max_attempts = timeout // sleep_time
-            print(f"Waiting for human approval for review {review_id}")
-            for _ in range(int(max_attempts)):
-                try:
-                    status_response = requests.get(f"{approval_api_endpoint}/api/review/status?id={review_id}")
-                    status_response.raise_for_status()
-
-                    status_data = status_response.json()
-                    print(f"Status data: {status_data}")
-                    
-                    if status_data.get("status") == "pending":
-                        await asyncio.sleep(sleep_time)  # Wait before polling again
-                        continue
-
-                    if "decision" in status_data:
-                        decision = status_data["decision"]
-                        explanation = status_data.get("explanation", "Human provided no explanation.")
-
-                        # Check if there's a modified tool call
-                        if "modified_tool_call" in status_data:
-                            modified_tool_call_data = status_data["modified_tool_call"]
-                            try:
-                                modified_tool_call = ToolCall(**modified_tool_call_data)
-                                return Approval(
-                                    decision=decision,
-                                    explanation=explanation,
-                                    modified_tool_call=modified_tool_call,
-                                )
-                            except Exception as e:
-                                return Approval(
-                                    decision="escalate",
-                                    explanation=f"Failed to parse modified tool call: {e}",
-                                )
-                        else:
-                            return Approval(decision=decision, explanation=explanation)
-
-                    return Approval(
-                        decision="escalate",
-                        explanation=f"Unexpected response from status endpoint: {status_data}",
-                    )
-
-                except requests.RequestException as poll_error:
-                    print(f"Error polling status: {poll_error}")
-                    await asyncio.sleep(sleep_time)  # Wait before retrying
-                    continue
-
-            return Approval(
-                decision="escalate",
-                explanation="Timed out waiting for human approval",
-            )
-
-        except requests.RequestException as e:
-            return Approval(decision="escalate", explanation=f"Error communicating with remote approver: {str(e)}")
-
-    return approve
-
-
-
-@approver
-def human_api_sample_n(approval_api_endpoint: str, agent_id: str, n: int = 5, timeout: int = 300) -> Approver:
+def human_api(approval_api_endpoint: str, agent_id: str, n: int = DEFAULT_SUGGESTIONS, timeout: int = DEFAULT_TIMEOUT) -> Approver:
     """
     Create an approver that generates N tool call suggestions and sends them to an external API for human selection.
 
     Args:
         approval_api_endpoint (str): The URL of the remote approval API.
         agent_id (str): The ID of the agent making the request.
-        model (Model): The model to use for generating tool call suggestions.
         n (int): The number of tool call suggestions to generate. Defaults to 5.
         timeout (int): The maximum time to wait for a response, in seconds. Defaults to 300 seconds (5 minutes).
 
@@ -414,36 +282,30 @@ def human_api_sample_n(approval_api_endpoint: str, agent_id: str, n: int = 5, ti
         message: str,
         call: ToolCall,
         view: ToolCallView,
-        state: TaskState | None = None,
+        state: Optional[TaskState] = None,
     ) -> Approval:
         if state is None:
             return Approval(decision="escalate", explanation="TaskState is required for this approver.")
 
-        print(f"Generating {n} tool call suggestions for user review")
+        logging.info(f"Generating {n} tool call suggestions for user review")
 
-        model = get_model()
-        # model = state.model
+        model: Model = get_model()
 
         # Generate N tool call suggestions        
         message_without_last_message = deepcopy(state.messages)
         last_messages = [message_without_last_message[-1]]
-        tool_options = [tool_jsonable(state.messages[-1].tool_calls[0])] if state.messages[-1].tool_calls[0] else [None]
+        tool_options = [tool_jsonable(state.messages[-1].tool_calls[0])] if hasattr(state.messages[-1], 'tool_calls') and state.messages[-1].tool_calls else [None]
         message_without_last_message.pop()
         copied_state = deepcopy(state)
         copied_state.messages = message_without_last_message
         
         for _ in range(n-1):
-            model = get_model()
             output = await model.generate(message_without_last_message, tools=state.tools)
             last_messages.append(output.message)
-            # output = await model.generate(state.messages, state.tools, state.tool_choice, state.config)
             tool_options.append(tool_jsonable(output.message.tool_calls[0]) if output.message.tool_calls else None)
 
         # Prepare the payload with multiple tool suggestions
-        # tool_options = [tool_jsonable(suggestion.tool_calls[0]) if suggestion.tool_calls else None for suggestion in tool_suggestions]
-        last_messages_json = [assistant_message_jsonable(message) for message in last_messages]
-        # in case tool calls are None, remove the corresponding last_message
-        last_messages_json = [message for message in last_messages_json if message is not None]
+        last_messages_json = [chat_message_jsonable(message) for message in last_messages if message is not None]
         
         state_json = state_jsonable(copied_state)
         state_json['tool_choice'] = None  # TODO: Fix this
@@ -467,35 +329,35 @@ def human_api_sample_n(approval_api_endpoint: str, agent_id: str, n: int = 5, ti
                 )
             
             # Poll the status endpoint until we get a response
-            sleep_time = 2
-            max_attempts = timeout // sleep_time
-            print(f"Waiting for human approval for review {review_id}")
+            max_attempts = timeout // SLEEP_TIME
+            logging.info(f"Waiting for human approval for review {review_id}")
             for _ in range(int(max_attempts)):
                 try:
                     status_response = requests.get(f"{approval_api_endpoint}/api/review/status?id={review_id}")
                     status_response.raise_for_status()
 
                     status_data = status_response.json()
-                    print(f"Status data: {status_data}")
+                    logging.debug(f"Status data: {status_data}")
                     
                     if status_data.get("status") == "pending":
-                        await asyncio.sleep(sleep_time)  # Wait before polling again
+                        await asyncio.sleep(SLEEP_TIME)  # Wait before polling again
                         continue
 
                     if "decision" in status_data:
                         decision = status_data["decision"]
-                        explanation = status_data.get("explanation", "Human provided no explanation.")
+                        explanation = status_data.get("explanation", "Human provided no additional explanation.")
                         selected_index = status_data.get("selected_index")
-                        print(f"Selected index: {selected_index}")
-                        if selected_index is not None and 0 <= selected_index < len(tool_options):
-                            selected_tool_call = ToolCall(**tool_options[selected_index])
-                            return Approval(
-                                decision=decision,
-                                explanation=explanation,
-                                modified_tool_call=selected_tool_call,
-                            )
+                        logging.info(f"Selected index: {selected_index}")
+                        
+                        if decision == "modify":
+                            modified_tool_call_data = status_data["tool_choice"]
+                            explanation = generate_tool_call_change_explanation(call, modified_tool_call_data)
+                            modified_tool_call = ToolCall(**modified_tool_call_data)
+                        elif selected_index is not None and 0 <= selected_index < len(tool_options):
+                            modified_tool_call = ToolCall(**tool_options[selected_index])
                         else:
-                            return Approval(decision=decision, explanation=explanation)
+                            modified_tool_call = None
+                        return Approval(decision=decision, explanation=explanation, modified=modified_tool_call)
 
                     return Approval(
                         decision="escalate",
@@ -503,8 +365,8 @@ def human_api_sample_n(approval_api_endpoint: str, agent_id: str, n: int = 5, ti
                     )
 
                 except requests.RequestException as poll_error:
-                    print(f"Error polling status: {poll_error}")
-                    await asyncio.sleep(sleep_time)  # Wait before retrying
+                    logging.error(f"Error polling status: {poll_error}")
+                    await asyncio.sleep(SLEEP_TIME)  # Wait before retrying
                     continue
 
             return Approval(
@@ -513,11 +375,11 @@ def human_api_sample_n(approval_api_endpoint: str, agent_id: str, n: int = 5, ti
             )
 
         except requests.RequestException as e:
+            logging.error(f"Error communicating with remote approver: {str(e)}")
             return Approval(decision="escalate", explanation=f"Error communicating with remote approver: {str(e)}")
 
     return approve
 
 if __name__ == "__main__":
-    approval = (Path(__file__).parent / "approval_2.yaml").as_posix()
-    eval(approval_demo(), approval=approval, trace=True, model="openai/gpt-4o")
-    
+    approval = (Path(__file__).parent / "approval.yaml").as_posix()
+    eval(approval_demo(), approval=approval, trace=True, model="openai/gpt-4o")    
