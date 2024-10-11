@@ -20,7 +20,7 @@ Currently, the functionality is in a separate branch. Follow these steps:
 
    ```
    cd inspect_example
-   inspect eval approval.py --approval approval_1.yaml --model openai/gpt-4o-mini
+   inspect eval run.py --approval approval.yaml --model openai/gpt-4o-mini
    ```
 
 4. Run the agents.sh script to run multiple agents in parallel:
