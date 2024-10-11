@@ -53,7 +53,7 @@ const ApproverSelection: React.FC<{ onSelect: (approver: string) => void }> = ({
   );
 };
 
-const NavBar: React.FC<{ onHome: () => void }> = ({ onHome }) => {
+const NavBar: React.FC<{ onHome: () => void; isSocketConnected: boolean }> = ({ onHome, isSocketConnected }) => {
   return (
     <nav className="bg-gray-800 text-white p-4">
       <div className="container mx-auto flex justify-between items-center">
@@ -63,9 +63,17 @@ const NavBar: React.FC<{ onHome: () => void }> = ({ onHome }) => {
         >
           Approvals Interface
         </h1>
-        <div className="text-sm">
-          <p>API: {API_BASE_URL}</p>
-          <p>WebSocket: {WEBSOCKET_BASE_URL}</p>
+        <div className="text-sm flex items-center space-x-4">
+          <div>
+            <p>API: {API_BASE_URL}</p>
+          </div>
+          <div className="flex items-center">
+            <p>WebSocket: {WEBSOCKET_BASE_URL}</p>
+            <span
+              className={`ml-2 h-3 w-3 rounded-full ${isSocketConnected ? 'bg-green-500' : 'bg-red-500'
+                }`}
+            ></span>
+          </div>
         </div>
       </div>
     </nav>
@@ -78,11 +86,17 @@ const ApprovalsInterface: React.FC = () => {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [hubStats, setHubStats] = useState<HubStatsType | null>(null);
   const [selectedApprover, setSelectedApprover] = useState<string | null>(null);
+  const [isSocketConnected, setIsSocketConnected] = useState<boolean>(false);
 
   // Initialize WebSocket connection
   useEffect(() => {
     const ws = new WebSocket(WEBSOCKET_BASE_URL);
     setSocket(ws);
+
+    ws.onopen = () => {
+      console.log('WebSocket connection opened');
+      setIsSocketConnected(true);
+    };
 
     ws.onmessage = (event) => {
       const data: ReviewRequest = JSON.parse(event.data);
@@ -102,6 +116,12 @@ const ApprovalsInterface: React.FC = () => {
 
     ws.onclose = () => {
       console.log('WebSocket connection closed');
+      setIsSocketConnected(false);
+    };
+
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      setIsSocketConnected(false);
     };
 
     return () => {
@@ -186,7 +206,7 @@ const ApprovalsInterface: React.FC = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <NavBar onHome={handleGoHome} />
+      <NavBar onHome={handleGoHome} isSocketConnected={isSocketConnected} />
 
       <main className="flex-grow">
         {selectedApprover === null ? (
