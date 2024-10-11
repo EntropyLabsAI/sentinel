@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"io"
 
 	"os"
 
@@ -48,14 +47,7 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	var request ReviewRequest
 	// log the JSON body
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	fmt.Printf("body: %s\n", string(body))
-
-	err = json.NewDecoder(r.Body).Decode(&request)
+	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
