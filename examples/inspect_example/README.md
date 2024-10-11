@@ -22,3 +22,11 @@ Currently, the functionality is in a separate branch. Follow these steps:
    cd inspect_example
    inspect eval approval.py --approval approval_1.yaml --model openai/gpt-4o-mini
    ```
+
+4. Run the agents.sh script to run multiple agents in parallel:
+
+   ```
+   ./agents.sh
+   ```
+This script will start a tmux session with 4 panes, each running a different agent.
+You can change the number of agents to run by changing the `PANE_COUNT` variable, and you can change the model by changing the `MODEL` variable. 
