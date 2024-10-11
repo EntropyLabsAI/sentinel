@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
 	"os"
 
 	"github.com/google/uuid"
@@ -46,14 +45,12 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 // apiReviewHandler receives review requests via the HTTP API
 func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	var request ReviewRequest
-	// log the JSON body
+
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	fmt.Printf("request: %+v\n", request)
 
 	request.RequestID = uuid.New().String()
 
