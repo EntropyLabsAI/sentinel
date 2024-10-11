@@ -2,7 +2,7 @@
 This tool allows you to insert a human in the loop into any AI agent, giving you full control over the agent's actions. We provide a simple interface to review and approve or reject actions taken by the agent.
 
 <div align="center">
-<a target="_blank" href="https://www.loom.com/share/c939b9c0da07421b8a3dd665cac26fda"><img width="60%" alt="video thumbnail showing editor" src="./docs/images/video-thumb.png"></a>
+<a target="_blank" href="https://www.loom.com/share/c939b9c0da07421b8a3dd665cac26fda"><img width="60%" alt="video thumbnail showing editor" src="./thumb.png"></a>
 </div>
 
 ## Setting up Approval API
