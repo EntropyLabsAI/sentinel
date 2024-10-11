@@ -1,9 +1,6 @@
 approvers:
   - name: human_api
     tools: "*"
-    approval_api_endpoint: "http://localhost:1255"
-    agent_id: "sample_3"
-    n: 5
-
-
-
+    approval_api_endpoint: "http://localhost:8080"
+    agent_id: "my_sample_1_agent"
+    n: 1

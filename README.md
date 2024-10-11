@@ -1,11 +1,11 @@
-# Agent Approval API
+# Agent Control Plane
 This tool allows you to insert a human in the loop into any AI agent, giving you full control over the agent's actions. We provide a simple interface to review and approve or reject actions taken by the agent.
 
 <div align="center">
 <a target="_blank" href="https://www.loom.com/share/c939b9c0da07421b8a3dd665cac26fda"><img width="60%" alt="video thumbnail showing editor" src="./thumb.png"></a>
 </div>
 
-## Setting up Approval API
+## Getting Started
 
 This repo contains a simple web server written in Go and a React frontend. The frontend connects to the server via a websocket and displays reviews that need to be approved. Reviews are submitted to the server via the `/api/review` endpoint, and their status is polled from the `/api/review/status` endpoint.
 
@@ -33,16 +33,7 @@ curl http://localhost:8080/api/review/status?id=request-123
 
 (replacing `request-123` with the ID of the review you submitted)
 
-#### Environment variables
-
-The following environment variables can be set in the `.env` file:
-
-- `APPROVAL_API_BASE_URL`: The base URL for the Approvals API.
-- `APPROVAL_WEBSOCKET_BASE_URL`: The base URL for the Approvals websocket.
-- `APPROVAL_WEBSERVER_PORT`: The port for the Approvals webserver.
-- `OPENAI_API_KEY`: Optional. API key to use for the OpenAI API. This is used for the language model explanations of the agents actions.
-
-## Runing Inspect AI eval example
+## Running Inspect AI Example
 
 1. Make sure Inspect AI is installed in your python environment:
 
@@ -53,7 +44,7 @@ The following environment variables can be set in the `.env` file:
 2. Change to the example directory:
 
    ```bash
-   cd inspect_example
+   cd examples/inspect_example
    ```
 
 3. Run the example:
