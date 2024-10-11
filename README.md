@@ -7,22 +7,26 @@ This tool allows you to insert a human in the loop into any AI agent, giving you
 
 This repo contains a simple web server written in Go and a React frontend. The frontend connects to the server via a websocket and displays reviews that need to be approved. Reviews are submitted to the server via the `/api/review` endpoint, and their status is polled from the `/api/review/status` endpoint.
 
+From the root of the repo:
+
 1. Start the webserver and frontend with docker compose:
 ```bash
-docker compose up
+cp .env.example .env # Set the environment variables in the .env file
+source .env # Pick up the environment variables
+docker compose up # Start the server and frontend
 ```
 
 2. [Optional] Check the server is running by sending a review to the interface via the `/api/review` endpoint:
 ```bash
-curl -X POST http://localhost:1255/api/review \
+curl -X POST http://localhost:8080/api/review \
      -H "Content-Type: application/json" \
-     -d @example/payload.json
+     -d @examples/curl_example/payload.json
 ```
-3. [Optional] Check the approval api interface at http://localhost:3000 to see the review you just submitted.
+3. [Optional] Check the approvals interface at http://localhost:3000 to see the review you just submitted.
 
 4. [Optional] You can also check the status of the review with the `/api/review/status` endpoint:
 ```bash
-curl http://localhost:1255/api/review/status?id=request-123
+curl http://localhost:8080/api/review/status?id=request-123
 ```
 
 (replacing `request-123` with the ID of the review you submitted)
