@@ -9,7 +9,7 @@ interface ExplainButtonProps {
 }
 
 // @ts-ignore
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://localhost:8080`;
+const API_BASE_URL = import.meta.env.VITE_APPROVAL_API_BASE_URL || `http://localhost:8080`;
 
 // Ask the language model for an explanation of the agents actions
 export default function ExplainButton({ text, onExplanation, onScore }: ExplainButtonProps) {

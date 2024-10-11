@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"io"
 
 	"os"
 
@@ -46,11 +47,21 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 // apiReviewHandler receives review requests via the HTTP API
 func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	var request ReviewRequest
-	err := json.NewDecoder(r.Body).Decode(&request)
+	// log the JSON body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	fmt.Printf("body: %s\n", string(body))
+
+	err = json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	fmt.Printf("request: %+v\n", request)
 
 	request.RequestID = uuid.New().String()
 
@@ -143,6 +154,8 @@ func apiReviewStatusHandler(w http.ResponseWriter, r *http.Request) {
 // apiExplainHandler receives a code snippet and returns an explanation and a danger score by calling an LLM
 func apiExplainHandler(w http.ResponseWriter, r *http.Request) {
 	enableCors(&w)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
 	// Handle preflight request
 	if r.Method == "OPTIONS" {
@@ -160,8 +173,9 @@ func apiExplainHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	explanation, score, err := getExplanationFromLLM(request.Text)
+	explanation, score, err := getExplanationFromLLM(ctx, request.Text)
 	if err != nil {
+		fmt.Printf("error: %v\n", err)
 		http.Error(w, "Failed to get explanation from LLM", http.StatusInternalServerError)
 		return
 	}
@@ -174,7 +188,7 @@ func apiExplainHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getExplanationFromLLM(text string) (string, string, error) {
+func getExplanationFromLLM(ctx context.Context, text string) (string, string, error) {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		return "", "", fmt.Errorf("OPENAI_API_KEY environment variable not set")
@@ -182,7 +196,7 @@ func getExplanationFromLLM(text string) (string, string, error) {
 
 	client := openai.NewClient(apiKey)
 	resp, err := client.CreateChatCompletion(
-		context.Background(),
+		ctx,
 		openai.ChatCompletionRequest{
 			Model: openai.GPT4oMini,
 			Messages: []openai.ChatCompletionMessage{
@@ -197,9 +211,8 @@ func getExplanationFromLLM(text string) (string, string, error) {
 			},
 		},
 	)
-
 	if err != nil {
-		return "", "", fmt.Errorf("error creating chat completion: %v", err)
+		return "", "", fmt.Errorf("error creating LLM chat completion: %v", err)
 	}
 
 	response := resp.Choices[0].Message.Content

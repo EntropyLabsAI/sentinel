@@ -23,12 +23,15 @@ const ApproverIcons = {
 
 // The API base URL is set via an environment variable in the docker-compose.yml file
 // @ts-ignore
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://localhost:8080`;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 // The websocket base URL is set via an environment variable in the docker-compose.yml file
 // @ts-ignore
-const WEBSOCKET_BASE_URL = import.meta.env.VITE_WEBSOCKET_BASE_URL || `ws://localhost:8080/ws`;
+const WEBSOCKET_BASE_URL = import.meta.env.VITE_WEBSOCKET_BASE_URL;
 
 const ApproverSelection: React.FC<{ onSelect: (approver: string) => void }> = ({ onSelect }) => {
+  if (!API_BASE_URL || !WEBSOCKET_BASE_URL) {
+    return <div>No API or WebSocket base URL set: API is: {API_BASE_URL} and WebSocket is: {WEBSOCKET_BASE_URL}</div>;
+  }
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -60,6 +63,10 @@ const NavBar: React.FC<{ onHome: () => void }> = ({ onHome }) => {
         >
           Approvals Interface
         </h1>
+        <div className="text-sm">
+          <p>API: {API_BASE_URL}</p>
+          <p>WebSocket: {WEBSOCKET_BASE_URL}</p>
+        </div>
       </div>
     </nav>
   );

@@ -1,6 +1,11 @@
+# Agent Approval API
+This tool allows you to insert a human in the loop into any AI agent, giving you full control over the agent's actions. We provide a simple interface to review and approve or reject actions taken by the agent.
+
+<div style="position: relative; padding-bottom: 62.5%; height: 0;"><iframe src="https://www.loom.com/embed/c939b9c0da07421b8a3dd665cac26fda?sid=a46f4e80-eac7-4d98-bd3f-4eb4d04210a4" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div>
+
 ## Setting up Approval API
 
-This repo contains a simple web server and a React frontend. The frontend connects to the server via a websocket and displays reviews that need to be approved. Reviews are submitted to the server via the `/api/review` endpoint, and their status is polled from the `/api/review/status` endpoint.
+This repo contains a simple web server written in Go and a React frontend. The frontend connects to the server via a websocket and displays reviews that need to be approved. Reviews are submitted to the server via the `/api/review` endpoint, and their status is polled from the `/api/review/status` endpoint.
 
 1. Start the webserver and frontend with docker compose:
 ```bash

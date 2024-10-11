@@ -2,3 +2,4 @@ examples/inspect_example/.compose.yaml
 examples/inspect_example/__pycache__
 examples/inspect_example/logs
 examples/inspect_example/inspect_ai
+.env
