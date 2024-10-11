@@ -38,7 +38,7 @@ curl http://localhost:8080/api/review/status?id=request-123
 1. Make sure Inspect AI is installed in your python environment:
 
    ```bash
-   pip install inspect_ai
+   pip install git+https://github.com/UKGovernmentBEIS/inspect_ai
    ```
 
 2. Change to the example directory:
@@ -50,7 +50,7 @@ curl http://localhost:8080/api/review/status?id=request-123
 3. Run the example:
 
    ```bash
-   inspect eval approval.py --approval approval.yaml --model openai/gpt-4o --trace
+   inspect eval run.py --approval approval.yaml --model openai/gpt-4o --trace
    ```
 This will run the example and trigger the approvals. The example in approval.py is choosing random tasks to run from the list of tasks (e.g. build a web app, build a mobile app, etc). It then runs the task and triggers the approval configuration. You should see the approvals in the approval api interface at http://localhost:3000.
 
