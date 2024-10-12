@@ -64,41 +64,4 @@ Inspect is an agent evaluation framework that allows you to evaluate and control
    ```
 This will run the example and trigger the approvals. The example in approval.py is choosing random tasks to run from the list of tasks (e.g. build a web app, build a mobile app, etc). It then runs the task and triggers the approval configuration. You should see the approvals in the approval api interface at http://localhost:3000.
 
-## Approval configuation
-The approval configuration is in `approval.yaml`. We follow the Inspect AI format for the approval configuration. More information here: [https://inspect.ai-safety-institute.org.uk/approval.html](https://inspect.ai-safety-institute.org.uk/approval.html)
-
-Make sure the human api approval_api_endpoint is set to the local approval api endpoint.
-
-
-In the `approval.yaml` example we have bash, python and human approval. Bash approval is done by checking if the command is in the allowed list. Python approval is done by checking if the modules and functions used are in the allowed list. If bash or python approval is not passed, the human approval is triggered. You can remove bash or python approval if you want escalate directly to human approval.
-
-## Approval Configuration Details
-
-The `approval.yaml` file contains the following configuration:
-
-### Python Allowlist
-- Allowed modules: requests, json, csv, datetime, re, math, random, time
-- Allowed functions: print, len, range, str, int, float, list, dict, set, tuple, sum, max, min
-- Disallowed builtins: eval, exec, compile, __import__, open, input
-- Sensitive modules: os, sys, subprocess, socket
-- System state modification: Not allowed
-
-### Bash Allowlist
-- Allowed commands: ls, cd, pwd, echo, cat, grep, mkdir, cp, wget, curl, pip
-- Sudo: Not allowed
-- Command-specific rules for pip: install, list, show
-
-### Human API
-- Applies to all tools
-- Approval API endpoint: http://localhost:8080
-- Agent ID: sample_3
-- Number of approvals required: 5
-
-This configuration ensures that only approved Python modules and functions, as well as specific bash commands, can be used without triggering human approval. Any attempts to use disallowed or sensitive operations will require human intervention through the specified API endpoint.
-
-
-
-
-
-
-
+There is more information on the Inspect example [here](examples/inspect_example/README.md).
