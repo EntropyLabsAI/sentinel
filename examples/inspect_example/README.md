@@ -1,31 +1,28 @@
-# How to run this before the inspect branch is merged
+## Running Inspect AI Example
 
-Currently, the functionality is in a separate branch. Follow these steps:
+1. Make sure Inspect AI is installed in your python environment:
 
-1. If inspect is already installed, uninstall it:
-
-   ```
-   pip uninstall inspect_ai
+   ```bash
+   pip install git+https://github.com/UKGovernmentBEIS/inspect_ai
    ```
 
-2. Install the package in editable mode with development dependencies:
+2. Change to the example directory:
 
-   ```
-    git clone https://github.com/UKGovernmentBEIS/inspect_ai.git
- cd inspect_ai
- pip install -e ".[dev]"
+   ```bash
+   cd examples/inspect_example
    ```
 
-3. Run the example, ensuring that the `--approval` flag points to a yaml that in turn points to your Approvals server
+3. Run single agent example:
 
-   ```
-   cd inspect_example
-   inspect eval run.py --approval approval.yaml --model openai/gpt-4o-mini
+   ```bash
+   inspect eval run.py --approval approval.yaml --model openai/gpt-4o --trace
    ```
 
-4. Run the agents.sh script to run multiple agents in parallel:
+This will start a single agent and run it against the approval server.
 
-   ```
+4. Or run multiple agents in parallel:
+
+   ```bash
    ./agents.sh
    ```
 This script will start a tmux session with 4 panes, each running a different agent.
