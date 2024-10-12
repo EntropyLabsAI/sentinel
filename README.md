@@ -46,7 +46,7 @@ Inspect is an agent evaluation framework that allows you to evaluate and control
 1. Make sure Inspect AI is installed in your python environment:
 
    ```bash
-   pip install git+https://github.com/UKGovernmentBEIS/inspect_ai
+   pip install inspect-ai
    ```
 
 2. Change to the example directory:
