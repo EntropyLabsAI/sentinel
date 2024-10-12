@@ -6,7 +6,7 @@ from inspect_ai.solver import generate, system_message, use_tools
 from inspect_ai.tool import bash, python
 import random
 import logging
-import approval
+
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

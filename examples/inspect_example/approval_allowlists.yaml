@@ -1,20 +1,20 @@
 approvers:
-  - name: bash_allowlist
+  - name: el/bash_approver
     tools: "*bash*"
     allowed_commands: ["ls", "cd", "pwd", "echo", "cat", "grep", "mkdir", "cp", "wget", "curl", "pip"]
-    disallowed_commands: ["sudo"]
+    allow_sudo: false
     command_specific_rules:
       pip: ["install", "list", "show"]
 
-  - name: python_allowlist
+  - name: el/python_approver
     tools: "*python*"
     allowed_modules: ["requests", "json", "csv", "datetime", "re", "math", "random", "time"]
     allowed_functions: ["print", "len", "range", "str", "int", "float", "list", "dict", "set", "tuple", "sum", "max", "min"]
     disallowed_builtins: ["eval", "exec", "compile", "__import__", "open", "input"]
     sensitive_modules: ["os", "sys", "subprocess", "socket"]
-    system_state_modification: false
+    allow_system_state_modification: false
 
-  - name: human_api
+  - name: el/human_approver
     tools: "*"
     approval_api_endpoint: "http://localhost:8080"
     agent_id: "testing_agent"
