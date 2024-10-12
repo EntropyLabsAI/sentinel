@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "entropy-labs"
+version = "0.1.0"
+description = "Entropy Labs' Sentinel is an agent control plane that enables efficient oversight of thousands of parallel-running agents."
+authors = [
+    {name = "Entropy Labs", email = "devs@entropy-labs.ai"},
+]
+readme = "README.md"
+requires-python = ">=3.7"
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "inspect-ai==0.3.41",
+    "requests",
+    "openai",
+]
+
+[project.urls]
+Homepage = "https://github.com/EntropyLabsAI/sentinel"
+Repository = "https://github.com/EntropyLabsAI/sentinel.git"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["el", "el.approvers"]
+
+
+[project.entry-points.inspect_ai]
+el = "el.approvers._registry"
