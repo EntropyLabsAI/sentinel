@@ -5,6 +5,8 @@ Sentinel is an agent control plane that allows you to efficiently oversee thousa
 <a target="_blank" href="https://www.loom.com/share/c939b9c0da07421b8a3dd665cac26fda"><img width="60%" alt="video thumbnail showing editor" src="./thumb.png"></a>
 </div>
 
+We're starting with manual reviews for agent actions, but we'll add ways to automatically approve known safe actions in the future.
+
 ## Getting Started
 
 This repo contains a simple web server written in Go and a React frontend. The frontend connects to the server via a websocket and displays reviews that need to be approved. Reviews are submitted to the server via the `/api/review` endpoint, and their status is polled from the `/api/review/status` endpoint.
