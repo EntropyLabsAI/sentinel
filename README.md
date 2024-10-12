@@ -1,5 +1,5 @@
-# Agent Control Plane
-This tool allows you to insert a human in the loop into any AI agent, giving you full control over the agent's actions. We provide a simple interface to review and approve or reject actions taken by the agent.
+# Sentinel 
+Sentinel is an agent control plane that allows you to efficiently oversee thousands of agents running in parallel.
 
 <div align="center">
 <a target="_blank" href="https://www.loom.com/share/c939b9c0da07421b8a3dd665cac26fda"><img width="60%" alt="video thumbnail showing editor" src="./thumb.png"></a>
@@ -18,22 +18,30 @@ source .env          # Pick up the environment variables
 docker compose up    # Start the server and frontend
 ```
 
-2. [Optional] Check the server is running by sending a review to the interface via the `/api/review` endpoint:
+## Examples
+Any agent can be run through Sentinel by sending a review to the `/api/review` endpoint and then checking the status of the review with the `/api/review/status` endpoint. Below we show an example of how to do this using curl, and then an example of how to Sentinel with AISI's Inspect framework.
+
+### [1] Send a review to the interface using curl
+
+1. Send a review to the interface via the `/api/review` endpoint:
+
 ```bash
 curl -X POST http://localhost:8080/api/review \
      -H "Content-Type: application/json" \
      -d @examples/curl_example/payload.json
 ```
-3. [Optional] Check the approvals interface at http://localhost:3000 to see the review you just submitted.
+2. Check the status of the review programmatically with the `/api/review/status` endpoint:
 
-4. [Optional] You can also check the status of the review with the `/api/review/status` endpoint:
 ```bash
 curl http://localhost:8080/api/review/status?id=request-123
 ```
-
 (replacing `request-123` with the ID of the review you submitted)
 
-## Running Inspect AI Example
+3. Navigate to http://localhost:3000 to see the review you submitted and to approve or reject it.
+
+
+### [2] Run the Inspect example
+Inspect is an agent evaluation framework that allows you to evaluate and control agents. We have an example of how to use Inspect with Sentinel [here](examples/inspect_example/README.md).
 
 1. Make sure Inspect AI is installed in your python environment:
 
