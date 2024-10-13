@@ -9,7 +9,7 @@ import asyncio
 from inspect_ai.solver._task_state import state_jsonable
 from inspect_ai.model import get_model, Model
 from copy import deepcopy
-from utils import generate_tool_call_change_explanation, tool_jsonable, chat_message_jsonable
+from ._utils import generate_tool_call_change_explanation, tool_jsonable, chat_message_jsonable
 import logging
 
 DEFAULT_TIMEOUT = 300
@@ -17,7 +17,7 @@ DEFAULT_SUGGESTIONS = 5
 SLEEP_TIME = 2
 
 @approver
-def bash_allowlist(
+def bash_approver(
     allowed_commands: List[str],
     allow_sudo: bool = False,
     command_specific_rules: Optional[Dict[str, List[str]]] = None,
@@ -95,7 +95,7 @@ def bash_allowlist(
 
 
 @approver
-def python_allowlist(
+def python_approver(
     allowed_modules: List[str],
     allowed_functions: List[str],
     disallowed_builtins: Optional[Set[str]] = None,
@@ -205,7 +205,7 @@ def python_allowlist(
 
 
 @approver
-def human_api(approval_api_endpoint: str, agent_id: str, n: int = DEFAULT_SUGGESTIONS, timeout: int = DEFAULT_TIMEOUT) -> Approver:
+def human_approver(approval_api_endpoint: str, agent_id: str, n: int = DEFAULT_SUGGESTIONS, timeout: int = DEFAULT_TIMEOUT) -> Approver:
     """
     Create an approver that generates N tool call suggestions and sends them to an external API for human selection.
 
