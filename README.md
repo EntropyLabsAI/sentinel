@@ -45,10 +45,10 @@ curl http://localhost:8080/api/review/status?id=request-123
 ### [2] Run the Inspect example
 Inspect is an agent evaluation framework that allows you to evaluate and control agents. We have an example of how to use Inspect with Sentinel [here](examples/inspect_example/README.md).
 
-1. Make sure Inspect AI is installed in your python environment:
+1. Make sure Inspect AI and Entropy Labs are installed in your python environment:
 
    ```bash
-   pip install inspect-ai
+   pip install inspect-ai entropy-labs
    ```
 
 2. Change to the example directory:
