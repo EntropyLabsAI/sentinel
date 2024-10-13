@@ -26,7 +26,7 @@ do
     TASK="${TASKS[$i]}"
     # Escape double quotes in the task string
     ESCAPED_TASK=$(printf '%q' "$TASK")
-    tmux send-keys -t $SESSION_NAME.$i "inspect eval approval.py --approval $APPROVAL_YAML --model $MODEL --trace" C-m
+    tmux send-keys -t $SESSION_NAME.$i "inspect eval run.py --approval $APPROVAL_YAML --model $MODEL --trace" C-m
     
     # Print the selected file for debugging
     echo "Pane $i: Selected approval file: $APPROVAL_YAML"
