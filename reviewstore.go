@@ -1,4 +1,4 @@
-package main
+package sentinel
 
 import "sync"
 
@@ -16,7 +16,7 @@ func NewReviewStore() *ReviewStore {
 func (rs *ReviewStore) Add(review ReviewRequest) {
 	rs.Lock()
 	defer rs.Unlock()
-	rs.Reviews[review.RequestID] = review
+	rs.Reviews[*review.RequestId] = review
 }
 
 func (rs *ReviewStore) Get(reviewID string) (ReviewRequest, bool) {

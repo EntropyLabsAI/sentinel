@@ -1,4 +1,4 @@
-package main
+package sentinel
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-func main() {
+func InitAPI() {
 	// Initialize the WebSocket hub
 	hub := NewHub()
 	go hub.Run()

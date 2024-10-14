@@ -1,4 +1,4 @@
-package main
+package sentinel
 
 import (
 	"context"
@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
-	"os"
 
 	"github.com/google/uuid"
 	"github.com/sashabaranov/go-openai"
@@ -52,33 +52,34 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	request.RequestID = uuid.New().String()
+	n := uuid.New().String()
+	request.RequestId = &n
 
 	// Add the review request to the queue
 	hub.ReviewChan <- request
 
-	log.Printf("received new review request ID %s via API.", request.RequestID)
+	log.Printf("received new review request ID %s via API.", request.RequestId)
 
 	// Create a channel for this review request
-	responseChan := make(chan ReviewerResponse)
-	reviewChannels.Store(request.RequestID, responseChan)
+	responseChan := make(chan ReviewResponse)
+	reviewChannels.Store(request.RequestId, responseChan)
 
 	// Start a goroutine to wait for the response
 	go func() {
 		select {
 		case response := <-responseChan:
 			// Store the completed review
-			completedReviews.Store(response.ID, response)
-			reviewChannels.Delete(response.ID)
-			log.Printf("review ID %s completed with decision: %s.", response.ID, response.Decision)
+			completedReviews.Store(response.Id, response)
+			reviewChannels.Delete(response.Id)
+			log.Printf("review ID %s completed with decision: %s.", response.Id, response.Decision)
 		case <-time.After(reviewTimeout):
 			// Timeout occurred
-			completedReviews.Store(request.RequestID, map[string]string{
+			completedReviews.Store(request.RequestId, map[string]string{
 				"status": "timeout",
-				"id":     request.RequestID,
+				"id":     *request.RequestId,
 			})
-			reviewChannels.Delete(request.RequestID)
-			log.Printf("Review ID %s timed out.", request.RequestID)
+			reviewChannels.Delete(request.RequestId)
+			log.Printf("Review ID %s timed out.", request.RequestId)
 		}
 	}()
 
@@ -88,7 +89,7 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(
 		map[string]string{
 			"status": "queued",
-			"id":     request.RequestID,
+			"id":     *request.RequestId,
 		},
 	)
 	if err != nil {
@@ -101,10 +102,10 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 // TODO: this requires that the agent polls the status endpoint until it gets a response
 // in future we can implement webhooks/SSE/long polling/events-based design to make this more efficient
 func apiReviewStatusHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract the review.RequestID from the query parameters
+	// Extract the review.RequestId from the query parameters
 	reviewID := r.URL.Query().Get("id")
 	if reviewID == "" {
-		http.Error(w, "missing review.RequestID", http.StatusBadRequest)
+		http.Error(w, "missing review.RequestId", http.StatusBadRequest)
 		return
 	}
 

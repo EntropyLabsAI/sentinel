@@ -1,0 +1,252 @@
+openapi: 3.0.1
+info:
+  title: Sentinel API
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+
+paths:
+  /api/review:
+    post:
+      summary: Submit a review request
+      operationId: SubmitReview
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewRequest"
+      responses:
+        "200":
+          description: Review queued successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewResponse"
+  /api/review/status:
+    get:
+      summary: Get the status of a review request
+      operationId: GetReviewStatus
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Review status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewStatus"
+        "404":
+          description: Review not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  schemas:
+    ReviewRequest:
+      type: object
+      properties:
+        request_id:
+          type: string
+        agent_id:
+          type: string
+        task_state:
+          $ref: "#/components/schemas/TaskState"
+        tool_choices:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolChoice"
+        last_messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+      required:
+        - agent_id
+        - task_state
+        - tool_choices
+        - last_messages
+    ReviewResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        decision:
+          type: string
+        tool_choice:
+          $ref: "#/components/schemas/ToolChoice"
+      required:
+        - status
+        - id
+    ReviewStatus:
+      type: object
+      properties:
+        id:
+          type: string
+        decision:
+          type: string
+        tool_choice:
+          $ref: "#/components/schemas/ToolChoice"
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    TaskState:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/Tool"
+        tool_choice:
+          $ref: "#/components/schemas/ToolChoice"
+        store:
+          type: object
+          additionalProperties: true
+        output:
+          $ref: "#/components/schemas/Output"
+        completed:
+          type: boolean
+        metadata:
+          type: object
+          additionalProperties: true
+      required:
+        - messages
+        - tools
+        - output
+        - completed
+    Message:
+      type: object
+      properties:
+        content:
+          type: string
+        role:
+          type: string
+        source:
+          type: string
+        tool_calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolCall"
+        tool_call_id:
+          type: string
+        function:
+          type: string
+      required:
+        - content
+        - role
+    Tool:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        attributes:
+          type: object
+          additionalProperties: true
+      required:
+        - name
+    ToolChoice:
+      type: object
+      properties:
+        id:
+          type: string
+        function:
+          type: string
+        arguments:
+          $ref: "#/components/schemas/Arguments"
+        type:
+          type: string
+      required:
+        - id
+        - function
+        - arguments
+        - type
+    Arguments:
+      type: object
+      properties:
+        cmd:
+          type: string
+        code:
+          type: string
+    Output:
+      type: object
+      properties:
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            $ref: "#/components/schemas/Choice"
+        usage:
+          $ref: "#/components/schemas/Usage"
+    Choice:
+      type: object
+      properties:
+        message:
+          $ref: "#/components/schemas/AssistantMessage"
+        stop_reason:
+          type: string
+      required:
+        - message
+    AssistantMessage:
+      type: object
+      properties:
+        content:
+          type: string
+        source:
+          type: string
+        role:
+          type: string
+        tool_calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolCall"
+      required:
+        - content
+        - role
+    ToolCall:
+      type: object
+      properties:
+        id:
+          type: string
+        function:
+          type: string
+        arguments:
+          type: object
+          additionalProperties: true
+        type:
+          type: string
+        parse_error:
+          type: string
+      required:
+        - id
+        - function
+        - arguments
+        - type
+    Usage:
+      type: object
+      properties:
+        input_tokens:
+          type: integer
+        output_tokens:
+          type: integer
+        total_tokens:
+          type: integer
+      required:
+        - input_tokens
+        - output_tokens
+        - total_tokens

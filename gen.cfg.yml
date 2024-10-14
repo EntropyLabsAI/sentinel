@@ -1,0 +1,6 @@
+package: sentinel
+output: gen.go
+generate:
+  models: true
+  std-http-server: true
+  embedded-spec: true

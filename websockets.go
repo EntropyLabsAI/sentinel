@@ -1,4 +1,4 @@
-package main
+package sentinel
 
 import (
 	"container/list"
@@ -64,7 +64,7 @@ func (h *Hub) Run() {
 		case client := <-h.Unregister:
 			h.unregisterClient(client)
 		case review := <-h.ReviewChan:
-			fmt.Printf("Received review from ReviewChan: %v\n", review.RequestID)
+			fmt.Printf("Received review from ReviewChan: %v\n", review.RequestId)
 			h.assignReview(review)
 		}
 	}
@@ -112,7 +112,7 @@ func (h *Hub) assignReview(review ReviewRequest) {
 	if !h.assignReviewToClient(review) {
 		// If no client is available, queue the review
 		h.Queue.PushBack(review)
-		log.Printf("No available clients with capacity. Queued review.RequestID %s.", review.RequestID)
+		log.Printf("No available clients with capacity. Queued review.RequestId %s.", review.RequestId)
 	}
 }
 
@@ -148,8 +148,8 @@ func (h *Hub) assignReviewToClient(review ReviewRequest) bool {
 			client.Send <- review
 
 			h.ReviewStore.Add(review)
-			h.AssignedReviews[client][review.RequestID] = true
-			log.Printf("Assigned review.RequestID %s to client.", review.RequestID)
+			h.AssignedReviews[client][*review.RequestId] = true
+			log.Printf("Assigned review.RequestId %s to client.", review.RequestId)
 			return true // Review assigned
 		}
 	}
@@ -174,7 +174,7 @@ func (h *Hub) requeueAssignedReviews(client *Client) {
 			h.ReviewChan <- review
 			fmt.Printf("Review details for ID %s have been sent to the ReviewChan\n", reviewID)
 
-			log.Printf("Re-queuing review.RequestID %s as client disconnected.", reviewID)
+			log.Printf("Re-queuing review.RequestId %s as client disconnected.", reviewID)
 		}
 	}
 }
@@ -198,7 +198,7 @@ func (c *Client) WritePump() {
 			log.Println("Error sending review to client:", err)
 			break
 		}
-		log.Printf("Sent review.RequestID %s to client.", review.RequestID)
+		log.Printf("Sent review.RequestId %s to client.", review.RequestId)
 	}
 }
 
@@ -216,39 +216,39 @@ func (c *Client) ReadPump() {
 			break
 		}
 
-		var response ReviewerResponse
+		var response ReviewResponse
 		if err := json.Unmarshal(message, &response); err != nil {
 			log.Println("Error unmarshaling reviewer response:", err)
 			continue
 		}
 
 		// Handle the response
-		if chInterface, ok := reviewChannels.Load(response.ID); ok {
-			responseChan, ok := chInterface.(chan ReviewerResponse)
+		if chInterface, ok := reviewChannels.Load(response.Id); ok {
+			responseChan, ok := chInterface.(chan ReviewResponse)
 			if ok {
 				// Send the response non-blocking to prevent potential deadlocks
 				select {
 				case responseChan <- response:
-					log.Printf("ReviewerResponse for ID %s sent to response channel.", response.ID)
+					log.Printf("ReviewerResponse for ID %s sent to response channel.", response.Id)
 				default:
-					log.Printf("Response channel for ID %s is blocked. Skipping.", response.ID)
+					log.Printf("Response channel for ID %s is blocked. Skipping.", response.Id)
 				}
 			} else {
-				log.Printf("Response channel for ID %s has an unexpected type.", response.ID)
+				log.Printf("Response channel for ID %s has an unexpected type.", response.Id)
 			}
 		} else {
-			log.Printf("No response channel found for ID %s.", response.ID)
+			log.Printf("No response channel found for ID %s.", response.Id)
 		}
 
 		// Thread-safe removal of the review ID from assigned reviews
 		c.Hub.AssignedReviewsMutex.Lock()
 		if _, exists := c.Hub.AssignedReviews[c]; exists {
-			delete(c.Hub.AssignedReviews[c], response.ID)
+			delete(c.Hub.AssignedReviews[c], response.Id)
 		}
 		c.Hub.AssignedReviewsMutex.Unlock()
 
 		// Remove the review from the ReviewStore
-		c.Hub.ReviewStore.Delete(response.ID)
+		c.Hub.ReviewStore.Delete(response.Id)
 
 		c.Hub.CompletedReviewCount++
 

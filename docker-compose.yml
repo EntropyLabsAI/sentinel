@@ -7,7 +7,7 @@ services:
       - "${APPROVAL_WEBSERVER_PORT}:${APPROVAL_WEBSERVER_PORT}"
     volumes:
       - .:/app
-    command: go run main.go types.go handlers.go websockets.go reviewstore.go
+    command: go run cmd/main.go
     env_file:
       - .env
     networks:
