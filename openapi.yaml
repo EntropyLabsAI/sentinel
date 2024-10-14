@@ -4,7 +4,7 @@ info:
   version: 1.0.0
 
 servers:
-  - url: http://localhost:8080
+  - url: ${APPROVAL_WEBSERVER_URL}
 
 paths:
   /api/review:
@@ -77,19 +77,19 @@ components:
         id:
           type: string
         decision:
-          type: string
+          $ref: "#/components/schemas/Decision"
         tool_choice:
           $ref: "#/components/schemas/ToolChoice"
       required:
-        - status
         - id
+        - decision
     ReviewStatus:
       type: object
       properties:
         id:
           type: string
         decision:
-          type: string
+          $ref: "#/components/schemas/Decision"
         tool_choice:
           $ref: "#/components/schemas/ToolChoice"
     ErrorResponse:
@@ -250,3 +250,11 @@ components:
         - input_tokens
         - output_tokens
         - total_tokens
+    Decision:
+      type: string
+      enum:
+        - approve
+        - reject
+        - escalate
+        - terminate
+        - modify

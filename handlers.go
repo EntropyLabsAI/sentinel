@@ -241,6 +241,40 @@ func apiHubStatsHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func apiReviewLLMHandler(w http.ResponseWriter, r *http.Request) {
+	// Parse the request body to get the same input as /api/review
+	var reviewRequest ReviewRequest
+	err := json.NewDecoder(r.Body).Decode(&reviewRequest)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Call the LLM to evaluate the tool_choice
+	llmReasoning, decision := callLLMForReview(reviewRequest.ToolChoices[0])
+
+	// TODO add this to response
+	_ = llmReasoning
+
+	// Prepare and send the response
+	response := ReviewResponse{
+		Decision:   decision,
+		ToolChoice: nil,
+		Id:         "",
+	}
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// TODO: Implement the actual LLM call here
+func callLLMForReview(toolChoice ToolChoice) (string, Decision) {
+	return "seems legit", Approve
+}
+
 // TODO: do this in a more secure way
 func enableCors(w *http.ResponseWriter) {
 	(*w).Header().Set("Access-Control-Allow-Origin", "*")

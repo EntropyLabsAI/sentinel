@@ -27,15 +27,14 @@ func InitAPI() {
 	http.HandleFunc("/api/stats", func(w http.ResponseWriter, r *http.Request) {
 		apiHubStatsHandler(hub, w, r)
 	})
-
-	// Serve static files
-	fs := http.FileServer(http.Dir("./static/"))
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
+	http.HandleFunc("/api/review/llm", func(w http.ResponseWriter, r *http.Request) {
+		apiReviewLLMHandler(w, r)
+	})
 
 	// Start the server, default to port 8080 if APPROVAL_WEBSERVER_PORT is not set
 	port := os.Getenv("APPROVAL_WEBSERVER_PORT")
 	if port == "" {
-		port = "8080"
+		log.Fatal("APPROVAL_WEBSERVER_PORT not set, failing out")
 	}
 
 	log.Printf("Server started on APPROVAL_WEBSERVER_PORT=%s", port)
