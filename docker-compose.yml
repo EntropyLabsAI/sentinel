@@ -2,7 +2,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: cmd/Dockerfile
     ports:
       - "${APPROVAL_WEBSERVER_PORT}:${APPROVAL_WEBSERVER_PORT}"
     volumes:
