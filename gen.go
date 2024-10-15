@@ -28,6 +28,14 @@ const (
 	Terminate Decision = "terminate"
 )
 
+// Defines values for Status.
+const (
+	Completed  Status = "completed"
+	Processing Status = "processing"
+	Queued     Status = "queued"
+	Timeout    Status = "timeout"
+)
+
 // Arguments defines model for Arguments.
 type Arguments struct {
 	Cmd  *string `json:"cmd,omitempty"`
@@ -56,6 +64,18 @@ type ErrorResponse struct {
 	Status string `json:"status"`
 }
 
+// HubStats defines model for HubStats.
+type HubStats struct {
+	AssignedReviews    map[string]int `json:"assigned_reviews"`
+	BusyClients        int            `json:"busy_clients"`
+	CompletedReviews   int            `json:"completed_reviews"`
+	ConnectedClients   int            `json:"connected_clients"`
+	FreeClients        int            `json:"free_clients"`
+	QueuedReviews      int            `json:"queued_reviews"`
+	ReviewDistribution map[string]int `json:"review_distribution"`
+	StoredReviews      int            `json:"stored_reviews"`
+}
+
 // Message defines model for Message.
 type Message struct {
 	Content    string      `json:"content"`
@@ -73,28 +93,36 @@ type Output struct {
 	Usage   *Usage    `json:"usage,omitempty"`
 }
 
+// Review defines model for Review.
+type Review struct {
+	Id      string        `json:"id"`
+	Request ReviewRequest `json:"request"`
+}
+
 // ReviewRequest defines model for ReviewRequest.
 type ReviewRequest struct {
 	AgentId      string       `json:"agent_id"`
 	LastMessages []Message    `json:"last_messages"`
-	RequestId    *string      `json:"request_id,omitempty"`
 	TaskState    TaskState    `json:"task_state"`
 	ToolChoices  []ToolChoice `json:"tool_choices"`
 }
 
-// ReviewResponse defines model for ReviewResponse.
-type ReviewResponse struct {
-	Decision   Decision    `json:"decision"`
-	Id         string      `json:"id"`
-	ToolChoice *ToolChoice `json:"tool_choice,omitempty"`
+// ReviewResult defines model for ReviewResult.
+type ReviewResult struct {
+	Decision   Decision   `json:"decision"`
+	Id         string     `json:"id"`
+	Reasoning  string     `json:"reasoning"`
+	ToolChoice ToolChoice `json:"tool_choice"`
 }
 
-// ReviewStatus defines model for ReviewStatus.
-type ReviewStatus struct {
-	Decision   *Decision   `json:"decision,omitempty"`
-	Id         *string     `json:"id,omitempty"`
-	ToolChoice *ToolChoice `json:"tool_choice,omitempty"`
+// ReviewStatusResponse defines model for ReviewStatusResponse.
+type ReviewStatusResponse struct {
+	Id     string `json:"id"`
+	Status Status `json:"status"`
 }
+
+// Status defines model for Status.
+type Status string
 
 // TaskState defines model for TaskState.
 type TaskState struct {
@@ -138,8 +166,18 @@ type Usage struct {
 	TotalTokens  int `json:"total_tokens"`
 }
 
-// GetReviewStatusParams defines parameters for GetReviewStatus.
-type GetReviewStatusParams struct {
+// GetReviewLLMParams defines parameters for GetReviewLLM.
+type GetReviewLLMParams struct {
+	Id string `form:"id" json:"id"`
+}
+
+// GetReviewRequestParams defines parameters for GetReviewRequest.
+type GetReviewRequestParams struct {
+	Id string `form:"id" json:"id"`
+}
+
+// GetReviewResultParams defines parameters for GetReviewResult.
+type GetReviewResultParams struct {
 	Id string `form:"id" json:"id"`
 }
 
@@ -149,11 +187,20 @@ type SubmitReviewJSONRequestBody = ReviewRequest
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Submit a review request
-	// (POST /api/review)
+	// (POST /api/review/human)
 	SubmitReview(w http.ResponseWriter, r *http.Request)
+	// Get the LLM's reasoning for a review decision
+	// (POST /api/review/llm)
+	GetReviewLLM(w http.ResponseWriter, r *http.Request, params GetReviewLLMParams)
+	// See the request that was made for a given review ID
+	// (GET /api/review/request)
+	GetReviewRequest(w http.ResponseWriter, r *http.Request, params GetReviewRequestParams)
 	// Get the status of a review request
 	// (GET /api/review/status)
-	GetReviewStatus(w http.ResponseWriter, r *http.Request, params GetReviewStatusParams)
+	GetReviewResult(w http.ResponseWriter, r *http.Request, params GetReviewResultParams)
+	// Get hub statistics
+	// (GET /api/stats)
+	GetHubStats(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -179,13 +226,13 @@ func (siw *ServerInterfaceWrapper) SubmitReview(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
-// GetReviewStatus operation middleware
-func (siw *ServerInterfaceWrapper) GetReviewStatus(w http.ResponseWriter, r *http.Request) {
+// GetReviewLLM operation middleware
+func (siw *ServerInterfaceWrapper) GetReviewLLM(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params GetReviewStatusParams
+	var params GetReviewLLMParams
 
 	// ------------- Required query parameter "id" -------------
 
@@ -203,7 +250,89 @@ func (siw *ServerInterfaceWrapper) GetReviewStatus(w http.ResponseWriter, r *htt
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetReviewStatus(w, r, params)
+		siw.Handler.GetReviewLLM(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetReviewRequest operation middleware
+func (siw *ServerInterfaceWrapper) GetReviewRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetReviewRequestParams
+
+	// ------------- Required query parameter "id" -------------
+
+	if paramValue := r.URL.Query().Get("id"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "id"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "id", r.URL.Query(), &params.Id)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetReviewRequest(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetReviewResult operation middleware
+func (siw *ServerInterfaceWrapper) GetReviewResult(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetReviewResultParams
+
+	// ------------- Required query parameter "id" -------------
+
+	if paramValue := r.URL.Query().Get("id"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "id"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "id", r.URL.Query(), &params.Id)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetReviewResult(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetHubStats operation middleware
+func (siw *ServerInterfaceWrapper) GetHubStats(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetHubStats(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -333,8 +462,11 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
-	m.HandleFunc("POST "+options.BaseURL+"/api/review", wrapper.SubmitReview)
-	m.HandleFunc("GET "+options.BaseURL+"/api/review/status", wrapper.GetReviewStatus)
+	m.HandleFunc("POST "+options.BaseURL+"/api/review/human", wrapper.SubmitReview)
+	m.HandleFunc("POST "+options.BaseURL+"/api/review/llm", wrapper.GetReviewLLM)
+	m.HandleFunc("GET "+options.BaseURL+"/api/review/request", wrapper.GetReviewRequest)
+	m.HandleFunc("GET "+options.BaseURL+"/api/review/status", wrapper.GetReviewResult)
+	m.HandleFunc("GET "+options.BaseURL+"/api/stats", wrapper.GetHubStats)
 
 	return m
 }
@@ -342,22 +474,27 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"/z5V0ZrYFwAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

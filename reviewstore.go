@@ -4,22 +4,22 @@ import "sync"
 
 type ReviewStore struct {
 	sync.RWMutex
-	Reviews map[string]ReviewRequest
+	Reviews map[string]Review
 }
 
 func NewReviewStore() *ReviewStore {
 	return &ReviewStore{
-		Reviews: make(map[string]ReviewRequest),
+		Reviews: make(map[string]Review),
 	}
 }
 
-func (rs *ReviewStore) Add(review ReviewRequest) {
+func (rs *ReviewStore) Add(review Review) {
 	rs.Lock()
 	defer rs.Unlock()
-	rs.Reviews[*review.RequestId] = review
+	rs.Reviews[review.Id] = review
 }
 
-func (rs *ReviewStore) Get(reviewID string) (ReviewRequest, bool) {
+func (rs *ReviewStore) Get(reviewID string) (Review, bool) {
 	rs.RLock()
 	defer rs.RUnlock()
 	review, exists := rs.Reviews[reviewID]

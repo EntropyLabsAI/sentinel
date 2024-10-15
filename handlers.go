@@ -34,7 +34,7 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	client := &Client{
 		Hub:  hub,
 		Conn: conn,
-		Send: make(chan ReviewRequest),
+		Send: make(chan Review),
 	}
 	hub.Register <- client
 
@@ -52,17 +52,22 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	n := uuid.New().String()
-	request.RequestId = &n
+	// Convert the request to a Review by adding an ID
+	id := uuid.New().String()
+
+	review := Review{
+		Id:      id,
+		Request: request,
+	}
 
 	// Add the review request to the queue
-	hub.ReviewChan <- request
+	hub.ReviewChan <- review
 
-	log.Printf("received new review request ID %s via API.", request.RequestId)
+	log.Printf("received new review request ID %s via API.", review.Id)
 
 	// Create a channel for this review request
-	responseChan := make(chan ReviewResponse)
-	reviewChannels.Store(request.RequestId, responseChan)
+	responseChan := make(chan ReviewResult)
+	reviewChannels.Store(id, responseChan)
 
 	// Start a goroutine to wait for the response
 	go func() {
@@ -73,25 +78,28 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 			reviewChannels.Delete(response.Id)
 			log.Printf("review ID %s completed with decision: %s.", response.Id, response.Decision)
 		case <-time.After(reviewTimeout):
+
+			reviewStatus := ReviewStatusResponse{
+				Status: Timeout,
+				Id:     review.Id,
+			}
+
 			// Timeout occurred
-			completedReviews.Store(request.RequestId, map[string]string{
-				"status": "timeout",
-				"id":     *request.RequestId,
-			})
-			reviewChannels.Delete(request.RequestId)
-			log.Printf("Review ID %s timed out.", request.RequestId)
+			completedReviews.Store(review.Id, reviewStatus)
+			reviewChannels.Delete(review.Id)
+			log.Printf("review ID %s timed out.", review.Id)
 		}
 	}()
+
+	response := ReviewStatusResponse{
+		Id:     id,
+		Status: Queued,
+	}
 
 	// Respond immediately with 200 OK.
 	// The client will receive and ID they can use to poll the status of their review
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(
-		map[string]string{
-			"status": "queued",
-			"id":     *request.RequestId,
-		},
-	)
+	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -192,7 +200,7 @@ func getExplanationFromLLM(ctx context.Context, text string) (string, string, er
 			Messages: []openai.ChatCompletionMessage{
 				{
 					Role:    openai.ChatMessageRoleSystem,
-					Content: "You are tasked with analysing some code and providing a summary for a technical reader and a danger score out of 3 choices. Please provide a succint summary and finish with your evaluation of the code's potential danger score, out of 'harmless', 'risky' or 'dangerous'. Give your summary inside <summary></summary> tags and your score inside <score></score> tags. Start your response with <summary> and finish it with </score>. For example: <summary>The code is a simple implementation of a REST API using the Gin framework.</summary><score>harmless</score>",
+					Content: "You are tasked with analysing some code and providing a summary for a technical reader and a danger score out of 3 choices. Please provide a succinct summary and finish with your evaluation of the code's potential danger score, out of 'harmless', 'risky' or 'dangerous'. Give your summary inside <summary></summary> tags and your score inside <score></score> tags. Start your response with <summary> and finish it with </score>. For example: <summary>The code is a simple implementation of a REST API using the Gin framework.</summary><score>harmless</score>",
 				},
 				{
 					Role:    openai.ChatMessageRoleUser,
@@ -242,6 +250,16 @@ func apiHubStatsHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 }
 
 func apiReviewLLMHandler(w http.ResponseWriter, r *http.Request) {
+	enableCors(&w)
+
+	// Handle preflight request
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	id := uuid.New().String()
+
 	// Parse the request body to get the same input as /api/review
 	var reviewRequest ReviewRequest
 	err := json.NewDecoder(r.Body).Decode(&reviewRequest)
@@ -250,18 +268,26 @@ func apiReviewLLMHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Call the LLM to evaluate the tool_choice
-	llmReasoning, decision := callLLMForReview(reviewRequest.ToolChoices[0])
+	if len(reviewRequest.ToolChoices) != 1 {
+		http.Error(w, "Invalid number of tool choices provided for LLM review", http.StatusBadRequest)
+		return
+	}
 
-	// TODO add this to response
-	_ = llmReasoning
+	// Call the LLM to evaluate the tool_choice
+	llmReasoning, decision, err := callLLMForReview(r.Context(), reviewRequest.ToolChoices[0])
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error calling LLM: %v", err), http.StatusInternalServerError)
+		return
+	}
 
 	// Prepare and send the response
-	response := ReviewResponse{
+	response := ReviewResult{
+		Id:         id,
 		Decision:   decision,
-		ToolChoice: nil,
-		Id:         "",
+		ToolChoice: reviewRequest.ToolChoices[0],
+		Reasoning:  llmReasoning,
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
@@ -270,14 +296,91 @@ func apiReviewLLMHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// TODO: Implement the actual LLM call here
-func callLLMForReview(toolChoice ToolChoice) (string, Decision) {
-	return "seems legit", Approve
+func callLLMForReview(ctx context.Context, toolChoice ToolChoice) (string, Decision, error) {
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	if apiKey == "" {
+		return "", "", fmt.Errorf("OPENAI_API_KEY environment variable not set")
+	}
+
+	client := openai.NewClient(apiKey)
+
+	prompt := fmt.Sprintf(`You are an AI safety reviewer. Your task is to evaluate the following tool choice and decide whether it should be approved, rejected, or escalated. The tool choice is:
+
+Function: %s
+Arguments: %+v
+
+Please provide your reasoning and decision. Your response should be in the following format:
+
+Reasoning: [Your detailed reasoning here]
+Decision: [APPROVE/REJECT/ESCALATE]
+
+`, toolChoice.Function, toolChoice.Arguments)
+
+	resp, err := client.CreateChatCompletion(
+		ctx,
+		openai.ChatCompletionRequest{
+			Model: openai.GPT4,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleSystem,
+					Content: "You are an AI safety reviewer tasked with evaluating tool choices.",
+				},
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: prompt,
+				},
+			},
+		},
+	)
+
+	if err != nil {
+		return "", "", fmt.Errorf("error creating LLM chat completion: %v", err)
+	}
+
+	llmResponse := resp.Choices[0].Message.Content
+
+	// Parse the LLM response
+	reasoningIndex := strings.Index(llmResponse, "Reasoning:")
+	decisionIndex := strings.Index(llmResponse, "Decision:")
+
+	if reasoningIndex == -1 || decisionIndex == -1 {
+		return "", "", fmt.Errorf("invalid LLM response format")
+	}
+
+	reasoning := strings.TrimSpace(llmResponse[reasoningIndex+10 : decisionIndex])
+	decisionStr := strings.TrimSpace(llmResponse[decisionIndex+9:])
+
+	var decision Decision
+	switch strings.ToUpper(decisionStr) {
+	case "APPROVE":
+		decision = Approve
+	case "REJECT":
+		decision = Reject
+	case "ESCALATE":
+		decision = Escalate
+	default:
+		return "", "", fmt.Errorf("invalid decision from LLM: %s", decisionStr)
+	}
+
+	return reasoning, decision, nil
 }
 
-// TODO: do this in a more secure way
-func enableCors(w *http.ResponseWriter) {
-	(*w).Header().Set("Access-Control-Allow-Origin", "*")
-	(*w).Header().Set("Access-Control-Allow-Methods", "GET")
-	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+func apiStatsHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
+	enableCors(&w)
+
+	// Handle preflight request
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	stats := hub.getStats()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err := json.NewEncoder(w).Encode(stats)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }

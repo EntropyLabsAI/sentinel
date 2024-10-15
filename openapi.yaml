@@ -7,7 +7,7 @@ servers:
   - url: ${APPROVAL_WEBSERVER_URL}
 
 paths:
-  /api/review:
+  /api/review/human:
     post:
       summary: Submit a review request
       operationId: SubmitReview
@@ -23,11 +23,28 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReviewResponse"
+                $ref: "#/components/schemas/ReviewStatusResponse"
+  /api/review/llm:
+    post:
+      summary: Get the LLM's reasoning for a review decision
+      operationId: GetReviewLLM
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Review LLM retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewStatusResponse"
   /api/review/status:
     get:
       summary: Get the status of a review request
-      operationId: GetReviewStatus
+      operationId: GetReviewResult
       parameters:
         - name: id
           in: query
@@ -40,20 +57,57 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReviewStatus"
+                $ref: "#/components/schemas/ReviewResult"
         "404":
           description: Review not found
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /api/review/request:
+    get:
+      summary: See the request that was made for a given review ID
+      operationId: GetReviewRequest
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Review request retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+  /api/stats:
+    get:
+      summary: Get hub statistics
+      operationId: GetHubStats
+      responses:
+        "200":
+          description: Hub statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HubStats"
+
 components:
   schemas:
+    Review:
+      type: object
+      properties:
+        id:
+          type: string
+        request:
+          $ref: "#/components/schemas/ReviewRequest"
+      required:
+        - id
+        - request
     ReviewRequest:
       type: object
       properties:
-        request_id:
-          type: string
         agent_id:
           type: string
         task_state:
@@ -71,7 +125,17 @@ components:
         - task_state
         - tool_choices
         - last_messages
-    ReviewResponse:
+    ReviewStatusResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          $ref: "#/components/schemas/Status"
+      required:
+        - id
+        - status
+    ReviewResult:
       type: object
       properties:
         id:
@@ -80,18 +144,13 @@ components:
           $ref: "#/components/schemas/Decision"
         tool_choice:
           $ref: "#/components/schemas/ToolChoice"
+        reasoning:
+          type: string
       required:
         - id
         - decision
-    ReviewStatus:
-      type: object
-      properties:
-        id:
-          type: string
-        decision:
-          $ref: "#/components/schemas/Decision"
-        tool_choice:
-          $ref: "#/components/schemas/ToolChoice"
+        - tool_choice
+        - reasoning
     ErrorResponse:
       type: object
       properties:
@@ -258,3 +317,43 @@ components:
         - escalate
         - terminate
         - modify
+    Status:
+      type: string
+      enum:
+        - queued
+        - processing
+        - completed
+        - timeout
+    HubStats:
+      type: object
+      properties:
+        connected_clients:
+          type: integer
+        queued_reviews:
+          type: integer
+        stored_reviews:
+          type: integer
+        free_clients:
+          type: integer
+        busy_clients:
+          type: integer
+        assigned_reviews:
+          type: object
+          additionalProperties:
+            type: integer
+        # review_distribution is a map of the number of reviews at each stage of the review process map[int]int
+        review_distribution:
+          type: object
+          additionalProperties:
+            type: integer
+        completed_reviews:
+          type: integer
+      required:
+        - connected_clients
+        - queued_reviews
+        - stored_reviews
+        - free_clients
+        - busy_clients
+        - assigned_reviews
+        - review_distribution
+        - completed_reviews
