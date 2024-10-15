@@ -319,3 +319,89 @@ def human_approver(approval_api_endpoint: str, agent_id: str, n: int = DEFAULT_S
             return Approval(decision="escalate", explanation=f"Error communicating with remote approver: {str(e)}")
 
     return approve
+
+
+@approver
+def llm_approver(approval_api_endpoint: str, agent_id: str, n: int = DEFAULT_SUGGESTIONS, timeout: int = DEFAULT_TIMEOUT) -> Approver:
+    """
+    Create an approver that generates N tool call suggestions and sends them to an external API for LLM selection.
+
+    Args:
+        approval_api_endpoint (str): The URL of the remote approval API.
+        agent_id (str): The ID of the agent making the request.
+        n (int): The number of tool call suggestions to generate. Defaults to 5.
+        timeout (int): The maximum time to wait for a response, in seconds. Defaults to 300 seconds (5 minutes).
+
+    Returns:
+        Approver: A function that sends multiple tool call suggestions to a remote API for LLM decision.
+    """
+    async def approve(
+        message: str,
+        call: ToolCall,
+        view: ToolCallView,
+        state: Optional[TaskState] = None,
+    ) -> Approval:
+        if state is None:
+            return Approval(decision="escalate", explanation="TaskState is required for this approver.")
+
+        logging.info(f"Generating {n} tool call suggestions for LLM review")
+
+        model: Model = get_model()
+
+        # Generate N tool call suggestions        
+        message_without_last_message = deepcopy(state.messages)
+        last_messages = [message_without_last_message[-1]]
+        tool_options = [tool_jsonable(state.messages[-1].tool_calls[0])] if hasattr(state.messages[-1], 'tool_calls') and state.messages[-1].tool_calls else [None]
+        message_without_last_message.pop()
+        copied_state = deepcopy(state)
+        copied_state.messages = message_without_last_message
+        
+        for _ in range(n-1):
+            output = await model.generate(message_without_last_message, tools=state.tools)
+            last_messages.append(output.message)
+            tool_options.append(tool_jsonable(output.message.tool_calls[0]) if output.message.tool_calls else None)
+
+        # Prepare the payload with multiple tool suggestions
+        last_messages_json = [chat_message_jsonable(message) for message in last_messages if message is not None]
+        
+        state_json = state_jsonable(copied_state)
+        state_json['tool_choice'] = None  # TODO: Fix this
+
+        payload = {
+            "agent_id": agent_id,
+            "task_state": state_json,
+            "tool_choices": tool_options,
+            "last_messages": last_messages_json,
+        }
+        assert len(payload['tool_choices']) == 1, "Only one tool call is supported for LLM approval"
+        assert len(last_messages_json) == 1, "Only one message is supported for LLM approval"
+
+        try:
+            response = requests.post(f'{approval_api_endpoint}/api/review/llm', json=payload)
+            response.raise_for_status()
+            
+            review_result = response.json()
+            
+            if "decision" in review_result:
+                decision = review_result["decision"]
+                explanation = review_result.get("reasoning", "LLM provided no additional explanation.")
+                
+                if decision == "modify":
+                    modified_tool_call_data = review_result["tool_choice"]
+                    explanation = generate_tool_call_change_explanation(call, modified_tool_call_data)
+                    modified_tool_call = ToolCall(**modified_tool_call_data)
+                else:
+                    modified_tool_call = None
+                
+                return Approval(decision=decision, explanation=explanation, modified=modified_tool_call)
+
+            return Approval(
+                decision="escalate",
+                explanation=f"Unexpected response from LLM review endpoint: {review_result}",
+            )
+
+        except requests.RequestException as e:
+            logging.error(f"Error communicating with LLM approver: {str(e)}")
+            return Approval(decision="escalate", explanation=f"Error communicating with LLM approver: {str(e)}")
+
+    return approve
