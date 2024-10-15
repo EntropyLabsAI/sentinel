@@ -9,7 +9,7 @@ servers:
 paths:
   /api/review/human:
     post:
-      summary: Submit a review request
+      summary: Submit a review request for human review
       operationId: SubmitReview
       requestBody:
         required: true
@@ -26,21 +26,27 @@ paths:
                 $ref: "#/components/schemas/ReviewStatusResponse"
   /api/review/llm:
     post:
-      summary: Get the LLM's reasoning for a review decision
-      operationId: GetReviewLLM
-      parameters:
-        - name: id
-          in: query
-          required: true
-          schema:
-            type: string
+      summary: Submit a review request for LLM review
+      operationId: SubmitReviewLLM
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewRequest"
       responses:
         "200":
-          description: Review LLM retrieved successfully
+          description: Review queued successfully
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReviewStatusResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/review/status:
     get:
       summary: Get the status of a review request

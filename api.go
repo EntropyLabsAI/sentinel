@@ -54,7 +54,7 @@ func (s Server) SubmitReview(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetReviewLLM handles the POST /api/review/llm endpoint
-func (s Server) GetReviewLLM(w http.ResponseWriter, r *http.Request, params GetReviewLLMParams) {
+func (s Server) SubmitReviewLLM(w http.ResponseWriter, r *http.Request) {
 	apiReviewLLMHandler(w, r)
 }
 
@@ -64,9 +64,7 @@ func (s Server) GetReviewRequest(w http.ResponseWriter, r *http.Request, params 
 	log.Print("not implemented")
 }
 
-func (s Server) GetLLMExplanation(
-	w http.ResponseWriter, r *http.Request,
-) {
+func (s Server) GetLLMExplanation(w http.ResponseWriter, r *http.Request) {
 	apiLLMExplanationHandler(w, r)
 }
 
