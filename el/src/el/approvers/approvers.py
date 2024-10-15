@@ -258,7 +258,7 @@ def human_approver(approval_api_endpoint: str, agent_id: str, n: int = DEFAULT_S
         }
 
         try:
-            response = requests.post(f'{approval_api_endpoint}/api/review', json=payload)
+            response = requests.post(f'{approval_api_endpoint}/api/review/human', json=payload)
             response.raise_for_status()
             
             review_id = response.json().get("id")

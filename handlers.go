@@ -149,8 +149,8 @@ func apiReviewStatusHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// apiExplainHandler receives a code snippet and returns an explanation and a danger score by calling an LLM
-func apiExplainHandler(w http.ResponseWriter, r *http.Request) {
+// apiLLMExplanationHandler receives a code snippet and returns an explanation and a danger score by calling an LLM
+func apiLLMExplanationHandler(w http.ResponseWriter, r *http.Request) {
 	enableCors(&w)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -228,25 +228,6 @@ func getExplanationFromLLM(ctx context.Context, text string) (string, string, er
 	score := response[scoreIndex+len(scoreStart) : scoreEndIndex]
 
 	return summary, score, nil
-}
-
-func apiHubStatsHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
-	enableCors(&w)
-
-	// Handle preflight request
-	if r.Method == "OPTIONS" {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	stats := hub.getStats()
-
-	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(stats)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 }
 
 func apiReviewLLMHandler(w http.ResponseWriter, r *http.Request) {

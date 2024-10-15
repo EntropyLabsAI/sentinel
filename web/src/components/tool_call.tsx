@@ -1,4 +1,4 @@
-import { Message, ToolChoice } from "@/review";
+import { Message, ToolChoice } from "@/types";
 import { Code, Code2, Link, X, MessageSquare } from "lucide-react"
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -98,7 +98,7 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
         <div className="space-y-4">
           <ToolCodeBlock
             isBashCommand={isBashCommand}
-            code={code}
+            code={code || ""}
             handleCodeChange={handleCodeChange}
             explanation={explanation}
             setExplanation={setExplanation}

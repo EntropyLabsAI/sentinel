@@ -61,7 +61,13 @@ func (s Server) GetReviewLLM(w http.ResponseWriter, r *http.Request, params GetR
 // GetReviewRequest handles the GET /api/review/request endpoint
 // TODO: implement this
 func (s Server) GetReviewRequest(w http.ResponseWriter, r *http.Request, params GetReviewRequestParams) {
-	return
+	log.Print("not implemented")
+}
+
+func (s Server) GetLLMExplanation(
+	w http.ResponseWriter, r *http.Request,
+) {
+	apiLLMExplanationHandler(w, r)
 }
 
 // GetReviewResult handles the GET /api/review/status endpoint
@@ -76,6 +82,6 @@ func (s Server) GetHubStats(w http.ResponseWriter, r *http.Request) {
 
 func enableCors(w *http.ResponseWriter) {
 	(*w).Header().Set("Access-Control-Allow-Origin", "*")
-	(*w).Header().Set("Access-Control-Allow-Methods", "GET")
+	(*w).Header().Set("Access-Control-Allow-Methods", "*")
 	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 }

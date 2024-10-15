@@ -92,9 +92,48 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HubStats"
-
+  /api/explain:
+    post:
+      summary: Get an explanation and danger score for a code snippet
+      operationId: GetLLMExplanation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CodeSnippet"
+      responses:
+        "200":
+          description: LLM explanation retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LLMExplanation"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
+    CodeSnippet:
+      type: object
+      properties:
+        text:
+          type: string
+      required:
+        - text
+    LLMExplanation:
+      type: object
+      properties:
+        explanation:
+          type: string
+        score:
+          type: number
+      required:
+        - explanation
+        - score
     Review:
       type: object
       properties:
@@ -341,7 +380,6 @@ components:
           type: object
           additionalProperties:
             type: integer
-        # review_distribution is a map of the number of reviews at each stage of the review process map[int]int
         review_distribution:
           type: object
           additionalProperties:

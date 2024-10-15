@@ -129,7 +129,7 @@ export default function ToolCodeBlock({
           ) : (
             <Textarea
               ref={textareaRef}
-              value={code}
+              defaultValue={code}
               className="w-full bg-transparent text-white text-md border-none resize-none overflow-hidden"
               style={{
                 lineHeight: "1.5",

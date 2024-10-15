@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ReviewRequest, ReviewResponse, ToolChoice } from './review';
+import { ReviewRequest, ReviewResult, ToolChoice, Decision, Review } from '@/types';
 import ReviewRequestDisplay from './components/review_request';
 import HubStats from './components/hub_stats';
-import { HubStats as HubStatsType } from './review';
+import { HubStats as HubStatsType } from '@/types';
 import { UserIcon, BrainCircuitIcon, MessageSquareIcon, SlackIcon } from 'lucide-react';
 import { fromTheme } from 'tailwind-merge';
 
@@ -81,7 +81,7 @@ const NavBar: React.FC<{ onHome: () => void; isSocketConnected: boolean }> = ({ 
 };
 
 const ApprovalsInterface: React.FC = () => {
-  const [reviewDataList, setReviewDataList] = useState<ReviewRequest[]>([]);
+  const [reviewDataList, setReviewDataList] = useState<Review[]>([]);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [hubStats, setHubStats] = useState<HubStatsType | null>(null);
@@ -99,7 +99,7 @@ const ApprovalsInterface: React.FC = () => {
     };
 
     ws.onmessage = (event) => {
-      const data: ReviewRequest = JSON.parse(event.data);
+      const data: Review = JSON.parse(event.data);
 
       // Use functional update to ensure we have the latest state
       setReviewDataList((prevList) => {
@@ -111,7 +111,7 @@ const ApprovalsInterface: React.FC = () => {
       });
 
       // If no review is selected, automatically select the first one
-      setSelectedRequestId((prevSelectedId) => prevSelectedId || data.request_id);
+      setSelectedRequestId((prevSelectedId) => prevSelectedId || data.id);
     };
 
     ws.onclose = () => {
@@ -160,26 +160,28 @@ const ApprovalsInterface: React.FC = () => {
   };
 
   // Send a response to the Approvals API with the decision and the tool choice
-  const sendResponse = (decision: string, requestId: string, toolChoice: ToolChoice) => {
+  const sendResponse = (decision: Decision, requestId: string, toolChoice: ToolChoice) => {
     // Check if the tool args of the tool the user chose is not the same was it was originally
-    if (selectedReviewRequest && toolChoiceModified(selectedReviewRequest.tool_choices, toolChoice)) {
-      decision = "modify";
+    if (selectedReviewRequest && toolChoiceModified(selectedReviewRequest.request.tool_choices, toolChoice)) {
+      decision = Decision.modify;
     }
 
     if (socket && socket.readyState === WebSocket.OPEN) {
-      const response: ReviewResponse = {
+      const response: ReviewResult = {
         id: requestId,
         decision: decision,
+        reasoning: "Human decided via interface",
         tool_choice: toolChoice
+
       };
       socket.send(JSON.stringify(response));
 
       // Remove the handled review request from the list
       setReviewDataList((prevList) => {
-        const newList = prevList.filter((req) => req.request_id !== requestId);
+        const newList = prevList.filter((req) => req.id !== requestId);
         setSelectedRequestId((prevSelectedId) => {
           if (prevSelectedId === requestId) {
-            return newList.length > 0 ? newList[0].request_id : null;
+            return newList.length > 0 ? newList[0].id : null;
           } else {
             return prevSelectedId;
           }
@@ -196,7 +198,7 @@ const ApprovalsInterface: React.FC = () => {
 
   // Find the selected review request
   const selectedReviewRequest = reviewDataList.find(
-    (req) => req.request_id === selectedRequestId
+    (req) => req.id === selectedRequestId
   );
 
   // When the user clicks the title, go home
@@ -228,17 +230,17 @@ const ApprovalsInterface: React.FC = () => {
                   <ul className="space-y-2">
                     {reviewDataList.map((req) => (
                       <li
-                        key={req.request_id}
-                        className={`cursor-pointer p-2 rounded-md ${req.request_id === selectedRequestId
+                        key={req.id}
+                        className={`cursor-pointer p-2 rounded-md ${req.id === selectedRequestId
                           ? 'bg-blue-500 text-white'
                           : 'bg-gray-100 text-gray-800'
                           }`}
-                        onClick={() => selectReviewRequest(req.request_id)}
+                        onClick={() => selectReviewRequest(req.id)}
                       >
-                        <div className="font-semibold">Agent #{req.agent_id}</div>
-                        <div className="text-sm">Request ID: {req.request_id.slice(0, 8)}</div>
-                        {req.tool_choices && (
-                          <div className="text-xs italic mt-1">Tool: {req.tool_choices[0].function}</div>
+                        <div className="font-semibold">Agent #{req.request.agent_id}</div>
+                        <div className="text-sm">Request ID: {req.id.slice(0, 8)}</div>
+                        {req.request.tool_choices && (
+                          <div className="text-xs italic mt-1">Tool: {req.request.tool_choices[0].function}</div>
                         )}
                       </li>
                     ))}
@@ -256,8 +258,8 @@ const ApprovalsInterface: React.FC = () => {
                   <div id="content" className="space-y-6">
                     <ReviewRequestDisplay
                       reviewRequest={selectedReviewRequest}
-                      sendResponse={(decision: string, toolChoice: ToolChoice) =>
-                        sendResponse(decision, selectedReviewRequest.request_id, toolChoice)
+                      sendResponse={(decision: Decision, toolChoice: ToolChoice) =>
+                        sendResponse(decision, selectedReviewRequest.id, toolChoice)
                       }
                     />
                   </div>
