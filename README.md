@@ -48,7 +48,7 @@ Inspect is an agent evaluation framework that allows you to evaluate and control
 1. Make sure Inspect AI and Entropy Labs are installed in your python environment:
 
    ```bash
-   pip install inspect-ai entropy-labs
+   pip install inspect-ai entropy_labs --upgrade
    ```
 
 2. Change to the example directory:
