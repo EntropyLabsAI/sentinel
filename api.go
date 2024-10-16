@@ -58,12 +58,6 @@ func (s Server) SubmitReviewLLM(w http.ResponseWriter, r *http.Request) {
 	apiReviewLLMHandler(w, r)
 }
 
-// GetReviewRequest handles the GET /api/review/request endpoint
-// TODO: implement this
-func (s Server) GetReviewRequest(w http.ResponseWriter, r *http.Request, params GetReviewRequestParams) {
-	log.Print("not implemented")
-}
-
 func (s Server) GetLLMExplanation(w http.ResponseWriter, r *http.Request) {
 	apiLLMExplanationHandler(w, r)
 }
@@ -76,6 +70,11 @@ func (s Server) GetReviewResult(w http.ResponseWriter, r *http.Request, params G
 // GetHubStats handles the GET /api/stats endpoint
 func (s Server) GetHubStats(w http.ResponseWriter, r *http.Request) {
 	apiStatsHandler(s.Hub, w, r)
+}
+
+// GetReviewLLMResult handles the GET /api/review/llm/list endpoint
+func (s Server) GetLLMReviews(w http.ResponseWriter, r *http.Request) {
+	apiGetLLMReviews(w, r)
 }
 
 func enableCors(w *http.ResponseWriter) {

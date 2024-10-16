@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { ReviewRequest, ReviewResult, ToolChoice, Decision, Review } from '@/types';
-import ReviewRequestDisplay from './components/review_request';
-import HubStats from './components/hub_stats';
+import ReviewRequestDisplay from '@/components/review_request';
+import HubStats from '@/components/hub_stats';
 import { HubStats as HubStatsType } from '@/types';
 import { UserIcon, BrainCircuitIcon, MessageSquareIcon, SlackIcon } from 'lucide-react';
-import { fromTheme } from 'tailwind-merge';
+import LLMReviews from '@/components/llm_reviews';
 
 // ApproverNames is a list of names of the approvers
 const ApproverNames = [
@@ -81,7 +81,8 @@ const NavBar: React.FC<{ onHome: () => void; isSocketConnected: boolean }> = ({ 
 };
 
 const ApprovalsInterface: React.FC = () => {
-  const [reviewDataList, setReviewDataList] = useState<Review[]>([]);
+  const [humanReviewDataList, setHumanReviewDataList] = useState<Review[]>([]);
+  const [llmReviewDataList, setLLMReviewDataList] = useState<ReviewResult[]>([]);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [hubStats, setHubStats] = useState<HubStatsType | null>(null);
@@ -102,7 +103,7 @@ const ApprovalsInterface: React.FC = () => {
       const data: Review = JSON.parse(event.data);
 
       // Use functional update to ensure we have the latest state
-      setReviewDataList((prevList) => {
+      setHumanReviewDataList((prevList) => {
         const newList = [...prevList, data];
         if (newList.length > 10) {
           newList.shift(); // Remove the oldest item
@@ -127,7 +128,8 @@ const ApprovalsInterface: React.FC = () => {
     return () => {
       ws.close();
       // Wipe the review data list. The reviews will be reloaded from the server when the connection is re-established
-      setReviewDataList([]);
+      setHumanReviewDataList([]);
+      setLLMReviewDataList([]);
     };
   }, []);
 
@@ -151,6 +153,27 @@ const ApprovalsInterface: React.FC = () => {
       clearInterval(statsInterval);
     };
   }, []);
+
+  // Fetch reviews done by the LLM every 5 seconds
+  useEffect(() => {
+    const fetchLLMReviews = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/review/llm/list`);
+        const data: ReviewResult[] = await response.json();
+        setLLMReviewDataList(data);
+      } catch (error) {
+        console.error('Error fetching LLM reviews:', error);
+      }
+    };
+
+    fetchLLMReviews();
+    const reviewsInterval = setInterval(fetchLLMReviews, 5000);
+
+    return () => {
+      clearInterval(reviewsInterval);
+    };
+  }, []);
+
 
   // toolChoiceModified is a helper function to check if the tool choice has been modified
   const toolChoiceModified = (allToolChoices: ToolChoice[], toolChoice: ToolChoice) => {
@@ -177,7 +200,7 @@ const ApprovalsInterface: React.FC = () => {
       socket.send(JSON.stringify(response));
 
       // Remove the handled review request from the list
-      setReviewDataList((prevList) => {
+      setHumanReviewDataList((prevList) => {
         const newList = prevList.filter((req) => req.id !== requestId);
         setSelectedRequestId((prevSelectedId) => {
           if (prevSelectedId === requestId) {
@@ -197,7 +220,7 @@ const ApprovalsInterface: React.FC = () => {
   };
 
   // Find the selected review request
-  const selectedReviewRequest = reviewDataList.find(
+  const selectedReviewRequest = humanReviewDataList.find(
     (req) => req.id === selectedRequestId
   );
 
@@ -213,22 +236,19 @@ const ApprovalsInterface: React.FC = () => {
       <main className="flex-grow">
         {selectedApprover === null ? (
           <ApproverSelection onSelect={setSelectedApprover} />
-        ) : selectedApprover !== "HumanApprover" ? (
-          <div className="container mx-auto px-4 py-8">
-            <h1 className="text-2xl font-bold mb-6">{selectedApprover}</h1>
-            <p>This approver is not yet implemented.</p>
-          </div>
+        ) : selectedApprover === "LLMApprover" ? (
+          <LLMReviews reviews={llmReviewDataList} />
         ) : (
           <>
             <div className="container mx-auto px-4 py-8 flex">
               {/* Sidebar */}
               <div className="w-full md:w-1/4 pr-4 border-r">
                 <h2 className="text-xl font-semibold mb-4">Review Requests</h2>
-                {reviewDataList.length === 0 ? (
+                {humanReviewDataList.length === 0 ? (
                   <p>No review requests at the moment.</p>
                 ) : (
                   <ul className="space-y-2">
-                    {reviewDataList.map((req) => (
+                    {humanReviewDataList.map((req) => (
                       <li
                         key={req.id}
                         className={`cursor-pointer p-2 rounded-md ${req.id === selectedRequestId
@@ -279,9 +299,10 @@ const ApprovalsInterface: React.FC = () => {
               </div>
             </div>
           </>
-        )}
-      </main>
-    </div>
+        )
+        }
+      </main >
+    </div >
   );
 };
 

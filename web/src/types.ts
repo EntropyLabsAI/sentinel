@@ -9,15 +9,7 @@ import type {
   AxiosRequestConfig,
   AxiosResponse
 } from 'axios'
-export type GetReviewRequestParams = {
-id: string;
-};
-
 export type GetReviewResultParams = {
-id: string;
-};
-
-export type GetReviewLLMParams = {
 id: string;
 };
 
@@ -178,7 +170,7 @@ export interface CodeSnippet {
 
 
   /**
- * @summary Submit a review request
+ * @summary Submit a review request for human review
  */
 export const submitReview = <TData = AxiosResponse<ReviewStatusResponse>>(
     reviewRequest: ReviewRequest, options?: AxiosRequestConfig
@@ -190,15 +182,14 @@ export const submitReview = <TData = AxiosResponse<ReviewStatusResponse>>(
   }
 
 /**
- * @summary Get the LLM's reasoning for a review decision
+ * @summary Submit a review request for LLM review
  */
-export const getReviewLLM = <TData = AxiosResponse<ReviewStatusResponse>>(
-    params: GetReviewLLMParams, options?: AxiosRequestConfig
+export const submitReviewLLM = <TData = AxiosResponse<ReviewStatusResponse>>(
+    reviewRequest: ReviewRequest, options?: AxiosRequestConfig
  ): Promise<TData> => {
     return axios.post(
-      `/api/review/llm`,undefined,{
-    ...options,
-        params: {...params, ...options?.params},}
+      `/api/review/llm`,
+      reviewRequest,options
     );
   }
 
@@ -216,15 +207,13 @@ export const getReviewResult = <TData = AxiosResponse<ReviewResult>>(
   }
 
 /**
- * @summary See the request that was made for a given review ID
+ * @summary Get all LLM review results
  */
-export const getReviewRequest = <TData = AxiosResponse<Review>>(
-    params: GetReviewRequestParams, options?: AxiosRequestConfig
+export const getLLMReviews = <TData = AxiosResponse<Review[]>>(
+     options?: AxiosRequestConfig
  ): Promise<TData> => {
     return axios.get(
-      `/api/review/request`,{
-    ...options,
-        params: {...params, ...options?.params},}
+      `/api/review/llm/list`,options
     );
   }
 
@@ -252,8 +241,8 @@ export const getLLMExplanation = <TData = AxiosResponse<LLMExplanation>>(
   }
 
 export type SubmitReviewResult = AxiosResponse<ReviewStatusResponse>
-export type GetReviewLLMResult = AxiosResponse<ReviewStatusResponse>
+export type SubmitReviewLLMResult = AxiosResponse<ReviewStatusResponse>
 export type GetReviewResultResult = AxiosResponse<ReviewResult>
-export type GetReviewRequestResult = AxiosResponse<Review>
+export type GetLLMReviewsResult = AxiosResponse<Review[]>
 export type GetHubStatsResult = AxiosResponse<HubStats>
 export type GetLLMExplanationResult = AxiosResponse<LLMExplanation>

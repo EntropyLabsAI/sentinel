@@ -70,23 +70,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-  /api/review/request:
+  /api/review/llm/list:
     get:
-      summary: See the request that was made for a given review ID
-      operationId: GetReviewRequest
-      parameters:
-        - name: id
-          in: query
-          required: true
-          schema:
-            type: string
+      summary: Get all LLM review results
+      operationId: GetLLMReviews
       responses:
         "200":
-          description: Review request retrieved successfully
+          description: List of all LLM review results
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Review"
+                type: array
+                items:
+                  $ref: "#/components/schemas/Review"
   /api/stats:
     get:
       summary: Get hub statistics
