@@ -3,22 +3,18 @@ import { ReviewRequest, ReviewResult, ToolChoice, Decision, Review } from '@/typ
 import ReviewRequestDisplay from '@/components/review_request';
 import HubStats from '@/components/hub_stats';
 import { HubStats as HubStatsType } from '@/types';
-import { UserIcon, BrainCircuitIcon, MessageSquareIcon, SlackIcon } from 'lucide-react';
+import { UserIcon, BrainCircuitIcon } from 'lucide-react';
 import LLMReviews from '@/components/llm_reviews';
 
-// ApproverNames is a list of names of the approvers
-const ApproverNames = [
-  "HumanApprover",
-  "LLMApprover",
-  "ApproverByDebate",
-  "SlackApprover",
+// SupervisorNames is a list of names of the supervisors
+const SupervisorNames = [
+  "HumanSupervisor",
+  "LLMSupervisor",
 ];
 
-const ApproverIcons = {
-  HumanApprover: UserIcon,
-  LLMApprover: BrainCircuitIcon,
-  ApproverByDebate: MessageSquareIcon,
-  SlackApprover: SlackIcon,
+const SupervisorIcons = {
+  HumanSupervisor: UserIcon,
+  LLMSupervisor: BrainCircuitIcon,
 };
 
 // The API base URL is set via an environment variable in the docker-compose.yml file
@@ -28,23 +24,23 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 // @ts-ignore
 const WEBSOCKET_BASE_URL = import.meta.env.VITE_WEBSOCKET_BASE_URL;
 
-const ApproverSelection: React.FC<{ onSelect: (approver: string) => void }> = ({ onSelect }) => {
+const SupervisorSelection: React.FC<{ onSelect: (supervisor: string) => void }> = ({ onSelect }) => {
   if (!API_BASE_URL || !WEBSOCKET_BASE_URL) {
     return <div>No API or WebSocket base URL set: API is: {API_BASE_URL} and WebSocket is: {WEBSOCKET_BASE_URL}</div>;
   }
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {ApproverNames.map((approver) => {
-          const Icon = ApproverIcons[approver as keyof typeof ApproverIcons];
+        {SupervisorNames.map((supervisor) => {
+          const Icon = SupervisorIcons[supervisor as keyof typeof SupervisorIcons];
           return (
             <div
-              key={approver}
+              key={supervisor}
               className="border p-4 rounded-lg cursor-pointer hover:bg-gray-100 flex flex-col items-center"
-              onClick={() => onSelect(approver)}
+              onClick={() => onSelect(supervisor)}
             >
               <Icon size={24} className="mb-2" />
-              <h2 className="text-xl text-center">{approver}</h2>
+              <h2 className="text-xl text-center">{supervisor}</h2>
             </div>
           );
         })}
@@ -61,7 +57,7 @@ const NavBar: React.FC<{ onHome: () => void; isSocketConnected: boolean }> = ({ 
           className="text-xl font-bold cursor-pointer hover:text-gray-300"
           onClick={onHome}
         >
-          Approvals Interface
+          Sentinel
         </h1>
         <div className="text-sm flex items-center space-x-4">
           <div>
@@ -86,7 +82,7 @@ const ApprovalsInterface: React.FC = () => {
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [hubStats, setHubStats] = useState<HubStatsType | null>(null);
-  const [selectedApprover, setSelectedApprover] = useState<string | null>(null);
+  const [selectedSupervisor, setSelectedSupervisor] = useState<string | null>(null);
   const [isSocketConnected, setIsSocketConnected] = useState<boolean>(false);
 
   // Initialize WebSocket connection
@@ -226,7 +222,7 @@ const ApprovalsInterface: React.FC = () => {
 
   // When the user clicks the title, go home
   const handleGoHome = () => {
-    setSelectedApprover(null);
+    setSelectedSupervisor(null);
   };
 
   return (
@@ -234,9 +230,9 @@ const ApprovalsInterface: React.FC = () => {
       <NavBar onHome={handleGoHome} isSocketConnected={isSocketConnected} />
 
       <main className="flex-grow">
-        {selectedApprover === null ? (
-          <ApproverSelection onSelect={setSelectedApprover} />
-        ) : selectedApprover === "LLMApprover" ? (
+        {selectedSupervisor === null ? (
+          <SupervisorSelection onSelect={setSelectedSupervisor} />
+        ) : selectedSupervisor === "LLMsupervisor" ? (
           <LLMReviews reviews={llmReviewDataList} />
         ) : (
           <>
