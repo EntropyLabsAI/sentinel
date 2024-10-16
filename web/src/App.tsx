@@ -5,6 +5,7 @@ import HubStats from '@/components/hub_stats';
 import { HubStats as HubStatsType } from '@/types';
 import { UserIcon, BrainCircuitIcon } from 'lucide-react';
 import LLMReviews from '@/components/llm_reviews';
+import NavBar from './components/nav';
 
 // SupervisorNames is a list of names of the supervisors
 const SupervisorNames = [
@@ -46,33 +47,6 @@ const SupervisorSelection: React.FC<{ onSelect: (supervisor: string) => void }> 
         })}
       </div>
     </div>
-  );
-};
-
-const NavBar: React.FC<{ onHome: () => void; isSocketConnected: boolean }> = ({ onHome, isSocketConnected }) => {
-  return (
-    <nav className="bg-gray-800 text-white p-4">
-      <div className="container mx-auto flex justify-between items-center">
-        <h1
-          className="text-xl font-bold cursor-pointer hover:text-gray-300"
-          onClick={onHome}
-        >
-          Sentinel
-        </h1>
-        <div className="text-sm flex items-center space-x-4">
-          <div>
-            <p>API: {API_BASE_URL}</p>
-          </div>
-          <div className="flex items-center">
-            <p>WebSocket: {WEBSOCKET_BASE_URL}</p>
-            <span
-              className={`ml-2 h-3 w-3 rounded-full ${isSocketConnected ? 'bg-green-500' : 'bg-red-500'
-                }`}
-            ></span>
-          </div>
-        </div>
-      </div>
-    </nav>
   );
 };
 
@@ -232,7 +206,7 @@ const ApprovalsInterface: React.FC = () => {
       <main className="flex-grow">
         {selectedSupervisor === null ? (
           <SupervisorSelection onSelect={setSelectedSupervisor} />
-        ) : selectedSupervisor === "LLMsupervisor" ? (
+        ) : selectedSupervisor === "LLMSupervisor" ? (
           <LLMReviews reviews={llmReviewDataList} />
         ) : (
           <>
