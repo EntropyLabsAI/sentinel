@@ -1,4 +1,4 @@
-import { Message } from "../review";
+import { Message } from "@/types";
 import React, { useRef, useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { MessageSquare } from "lucide-react";

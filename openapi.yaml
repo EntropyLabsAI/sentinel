@@ -4,12 +4,12 @@ info:
   version: 1.0.0
 
 servers:
-  - url: http://localhost:8080
+  - url: ${APPROVAL_WEBSERVER_URL}
 
 paths:
-  /api/review:
+  /api/review/human:
     post:
-      summary: Submit a review request
+      summary: Submit a review request for human review
       operationId: SubmitReview
       requestBody:
         required: true
@@ -23,11 +23,34 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReviewResponse"
+                $ref: "#/components/schemas/ReviewStatusResponse"
+  /api/review/llm:
+    post:
+      summary: Submit a review request for LLM review
+      operationId: SubmitReviewLLM
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewRequest"
+      responses:
+        "200":
+          description: Review queued successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewStatusResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/review/status:
     get:
       summary: Get the status of a review request
-      operationId: GetReviewStatus
+      operationId: GetReviewResult
       parameters:
         - name: id
           in: query
@@ -40,20 +63,92 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReviewStatus"
+                $ref: "#/components/schemas/ReviewResult"
         "404":
           description: Review not found
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /api/review/llm/list:
+    get:
+      summary: Get all LLM review results
+      operationId: GetLLMReviews
+      responses:
+        "200":
+          description: List of all LLM review results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Review"
+  /api/stats:
+    get:
+      summary: Get hub statistics
+      operationId: GetHubStats
+      responses:
+        "200":
+          description: Hub statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HubStats"
+  /api/explain:
+    post:
+      summary: Get an explanation and danger score for a code snippet
+      operationId: GetLLMExplanation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CodeSnippet"
+      responses:
+        "200":
+          description: LLM explanation retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LLMExplanation"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
+    CodeSnippet:
+      type: object
+      properties:
+        text:
+          type: string
+      required:
+        - text
+    LLMExplanation:
+      type: object
+      properties:
+        explanation:
+          type: string
+        score:
+          type: number
+      required:
+        - explanation
+        - score
+    Review:
+      type: object
+      properties:
+        id:
+          type: string
+        request:
+          $ref: "#/components/schemas/ReviewRequest"
+      required:
+        - id
+        - request
     ReviewRequest:
       type: object
       properties:
-        request_id:
-          type: string
         agent_id:
           type: string
         task_state:
@@ -71,27 +166,32 @@ components:
         - task_state
         - tool_choices
         - last_messages
-    ReviewResponse:
+    ReviewStatusResponse:
       type: object
       properties:
         id:
           type: string
-        decision:
-          type: string
-        tool_choice:
-          $ref: "#/components/schemas/ToolChoice"
+        status:
+          $ref: "#/components/schemas/Status"
       required:
-        - status
         - id
-    ReviewStatus:
+        - status
+    ReviewResult:
       type: object
       properties:
         id:
           type: string
         decision:
-          type: string
+          $ref: "#/components/schemas/Decision"
         tool_choice:
           $ref: "#/components/schemas/ToolChoice"
+        reasoning:
+          type: string
+      required:
+        - id
+        - decision
+        - tool_choice
+        - reasoning
     ErrorResponse:
       type: object
       properties:
@@ -250,3 +350,50 @@ components:
         - input_tokens
         - output_tokens
         - total_tokens
+    Decision:
+      type: string
+      enum:
+        - approve
+        - reject
+        - escalate
+        - terminate
+        - modify
+    Status:
+      type: string
+      enum:
+        - queued
+        - processing
+        - completed
+        - timeout
+    HubStats:
+      type: object
+      properties:
+        connected_clients:
+          type: integer
+        queued_reviews:
+          type: integer
+        stored_reviews:
+          type: integer
+        free_clients:
+          type: integer
+        busy_clients:
+          type: integer
+        assigned_reviews:
+          type: object
+          additionalProperties:
+            type: integer
+        review_distribution:
+          type: object
+          additionalProperties:
+            type: integer
+        completed_reviews:
+          type: integer
+      required:
+        - connected_clients
+        - queued_reviews
+        - stored_reviews
+        - free_clients
+        - busy_clients
+        - assigned_reviews
+        - review_distribution
+        - completed_reviews

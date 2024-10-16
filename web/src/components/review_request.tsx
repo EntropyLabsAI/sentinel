@@ -1,8 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { MessageSquare, Info, Hammer, Text, EyeOff, Eye, Code, Check, X, MessageSquare as MessageSquareIcon, SkullIcon } from "lucide-react"
-import { Message, Output, TaskState, ReviewRequest, Tool, ToolChoice } from "../review"
+import { MessageSquare, Info, Hammer, Text, Code, Check, X, SkullIcon } from "lucide-react"
+import { Message, Output, TaskState, ReviewRequest, Tool, ToolChoice, Decision, Review } from "@/types"
 import ToolChoiceDisplay from "./tool_call"
 import React, { useState, useEffect, useRef } from "react"
 import { Button } from "./ui/button"
@@ -10,8 +10,8 @@ import CopyButton from "./copy_button"
 import { MessagesDisplay } from "./messages"
 
 interface ReviewRequestProps {
-  reviewRequest: ReviewRequest;
-  sendResponse: (decision: string, toolChoice: ToolChoice) => void;
+  reviewRequest: Review;
+  sendResponse: (decision: Decision, toolChoice: ToolChoice) => void;
 }
 
 export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: ReviewRequestProps) {
@@ -24,7 +24,7 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
   }, [reviewRequest]);
 
   function handleToolChoiceChange(updatedToolChoice: ToolChoice, index: number) {
-    const updatedToolChoices = [...(updatedReviewRequest.tool_choices || [])];
+    const updatedToolChoices = [...(updatedReviewRequest.request.tool_choices || [])];
     updatedToolChoices[index] = updatedToolChoice;
 
     const updatedReview = {
@@ -35,8 +35,8 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
     setUpdatedReviewRequest(updatedReview);
   }
 
-  function handleSendResponse(decision: string) {
-    const selectedToolChoice = updatedReviewRequest.tool_choices[selectedToolIndex];
+  function handleSendResponse(decision: Decision) {
+    const selectedToolChoice = updatedReviewRequest.request.tool_choices[selectedToolIndex];
     sendResponse(decision, selectedToolChoice);
   }
 
@@ -45,7 +45,7 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
       {/* Action Buttons */}
       <div className="w-full flex-shrink-0">
         <h2 className="text-2xl mb-4">
-          Agent #<code>{updatedReviewRequest.agent_id.slice(0, 8)}</code> is requesting approval
+          Agent #<code>{updatedReviewRequest.request.agent_id.slice(0, 8)}</code> is requesting approval
         </h2>
         <div className="my-4 flex flex-wrap gap-2">
           <Button
@@ -76,13 +76,13 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
 
         {/* Tool Choices */}
         <div className="space-y-4">
-          {updatedReviewRequest.tool_choices &&
-            updatedReviewRequest.last_messages &&
-            updatedReviewRequest.tool_choices.map((toolChoice, index) => (
+          {updatedReviewRequest.request.tool_choices &&
+            updatedReviewRequest.request.last_messages &&
+            updatedReviewRequest.request.tool_choices.map((toolChoice, index) => (
               <ToolChoiceDisplay
                 key={index}
                 toolChoice={toolChoice}
-                lastMessage={updatedReviewRequest.last_messages[index]}
+                lastMessage={updatedReviewRequest.request.last_messages[index]}
                 onToolChoiceChange={(updatedToolChoice) => handleToolChoiceChange(updatedToolChoice, index)}
                 isSelected={selectedToolIndex === index}
                 onSelect={() => setSelectedToolIndex(index)}
@@ -94,8 +94,8 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
 
       {/* Context Display */}
       <div className="w-full flex-grow overflow-auto">
-        <ContextDisplay context={updatedReviewRequest.task_state} />
-        <JsonDisplay reviewRequest={updatedReviewRequest} />
+        <ContextDisplay context={updatedReviewRequest.request.task_state} />
+        <JsonDisplay reviewRequest={updatedReviewRequest.request} />
       </div>
     </div>
   )
@@ -168,9 +168,9 @@ function OutputDisplay({ output }: { output: Output }) {
           ))}
         </div>
         <div className="mt-4 text-xs text-muted-foreground">
-          <p>Input Tokens: {output.usage.input_tokens}</p>
-          <p>Output Tokens: {output.usage.output_tokens}</p>
-          <p>Total Tokens: {output.usage.total_tokens}</p>
+          <p>Input Tokens: {output.usage?.input_tokens}</p>
+          <p>Output Tokens: {output.usage?.output_tokens}</p>
+          <p>Total Tokens: {output.usage?.total_tokens}</p>
         </div>
       </CardContent>
     </Card>

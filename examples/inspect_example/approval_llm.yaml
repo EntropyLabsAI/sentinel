@@ -1,0 +1,6 @@
+approvers:
+  - name: el/llm_approver
+    tools: "*"
+    approval_api_endpoint: "http://localhost:8080"
+    agent_id: "my_sample_1_agent"
+    n: 1

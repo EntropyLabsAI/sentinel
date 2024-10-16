@@ -7,40 +7,78 @@ import (
 	"os"
 )
 
+type Server struct {
+	Hub *Hub
+}
+
 func InitAPI() {
 	// Initialize the WebSocket hub
 	hub := NewHub()
 	go hub.Run()
 
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+	// Create an instance of your ServerInterface implementation
+	server := Server{
+		Hub: hub,
+	}
+
+	// Generate the API handler using the generated code
+	apiHandler := Handler(server)
+
+	// Create a new ServeMux
+	mux := http.NewServeMux()
+
+	// Register the generated API handler under the /api/ path
+	mux.Handle("/api/", apiHandler)
+
+	// Register the WebSocket handler separately
+	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		serveWs(hub, w, r)
 	})
-	http.HandleFunc("/api/review", func(w http.ResponseWriter, r *http.Request) {
-		apiReviewHandler(hub, w, r)
-	})
-	http.HandleFunc("/api/review/status", func(w http.ResponseWriter, r *http.Request) {
-		apiReviewStatusHandler(w, r)
-	})
-	http.HandleFunc("/api/explain", func(w http.ResponseWriter, r *http.Request) {
-		apiExplainHandler(w, r)
-	})
-	http.HandleFunc("/api/stats", func(w http.ResponseWriter, r *http.Request) {
-		apiHubStatsHandler(hub, w, r)
-	})
-
-	// Serve static files
-	fs := http.FileServer(http.Dir("./static/"))
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
 	// Start the server, default to port 8080 if APPROVAL_WEBSERVER_PORT is not set
 	port := os.Getenv("APPROVAL_WEBSERVER_PORT")
 	if port == "" {
-		port = "8080"
+		log.Fatal("APPROVAL_WEBSERVER_PORT not set, failing out")
 	}
 
-	log.Printf("Server started on APPROVAL_WEBSERVER_PORT=%s", port)
-	err := http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
+	log.Printf("Server started on port %s", port)
+	err := http.ListenAndServe(fmt.Sprintf(":%s", port), mux)
 	if err != nil {
-		log.Fatal("error listening and serving: ", err)
+		log.Fatal("Error listening and serving: ", err)
 	}
+}
+
+// SubmitReview handles the POST /api/review/human endpoint
+func (s Server) SubmitReview(w http.ResponseWriter, r *http.Request) {
+	apiReviewHandler(s.Hub, w, r)
+}
+
+// GetReviewLLM handles the POST /api/review/llm endpoint
+func (s Server) SubmitReviewLLM(w http.ResponseWriter, r *http.Request) {
+	apiReviewLLMHandler(w, r)
+}
+
+func (s Server) GetLLMExplanation(w http.ResponseWriter, r *http.Request) {
+	apiLLMExplanationHandler(w, r)
+}
+
+// GetReviewResult handles the GET /api/review/status endpoint
+func (s Server) GetReviewResult(w http.ResponseWriter, r *http.Request, params GetReviewResultParams) {
+	apiReviewStatusHandler(w, r)
+}
+
+// GetHubStats handles the GET /api/stats endpoint
+func (s Server) GetHubStats(w http.ResponseWriter, r *http.Request) {
+	apiStatsHandler(s.Hub, w, r)
+}
+
+// GetReviewLLMResult handles the GET /api/review/llm/list endpoint
+func (s Server) GetLLMReviews(w http.ResponseWriter, r *http.Request) {
+	apiGetLLMReviews(w, r)
+}
+
+func enableCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+	(*w).Header().Set("Access-Control-Allow-Methods", "*")
+	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 }

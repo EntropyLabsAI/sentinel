@@ -1,19 +1,8 @@
 import React from 'react';
 
-interface HubStatsProps {
-  stats: {
-    connected_clients: number;
-    queued_reviews: number;
-    stored_reviews: number;
-    free_clients: number;
-    busy_clients: number;
-    assigned_reviews: { [key: string]: number };
-    review_distribution: { [key: number]: number };
-    completed_reviews: number;
-  };
-}
+import { HubStats as HubStatsType } from '@/types';
 
-const HubStats: React.FC<HubStatsProps> = ({ stats }) => {
+const HubStats: React.FC<{ stats: HubStatsType }> = ({ stats }) => {
   return (
     <div className="bg-gray-100 p-4 rounded-lg">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">

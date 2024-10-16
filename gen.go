@@ -19,6 +19,23 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for Decision.
+const (
+	Approve   Decision = "approve"
+	Escalate  Decision = "escalate"
+	Modify    Decision = "modify"
+	Reject    Decision = "reject"
+	Terminate Decision = "terminate"
+)
+
+// Defines values for Status.
+const (
+	Completed  Status = "completed"
+	Processing Status = "processing"
+	Queued     Status = "queued"
+	Timeout    Status = "timeout"
+)
+
 // Arguments defines model for Arguments.
 type Arguments struct {
 	Cmd  *string `json:"cmd,omitempty"`
@@ -39,9 +56,35 @@ type Choice struct {
 	StopReason *string          `json:"stop_reason,omitempty"`
 }
 
+// CodeSnippet defines model for CodeSnippet.
+type CodeSnippet struct {
+	Text string `json:"text"`
+}
+
+// Decision defines model for Decision.
+type Decision string
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Status string `json:"status"`
+}
+
+// HubStats defines model for HubStats.
+type HubStats struct {
+	AssignedReviews    map[string]int `json:"assigned_reviews"`
+	BusyClients        int            `json:"busy_clients"`
+	CompletedReviews   int            `json:"completed_reviews"`
+	ConnectedClients   int            `json:"connected_clients"`
+	FreeClients        int            `json:"free_clients"`
+	QueuedReviews      int            `json:"queued_reviews"`
+	ReviewDistribution map[string]int `json:"review_distribution"`
+	StoredReviews      int            `json:"stored_reviews"`
+}
+
+// LLMExplanation defines model for LLMExplanation.
+type LLMExplanation struct {
+	Explanation string  `json:"explanation"`
+	Score       float32 `json:"score"`
 }
 
 // Message defines model for Message.
@@ -61,28 +104,36 @@ type Output struct {
 	Usage   *Usage    `json:"usage,omitempty"`
 }
 
+// Review defines model for Review.
+type Review struct {
+	Id      string        `json:"id"`
+	Request ReviewRequest `json:"request"`
+}
+
 // ReviewRequest defines model for ReviewRequest.
 type ReviewRequest struct {
 	AgentId      string       `json:"agent_id"`
 	LastMessages []Message    `json:"last_messages"`
-	RequestId    *string      `json:"request_id,omitempty"`
 	TaskState    TaskState    `json:"task_state"`
 	ToolChoices  []ToolChoice `json:"tool_choices"`
 }
 
-// ReviewResponse defines model for ReviewResponse.
-type ReviewResponse struct {
-	Decision   *string     `json:"decision,omitempty"`
-	Id         string      `json:"id"`
-	ToolChoice *ToolChoice `json:"tool_choice,omitempty"`
+// ReviewResult defines model for ReviewResult.
+type ReviewResult struct {
+	Decision   Decision   `json:"decision"`
+	Id         string     `json:"id"`
+	Reasoning  string     `json:"reasoning"`
+	ToolChoice ToolChoice `json:"tool_choice"`
 }
 
-// ReviewStatus defines model for ReviewStatus.
-type ReviewStatus struct {
-	Decision   *string     `json:"decision,omitempty"`
-	Id         *string     `json:"id,omitempty"`
-	ToolChoice *ToolChoice `json:"tool_choice,omitempty"`
+// ReviewStatusResponse defines model for ReviewStatusResponse.
+type ReviewStatusResponse struct {
+	Id     string `json:"id"`
+	Status Status `json:"status"`
 }
+
+// Status defines model for Status.
+type Status string
 
 // TaskState defines model for TaskState.
 type TaskState struct {
@@ -126,22 +177,40 @@ type Usage struct {
 	TotalTokens  int `json:"total_tokens"`
 }
 
-// GetReviewStatusParams defines parameters for GetReviewStatus.
-type GetReviewStatusParams struct {
+// GetReviewResultParams defines parameters for GetReviewResult.
+type GetReviewResultParams struct {
 	Id string `form:"id" json:"id"`
 }
+
+// GetLLMExplanationJSONRequestBody defines body for GetLLMExplanation for application/json ContentType.
+type GetLLMExplanationJSONRequestBody = CodeSnippet
 
 // SubmitReviewJSONRequestBody defines body for SubmitReview for application/json ContentType.
 type SubmitReviewJSONRequestBody = ReviewRequest
 
+// SubmitReviewLLMJSONRequestBody defines body for SubmitReviewLLM for application/json ContentType.
+type SubmitReviewLLMJSONRequestBody = ReviewRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Submit a review request
-	// (POST /api/review)
+	// Get an explanation and danger score for a code snippet
+	// (POST /api/explain)
+	GetLLMExplanation(w http.ResponseWriter, r *http.Request)
+	// Submit a review request for human review
+	// (POST /api/review/human)
 	SubmitReview(w http.ResponseWriter, r *http.Request)
+	// Submit a review request for LLM review
+	// (POST /api/review/llm)
+	SubmitReviewLLM(w http.ResponseWriter, r *http.Request)
+	// Get all LLM review results
+	// (GET /api/review/llm/list)
+	GetLLMReviews(w http.ResponseWriter, r *http.Request)
 	// Get the status of a review request
 	// (GET /api/review/status)
-	GetReviewStatus(w http.ResponseWriter, r *http.Request, params GetReviewStatusParams)
+	GetReviewResult(w http.ResponseWriter, r *http.Request, params GetReviewResultParams)
+	// Get hub statistics
+	// (GET /api/stats)
+	GetHubStats(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -152,6 +221,20 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// GetLLMExplanation operation middleware
+func (siw *ServerInterfaceWrapper) GetLLMExplanation(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetLLMExplanation(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // SubmitReview operation middleware
 func (siw *ServerInterfaceWrapper) SubmitReview(w http.ResponseWriter, r *http.Request) {
@@ -167,13 +250,41 @@ func (siw *ServerInterfaceWrapper) SubmitReview(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
-// GetReviewStatus operation middleware
-func (siw *ServerInterfaceWrapper) GetReviewStatus(w http.ResponseWriter, r *http.Request) {
+// SubmitReviewLLM operation middleware
+func (siw *ServerInterfaceWrapper) SubmitReviewLLM(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SubmitReviewLLM(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetLLMReviews operation middleware
+func (siw *ServerInterfaceWrapper) GetLLMReviews(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetLLMReviews(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetReviewResult operation middleware
+func (siw *ServerInterfaceWrapper) GetReviewResult(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params GetReviewStatusParams
+	var params GetReviewResultParams
 
 	// ------------- Required query parameter "id" -------------
 
@@ -191,7 +302,21 @@ func (siw *ServerInterfaceWrapper) GetReviewStatus(w http.ResponseWriter, r *htt
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetReviewStatus(w, r, params)
+		siw.Handler.GetReviewResult(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetHubStats operation middleware
+func (siw *ServerInterfaceWrapper) GetHubStats(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetHubStats(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -321,8 +446,12 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
-	m.HandleFunc("POST "+options.BaseURL+"/api/review", wrapper.SubmitReview)
-	m.HandleFunc("GET "+options.BaseURL+"/api/review/status", wrapper.GetReviewStatus)
+	m.HandleFunc("POST "+options.BaseURL+"/api/explain", wrapper.GetLLMExplanation)
+	m.HandleFunc("POST "+options.BaseURL+"/api/review/human", wrapper.SubmitReview)
+	m.HandleFunc("POST "+options.BaseURL+"/api/review/llm", wrapper.SubmitReviewLLM)
+	m.HandleFunc("GET "+options.BaseURL+"/api/review/llm/list", wrapper.GetLLMReviews)
+	m.HandleFunc("GET "+options.BaseURL+"/api/review/status", wrapper.GetReviewResult)
+	m.HandleFunc("GET "+options.BaseURL+"/api/stats", wrapper.GetHubStats)
 
 	return m
 }
@@ -330,21 +459,29 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"/w0AAP//kp6jRyEbAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

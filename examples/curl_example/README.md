@@ -4,7 +4,7 @@ Curl the payload to the `/api/review` endpoint to submit a review request, updat
 
 From the root of the repo:
 ```bash
-source .env && curl -X POST http://localhost:${APPROVAL_WEBSERVER_PORT}/api/review \
+source .env && curl -X POST http://localhost:${APPROVAL_WEBSERVER_PORT}/api/review/human \
      -H "Content-Type: application/json" \
      -d @examples/curl_example/payload.json
 ```

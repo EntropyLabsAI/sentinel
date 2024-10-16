@@ -15,12 +15,12 @@
 3. Run single agent example when using human approval for all tools:
 
    ```bash
-   inspect eval run.py --approval approval.yaml --model openai/gpt-4o --trace
+   inspect eval run.py --approval approval_human.yaml --model openai/gpt-4o --trace
    ```
-   You can change the approval configuration by changing the `approval.yaml` file. There are also allowlist examples in the `approval_allowlists.yaml` file. You can run this by changing the `--approval` argument:
+   You can change the approval configuration by changing the `approval_human.yaml` file. There are also allowlist examples in the `approval_escalation.yaml` file. You can run this by changing the `--approval` argument:
 
    ```bash
-   inspect eval run.py --approval approval_allowlists.yaml --model openai/gpt-4o --trace
+   inspect eval run.py --approval approval_escalation.yaml --model openai/gpt-4o --trace
    ```
 
 4. Or run the agents.sh helper script to run multiple agents in parallel inside a tmux window (requires [tmux](https://github.com/tmux/tmux/wiki)):
@@ -34,7 +34,7 @@
 
 
 ## Approval configuation
-Examples of approval configuration are in `approval.yaml` and `approval_allowlists.yaml` files. We follow the Inspect AI format for the approval configuration. More information here: [https://inspect.ai-safety-institute.org.uk/approval.html](https://inspect.ai-safety-institute.org.uk/approval.html). Our approvers are in the `el.approvers` module. You can install the `entropy-labs` package to get these approvers:
+Examples of approval configuration are in `approval_human.yaml`, `approval_llm.yaml` and `approval_escalation.yaml` files. We follow the Inspect AI format for the approval configuration. More information here: [https://inspect.ai-safety-institute.org.uk/approval.html](https://inspect.ai-safety-institute.org.uk/approval.html). Our approvers are in the `el.approvers` module. You can install the `entropy-labs` package to get these approvers:
 
 ```bash
 pip install entropy-labs
@@ -47,11 +47,11 @@ from el.approvers import _registry
 Then you can reference the approvers in the approval configuration like `el/human_approver`. You can find more information about the `entropy-labs` package at [https://pypi.org/project/entropy-labs/](https://pypi.org/project/entropy-labs/).
 
 
-In the `approval_allowlists.yaml` example, bash approval is done by checking if the command is in the allowed list. Python approval is done by checking if the modules and functions used are in the allowed list. If bash or python approval is not passed, the human approval is triggered. You can remove bash or python approval if you want escalate directly to human approval. Make sure the human api `approval_api_endpoint` is set to the local approval api endpoint.
+In the `approval_escalation.yaml` example, bash approval is done by checking if the command is in the allowed list. Python approval is done by checking if the modules and functions used are in the allowed list. If bash or python approval is not passed, the human approval is triggered. You can remove bash or python approval if you want escalate directly to human approval. Make sure the human api `approval_api_endpoint` is set to the local approval api endpoint.
 
 ## Approval Configuration Details
 
-The `approval_allowlists.yaml` file contains the following configuration:
+The `approval_escalation.yaml` file contains the following configuration:
 
 ### Python Allowlist
 - Allowed modules: requests, json, csv, datetime, re, math, random, time

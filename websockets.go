@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -26,7 +27,7 @@ type Hub struct {
 	Clients      map[*Client]bool
 	ClientsMutex sync.RWMutex
 	// ReviewChan is a channel that receives new reviews from agents
-	ReviewChan chan ReviewRequest
+	ReviewChan chan Review
 	// Register is used when a new client connects
 	Register chan *Client
 	// Unregister is used when a client disconnects
@@ -46,7 +47,7 @@ type Hub struct {
 func NewHub() *Hub {
 	return &Hub{
 		Clients:         make(map[*Client]bool),
-		ReviewChan:      make(chan ReviewRequest, 100),
+		ReviewChan:      make(chan Review, 100),
 		Register:        make(chan *Client),
 		Unregister:      make(chan *Client),
 		AssignedReviews: make(map[*Client]map[string]bool),
@@ -64,7 +65,7 @@ func (h *Hub) Run() {
 		case client := <-h.Unregister:
 			h.unregisterClient(client)
 		case review := <-h.ReviewChan:
-			fmt.Printf("Received review from ReviewChan: %v\n", review.RequestId)
+			fmt.Printf("Received review from ReviewChan: %v\n", review.Id)
 			h.assignReview(review)
 		}
 	}
@@ -104,7 +105,7 @@ func (h *Hub) unregisterClient(client *Client) {
 }
 
 // assignReview assigns a review to a client if they have capacity, otherwise it queues the review
-func (h *Hub) assignReview(review ReviewRequest) {
+func (h *Hub) assignReview(review Review) {
 	h.ClientsMutex.RLock()
 	defer h.ClientsMutex.RUnlock()
 
@@ -112,7 +113,7 @@ func (h *Hub) assignReview(review ReviewRequest) {
 	if !h.assignReviewToClient(review) {
 		// If no client is available, queue the review
 		h.Queue.PushBack(review)
-		log.Printf("No available clients with capacity. Queued review.RequestId %s.", review.RequestId)
+		log.Printf("No available clients with capacity. Queued review.RequestId %s.", review.Id)
 	}
 }
 
@@ -124,7 +125,7 @@ func (h *Hub) processQueue() {
 	var next *list.Element
 	for e := h.Queue.Front(); e != nil; e = next {
 		next = e.Next()
-		review := e.Value.(ReviewRequest)
+		review := e.Value.(Review)
 
 		if h.assignReviewToClient(review) {
 			h.Queue.Remove(e)
@@ -136,7 +137,7 @@ func (h *Hub) processQueue() {
 }
 
 // assignReviewToClient attempts to assign a review to a client if they have capacity
-func (h *Hub) assignReviewToClient(review ReviewRequest) bool {
+func (h *Hub) assignReviewToClient(review Review) bool {
 	h.AssignedReviewsMutex.Lock()
 	defer h.AssignedReviewsMutex.Unlock()
 
@@ -148,9 +149,9 @@ func (h *Hub) assignReviewToClient(review ReviewRequest) bool {
 			client.Send <- review
 
 			h.ReviewStore.Add(review)
-			h.AssignedReviews[client][*review.RequestId] = true
-			log.Printf("Assigned review.RequestId %s to client.", review.RequestId)
-			return true // Review assigned
+			h.AssignedReviews[client][review.Id] = true
+			log.Printf("Assigned review.RequestId %s to client.", review.Id)
+			return true // Review assignekd
 		}
 	}
 
@@ -183,7 +184,7 @@ func (h *Hub) requeueAssignedReviews(client *Client) {
 type Client struct {
 	Hub  *Hub
 	Conn *websocket.Conn
-	Send chan ReviewRequest
+	Send chan Review
 }
 
 // WritePump handles the sending of reviews to the client
@@ -198,7 +199,7 @@ func (c *Client) WritePump() {
 			log.Println("Error sending review to client:", err)
 			break
 		}
-		log.Printf("Sent review.RequestId %s to client.", review.RequestId)
+		log.Printf("Sent review.RequestId %s to client.", review.Id)
 	}
 }
 
@@ -216,7 +217,7 @@ func (c *Client) ReadPump() {
 			break
 		}
 
-		var response ReviewResponse
+		var response ReviewResult
 		if err := json.Unmarshal(message, &response); err != nil {
 			log.Println("Error unmarshaling reviewer response:", err)
 			continue
@@ -224,7 +225,7 @@ func (c *Client) ReadPump() {
 
 		// Handle the response
 		if chInterface, ok := reviewChannels.Load(response.Id); ok {
-			responseChan, ok := chInterface.(chan ReviewResponse)
+			responseChan, ok := chInterface.(chan ReviewResult)
 			if ok {
 				// Send the response non-blocking to prevent potential deadlocks
 				select {
@@ -257,25 +258,13 @@ func (c *Client) ReadPump() {
 	}
 }
 
-// HubStats is a struct that is used to store the statistics of the hub, and is used for the /stats endpoint
-type HubStats struct {
-	ConnectedClients   int            `json:"connected_clients"`
-	QueuedReviews      int            `json:"queued_reviews"`
-	StoredReviews      int            `json:"stored_reviews"`
-	FreeClients        int            `json:"free_clients"`
-	BusyClients        int            `json:"busy_clients"`
-	AssignedReviews    map[string]int `json:"assigned_reviews"`
-	ReviewDistribution map[int]int    `json:"review_distribution"`
-	CompletedReviews   int            `json:"completed_reviews"`
-}
-
 func (h *Hub) getStats() HubStats {
 	stats := HubStats{
 		ConnectedClients:   len(h.Clients),
 		QueuedReviews:      h.Queue.Len(),
 		StoredReviews:      h.ReviewStore.Count(),
 		AssignedReviews:    make(map[string]int),
-		ReviewDistribution: make(map[int]int),
+		ReviewDistribution: make(map[string]int),
 		CompletedReviews:   h.CompletedReviewCount,
 	}
 
@@ -285,8 +274,13 @@ func (h *Hub) getStats() HubStats {
 	for client, reviews := range h.AssignedReviews {
 		clientKey := fmt.Sprintf("%p", client)
 		assignedCount := len(reviews)
+
+		// Annoyingly the ReviewDistribution map is a map[string]int so we need to
+		// convert the assignedCount to a string
+		assignedCountStr := strconv.Itoa(assignedCount)
+
 		stats.AssignedReviews[clientKey] = assignedCount
-		stats.ReviewDistribution[assignedCount]++
+		stats.ReviewDistribution[assignedCountStr]++
 		totalAssignedReviews += assignedCount
 	}
 	h.AssignedReviewsMutex.RUnlock()
@@ -294,7 +288,12 @@ func (h *Hub) getStats() HubStats {
 	stats.BusyClients = 0
 	stats.FreeClients = 0
 
-	for assignedCount, count := range stats.ReviewDistribution {
+	for assignedCountStr, count := range stats.ReviewDistribution {
+		assignedCount, err := strconv.Atoi(assignedCountStr)
+		if err != nil {
+			log.Printf("Error converting assignedCountStr to int: %v", err)
+			continue
+		}
 		if assignedCount < MAX_REVIEWS_PER_CLIENT {
 			stats.FreeClients += count
 		} else {
