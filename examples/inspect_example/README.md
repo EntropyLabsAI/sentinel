@@ -17,7 +17,7 @@
    ```bash
    inspect eval run.py --approval approval_human.yaml --model openai/gpt-4o --trace
    ```
-   You can change the approval configuration by changing the `approval.yaml` file. There are also allowlist examples in the `approval_allowlists.yaml` file. You can run this by changing the `--approval` argument:
+   You can change the approval configuration by changing the `approval_human.yaml` file. There are also allowlist examples in the `approval_escalation.yaml` file. You can run this by changing the `--approval` argument:
 
    ```bash
    inspect eval run.py --approval approval_escalation.yaml --model openai/gpt-4o --trace
