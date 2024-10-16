@@ -60,7 +60,7 @@ Inspect is an agent evaluation framework that allows you to evaluate and control
 3. Run the example:
 
    ```bash
-   inspect eval run.py --approval approval.yaml --model openai/gpt-4o --trace
+   inspect eval run.py --approval approval_human.yaml --model openai/gpt-4o --trace
    ```
 This will run the example and trigger the approvals. The example in run.py is choosing random tasks to run from the list of tasks (e.g. build a web app, build a mobile app, etc). It then runs the task and triggers the approval configuration. You should see the approvals in the approval api interface at http://localhost:3000.
 
