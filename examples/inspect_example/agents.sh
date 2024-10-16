@@ -8,7 +8,7 @@ PANE_COUNT=4
 MODEL="openai/gpt-4o-mini"
 
 # Approval file to use
-APPROVAL_YAML="approval.yaml"
+APPROVAL_YAML="approval_human.yaml"
 
 # Start a new tmux session in detached mode
 tmux new-session -d -s $SESSION_NAME
