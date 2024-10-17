@@ -107,16 +107,6 @@ function ContextDisplay({ context }: { context: TaskState }) {
       <MessagesDisplay messages={context.messages} />
       {context.tools && context.tools.length > 0 && <ToolsDisplay tools={context.tools} />}
       {context.output && <OutputDisplay output={context.output} />}
-      {/* <div className="flex items-center justify-between">
-        <Badge variant={context.completed ? "default" : "secondary"}>
-          {context.completed ? "Completed" : "In Progress"}
-        </Badge>
-        {context.metadata && Object.keys(context.metadata).length > 0 && (
-          <span className="text-sm text-muted-foreground">
-            Metadata: {JSON.stringify(context.metadata)}
-          </span>
-        )}
-      </div> */}
     </div>
   )
 }

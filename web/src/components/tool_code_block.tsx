@@ -53,7 +53,6 @@ export default function ToolCodeBlock({
     }
   }, [code]);
 
-
   const getScoreStyle = (score: string) => {
     switch (score.toLowerCase()) {
       case 'harmless':
@@ -129,12 +128,16 @@ export default function ToolCodeBlock({
           ) : (
             <Textarea
               ref={textareaRef}
-              defaultValue={code}
+              value={code}
               className="w-full bg-transparent text-white text-md border-none resize-none overflow-hidden"
               style={{
                 lineHeight: "1.5",
                 paddingTop: "0.375rem",
                 paddingBottom: "0.375rem",
+              }}
+              onChange={(e) => {
+                // Textarea bugs out if it has a value but not an onChange handler lol
+                return
               }}
             />
           )}
