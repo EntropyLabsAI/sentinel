@@ -1,6 +1,36 @@
 import React from 'react';
 
 import { HubStats as HubStatsType } from '@/types';
+import * as Accordion from '@radix-ui/react-accordion';
+import { ChevronDownIcon } from 'lucide-react'; // Using Lucide Icons for the Chevron
+
+interface HubStatsAccordionProps {
+  hubStats: HubStatsType | null;
+}
+
+const HubStatsAccordion: React.FC<HubStatsAccordionProps> = ({ hubStats }) => {
+  return (
+    <Accordion.Root type="single" collapsible className="w-full">
+      <Accordion.Item value="hub-stats" className="border border-gray-200 rounded-md mb-4">
+        <Accordion.Header>
+          <Accordion.Trigger className="flex justify-between items-center w-full p-4 rounded-md cursor-pointer focus:outline-none">
+            <span className="text-sm font-mono font-semibold text-gray-400">Websocket Hub Statistics</span>
+            <ChevronDownIcon className="h-5 w-5 transition-transform duration-200" />
+          </Accordion.Trigger>
+        </Accordion.Header>
+        <Accordion.Content className="p-4 bg-white rounded-md">
+          {hubStats ? (
+            <HubStats stats={hubStats} />
+          ) : (
+            <p>Loading hub statistics...</p>
+          )}
+        </Accordion.Content>
+      </Accordion.Item>
+    </Accordion.Root>
+  );
+};
+
+export { HubStatsAccordion };
 
 const HubStats: React.FC<{ stats: HubStatsType }> = ({ stats }) => {
   return (
@@ -41,5 +71,3 @@ const StatItem: React.FC<{ label: string; value: number }> = ({ label, value }) 
     <div className="text-xl font-semibold">{value}</div>
   </div>
 );
-
-export default HubStats;

@@ -1,5 +1,6 @@
 import React from 'react';
 import { UserIcon, BrainCircuitIcon } from 'lucide-react';
+import { Badge } from './ui/badge';
 
 // Define a Supervisor type to include additional information
 interface Supervisor {
@@ -15,13 +16,13 @@ const Supervisors: Supervisor[] = [
     name: "HumanSupervisor",
     Icon: UserIcon as React.ComponentType<{ size: number }>,
     apiEndpoint: "/api/review/human",
-    description: "Review agent actions using human judgment and expertise.",
+    description: "Review agent actions with a human operator",
   },
   {
     name: "LLMSupervisor",
     Icon: BrainCircuitIcon as React.ComponentType<{ size: number }>,
     apiEndpoint: "/api/review/llm",
-    description: "Automatically review agent actions using LLMs.",
+    description: "Review agent actions using an LLM",
   },
   // Add more supervisors here if needed
 ];
@@ -43,8 +44,34 @@ const SupervisorSelection: React.FC<SupervisorSelectionProps> = ({ onSelect, API
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 ">
-      <h2 className="text-3xl font-semibold mb-6 text-center">Select a Supervisor</h2>
+    <div className="container mx-auto px-4 py-24">
+      {/* Introductory Section */}
+      <div className="mb-12 space-y-12">
+        <h1 className="text-2xl font-bold mb-4">Select a Supervisor</h1>
+        <p className="text-lg text-gray-700">
+          Supervisors are used to review agent actions. To get started, ensure that your agent is running and making requests to the Sentinel API when it wants to take an action. Requests will be paused until a supervisor approves the action.
+        </p>
+        <p>Supervisors will then return one of the following responses to your agent:
+          <div className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-2 mt-2">
+            <Badge variant="outline" className="whitespace-nowrap">APPROVE</Badge>
+            <div>The agent can proceed</div>
+
+            <Badge variant="outline" className="whitespace-nowrap">REJECT</Badge>
+            <div>The agent action is blocked and the agent should try again</div>
+
+            <Badge variant="outline" className="whitespace-nowrap">ESCALATE</Badge>
+            <div>The action should be escalated to the next supervisor if one is configured</div>
+
+            <Badge variant="outline" className="whitespace-nowrap">TERMINATE</Badge>
+            <div>The agent process should be killed</div>
+          </div>
+        </p>
+        <p className="mt-4 text-sm text-gray-500">
+          Select a supervisor below to get started.
+        </p>
+      </div>
+
+      {/* Supervisor Selection Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {Supervisors.map((supervisor) => {
           const { name, Icon, apiEndpoint, description } = supervisor;

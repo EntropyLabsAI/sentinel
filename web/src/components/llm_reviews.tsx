@@ -31,10 +31,10 @@ export default function ReviewList({ reviews = [] }: ReviewListProps) {
                   >
                     {review.decision.charAt(0).toUpperCase() + review.decision.slice(1)}
                   </span>
-                  <span className="text-sm font-medium text-gray-900 truncate">
+                  <span className="text-sm font-mono text-gray-900 truncate">
                     {review.tool_choice.arguments.cmd}
                   </span>
-                  <span className="text-sm text-gray-500 justify-self-end">ID: {review.id.slice(0, 8)}...</span>
+                  <span className="text-sm text-gray-500 justify-self-end">ID: {review.id.slice(0, 8)}</span>
                 </div>
               </AccordionTrigger>
               <AccordionContent className="p-4 bg-white shadow-sm rounded-lg mt-2">
