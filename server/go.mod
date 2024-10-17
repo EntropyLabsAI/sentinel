@@ -1,4 +1,4 @@
-module github.com/entropylabsai/sentinel
+module github.com/entropylabsai/sentinel/server
 
 go 1.23.1
 

@@ -1,12 +1,12 @@
 services:
   app:
     build:
-      context: .
+      context: ./server
       dockerfile: cmd/Dockerfile
     ports:
       - "${APPROVAL_WEBSERVER_PORT}:${APPROVAL_WEBSERVER_PORT}"
     volumes:
-      - .:/app
+      - ./server:/app
     command: go run cmd/main.go
     env_file:
       - .env

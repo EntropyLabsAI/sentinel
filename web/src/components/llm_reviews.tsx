@@ -13,8 +13,11 @@ interface ReviewListProps {
 
 export default function ReviewList({ reviews = [] }: ReviewListProps) {
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8 space-y-4">
       <h1 className="text-2xl font-bold mb-6">Review List</h1>
+      <p className="text-gray-600">
+        The LLM reviews interface is still under development, but any reviews performed by the LLM will show up here. We'll make this more user-friendly soon, including allowing you to set the prompt that the LLM uses for reviews. Currently, it's set in <code>callLLMForReview</code> in <code>handlers.go</code>.
+      </p>
       {reviews.length === 0 ? (
         <p className="text-gray-600">The LLM has not performed any reviews yet.</p>
       ) : (
