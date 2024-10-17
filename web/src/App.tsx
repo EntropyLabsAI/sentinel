@@ -6,6 +6,7 @@ import { HubStats as HubStatsType } from '@/types';
 import { UserIcon, BrainCircuitIcon } from 'lucide-react';
 import LLMReviews from '@/components/llm_reviews';
 import NavBar from './components/nav';
+import SupervisorSelection from './components/supervisor_selection';
 
 // SupervisorNames is a list of names of the supervisors
 const SupervisorNames = [
@@ -24,31 +25,6 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 // The websocket base URL is set via an environment variable in the docker-compose.yml file
 // @ts-ignore
 const WEBSOCKET_BASE_URL = import.meta.env.VITE_WEBSOCKET_BASE_URL;
-
-const SupervisorSelection: React.FC<{ onSelect: (supervisor: string) => void }> = ({ onSelect }) => {
-  if (!API_BASE_URL || !WEBSOCKET_BASE_URL) {
-    return <div>No API or WebSocket base URL set: API is: {API_BASE_URL} and WebSocket is: {WEBSOCKET_BASE_URL}</div>;
-  }
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {SupervisorNames.map((supervisor) => {
-          const Icon = SupervisorIcons[supervisor as keyof typeof SupervisorIcons];
-          return (
-            <div
-              key={supervisor}
-              className="border p-4 rounded-lg cursor-pointer hover:bg-gray-100 flex flex-col items-center"
-              onClick={() => onSelect(supervisor)}
-            >
-              <Icon size={24} className="mb-2" />
-              <h2 className="text-xl text-center">{supervisor}</h2>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
 
 const ApprovalsInterface: React.FC = () => {
   const [humanReviewDataList, setHumanReviewDataList] = useState<Review[]>([]);
@@ -205,7 +181,7 @@ const ApprovalsInterface: React.FC = () => {
 
       <main className="flex-grow">
         {selectedSupervisor === null ? (
-          <SupervisorSelection onSelect={setSelectedSupervisor} />
+          <SupervisorSelection onSelect={setSelectedSupervisor} API_BASE_URL={API_BASE_URL} WEBSOCKET_BASE_URL={WEBSOCKET_BASE_URL} />
         ) : selectedSupervisor === "LLMSupervisor" ? (
           <LLMReviews reviews={llmReviewDataList} />
         ) : (
