@@ -30,6 +30,11 @@ func InitAPI() {
 	// Register the generated API handler under the /api/ path
 	mux.Handle("/api/", apiHandler)
 
+	// Serve Swagger UI
+	mux.HandleFunc("/api/docs", serveSwaggerUI)
+
+	mux.HandleFunc("/api/openapi.yaml", serveOpenAPI)
+
 	// Register the WebSocket handler separately
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		serveWs(hub, w, r)
@@ -81,4 +86,13 @@ func enableCors(w *http.ResponseWriter) {
 	(*w).Header().Set("Access-Control-Allow-Origin", "*")
 	(*w).Header().Set("Access-Control-Allow-Methods", "*")
 	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+}
+
+func serveSwaggerUI(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("Serving Swagger UI\n")
+	http.ServeFile(w, r, "swagger-ui/index.html")
+}
+
+func serveOpenAPI(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "openapi.yaml")
 }
