@@ -1,5 +1,5 @@
 # Sentinel 
-Sentinel is an agent control plane that allows you to efficiently oversee thousands of agents running in parallel.
+Sentinel is an agent control plane built by [Entropy Labs](http://entropy-labs.ai/) that allows you to efficiently oversee thousands of agents running in parallel.
 
 <div align="center">
 <a target="_blank" href="https://www.loom.com/share/c939b9c0da07421b8a3dd665cac26fda"><img width="60%" alt="video thumbnail showing editor" src="./thumb.png"></a>
