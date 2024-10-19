@@ -117,6 +117,42 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /api/review/llm/prompt:
+    post:
+      summary: Submit a new prompt for LLM reviews
+      operationId: SetLLMPrompt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LLMPrompt"
+      responses:
+        "200":
+          description: Prompt updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LLMPromptResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      summary: Get the current LLM review prompt
+      operationId: GetLLMPrompt
+      responses:
+        "200":
+          description: Current LLM prompt retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  prompt:
+                    type: string
 components:
   schemas:
     CodeSnippet:
@@ -397,3 +433,20 @@ components:
         - assigned_reviews
         - review_distribution
         - completed_reviews
+    LLMPrompt:
+      type: object
+      properties:
+        prompt:
+          type: string
+      required:
+        - prompt
+    LLMPromptResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+      required:
+        - status
+        - message
