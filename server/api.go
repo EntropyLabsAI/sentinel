@@ -100,6 +100,7 @@ func serveSwaggerUI(w http.ResponseWriter, r *http.Request) {
 }
 
 func serveOpenAPI(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("Serving OpenAPI\n")
 	http.ServeFile(w, r, "openapi.yaml")
 }
 

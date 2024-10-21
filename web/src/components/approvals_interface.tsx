@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ReviewResult } from '@/types';
-import ReviewSection from '@/components/human_reviews';
-import { HubStats as HubStatsType } from '@/types';
 import LLMReviews from '@/components/llm_reviews';
 import NavBar from './nav';
 import SupervisorSelection from './supervisor_selection';
-import { HubStatsAccordion } from './hub_stats';
 import HumanReviews from '@/components/human_reviews';
 
 // The API base URL is set via an environment variable in the docker-compose.yml file

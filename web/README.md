@@ -16,7 +16,7 @@ npm run dev
 We use [Orval](https://orval.dev/quick-start) to generate the API client and server from the OpenAPI spec. If you update the OpenAPI spec in `../openapi.yaml`, you should regenerate the API client and server with `oapi-codegen` so that the endpoints are available in the frontend.
 
 ```bash
-npx orval --input ../openapi.yaml --output ./src/types.ts
+npx orval --input ../server/openapi.yaml --output ./src/types.ts
 ```
 
 ### Build
