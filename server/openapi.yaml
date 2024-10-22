@@ -553,5 +553,13 @@ components:
       properties:
         id:
           type: string
+        name:
+          type: string
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/Tool"
       required:
         - id
+        - name
+        - tools

@@ -66,7 +66,7 @@ func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Create the Project struct
 	project := Project{
-		ID:    id,
+		Id:    id,
 		Name:  request.Name,
 		Tools: request.Tools,
 	}
