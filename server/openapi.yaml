@@ -17,6 +17,10 @@ paths:
       responses:
         "200":
           description: Project registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
       tags:
         - Project
     get:
@@ -25,6 +29,12 @@ paths:
       responses:
         "200":
           description: List of all projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RegisterProjectResponse"
       tags:
         - Project
   /api/project/{id}:
@@ -531,3 +541,17 @@ components:
       required:
         - name
         - tools
+    RegisterProjectResponse:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+        - id
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+        - id
