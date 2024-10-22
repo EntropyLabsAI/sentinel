@@ -16,6 +16,14 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
+// Define the Project struct
+type Project struct {
+	ID    string
+	Name  string
+	Tools []Tool
+}
+
+var projects = &sync.Map{}
 var completedHumanReviews = &sync.Map{}
 var completedLLMReviews = &sync.Map{}
 
@@ -42,6 +50,42 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 
 	go client.WritePump()
 	go client.ReadPump()
+}
+
+// apiRegisterProjectHandler handles the POST /api/project/register endpoint
+func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request) {
+	var request RegisterProjectRequest
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Generate a new Project ID
+	id := uuid.New().String()
+
+	// Create the Project struct
+	project := Project{
+		ID:    id,
+		Name:  request.Name,
+		Tools: request.Tools,
+	}
+
+	// Store the project in the global projects map
+	projects.Store(id, project)
+
+	// Prepare the response
+	response := map[string]string{
+		"id": id,
+	}
+
+	// Send the response
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 // apiReviewHandler receives review requests via the HTTP API
@@ -109,17 +153,8 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 }
 
 // apiReviewStatusHandler checks the status of a review request
-// TODO: this requires that the agent polls the status endpoint until it gets a response
-// in future we can implement webhooks/SSE/long polling/events-based design to make this more efficient
-func apiReviewStatusHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract the review.RequestId from the query parameters
-	reviewID := r.URL.Query().Get("id")
-	if reviewID == "" {
-		http.Error(w, "missing review.RequestId", http.StatusBadRequest)
-		return
-	}
-
-	// Check if there's a channel waiting for this review
+func apiReviewStatusHandler(w http.ResponseWriter, _ *http.Request, reviewID string) {
+	// Use the reviewID directly
 	if _, ok := reviewChannels.Load(reviewID); ok {
 		// There's a pending review
 		w.WriteHeader(http.StatusOK)
@@ -287,6 +322,24 @@ func apiGetLLMReviews(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
+// apiGetProjectsHandler returns all projects
+func apiGetProjectsHandler(w http.ResponseWriter, _ *http.Request) {
+	p := make([]Project, 0)
+
+	projects.Range(func(key, value any) bool {
+		p = append(p, value.(Project))
+		return true
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err := json.NewEncoder(w).Encode(p)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
 func apiSetLLMPromptHandler(w http.ResponseWriter, r *http.Request) {
 	var request LLMPrompt
 
@@ -348,6 +401,22 @@ func apiGetLLMPromptHandler(w http.ResponseWriter, _ *http.Request) {
 	err := json.NewEncoder(w).Encode(response)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// apiGetProjectByIdHandler handles the GET /api/project/{id} endpoint
+func apiGetProjectByIdHandler(w http.ResponseWriter, _ *http.Request, id string) {
+	// Retrieve the project from the projects map
+	if project, ok := projects.Load(id); ok {
+		w.Header().Set("Content-Type", "application/json")
+		err := json.NewEncoder(w).Encode(project)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		http.Error(w, "Project not found", http.StatusNotFound)
 		return
 	}
 }
