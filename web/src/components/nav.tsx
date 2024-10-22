@@ -25,7 +25,7 @@ export default function NavBar({ isSocketConnected }: NavBarProps) {
                 Sentinel
               </h1>
             </a>
-            <p className="text-sm">agent oversight platform <span className="font-mono">v0.0.1</span></p>
+            <p className="text-sm">agent oversight platform <span className="font-mono">v0.1.2</span></p>
           </div>
         </div>
         <div className="text-sm flex items-center space-x-4">
@@ -42,7 +42,7 @@ export default function NavBar({ isSocketConnected }: NavBarProps) {
 
           {/* API Docs Link */}
           <a
-            href={`${API_BASE_URL}/api/docs`}
+            href={`https://docs.entropy-labs.ai`}
             target="_blank"
             rel="noopener noreferrer"
             className="ml-4"

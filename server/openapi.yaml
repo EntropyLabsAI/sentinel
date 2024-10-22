@@ -3,10 +3,17 @@ info:
   title: Sentinel API
   version: 1.0.0
 
-servers:
-  - url: http://localhost:8080
-
 paths:
+  /api/project/register:
+    post:
+      summary: Register a new project
+      operationId: RegisterProject
+      responses:
+        "200":
+          description: Project registered successfully
+      tags:
+        - Project
+
   /api/docs:
     get:
       summary: Get the API documentation
