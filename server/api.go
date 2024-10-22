@@ -27,22 +27,17 @@ func InitAPI() {
 	// Wrap the API handler with the CORS middleware
 	corsHandler := enableCorsMiddleware(apiHandler)
 
-	// Create a new ServeMux
 	mux := http.NewServeMux()
 
 	// Register the wrapped API handler under the /api/ path
 	mux.Handle("/api/", corsHandler)
-
-	mux.HandleFunc("/api/docs", serveSwaggerUI)
-
-	mux.HandleFunc("/api/openapi.yaml", serveOpenAPI)
 
 	// Register the WebSocket handler separately
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		serveWs(hub, w, r)
 	})
 
-	// Start the server, default to port 8080 if APPROVAL_WEBSERVER_PORT is not set
+	// Start the server on the port specified
 	port := os.Getenv("APPROVAL_WEBSERVER_PORT")
 	if port == "" {
 		log.Fatal("APPROVAL_WEBSERVER_PORT not set, failing out")
@@ -55,8 +50,16 @@ func InitAPI() {
 	}
 }
 
+func (s Server) GetSwaggerDocs(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "swagger-ui/index.html")
+}
+
+func (s Server) GetOpenAPI(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "openapi.yaml")
+}
+
 // SubmitReview handles the POST /api/review/human endpoint
-func (s Server) SubmitReview(w http.ResponseWriter, r *http.Request) {
+func (s Server) SubmitReviewHuman(w http.ResponseWriter, r *http.Request) {
 	apiReviewHandler(s.Hub, w, r)
 }
 
@@ -69,8 +72,8 @@ func (s Server) GetLLMExplanation(w http.ResponseWriter, r *http.Request) {
 	apiLLMExplanationHandler(w, r)
 }
 
-// GetReviewResult handles the GET /api/review/status endpoint
-func (s Server) GetReviewResult(w http.ResponseWriter, r *http.Request, params GetReviewResultParams) {
+// GetReviewStatus handles the GET /api/review/status endpoint
+func (s Server) GetReviewStatus(w http.ResponseWriter, r *http.Request, params GetReviewStatusParams) {
 	apiReviewStatusHandler(w, r)
 }
 
@@ -92,16 +95,6 @@ func (s Server) SetLLMPrompt(w http.ResponseWriter, r *http.Request) {
 // GetLLMPrompt handles the GET /api/review/llm/prompt endpoint
 func (s Server) GetLLMPrompt(w http.ResponseWriter, r *http.Request) {
 	apiGetLLMPromptHandler(w, r)
-}
-
-func serveSwaggerUI(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("Serving Swagger UI\n")
-	http.ServeFile(w, r, "swagger-ui/index.html")
-}
-
-func serveOpenAPI(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("Serving OpenAPI\n")
-	http.ServeFile(w, r, "openapi.yaml")
 }
 
 func enableCorsMiddleware(next http.Handler) http.Handler {

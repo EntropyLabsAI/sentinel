@@ -7,10 +7,24 @@ servers:
   - url: http://localhost:8080
 
 paths:
+  /api/docs:
+    get:
+      summary: Get the API documentation
+      operationId: GetSwaggerDocs
+      responses:
+        "200":
+          description: API documentation retrieved successfully
+  /api/openapi.yaml:
+    get:
+      summary: Get the OpenAPI schema
+      operationId: GetOpenAPI
+      responses:
+        "200":
+          description: OpenAPI schema retrieved successfully
   /api/review/human:
     post:
-      summary: Submit a review request for human review
-      operationId: SubmitReview
+      summary: Submit a review to a human supervisor
+      operationId: SubmitReviewHuman
       requestBody:
         required: true
         content:
@@ -24,9 +38,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReviewStatusResponse"
+      tags:
+        - Submit Review
+        - Human Supervisor
   /api/review/llm:
     post:
-      summary: Submit a review request for LLM review
+      summary: Submit a review to an LLM supervisor
       operationId: SubmitReviewLLM
       requestBody:
         required: true
@@ -47,10 +64,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - Submit Review
+        - LLM Supervisor
   /api/review/status:
     get:
-      summary: Get the status of a review request
-      operationId: GetReviewResult
+      summary: Get review status
+      operationId: GetReviewStatus
       parameters:
         - name: id
           in: query
@@ -83,40 +103,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Review"
-  /api/stats:
-    get:
-      summary: Get hub statistics
-      operationId: GetHubStats
-      responses:
-        "200":
-          description: Hub statistics retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HubStats"
-  /api/explain:
-    post:
-      summary: Get an explanation and danger score for a code snippet
-      operationId: GetLLMExplanation
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CodeSnippet"
-      responses:
-        "200":
-          description: LLM explanation retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LLMExplanation"
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - LLM Supervisor
   /api/review/llm/prompt:
     post:
       summary: Submit a new prompt for LLM reviews
@@ -140,6 +128,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - LLM Supervisor
     get:
       summary: Get the current LLM review prompt
       operationId: GetLLMPrompt
@@ -153,6 +143,46 @@ paths:
                 properties:
                   prompt:
                     type: string
+      tags:
+        - LLM Supervisor
+  /api/hub/stats:
+    get:
+      summary: Get hub statistics
+      operationId: GetHubStats
+      responses:
+        "200":
+          description: Hub statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HubStats"
+      tags:
+        - Utility
+  /api/explain:
+    post:
+      summary: Get an explanation and danger score for a code snippet
+      operationId: GetLLMExplanation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CodeSnippet"
+      responses:
+        "200":
+          description: LLM explanation retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LLMExplanation"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - Utility
 components:
   schemas:
     CodeSnippet:

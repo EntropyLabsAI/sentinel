@@ -337,7 +337,7 @@ func stripHTMLTags(input string) string {
 
 // Add this to your handlers.go file
 
-func apiGetLLMPromptHandler(w http.ResponseWriter, r *http.Request) {
+func apiGetLLMPromptHandler(w http.ResponseWriter, _ *http.Request) {
 	response := struct {
 		Prompt string `json:"prompt"`
 	}{
