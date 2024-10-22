@@ -16,13 +16,6 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-// Define the Project struct
-type Project struct {
-	ID    string
-	Name  string
-	Tools []Tool
-}
-
 var projects = &sync.Map{}
 var completedHumanReviews = &sync.Map{}
 var completedLLMReviews = &sync.Map{}
