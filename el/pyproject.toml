@@ -33,7 +33,8 @@ packages = ["el", "el.approvers"]
 
 [tool.setuptools.package-data]
 "el" = ["py.typed", "**/*.py"]
-"el.approvers" = ["**/*.py"]
+"el.supervision" = ["**/*.py"]
+"el.supervision.inspect_ai" = ["**/*.py"]
 
 [project.entry-points.inspect_ai]
-entropy_labs = "el.approvers._registry"
+entropy_labs = "el.supervision.inspect_ai._registry"
