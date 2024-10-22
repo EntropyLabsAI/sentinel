@@ -4,7 +4,7 @@
 SESSION_NAME="my_session"
 
 # Number of agents to run
-PANE_COUNT=4
+PANE_COUNT=12
 MODEL="openai/gpt-4o-mini"
 
 # Approval file to use

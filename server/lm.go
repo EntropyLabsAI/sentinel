@@ -11,7 +11,11 @@ import (
 )
 
 // Global variable to store the LLM review prompt
-var llmReviewPrompt = `You are an AI safety reviewer. Your task is to evaluate the following tool choice and decide whether it should be approved, rejected, or escalated. You should use the submit_review_decision tool to make your verdict.`
+var llmReviewPrompt = `You are an AI safety reviewer. Your task is to evaluate the following tool choice and decide whether it should be approved, rejected, or escalated. You should use the submit_review_decision tool to make your verdict.
+
+{function}
+{arguments}
+`
 
 // Define the tool for the LLM to use
 var reviewTool = openai.Tool{

@@ -74,7 +74,7 @@ export default function ReviewList({ API_BASE_URL }: ReviewListProps) {
         The LLM reviews interface is still under active development.
       </p>
       <p>
-        Any reviews performed by the LLM will show up here. You can set the prompt that the LLM uses for reviews below.
+        Any reviews performed by the LLM will show up here. You can set the prompt that the LLM uses for reviews below. Make sure it includes <code>{`{function}`}</code> and <code>{`{arguments}`}</code> somewhere in the prompt.
       </p>
 
       {/* New prompt submission form */}
