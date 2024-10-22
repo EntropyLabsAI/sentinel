@@ -1,9 +1,11 @@
 import React from 'react';
 import { UserIcon, BrainCircuitIcon } from 'lucide-react';
 import { Badge } from './ui/badge';
+import { Link } from 'react-router-dom';
 
 // Define a Supervisor type to include additional information
 interface Supervisor {
+  path: string;
   name: string;
   Icon: React.ComponentType<{ size: number }>;
   apiEndpoint: string;
@@ -13,12 +15,14 @@ interface Supervisor {
 // Array of supervisors with detailed information
 const Supervisors: Supervisor[] = [
   {
+    path: "human",
     name: "HumanSupervisor",
     Icon: UserIcon as React.ComponentType<{ size: number }>,
     apiEndpoint: "/api/review/human",
     description: "Review agent actions with a human operator",
   },
   {
+    path: "llm",
     name: "LLMSupervisor",
     Icon: BrainCircuitIcon as React.ComponentType<{ size: number }>,
     apiEndpoint: "/api/review/llm",
@@ -28,12 +32,11 @@ const Supervisors: Supervisor[] = [
 ];
 
 interface SupervisorSelectionProps {
-  onSelect: (supervisor: string) => void;
   API_BASE_URL: string;
   WEBSOCKET_BASE_URL: string;
 }
 
-const SupervisorSelection: React.FC<SupervisorSelectionProps> = ({ onSelect, API_BASE_URL, WEBSOCKET_BASE_URL }) => {
+const SupervisorSelection: React.FC<SupervisorSelectionProps> = ({ API_BASE_URL, WEBSOCKET_BASE_URL }) => {
 
   if (!API_BASE_URL || !WEBSOCKET_BASE_URL) {
     return (
@@ -52,20 +55,20 @@ const SupervisorSelection: React.FC<SupervisorSelectionProps> = ({ onSelect, API
           Supervisors are used to review agent actions. To get started, ensure that your agent is running and making requests to the Sentinel API when it wants to take an action. Requests will be paused until a supervisor approves the action.
         </p>
         <p>Supervisors will then return one of the following responses to your agent:
-          <div className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-2 mt-2">
-            <Badge variant="outline" className="whitespace-nowrap">APPROVE</Badge>
-            <div>The agent can proceed</div>
-
-            <Badge variant="outline" className="whitespace-nowrap">REJECT</Badge>
-            <div>The agent action is blocked and the agent should try again</div>
-
-            <Badge variant="outline" className="whitespace-nowrap">ESCALATE</Badge>
-            <div>The action should be escalated to the next supervisor if one is configured</div>
-
-            <Badge variant="outline" className="whitespace-nowrap">TERMINATE</Badge>
-            <div>The agent process should be killed</div>
-          </div>
         </p>
+        <div className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-2 mt-2">
+          <Badge variant="outline" className="whitespace-nowrap">APPROVE</Badge>
+          <div>The agent can proceed</div>
+
+          <Badge variant="outline" className="whitespace-nowrap">REJECT</Badge>
+          <div>The agent action is blocked and the agent should try again</div>
+
+          <Badge variant="outline" className="whitespace-nowrap">ESCALATE</Badge>
+          <div>The action should be escalated to the next supervisor if one is configured</div>
+
+          <Badge variant="outline" className="whitespace-nowrap">TERMINATE</Badge>
+          <div>The agent process should be killed</div>
+        </div>
         <p className="mt-4 text-sm text-gray-500">
           Select a supervisor below to get started.
         </p>
@@ -74,18 +77,18 @@ const SupervisorSelection: React.FC<SupervisorSelectionProps> = ({ onSelect, API
       {/* Supervisor Selection Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {Supervisors.map((supervisor) => {
-          const { name, Icon, apiEndpoint, description } = supervisor;
+          const { path, name, Icon, apiEndpoint, description } = supervisor;
           return (
-            <div
-              key={name}
-              className="border p-6 rounded-lg cursor-pointer hover:bg-gray-100 transition duration-300 flex flex-col items-center space-y-4"
-              onClick={() => onSelect(name)}
-            >
-              <Icon size={32} />
-              <h3 className="text-2xl font-semibold mb-2">{name}</h3>
-              <p className="text-gray-600 mb-4 text-center">{description}</p>
-              <p className="text-sm text-gray-500"><span className="font-mono">{API_BASE_URL}{apiEndpoint}</span></p>
-            </div>
+            <a href={`/supervisor/${path}`} key={name}>
+              <div
+                className="border p-6 rounded-lg cursor-pointer hover:bg-gray-100 transition duration-300 flex flex-col items-center space-y-4"
+              >
+                <Icon size={32} />
+                <h3 className="text-2xl font-semibold mb-2">{name}</h3>
+                <p className="text-gray-600 mb-4 text-center">{description}</p>
+                <p className="text-sm text-gray-500"><span className="font-mono">{API_BASE_URL}{apiEndpoint}</span></p>
+              </div>
+            </a>
           );
         })}
       </div>

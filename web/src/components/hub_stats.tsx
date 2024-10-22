@@ -10,7 +10,7 @@ const HubStatsAccordion: React.FC<{ API_BASE_URL: string }> = ({ API_BASE_URL })
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/stats`);
+        const response = await fetch(`${API_BASE_URL}/api/hub/stats`);
         const data: HubStatsType = await response.json();
         setHubStats(data);
       } catch (error) {

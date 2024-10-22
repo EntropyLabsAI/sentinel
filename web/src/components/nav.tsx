@@ -1,5 +1,6 @@
 import React from 'react';
 import { Button } from './ui/button';
+import { Link } from 'react-router-dom';
 
 // Access environment variables
 // @ts-ignore
@@ -8,22 +9,22 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const WEBSOCKET_BASE_URL = import.meta.env.VITE_WEBSOCKET_BASE_URL;
 
 interface NavBarProps {
-  onHome: () => void;
   isSocketConnected: boolean;
 }
 
-const NavBar: React.FC<NavBarProps> = ({ onHome, isSocketConnected }) => {
+export default function NavBar({ isSocketConnected }: NavBarProps) {
   return (
     <nav className="bg-gray-500 text-white p-6">
       <div className="container mx-auto flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <div className="flex flex-col">
-            <h1
-              className="text-3xl font-mono font-semibold cursor-pointer hover:text-gray-300"
-              onClick={onHome}
-            >
-              Sentinel
-            </h1>
+            <a href="/">
+              <h1
+                className="text-3xl font-mono font-semibold cursor-pointer hover:text-gray-300"
+              >
+                Sentinel
+              </h1>
+            </a>
             <p className="text-sm">agent oversight platform <span className="font-mono">v0.0.1</span></p>
           </div>
         </div>
@@ -88,5 +89,3 @@ const NavBar: React.FC<NavBarProps> = ({ onHome, isSocketConnected }) => {
     </nav>
   );
 };
-
-export default NavBar;
