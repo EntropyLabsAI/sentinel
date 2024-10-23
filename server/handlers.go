@@ -47,6 +47,7 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 
 // apiRegisterProjectHandler handles the POST /api/project/register endpoint
 func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("received new project registration request")
 	var request RegisterProjectRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {

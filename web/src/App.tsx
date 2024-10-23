@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import SwaggerUI from '@/components/swagger_ui';
 import SupervisorSelection from '@/components/supervisor_selection';
-import NavBar from '@/components/nav';
 import HumanReviews from '@/components/human_reviews';
 import LLMReviews from '@/components/llm_reviews';
+import Sidebar from './components/sidebar';
+import Home from './components/home';
+import ProjectList from './components/project_list';
 
 // The API base URL is set via an environment variable in the docker-compose.yml file
 // @ts-ignore
@@ -18,28 +20,36 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <NavBar isSocketConnected={isSocketConnected} />
-
       <main className="flex-grow">
         <Router>
-          <Routes>
-            <Route path="/" element={
-              <SupervisorSelection
-                API_BASE_URL={API_BASE_URL}
-                WEBSOCKET_BASE_URL={WEBSOCKET_BASE_URL}
-              />
-            } />
-            <Route path="/api/docs" element={<SwaggerUI />} />
-            <Route path="/supervisor/human" element={<HumanReviews
-              API_BASE_URL={API_BASE_URL}
-              WEBSOCKET_BASE_URL={WEBSOCKET_BASE_URL}
-              setIsSocketConnected={setIsSocketConnected}
-            />} />
-            <Route path="/supervisor/llm" element={<LLMReviews
-              API_BASE_URL={API_BASE_URL}
-            />} />
-
-          </Routes>
+          <Sidebar isSocketConnected={isSocketConnected}>
+            <Routes>
+              <Route path="/" element={
+                <Home />
+              } />
+              <Route path="/projects" element={
+                <ProjectList />
+              } />
+              <Route path="/supervisor" element={
+                <SupervisorSelection API_BASE_URL={API_BASE_URL}
+                  WEBSOCKET_BASE_URL={WEBSOCKET_BASE_URL}
+                />
+              } />
+              <Route path="/api" element={
+                <SwaggerUI />
+              } />
+              <Route path="/supervisor/human" element={
+                <HumanReviews
+                  API_BASE_URL={API_BASE_URL}
+                  WEBSOCKET_BASE_URL={WEBSOCKET_BASE_URL}
+                  setIsSocketConnected={setIsSocketConnected}
+                />} />
+              <Route path="/supervisor/llm" element={
+                <LLMReviews
+                  API_BASE_URL={API_BASE_URL}
+                />} />
+            </Routes>
+          </Sidebar>
         </Router>
       </main>
     </div>

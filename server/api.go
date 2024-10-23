@@ -111,7 +111,7 @@ func (s Server) GetProjects(w http.ResponseWriter, r *http.Request) {
 	apiGetProjectsHandler(w, r)
 }
 
-func enableCorsMiddleware(next http.Handler) http.Handler {
+func enableCorsMiddleware(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Set CORS headers
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -125,6 +125,6 @@ func enableCorsMiddleware(next http.Handler) http.Handler {
 		}
 
 		// Call the next handler
-		next.ServeHTTP(w, r)
+		handler.ServeHTTP(w, r)
 	})
 }

@@ -15,4 +15,4 @@ You should see output like the following:
 {"review_id":"123e4567-e89b-12d3-a456-426614174000"}
 ```
 
-You can then view the review at http://localhost:${APPROVAL_WEBSERVER_PORT}/api/review/status?review_id=123e4567-e89b-12d3-a456-426614174000
+You can then view the review at http://localhost:${APPROVAL_WEBSERVER_PORT}/api/review/123e4567-e89b-12d3-a456-426614174000

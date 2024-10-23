@@ -1,0 +1,21 @@
+{
+  "name": "Sentinel Project",
+  "tools": [
+    {
+      "name": "Code Analyzer",
+      "description": "Analyzes source code for potential vulnerabilities.",
+      "attributes": {
+        "language": "Python",
+        "version": "1.0"
+      }
+    },
+    {
+      "name": "Dependency Scanner",
+      "description": "Scans project dependencies for known security issues.",
+      "attributes": {
+        "language": "JavaScript",
+        "version": "2.1"
+      }
+    }
+  ]
+}
