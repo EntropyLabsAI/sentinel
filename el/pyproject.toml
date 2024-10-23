@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "entropy_labs"
-version = "0.1.1"
+version = "0.1.2"
 description = "Entropy Labs' Sentinel is an agent control plane that enables efficient oversight of thousands of parallel-running agents."
 authors = [
     {name = "Entropy Labs", email = "devs@entropy-labs.ai"},
@@ -29,7 +29,7 @@ Repository = "https://github.com/EntropyLabsAI/sentinel.git"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-packages = ["el", "el.approvers"]
+packages = ["el"]
 
 [tool.setuptools.package-data]
 "el" = ["py.typed", "**/*.py"]
