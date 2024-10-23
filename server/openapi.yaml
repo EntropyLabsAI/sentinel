@@ -20,7 +20,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Project"
+                $ref: "#/components/schemas/RegisterProjectResponse"
       tags:
         - Project
     get:
@@ -34,7 +34,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/RegisterProjectResponse"
+                $ref: "#/components/schemas/Project"
       tags:
         - Project
   /api/project/{id}:

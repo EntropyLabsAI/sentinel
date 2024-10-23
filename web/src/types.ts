@@ -212,7 +212,7 @@ export interface CodeSnippet {
  */
 export const registerProject = (
     registerProjectRequest: RegisterProjectRequest, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<Project>> => {
+ ): Promise<AxiosResponse<RegisterProjectResponse>> => {
     
     return axios.post(
       `/api/project`,
@@ -267,7 +267,7 @@ export const useRegisterProject = <TError = AxiosError<unknown>,
  */
 export const getProjects = (
      options?: AxiosRequestConfig
- ): Promise<AxiosResponse<RegisterProjectResponse[]>> => {
+ ): Promise<AxiosResponse<Project>> => {
     
     return axios.get(
       `/api/project`,options
