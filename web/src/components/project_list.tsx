@@ -9,15 +9,14 @@ export default function ProjectList() {
 
   const { data, isLoading, error } = useGetProjects();
 
-
-  if (isLoading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error.message}</div>;
-
   useEffect(() => {
     if (data?.data) {
       setProjects(data.data);
     }
   }, [data]);
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
 
   return (
     data?.data && (
