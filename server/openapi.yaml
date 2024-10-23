@@ -37,6 +37,45 @@ paths:
                   $ref: "#/components/schemas/Project"
       tags:
         - Project
+  /api/project/{id}/agent:
+    post:
+      summary: Register a new agent against a project
+      operationId: RegisterAgent
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Agent registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterAgentResponse"
+      tags:
+        - Project
+    get:
+      summary: Get all agents for a project
+      operationId: GetAgents
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of all agents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Agent"
+      tags:
+        - Project
   /api/project/{id}:
     get:
       parameters:
@@ -563,3 +602,17 @@ components:
         - id
         - name
         - tools
+    RegisterAgentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+        - id
+    Agent:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+        - id

@@ -50,17 +50,19 @@ func InitAPI() {
 	}
 }
 
+// GetSwaggerDocs handles the GET /api/swagger-ui/index.html endpoint
 func (s Server) GetSwaggerDocs(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "swagger-ui/index.html")
 }
 
+// GetOpenAPI handles the GET /api/openapi.yaml endpoint
 func (s Server) GetOpenAPI(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "openapi.yaml")
 }
 
 // SubmitReview handles the POST /api/review/human endpoint
 func (s Server) SubmitReviewHuman(w http.ResponseWriter, r *http.Request) {
-	apiReviewHandler(s.Hub, w, r)
+	apiHumanReviewHandler(s.Hub, w, r)
 }
 
 // GetReviewLLM handles the POST /api/review/llm endpoint
@@ -68,6 +70,7 @@ func (s Server) SubmitReviewLLM(w http.ResponseWriter, r *http.Request) {
 	apiReviewLLMHandler(w, r)
 }
 
+// GetLLMExplanation handles the POST /api/review/llm/explanation endpoint
 func (s Server) GetLLMExplanation(w http.ResponseWriter, r *http.Request) {
 	apiLLMExplanationHandler(w, r)
 }

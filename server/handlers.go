@@ -82,8 +82,8 @@ func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// apiReviewHandler receives review requests via the HTTP API
-func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
+// apiHumanReviewHandler receives review requests via the HTTP API
+func apiHumanReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	var request ReviewRequest
 
 	err := json.NewDecoder(r.Body).Decode(&request)
