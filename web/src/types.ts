@@ -267,7 +267,7 @@ export const useRegisterProject = <TError = AxiosError<unknown>,
  */
 export const getProjects = (
      options?: AxiosRequestConfig
- ): Promise<AxiosResponse<Project>> => {
+ ): Promise<AxiosResponse<Project[]>> => {
     
     return axios.get(
       `/api/project`,options

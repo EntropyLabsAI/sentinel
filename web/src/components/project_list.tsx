@@ -14,7 +14,9 @@ export default function ProjectList() {
   if (error) return <div>Error: {error.message}</div>;
 
   useEffect(() => {
-    setProjects(data?.data ?? []);
+    if (data?.data) {
+      setProjects(data.data);
+    }
   }, [data]);
 
   return (
