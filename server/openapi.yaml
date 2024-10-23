@@ -4,34 +4,55 @@ info:
   version: 1.0.0
 
 paths:
-  /api/project/register:
+  /api/project:
     post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterProjectRequest"
       summary: Register a new project
       operationId: RegisterProject
       responses:
         "200":
           description: Project registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterProjectResponse"
+      tags:
+        - Project
+    get:
+      summary: Get all projects
+      operationId: GetProjects
+      responses:
+        "200":
+          description: List of all projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+      tags:
+        - Project
+  /api/project/{id}:
+    get:
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      summary: Get a project by ID
+      operationId: GetProjectById
+      responses:
+        "200":
+          description: Project retrieved successfully
       tags:
         - Project
 
-  /api/docs:
-    get:
-      summary: Get the API documentation
-      operationId: GetSwaggerDocs
-      responses:
-        "200":
-          description: API documentation retrieved successfully
-      tags:
-        - Utility
-  /api/openapi.yaml:
-    get:
-      summary: Get the OpenAPI schema
-      operationId: GetOpenAPI
-      responses:
-        "200":
-          description: OpenAPI schema retrieved successfully
-      tags:
-        - Utility
   /api/review/human:
     post:
       summary: Submit a review to a human supervisor
@@ -52,6 +73,20 @@ paths:
       tags:
         - Human Supervisor
   /api/review/llm:
+    get:
+      summary: Get all LLM review results
+      operationId: GetLLMReviews
+      responses:
+        "200":
+          description: List of all LLM review results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Review"
+      tags:
+        - LLM Supervisor
     post:
       summary: Submit a review to an LLM supervisor
       operationId: SubmitReviewLLM
@@ -76,13 +111,13 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
       tags:
         - LLM Supervisor
-  /api/review/status:
+  /api/review/status/{id}:
     get:
       summary: Get review status
       operationId: GetReviewStatus
       parameters:
         - name: id
-          in: query
+          in: path
           required: true
           schema:
             type: string
@@ -101,21 +136,6 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
       tags:
         - Review
-  /api/review/llm/list:
-    get:
-      summary: Get all LLM review results
-      operationId: GetLLMReviews
-      responses:
-        "200":
-          description: List of all LLM review results
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Review"
-      tags:
-        - LLM Supervisor
   /api/review/llm/prompt:
     post:
       summary: Submit a new prompt for LLM reviews
@@ -192,6 +212,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - Utility
+  /api/docs:
+    get:
+      summary: Get the API documentation
+      operationId: GetSwaggerDocs
+      responses:
+        "200":
+          description: API documentation retrieved successfully
+      tags:
+        - Utility
+  /api/openapi.yaml:
+    get:
+      summary: Get the OpenAPI schema
+      operationId: GetOpenAPI
+      responses:
+        "200":
+          description: OpenAPI schema retrieved successfully
       tags:
         - Utility
 components:
@@ -491,3 +529,37 @@ components:
       required:
         - status
         - message
+    RegisterProjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/Tool"
+      required:
+        - name
+        - tools
+    RegisterProjectResponse:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+        - id
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/Tool"
+      required:
+        - id
+        - name
+        - tools

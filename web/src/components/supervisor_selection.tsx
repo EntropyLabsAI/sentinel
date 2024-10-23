@@ -79,7 +79,7 @@ const SupervisorSelection: React.FC<SupervisorSelectionProps> = ({ API_BASE_URL,
         {Supervisors.map((supervisor) => {
           const { path, name, Icon, apiEndpoint, description } = supervisor;
           return (
-            <a href={`/supervisor/${path}`} key={name}>
+            <Link to={`/supervisor/${path}`} key={name}>
               <div
                 className="border p-6 rounded-lg cursor-pointer hover:bg-gray-100 transition duration-300 flex flex-col items-center space-y-4"
               >
@@ -88,7 +88,7 @@ const SupervisorSelection: React.FC<SupervisorSelectionProps> = ({ API_BASE_URL,
                 <p className="text-gray-600 mb-4 text-center">{description}</p>
                 <p className="text-sm text-gray-500"><span className="font-mono">{API_BASE_URL}{apiEndpoint}</span></p>
               </div>
-            </a>
+            </Link>
           );
         })}
       </div>

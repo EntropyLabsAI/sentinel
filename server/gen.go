@@ -115,6 +115,24 @@ type Output struct {
 	Usage   *Usage    `json:"usage,omitempty"`
 }
 
+// Project defines model for Project.
+type Project struct {
+	Id    string `json:"id"`
+	Name  string `json:"name"`
+	Tools []Tool `json:"tools"`
+}
+
+// RegisterProjectRequest defines model for RegisterProjectRequest.
+type RegisterProjectRequest struct {
+	Name  string `json:"name"`
+	Tools []Tool `json:"tools"`
+}
+
+// RegisterProjectResponse defines model for RegisterProjectResponse.
+type RegisterProjectResponse struct {
+	Id string `json:"id"`
+}
+
 // Review defines model for Review.
 type Review struct {
 	Id      string        `json:"id"`
@@ -188,13 +206,11 @@ type Usage struct {
 	TotalTokens  int `json:"total_tokens"`
 }
 
-// GetReviewStatusParams defines parameters for GetReviewStatus.
-type GetReviewStatusParams struct {
-	Id string `form:"id" json:"id"`
-}
-
 // GetLLMExplanationJSONRequestBody defines body for GetLLMExplanation for application/json ContentType.
 type GetLLMExplanationJSONRequestBody = CodeSnippet
+
+// RegisterProjectJSONRequestBody defines body for RegisterProject for application/json ContentType.
+type RegisterProjectJSONRequestBody = RegisterProjectRequest
 
 // SubmitReviewHumanJSONRequestBody defines body for SubmitReviewHuman for application/json ContentType.
 type SubmitReviewHumanJSONRequestBody = ReviewRequest
@@ -219,15 +235,24 @@ type ServerInterface interface {
 	// Get the OpenAPI schema
 	// (GET /api/openapi.yaml)
 	GetOpenAPI(w http.ResponseWriter, r *http.Request)
+	// Get all projects
+	// (GET /api/project)
+	GetProjects(w http.ResponseWriter, r *http.Request)
+	// Register a new project
+	// (POST /api/project)
+	RegisterProject(w http.ResponseWriter, r *http.Request)
+	// Get a project by ID
+	// (GET /api/project/{id})
+	GetProjectById(w http.ResponseWriter, r *http.Request, id string)
 	// Submit a review to a human supervisor
 	// (POST /api/review/human)
 	SubmitReviewHuman(w http.ResponseWriter, r *http.Request)
+	// Get all LLM review results
+	// (GET /api/review/llm)
+	GetLLMReviews(w http.ResponseWriter, r *http.Request)
 	// Submit a review to an LLM supervisor
 	// (POST /api/review/llm)
 	SubmitReviewLLM(w http.ResponseWriter, r *http.Request)
-	// Get all LLM review results
-	// (GET /api/review/llm/list)
-	GetLLMReviews(w http.ResponseWriter, r *http.Request)
 	// Get the current LLM review prompt
 	// (GET /api/review/llm/prompt)
 	GetLLMPrompt(w http.ResponseWriter, r *http.Request)
@@ -235,8 +260,8 @@ type ServerInterface interface {
 	// (POST /api/review/llm/prompt)
 	SetLLMPrompt(w http.ResponseWriter, r *http.Request)
 	// Get review status
-	// (GET /api/review/status)
-	GetReviewStatus(w http.ResponseWriter, r *http.Request, params GetReviewStatusParams)
+	// (GET /api/review/status/{id})
+	GetReviewStatus(w http.ResponseWriter, r *http.Request, id string)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -304,6 +329,59 @@ func (siw *ServerInterfaceWrapper) GetOpenAPI(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// GetProjects operation middleware
+func (siw *ServerInterfaceWrapper) GetProjects(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProjects(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RegisterProject operation middleware
+func (siw *ServerInterfaceWrapper) RegisterProject(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RegisterProject(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetProjectById operation middleware
+func (siw *ServerInterfaceWrapper) GetProjectById(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProjectById(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // SubmitReviewHuman operation middleware
 func (siw *ServerInterfaceWrapper) SubmitReviewHuman(w http.ResponseWriter, r *http.Request) {
 
@@ -318,11 +396,11 @@ func (siw *ServerInterfaceWrapper) SubmitReviewHuman(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
-// SubmitReviewLLM operation middleware
-func (siw *ServerInterfaceWrapper) SubmitReviewLLM(w http.ResponseWriter, r *http.Request) {
+// GetLLMReviews operation middleware
+func (siw *ServerInterfaceWrapper) GetLLMReviews(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.SubmitReviewLLM(w, r)
+		siw.Handler.GetLLMReviews(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -332,11 +410,11 @@ func (siw *ServerInterfaceWrapper) SubmitReviewLLM(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
-// GetLLMReviews operation middleware
-func (siw *ServerInterfaceWrapper) GetLLMReviews(w http.ResponseWriter, r *http.Request) {
+// SubmitReviewLLM operation middleware
+func (siw *ServerInterfaceWrapper) SubmitReviewLLM(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetLLMReviews(w, r)
+		siw.Handler.SubmitReviewLLM(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -379,26 +457,17 @@ func (siw *ServerInterfaceWrapper) GetReviewStatus(w http.ResponseWriter, r *htt
 
 	var err error
 
-	// Parameter object where we will unmarshal all parameters from the context
-	var params GetReviewStatusParams
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	// ------------- Required query parameter "id" -------------
-
-	if paramValue := r.URL.Query().Get("id"); paramValue != "" {
-
-	} else {
-		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "id"})
-		return
-	}
-
-	err = runtime.BindQueryParameter("form", true, true, "id", r.URL.Query(), &params.Id)
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
 		return
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetReviewStatus(w, r, params)
+		siw.Handler.GetReviewStatus(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -532,12 +601,15 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("POST "+options.BaseURL+"/api/explain", wrapper.GetLLMExplanation)
 	m.HandleFunc("GET "+options.BaseURL+"/api/hub/stats", wrapper.GetHubStats)
 	m.HandleFunc("GET "+options.BaseURL+"/api/openapi.yaml", wrapper.GetOpenAPI)
+	m.HandleFunc("GET "+options.BaseURL+"/api/project", wrapper.GetProjects)
+	m.HandleFunc("POST "+options.BaseURL+"/api/project", wrapper.RegisterProject)
+	m.HandleFunc("GET "+options.BaseURL+"/api/project/{id}", wrapper.GetProjectById)
 	m.HandleFunc("POST "+options.BaseURL+"/api/review/human", wrapper.SubmitReviewHuman)
+	m.HandleFunc("GET "+options.BaseURL+"/api/review/llm", wrapper.GetLLMReviews)
 	m.HandleFunc("POST "+options.BaseURL+"/api/review/llm", wrapper.SubmitReviewLLM)
-	m.HandleFunc("GET "+options.BaseURL+"/api/review/llm/list", wrapper.GetLLMReviews)
 	m.HandleFunc("GET "+options.BaseURL+"/api/review/llm/prompt", wrapper.GetLLMPrompt)
 	m.HandleFunc("POST "+options.BaseURL+"/api/review/llm/prompt", wrapper.SetLLMPrompt)
-	m.HandleFunc("GET "+options.BaseURL+"/api/review/status", wrapper.GetReviewStatus)
+	m.HandleFunc("GET "+options.BaseURL+"/api/review/status/{id}", wrapper.GetReviewStatus)
 
 	return m
 }
@@ -545,32 +617,34 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

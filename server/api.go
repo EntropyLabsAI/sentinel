@@ -72,9 +72,8 @@ func (s Server) GetLLMExplanation(w http.ResponseWriter, r *http.Request) {
 	apiLLMExplanationHandler(w, r)
 }
 
-// GetReviewStatus handles the GET /api/review/status endpoint
-func (s Server) GetReviewStatus(w http.ResponseWriter, r *http.Request, params GetReviewStatusParams) {
-	apiReviewStatusHandler(w, r)
+func (s Server) GetReviewStatus(w http.ResponseWriter, r *http.Request, id string) {
+	apiReviewStatusHandler(w, r, id)
 }
 
 // GetHubStats handles the GET /api/stats endpoint
@@ -97,7 +96,22 @@ func (s Server) GetLLMPrompt(w http.ResponseWriter, r *http.Request) {
 	apiGetLLMPromptHandler(w, r)
 }
 
-func enableCorsMiddleware(next http.Handler) http.Handler {
+// RegisterProject handles the POST /api/project endpoint
+func (s Server) RegisterProject(w http.ResponseWriter, r *http.Request) {
+	apiRegisterProjectHandler(w, r)
+}
+
+// GetProjectById handles the GET /api/project/{id} endpoint
+func (s Server) GetProjectById(w http.ResponseWriter, r *http.Request, id string) {
+	apiGetProjectByIdHandler(w, r, id)
+}
+
+// GetProjects handles the GET /api/project endpoint
+func (s Server) GetProjects(w http.ResponseWriter, r *http.Request) {
+	apiGetProjectsHandler(w, r)
+}
+
+func enableCorsMiddleware(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Set CORS headers
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -111,6 +125,6 @@ func enableCorsMiddleware(next http.Handler) http.Handler {
 		}
 
 		// Call the next handler
-		next.ServeHTTP(w, r)
+		handler.ServeHTTP(w, r)
 	})
 }

@@ -132,7 +132,7 @@ async def poll_status(approval_api_endpoint: str, review_id: str, timeout: int) 
     logging.info(f"Waiting for approval for review {review_id}")
     for _ in range(int(max_attempts)):
         try:
-            status_response = requests.get(f"{approval_api_endpoint}/api/review/status?id={review_id}")
+            status_response = requests.get(f"{approval_api_endpoint}/api/review/status/{review_id}")
             status_response.raise_for_status()
 
             status_data = status_response.json()
