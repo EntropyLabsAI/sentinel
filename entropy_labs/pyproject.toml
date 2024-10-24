@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "entropy_labs"
-version = "0.1.2"
+version = "0.1.6"
 description = "Entropy Labs' Sentinel is an agent control plane that enables efficient oversight of thousands of parallel-running agents."
 authors = [
     {name = "Entropy Labs", email = "devs@entropy-labs.ai"},
@@ -18,9 +18,9 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "inspect-ai==0.3.41",
+    "inspect-ai>=0.3.41",
     "requests",
-    "openai",
+    "openai"
 ]
 
 [project.urls]
@@ -28,13 +28,11 @@ Homepage = "https://github.com/EntropyLabsAI/sentinel"
 Repository = "https://github.com/EntropyLabsAI/sentinel.git"
 
 [tool.setuptools]
-package-dir = {"" = "src"}
-packages = ["el"]
+package-dir = { "" = "src" }
+packages = { find = { where = ["src"] } }
 
 [tool.setuptools.package-data]
-"el" = ["py.typed", "**/*.py"]
-"el.supervision" = ["**/*.py"]
-"el.supervision.inspect_ai" = ["**/*.py"]
+entropy_labs = ["py.typed", "**/*.py"]
 
 [project.entry-points.inspect_ai]
-entropy_labs = "el.supervision.inspect_ai._registry"
+entropy_labs = "entropy_labs.supervision.inspect_ai._registry"

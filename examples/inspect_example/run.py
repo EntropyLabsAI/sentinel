@@ -6,7 +6,7 @@ from inspect_ai.solver import generate, system_message, use_tools
 from inspect_ai.tool import bash, python
 import random
 import logging
-from el.supervision.inspect_ai import _registry
+# from el.supervision.inspect_ai import _registry
 
 
 # Set up logging
@@ -65,5 +65,5 @@ def approval_demo() -> Task:
 
 
 if __name__ == "__main__":
-    approval = (Path(__file__).parent / "approval.yaml").as_posix()
+    approval = (Path(__file__).parent / "approval_human.yaml").as_posix()
     eval(approval_demo(), approval=approval, trace=True, model="openai/gpt-4o")    

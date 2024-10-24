@@ -41,14 +41,12 @@ def get_function_code(func: Callable) -> str:
     except Exception as e:
         return f"Error retrieving source code: {str(e)}"
 
-def prompt_user_input_or_api(data: Dict[str, Any]) -> SupervisionDecision:
+def prompt_user_input_or_api(data: Dict[str, Any], backend_api_endpoint: Optional[str] = None) -> SupervisionDecision:
     """Prompt the user for input via CLI or send data to a backend API for approval."""
     # Check if backend API endpoint is set
-    # TODO: UPDATE THIS
-    backend_api_endpoint = os.getenv('BACKEND_API_ENDPOINT') #TODO: Make this configurable
     if backend_api_endpoint:
         # Send the data to the backend API
-        response = requests.post(f'{backend_api_endpoint}/api/approve', json=data)
+        response = requests.post(f'{backend_api_endpoint}/api/r', json=data)
         if response.status_code == 200:
             decision_str = response.json().get('decision', 'escalate').lower()
         else:

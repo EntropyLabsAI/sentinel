@@ -5,8 +5,8 @@ import random
 from .config import supervision_config
 from ..mocking.policies import MockPolicy
 from ..utils.utils import create_random_value
-from .config import SupervisionDecision, SupervisionDecisionType
 from .llm_sampling import sample_from_llm
+
 
 def supervise(
     mock_policy: Optional[MockPolicy] = None,

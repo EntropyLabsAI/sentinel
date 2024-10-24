@@ -1,10 +1,12 @@
-from el.supervision.config import set_global_supervision_functions
-from el.supervision.supervisors import divide_supervisor
-from el.supervision.langchain.supervisors import human_supervisor
-from el.supervision.decorators import supervise
+from entropy_labs.supervision.config import set_global_supervision_functions
+from entropy_labs.supervision.supervisors import divide_supervisor
+from entropy_labs.supervision.langchain.supervisors import human_supervisor
+from entropy_labs.supervision.decorators import supervise
 from langchain_openai import ChatOpenAI
 from langchain.tools import tool
 from langchain_core.messages import HumanMessage
+
+BACKEND_API_ENDPOINT = "http://localhost:8080"
 
 @tool
 def add(a: float, b: float) -> float:
@@ -26,7 +28,7 @@ if __name__ == "__main__":
     tools = [add, divide]
     
     # You can also set global supervision functions
-    set_global_supervision_functions([human_supervisor()])
+    set_global_supervision_functions([human_supervisor(backend_api_endpoint=BACKEND_API_ENDPOINT)])
     # for these tools:
     # add: human_supervisor will be used
     # divide: if divide_supervisor rejects it will be escalated to human_supervisor
@@ -44,7 +46,7 @@ if __name__ == "__main__":
         if ai_msg.tool_calls:
             for tool_call in ai_msg.tool_calls:
                 selected_tool = {"add": add, "divide": divide}[tool_call["name"].lower()]
-                tool_msg = selected_tool.invoke(tool_call)
+                tool_msg = selected_tool.invoke(tool_call, messages=messages)
                 messages.append(tool_msg)
         else:
             print(ai_msg.content)

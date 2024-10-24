@@ -3,7 +3,7 @@ from inspect_ai.model import ChatMessageAssistant, ChatMessage
 from inspect_ai.tool._tool_call import ToolCall
 from inspect_ai.model import get_model, Model
 from inspect_ai.solver import TaskState
-from el.supervision.config import SupervisionDecision
+from entropy_labs.supervision.config import SupervisionDecision
 from inspect_ai.approval import Approval
 from pydantic_core import to_jsonable_python
 from typing import Any
