@@ -2,6 +2,7 @@ package sentinel
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -16,15 +17,8 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-var projects = &sync.Map{}
-var completedHumanReviews = &sync.Map{}
-var completedLLMReviews = &sync.Map{}
-
 // reviewChannels maps a reviews ID to the channel configured to receive the reviewer's response
 var reviewChannels = &sync.Map{}
-
-// Timeout duration for waiting for the reviewer to respond
-const reviewTimeout = 1440 * time.Minute
 
 // serveWs upgrades the HTTP connection to a WebSocket connection and registers the client with the hub
 func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
@@ -65,12 +59,22 @@ func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request) {
 		Tools: request.Tools,
 	}
 
-	// Store the project in the global projects map
-	projects.Store(id, project)
+	db, err := newDB()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
+
+	// Store the project in the database
+	if err := db.RegisterProject(&project); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	// Prepare the response
-	response := map[string]string{
-		"id": id,
+	response := RegisterProjectResponse{
+		Id: id,
 	}
 
 	// Send the response
@@ -82,62 +86,58 @@ func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// apiHumanReviewHandler receives review requests via the HTTP API
+// apiHumanReviewHandler handles human review requests
 func apiHumanReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
+	fmt.Println("received new human review request")
 	var request ReviewRequest
-
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Convert the request to a Review by adding an ID
-	id := uuid.New().String()
+	fmt.Printf("request: %+v\n", request)
 
+	// Generate review ID
+	id := uuid.New().String()
 	review := Review{
 		Id:      id,
 		Request: request,
 	}
 
-	// Add the review request to the queue
+	fmt.Printf("review: %+v\n", review)
+
+	// Store the review in the database
+	db, err := newDB()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
+
+	fmt.Printf("storing review in database\n")
+
+	if err := db.StoreReview(&review); err != nil {
+		http.Error(w, fmt.Sprintf("failed to store review: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Printf("adding review to hub queue\n")
+
+	// Add the review request to the hub queue
 	hub.ReviewChan <- review
 
+	fmt.Printf("review added to hub queue\n")
+
 	log.Printf("received new review request ID %s via API.", review.Id)
-
-	// Create a channel for this review request
-	responseChan := make(chan ReviewResult)
-	reviewChannels.Store(id, responseChan)
-
-	// Start a goroutine to wait for the response
-	go func() {
-		select {
-		case response := <-responseChan:
-			// Store the completed review
-			completedHumanReviews.Store(response.Id, response)
-			reviewChannels.Delete(response.Id)
-			log.Printf("review ID %s completed with decision: %s.", response.Id, response.Decision)
-		case <-time.After(reviewTimeout):
-
-			reviewStatus := ReviewStatusResponse{
-				Status: Timeout,
-				Id:     review.Id,
-			}
-
-			// Timeout occurred
-			completedHumanReviews.Store(review.Id, reviewStatus)
-			reviewChannels.Delete(review.Id)
-			log.Printf("review ID %s timed out.", review.Id)
-		}
-	}()
 
 	response := ReviewStatusResponse{
 		Id:     id,
 		Status: Queued,
 	}
 
-	// Respond immediately with 200 OK.
-	// The client will receive and ID they can use to poll the status of their review
+	fmt.Printf("sending response\n")
+
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
@@ -148,35 +148,32 @@ func apiHumanReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 
 // apiReviewStatusHandler checks the status of a review request
 func apiReviewStatusHandler(w http.ResponseWriter, _ *http.Request, reviewID string) {
-	// Use the reviewID directly
-	if _, ok := reviewChannels.Load(reviewID); ok {
-		// There's a pending review
-		w.WriteHeader(http.StatusOK)
-		err := json.NewEncoder(w).Encode(map[string]string{"status": "pending"})
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	} else {
-		// Check if there's a stored response for this review
-		if response, ok := completedHumanReviews.Load(reviewID); ok {
-			log.Printf("status request for review ID %s: completed\n", reviewID)
+	db, err := newDB()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
 
-			w.WriteHeader(http.StatusOK)
-			err := json.NewEncoder(w).Encode(response)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-		} else {
-			// Review not found
+	status, err := db.GetReviewStatus(reviewID)
+	if err != nil {
+		if err == sql.ErrNoRows {
 			w.WriteHeader(http.StatusNotFound)
 			err := json.NewEncoder(w).Encode(map[string]string{"status": "not_found"})
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
 			}
+			return
 		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(status)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -216,12 +213,11 @@ func apiLLMExplanationHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// apiReviewLLMHandler handles LLM review requests
 func apiReviewLLMHandler(w http.ResponseWriter, r *http.Request) {
 	id := uuid.New().String()
-
 	log.Printf("received new LLM review request, ID: %s", id)
 
-	// Parse the request body to get the same input as /api/review
 	var reviewRequest ReviewRequest
 	err := json.NewDecoder(r.Body).Decode(&reviewRequest)
 	if err != nil {
@@ -229,20 +225,17 @@ func apiReviewLLMHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO allow LLM reviewer to handle multiple tool choice options
 	if len(reviewRequest.ToolChoices) != 1 {
 		http.Error(w, "Invalid number of tool choices provided for LLM review", http.StatusBadRequest)
 		return
 	}
 
-	// Call the LLM to evaluate the tool_choice
 	llmReasoning, decision, err := callLLMForReview(r.Context(), reviewRequest.ToolChoices[0])
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error calling LLM: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	// Prepare the response
 	response := ReviewResult{
 		Id:         id,
 		Decision:   decision,
@@ -250,10 +243,19 @@ func apiReviewLLMHandler(w http.ResponseWriter, r *http.Request) {
 		Reasoning:  llmReasoning,
 	}
 
-	// Store the completed LLM review
-	completedLLMReviews.Store(id, response)
+	// Store the review result in the database
+	db, err := newDB()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
 
-	// Send the response
+	if err := db.StoreReviewResult(&response); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
@@ -300,16 +302,22 @@ func getLLMResponse(ctx context.Context, messages []openai.ChatCompletionMessage
 
 // apiGetLLMReviews returns all LLM reviews
 func apiGetLLMReviews(w http.ResponseWriter, _ *http.Request) {
-	reviews := make([]ReviewResult, 0)
+	db, err := newDB()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
 
-	completedLLMReviews.Range(func(key, value any) bool {
-		reviews = append(reviews, value.(ReviewResult))
-		return true
-	})
+	reviews, err := db.GetLLMReviews()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	err := json.NewEncoder(w).Encode(reviews)
+	err = json.NewEncoder(w).Encode(reviews)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -318,16 +326,27 @@ func apiGetLLMReviews(w http.ResponseWriter, _ *http.Request) {
 
 // apiGetProjectsHandler returns all projects
 func apiGetProjectsHandler(w http.ResponseWriter, _ *http.Request) {
-	p := make([]Project, 0)
+	db, err := newDB()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
 
-	projects.Range(func(key, value any) bool {
-		p = append(p, value.(Project))
-		return true
-	})
+	projectList, err := db.GetProjects()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	p := make([]Project, 0)
+	for _, project := range projectList {
+		p = append(p, *project)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	err := json.NewEncoder(w).Encode(p)
+	err = json.NewEncoder(w).Encode(p)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -401,16 +420,85 @@ func apiGetLLMPromptHandler(w http.ResponseWriter, _ *http.Request) {
 
 // apiGetProjectByIdHandler handles the GET /api/project/{id} endpoint
 func apiGetProjectByIdHandler(w http.ResponseWriter, _ *http.Request, id string) {
-	// Retrieve the project from the projects map
-	if project, ok := projects.Load(id); ok {
-		w.Header().Set("Content-Type", "application/json")
-		err := json.NewEncoder(w).Encode(project)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+	db, err := newDB()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
+
+	project, err := db.GetProject(id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Project not found", http.StatusNotFound)
 			return
 		}
-	} else {
-		http.Error(w, "Project not found", http.StatusNotFound)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(project)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// apiRegisterAgentHandler handles the POST /api/project/{id}/agent endpoint
+func apiRegisterAgentHandler(w http.ResponseWriter, r *http.Request, projectId string) {
+	var agent Agent
+	err := json.NewDecoder(r.Body).Decode(&agent)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Generate agent ID if not provided
+	if agent.Id == "" {
+		agent.Id = uuid.New().String()
+	}
+
+	db, err := newDB()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
+
+	if err := db.RegisterAgent(projectId, &agent); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	err = json.NewEncoder(w).Encode(agent)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// apiGetAgentsHandler handles the GET /api/project/{id}/agent endpoint
+func apiGetAgentsHandler(w http.ResponseWriter, _ *http.Request, projectId string) {
+	db, err := newDB()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
+
+	agents, err := db.GetAgents(projectId)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(agents)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }

@@ -12,6 +12,27 @@ type Server struct {
 }
 
 func InitAPI() {
+	db, err := newDB()
+	if err != nil {
+		log.Fatalf("Failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	// err = db.RegisterProject(&Project{
+	// 	Id:   "1",
+	// 	Name: "Test Project",
+	// })
+	// if err != nil {
+	// 	log.Fatalf("Failed to register project: %v", err)
+	// }
+
+	projectList, err := db.GetProjects()
+	if err != nil {
+		log.Fatalf("Failed to get projects: %v", err)
+	}
+
+	log.Printf("Projects: %v", projectList)
+
 	// Initialize the WebSocket hub
 	hub := NewHub()
 	go hub.Run()
@@ -44,7 +65,7 @@ func InitAPI() {
 	}
 
 	log.Printf("Server started on port %s", port)
-	err := http.ListenAndServe(fmt.Sprintf(":%s", port), mux)
+	err = http.ListenAndServe(fmt.Sprintf(":%s", port), mux)
 	if err != nil {
 		log.Fatal("Error listening and serving: ", err)
 	}
@@ -112,6 +133,16 @@ func (s Server) GetProjectById(w http.ResponseWriter, r *http.Request, id string
 // GetProjects handles the GET /api/project endpoint
 func (s Server) GetProjects(w http.ResponseWriter, r *http.Request) {
 	apiGetProjectsHandler(w, r)
+}
+
+// RegisterAgent handles the POST /api/project/{id}/agent endpoint
+func (s Server) RegisterAgent(w http.ResponseWriter, r *http.Request, id string) {
+	apiRegisterAgentHandler(w, r, id)
+}
+
+// GetAgents handles the GET /api/project/{id}/agent endpoint
+func (s Server) GetAgents(w http.ResponseWriter, r *http.Request, id string) {
+	apiGetAgentsHandler(w, r, id)
 }
 
 func enableCorsMiddleware(handler http.Handler) http.Handler {
