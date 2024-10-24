@@ -68,7 +68,7 @@ export default function ReviewList({ API_BASE_URL }: ReviewListProps) {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-4">
+    <div className="container space-y-4">
       <h1 className="text-2xl font-bold mb-6">Review List</h1>
       <p className="text-gray-600">
         The LLM reviews interface is still under active development.

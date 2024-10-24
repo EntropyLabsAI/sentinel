@@ -15,36 +15,44 @@ export default function ProjectList() {
     }
   }, [data]);
 
+  console.log("projects");
+  if (data?.data) {
+    console.log(data.data);
+  }
+
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
 
+  if (projects.length === 0) return <div>No projects found.</div>;
+
+
+
+
   return (
-    data?.data && (
-      <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-6">Projects</h1>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((project) => (
-            <Card key={project.id} className="flex flex-col">
-              <CardHeader>
-                <CardTitle>{project.name}</CardTitle>
-                <CardDescription>Project ID: {project.id}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-grow">
-                <h3 className="font-semibold mb-2">Tools:</h3>
-                <ScrollArea className="h-[100px]">
-                  <div className="flex flex-wrap gap-2">
-                    {project.tools.map((tool, index) => (
-                      <Badge key={index} variant="secondary">
-                        {tool.name}
-                      </Badge>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+    <div className="container mx-auto">
+      <h1 className="text-2xl font-bold mb-6">Projects</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {projects.map((project) => (
+          <Card key={project.id} className="flex flex-col">
+            <CardHeader>
+              <CardTitle>{project.name}</CardTitle>
+              <CardDescription>Project ID: {project.id}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-grow">
+              <h3 className="font-semibold mb-2">Tools:</h3>
+              <ScrollArea className="h-[100px]">
+                <div className="flex flex-wrap gap-2">
+                  {project?.tools?.map((tool, index) => (
+                    <Badge key={index} variant="secondary">
+                      {tool.name}
+                    </Badge>
+                  ))}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        ))}
       </div>
-    )
+    </div>
   )
 }

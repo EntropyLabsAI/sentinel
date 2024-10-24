@@ -50,7 +50,7 @@ export { HubStatsAccordion };
 
 const HubStats: React.FC<{ stats: HubStatsType }> = ({ stats }) => {
   return (
-    <div className="bg-gray-100 p-4 rounded-lg">
+    <div className="rounded-lg">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
         <StatItem label="Reviews waiting to be assigned (server-side)" value={stats.queued_reviews} />
         <StatItem label="Reviews in progress (client-side)" value={stats.stored_reviews} />

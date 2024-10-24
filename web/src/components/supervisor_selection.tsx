@@ -47,7 +47,7 @@ const SupervisorSelection: React.FC<SupervisorSelectionProps> = ({ API_BASE_URL,
   }
 
   return (
-    <div className="container mx-auto px-4 py-24">
+    <div className="container mx-auto">
       {/* Introductory Section */}
       <div className="mb-12 space-y-12">
         <h1 className="text-2xl font-bold mb-4">Select a Supervisor</h1>

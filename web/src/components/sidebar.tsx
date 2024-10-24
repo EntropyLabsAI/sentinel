@@ -268,7 +268,7 @@ export default function SidebarComponent({ isSocketConnected, children }: Sideba
             </BreadcrumbList>
           </Breadcrumb>
         </header>
-        <div className="flex-grow lg:mt-12 xl:mt-24">
+        <div className="p-16">
           {children}
         </div>
       </SidebarInset>
