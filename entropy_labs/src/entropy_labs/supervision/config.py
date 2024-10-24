@@ -3,7 +3,7 @@ from enum import Enum
 import random
 import json
 from pydantic import BaseModel, Field
-from el.mocking.policies import MockPolicy
+from entropy_labs.mocking.policies import MockPolicy
 
 PREFERRED_LLM_MODEL = "gpt-4o"
 

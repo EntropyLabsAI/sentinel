@@ -1,12 +1,12 @@
 from typing import Any, Callable, Dict, List, Optional, Set
-from el.supervision.config import SupervisionDecisionType, SupervisionDecision
-from el.utils.utils import prompt_user_input_or_api
+from entropy_labs.supervision.config import SupervisionDecisionType, SupervisionDecision
+from entropy_labs.utils.utils import prompt_user_input_or_api
 import random
-from el.supervision.common import check_bash_command, check_python_code
+from entropy_labs.supervision.common import check_bash_command, check_python_code
 
 # Supervisor functions
 
-def human_supervisor():
+def human_supervisor(backend_api_endpoint: Optional[str] = None):
     """
     Creates a human supervisor function that requests approval either via CLI or API.
     
@@ -23,7 +23,7 @@ def human_supervisor():
             "kwargs": kwargs
         }
         # Use a utility function to handle CLI or API-based human approval
-        decision = prompt_user_input_or_api(data)
+        decision = prompt_user_input_or_api(data, backend_api_endpoint=backend_api_endpoint)
         return decision
     supervisor.__name__ = human_supervisor.__name__
     return supervisor

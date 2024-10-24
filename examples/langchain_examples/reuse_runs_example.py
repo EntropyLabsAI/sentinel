@@ -1,12 +1,12 @@
-from el.supervision.config import (
+from entropy_labs.supervision.config import (
     set_global_mock_policy,
     setup_sample_from_previous_calls
 )
-from el.supervision.supervisors import divide_supervisor
-from el.supervision.langchain.supervisors import human_supervisor
-from el.supervision.langchain.logging import EntropyLabsCallbackHandler
-from el.supervision.decorators import supervise
-from el.mocking.policies import MockPolicy
+from entropy_labs.supervision.supervisors import divide_supervisor
+from entropy_labs.supervision.langchain.supervisors import human_supervisor
+from entropy_labs.supervision.langchain.logging import EntropyLabsCallbackHandler
+from entropy_labs.supervision.decorators import supervise
+from entropy_labs.mocking.policies import MockPolicy
 from langchain_openai import ChatOpenAI
 from langchain.tools import tool
 from langchain_core.messages import HumanMessage
