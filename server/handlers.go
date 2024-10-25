@@ -60,9 +60,8 @@ func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Create the Project struct
 	project := Project{
-		Id:    id,
-		Name:  request.Name,
-		Tools: request.Tools,
+		Id:   id,
+		Name: request.Name,
 	}
 
 	// Store the project in the global projects map
@@ -413,4 +412,12 @@ func apiGetProjectByIdHandler(w http.ResponseWriter, _ *http.Request, id string)
 		http.Error(w, "Project not found", http.StatusNotFound)
 		return
 	}
+}
+
+func apiGetProjectToolsHandler(w http.ResponseWriter, _ *http.Request, id string) {
+	return
+}
+
+func apiRegisterProjectToolHandler(w http.ResponseWriter, _ *http.Request, id string) {
+	return
 }
