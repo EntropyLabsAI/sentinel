@@ -403,6 +403,8 @@ components:
     Tool:
       type: object
       properties:
+        id:
+          type: string
         name:
           type: string
         description:
@@ -412,6 +414,8 @@ components:
           additionalProperties: true
       required:
         - name
+        - description
+        - attributes
     ToolChoice:
       type: object
       properties:
