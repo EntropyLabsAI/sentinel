@@ -66,7 +66,11 @@ func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request, store Pro
 	}
 
 	// Store the project in the global projects map
-	store.CreateProject(ctx, project)
+	err = store.CreateProject(ctx, project)
+	if err != nil {
+		http.Error(w, "Failed to register project", http.StatusInternalServerError)
+		return
+	}
 
 	// Prepare the response
 	response := map[string]string{
@@ -456,7 +460,7 @@ func apiRegisterProjectToolHandler(w http.ResponseWriter, r *http.Request, id st
 		return
 	}
 
-	if err = store.RegisterProjectTool(ctx, id, request.Tool); err != nil {
+	if err = store.CreateProjectTool(ctx, id, request.Tool); err != nil {
 		http.Error(w, "Failed to register project tool", http.StatusInternalServerError)
 		return
 	}
