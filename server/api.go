@@ -113,6 +113,16 @@ func (s Server) GetProjects(w http.ResponseWriter, r *http.Request) {
 	apiGetProjectsHandler(w, r)
 }
 
+// GetProjectTools handles the GET /api/project/{id}/tools endpoint
+func (s Server) GetProjectTools(w http.ResponseWriter, r *http.Request, id string) {
+	apiGetProjectToolsHandler(w, r, id)
+}
+
+// RegisterProjectTool handles the POST /api/project/{id}/tools endpoint
+func (s Server) RegisterProjectTool(w http.ResponseWriter, r *http.Request, id string) {
+	apiRegisterProjectToolHandler(w, r, id)
+}
+
 func enableCorsMiddleware(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Set CORS headers
