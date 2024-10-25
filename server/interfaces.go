@@ -6,14 +6,15 @@ import (
 
 // Store defines the interface for all storage operations
 type Store interface {
-	// ProjectStore
+	ProjectStore
 	ReviewStore
 	// LLMStore
+	ProjectToolStore
 }
 
 type ProjectStore interface {
 	CreateProject(ctx context.Context, project Project) error
-	GetProject(ctx context.Context, id string) (Project, error)
+	GetProject(ctx context.Context, id string) (*Project, error)
 	ListProjects(ctx context.Context) ([]Project, error)
 }
 
@@ -30,4 +31,9 @@ type ReviewStore interface {
 type LLMStore interface {
 	SetPrompt(ctx context.Context, prompt string) error
 	GetPrompt(ctx context.Context) (string, error)
+}
+
+type ProjectToolStore interface {
+	GetProjectTools(ctx context.Context, id string) ([]Tool, error)
+	CreateProjectTool(ctx context.Context, id string, tool Tool) error
 }

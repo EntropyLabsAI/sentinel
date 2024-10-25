@@ -100,17 +100,17 @@ func (s Server) GetLLMPrompt(w http.ResponseWriter, r *http.Request) {
 
 // RegisterProject handles the POST /api/project endpoint
 func (s Server) RegisterProject(w http.ResponseWriter, r *http.Request) {
-	apiRegisterProjectHandler(w, r)
+	apiRegisterProjectHandler(w, r, s.Store)
 }
 
 // GetProjectById handles the GET /api/project/{id} endpoint
 func (s Server) GetProjectById(w http.ResponseWriter, r *http.Request, id string) {
-	apiGetProjectByIdHandler(w, r, id)
+	apiGetProjectByIdHandler(w, r, id, s.Store)
 }
 
 // GetProjects handles the GET /api/project endpoint
 func (s Server) GetProjects(w http.ResponseWriter, r *http.Request) {
-	apiGetProjectsHandler(w, r)
+	apiGetProjectsHandler(w, r, s.Store)
 }
 
 // GetProjectTools handles the GET /api/project/{id}/tools endpoint

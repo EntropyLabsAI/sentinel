@@ -16,7 +16,6 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-var projects = &sync.Map{}
 var completedHumanReviews = &sync.Map{}
 var completedLLMReviews = &sync.Map{}
 
@@ -46,7 +45,9 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 }
 
 // apiRegisterProjectHandler handles the POST /api/project/register endpoint
-func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request) {
+func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request, store ProjectStore) {
+	ctx := r.Context()
+
 	log.Printf("received new project registration request")
 	var request RegisterProjectRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
@@ -65,7 +66,7 @@ func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Store the project in the global projects map
-	projects.Store(id, project)
+	store.CreateProject(ctx, project)
 
 	// Prepare the response
 	response := map[string]string{
@@ -316,17 +317,18 @@ func apiGetLLMReviews(w http.ResponseWriter, _ *http.Request) {
 }
 
 // apiGetProjectsHandler returns all projects
-func apiGetProjectsHandler(w http.ResponseWriter, _ *http.Request) {
-	p := make([]Project, 0)
+func apiGetProjectsHandler(w http.ResponseWriter, r *http.Request, store ProjectStore) {
+	ctx := r.Context()
 
-	projects.Range(func(key, value any) bool {
-		p = append(p, value.(Project))
-		return true
-	})
+	projects, err := store.ListProjects(ctx)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	err := json.NewEncoder(w).Encode(p)
+	err = json.NewEncoder(w).Encode(projects)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -399,9 +401,11 @@ func apiGetLLMPromptHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 // apiGetProjectByIdHandler handles the GET /api/project/{id} endpoint
-func apiGetProjectByIdHandler(w http.ResponseWriter, _ *http.Request, id string) {
+func apiGetProjectByIdHandler(w http.ResponseWriter, r *http.Request, id string, store ProjectStore) {
+	ctx := r.Context()
+
 	// Retrieve the project from the projects map
-	if project, ok := projects.Load(id); ok {
+	if project, err := store.GetProject(ctx, id); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		err := json.NewEncoder(w).Encode(project)
 		if err != nil {
@@ -414,10 +418,48 @@ func apiGetProjectByIdHandler(w http.ResponseWriter, _ *http.Request, id string)
 	}
 }
 
-func apiGetProjectToolsHandler(w http.ResponseWriter, _ *http.Request, id string) {
-	return
+func apiGetProjectToolsHandler(w http.ResponseWriter, r *http.Request, id string, store Store) {
+	ctx := r.Context()
+
+	// Check if the project exists
+	if _, err := store.GetProject(context.Background(), id); err != nil {
+		http.Error(w, "Project not found", http.StatusNotFound)
+		return
+	}
+
+	// Get the tools for the project
+	tools, err := store.GetProjectTools(ctx, id)
+	if err != nil {
+		http.Error(w, "Failed to get project tools", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(tools)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
-func apiRegisterProjectToolHandler(w http.ResponseWriter, _ *http.Request, id string) {
-	return
+func apiRegisterProjectToolHandler(w http.ResponseWriter, r *http.Request, id string, store Store) {
+	ctx := r.Context()
+
+	var request struct {
+		Tool Tool `json:"tool"`
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err = store.RegisterProjectTool(ctx, id, request.Tool); err != nil {
+		http.Error(w, "Failed to register project tool", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
