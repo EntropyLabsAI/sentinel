@@ -6,13 +6,14 @@ info:
 paths:
   /api/project:
     post:
+      summary: Register a project.
+      description: Register a project. If the project name does not exist, it will be created. A new run ID will be returned.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/RegisterProjectRequest"
-      summary: Register a new project
       operationId: RegisterProject
       responses:
         "200":
@@ -24,7 +25,8 @@ paths:
       tags:
         - Project
     get:
-      summary: Get all projects
+      summary: Get all projects.
+      description: Get all previously registered projects.
       operationId: GetProjects
       responses:
         "200":
@@ -50,6 +52,42 @@ paths:
       responses:
         "200":
           description: Project retrieved successfully
+      tags:
+        - Project
+  /api/project/{id}/tools:
+    get:
+      summary: Get the tools for a project.
+      operationId: GetProjectTools
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of tools for the project
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tool"
+    post:
+      summary: Register a tool for a project.
+      operationId: RegisterProjectTool
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Tool"
       tags:
         - Project
 
@@ -534,20 +572,18 @@ components:
       properties:
         name:
           type: string
-        tools:
-          type: array
-          items:
-            $ref: "#/components/schemas/Tool"
       required:
         - name
-        - tools
     RegisterProjectResponse:
       type: object
       properties:
         id:
           type: string
+        run_id:
+          type: string
       required:
         - id
+        - run_id
     Project:
       type: object
       properties:
@@ -555,11 +591,6 @@ components:
           type: string
         name:
           type: string
-        tools:
-          type: array
-          items:
-            $ref: "#/components/schemas/Tool"
       required:
         - id
         - name
-        - tools
