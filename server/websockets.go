@@ -2,6 +2,7 @@ package sentinel
 
 import (
 	"container/list"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -37,22 +38,24 @@ type Hub struct {
 	AssignedReviewsMutex sync.RWMutex
 	// ReviewStore is used to store reviews that have been assigned to a client and are waiting to be completed
 	// This is used to ensure that reviews are not lost if a client disconnects unexpectedly
-	ReviewStore *ReviewStore
+	// ReviewStore *ReviewStoreType
 	// Queue is a list of reviews that are waiting to be assigned to a client
 	Queue *list.List
 	// CompletedReviewCount is used to count the number of reviews that have been completed
 	CompletedReviewCount int
+	Store                Store
 }
 
-func NewHub() *Hub {
+func NewHub(store Store) *Hub {
 	return &Hub{
 		Clients:         make(map[*Client]bool),
 		ReviewChan:      make(chan Review, 100),
 		Register:        make(chan *Client),
 		Unregister:      make(chan *Client),
 		AssignedReviews: make(map[*Client]map[string]bool),
-		ReviewStore:     NewReviewStore(),
-		Queue:           list.New(),
+		// ReviewStore:     NewReviewStore(),
+		Queue: list.New(),
+		Store: store,
 	}
 }
 
@@ -138,6 +141,8 @@ func (h *Hub) processQueue() {
 
 // assignReviewToClient attempts to assign a review to a client if they have capacity
 func (h *Hub) assignReviewToClient(review Review) bool {
+	ctx := context.Background()
+
 	h.AssignedReviewsMutex.Lock()
 	defer h.AssignedReviewsMutex.Unlock()
 
@@ -148,7 +153,12 @@ func (h *Hub) assignReviewToClient(review Review) bool {
 		if assignedReviewsCount < MAX_REVIEWS_PER_CLIENT {
 			client.Send <- review
 
-			h.ReviewStore.Add(review)
+			err := h.Store.CreateReview(ctx, review)
+			if err != nil {
+				fmt.Printf("Error creating review in store: %v\n", err)
+				continue
+			}
+
 			h.AssignedReviews[client][review.Id] = true
 			log.Printf("Assigned review.RequestId %s to client.", review.Id)
 			return true // Review assignekd
@@ -162,17 +172,27 @@ func (h *Hub) assignReviewToClient(review Review) bool {
 func (h *Hub) requeueAssignedReviews(client *Client) {
 	if assignedReviews, ok := h.AssignedReviews[client]; ok {
 		for reviewID := range assignedReviews {
-			review, exists := h.ReviewStore.Get(reviewID)
-			fmt.Printf("Review details for ID %s: %v\n", reviewID, review)
-			if !exists {
-				fmt.Printf("Review details for ID %s not found in ReviewStore. Skipping requeue.", reviewID)
+			review, err := h.Store.GetReview(context.Background(), reviewID)
+			if err != nil {
+				fmt.Printf("Error getting review from store: %v\n", err)
+				continue
+			}
+
+			if review == nil {
+				fmt.Printf("Review details for ID %s not found in store. Skipping requeue.", reviewID)
 				continue
 			}
 
 			fmt.Printf("Review details for ID %s have been retrieved from the store\n", reviewID)
-			h.ReviewStore.Delete(reviewID)
+
+			err = h.Store.DeleteReview(context.Background(), reviewID)
+			if err != nil {
+				fmt.Printf("Error deleting review from store: %v\n", err)
+				continue
+			}
+
 			fmt.Printf("Review details for ID %s have been deleted from the store\n", reviewID)
-			h.ReviewChan <- review
+			h.ReviewChan <- *review
 			fmt.Printf("Review details for ID %s have been sent to the ReviewChan\n", reviewID)
 
 			log.Printf("Re-queuing review.RequestId %s as client disconnected.", reviewID)
@@ -249,7 +269,10 @@ func (c *Client) ReadPump() {
 		c.Hub.AssignedReviewsMutex.Unlock()
 
 		// Remove the review from the ReviewStore
-		c.Hub.ReviewStore.Delete(response.Id)
+		err = c.Hub.Store.DeleteReview(context.Background(), response.Id)
+		if err != nil {
+			fmt.Printf("Error deleting review from store: %v\n", err)
+		}
 
 		c.Hub.CompletedReviewCount++
 
@@ -259,10 +282,18 @@ func (c *Client) ReadPump() {
 }
 
 func (h *Hub) getStats() HubStats {
+	ctx := context.Background()
+
+	count, err := h.Store.CountReviews(ctx)
+	if err != nil {
+		fmt.Printf("Error counting reviews in store: %v\n", err)
+		count = 0
+	}
+
 	stats := HubStats{
 		ConnectedClients:   len(h.Clients),
 		QueuedReviews:      h.Queue.Len(),
-		StoredReviews:      h.ReviewStore.Count(),
+		StoredReviews:      count,
 		AssignedReviews:    make(map[string]int),
 		ReviewDistribution: make(map[string]int),
 		CompletedReviews:   h.CompletedReviewCount,

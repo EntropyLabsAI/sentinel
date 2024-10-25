@@ -8,17 +8,19 @@ import (
 )
 
 type Server struct {
-	Hub *Hub
+	Hub   *Hub
+	Store Store
 }
 
-func InitAPI() {
+func InitAPI(store Store) {
 	// Initialize the WebSocket hub
-	hub := NewHub()
+	hub := NewHub(store)
 	go hub.Run()
 
 	// Create an instance of your ServerInterface implementation
 	server := Server{
-		Hub: hub,
+		Hub:   hub,
+		Store: store,
 	}
 
 	// Generate the API handler using the generated code
