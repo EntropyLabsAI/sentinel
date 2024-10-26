@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 
 	sentinel "github.com/entropylabsai/sentinel/server"
 	"github.com/google/uuid"
@@ -42,10 +43,13 @@ func (s *PostgresqlStore) CreateProject(ctx context.Context, project sentinel.Pr
 		INSERT INTO project (id, name, created_at)
 		VALUES ($1, $2, $3)`
 
+	fmt.Printf("Creating project: %+v\n", project)
+
 	_, err := s.db.ExecContext(ctx, query, project.Id, project.Name, project.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("error creating project: %w", err)
 	}
+
 	return nil
 }
 
@@ -58,11 +62,15 @@ func (s *PostgresqlStore) GetProject(ctx context.Context, id uuid.UUID) (*sentin
 	var project sentinel.Project
 	err := s.db.QueryRowContext(ctx, query, id).Scan(&project.Id, &project.Name, &project.CreatedAt)
 	if err == sql.ErrNoRows {
-		return nil, nil
+		log.Printf("no rows found for project ID: %s\n", id)
+		return nil, fmt.Errorf("no rows found for project ID: %s", id)
 	}
 	if err != nil {
+		log.Printf("error getting project: %v\n", err)
 		return nil, fmt.Errorf("error getting project: %w", err)
 	}
+
+	log.Printf("found project: %s\n", project.Name) // Add this line to see what we got
 	return &project, nil
 }
 
@@ -87,6 +95,53 @@ func (s *PostgresqlStore) GetProjects(ctx context.Context) ([]sentinel.Project, 
 		projects = append(projects, project)
 	}
 	return projects, nil
+}
+
+func (s *PostgresqlStore) GetRuns(ctx context.Context) ([]sentinel.Run, error) {
+	query := `
+		SELECT id, project_id, created_at
+		FROM run`
+
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("error getting runs: %w", err)
+	}
+	defer rows.Close()
+
+	var runs []sentinel.Run
+	for rows.Next() {
+		var run sentinel.Run
+		if err := rows.Scan(&run.Id, &run.ProjectId, &run.CreatedAt); err != nil {
+			return nil, fmt.Errorf("error scanning run: %w", err)
+		}
+		runs = append(runs, run)
+	}
+
+	return runs, nil
+}
+
+func (s *PostgresqlStore) GetProjectRuns(ctx context.Context, id uuid.UUID) ([]sentinel.Run, error) {
+	query := `
+		SELECT id, project_id, created_at
+		FROM run
+		WHERE project_id = $1`
+
+	rows, err := s.db.QueryContext(ctx, query, id)
+	if err != nil {
+		return nil, fmt.Errorf("error getting project runs: %w", err)
+	}
+	defer rows.Close()
+
+	var runs []sentinel.Run
+	for rows.Next() {
+		var run sentinel.Run
+		if err := rows.Scan(&run.Id, &run.ProjectId, &run.CreatedAt); err != nil {
+			return nil, fmt.Errorf("error scanning run: %w", err)
+		}
+		runs = append(runs, run)
+	}
+
+	return runs, nil
 }
 
 // ReviewStore implementation
@@ -117,7 +172,6 @@ func (s *PostgresqlStore) GetReview(ctx context.Context, id uuid.UUID) (*sentine
 	var status sentinel.ReviewStatus
 	err := s.db.QueryRowContext(ctx, query, id).Scan(&review.Id, &review.RunId, &review.TaskState, &status.Status)
 	if err == sql.ErrNoRows {
-		// No review found
 		return nil, nil
 	}
 	if err != nil {
@@ -302,16 +356,18 @@ func (s *PostgresqlStore) GetSupervisorFromToolID(ctx context.Context, id uuid.U
 	return &supervisor, nil
 }
 
-func (s *PostgresqlStore) CreateRun(ctx context.Context, run sentinel.Run) error {
+func (s *PostgresqlStore) CreateRun(ctx context.Context, run sentinel.Run) (uuid.UUID, error) {
+	id := uuid.New()
+
 	query := `
 		INSERT INTO run (id, project_id, created_at)
 		VALUES ($1, $2, $3)`
 
-	_, err := s.db.ExecContext(ctx, query, run.Id, run.ProjectId, run.CreatedAt)
+	_, err := s.db.ExecContext(ctx, query, id, run.ProjectId, run.CreatedAt)
 	if err != nil {
-		return fmt.Errorf("error creating run: %w", err)
+		return uuid.UUID{}, fmt.Errorf("error creating run: %w", err)
 	}
-	return nil
+	return id, nil
 }
 
 // ToolStore implementation
@@ -378,7 +434,8 @@ func (s *PostgresqlStore) GetRun(ctx context.Context, id uuid.UUID) (*sentinel.R
 	err := s.db.QueryRowContext(ctx, query, id).Scan(&run.Id, &run.ProjectId, &run.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
-	} else if err != nil {
+	}
+	if err != nil {
 		return nil, fmt.Errorf("error getting run: %w", err)
 	}
 
@@ -406,7 +463,9 @@ func (s *PostgresqlStore) GetRunTools(ctx context.Context, id uuid.UUID) ([]sent
 		WHERE tool_run.run_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, query, id)
-	if err != nil {
+	if err != nil && err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
 		return nil, fmt.Errorf("error getting run tools: %w", err)
 	}
 

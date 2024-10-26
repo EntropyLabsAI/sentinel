@@ -78,6 +78,14 @@ func (s Server) CreateRun(w http.ResponseWriter, r *http.Request, id uuid.UUID) 
 	apiCreateRunHandler(w, r, id, s.Store)
 }
 
+func (s Server) GetProjectRuns(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetProjectRunsHandler(w, r, id, s.Store)
+}
+
+func (s Server) GetRuns(w http.ResponseWriter, r *http.Request) {
+	apiGetRunsHandler(w, r, s.Store)
+}
+
 func (s Server) GetRun(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	apiGetRunHandler(w, r, id, s.Store)
 }

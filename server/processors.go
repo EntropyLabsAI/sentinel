@@ -37,7 +37,7 @@ func processLLMReview(ctx context.Context, reviewRequest ReviewRequest, store St
 		Id:              resultID,
 		Decision:        decision,
 		ReviewRequestId: *reviewRequest.Id,
-		CreatedAt:       time.Now().Unix(),
+		CreatedAt:       time.Now(),
 		Toolrequest:     &toolChoice,
 		Reasoning:       llmReasoning,
 	}
@@ -49,7 +49,8 @@ func processLLMReview(ctx context.Context, reviewRequest ReviewRequest, store St
 }
 
 func processHumanReview(_ context.Context, hub *Hub, review Review, _ Store) error {
-	t := time.Now().Unix()
+	t := time.Now()
+
 	// Add the review request to the human review queue
 	hub.ReviewChan <- review
 

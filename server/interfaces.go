@@ -21,14 +21,15 @@ type ProjectStore interface {
 	CreateProject(ctx context.Context, project Project) error
 	GetProject(ctx context.Context, id uuid.UUID) (*Project, error)
 	GetProjects(ctx context.Context) ([]Project, error)
+	GetProjectRuns(ctx context.Context, id uuid.UUID) ([]Run, error)
 }
 
 type ReviewStore interface {
 	CreateReview(ctx context.Context, review Review) (uuid.UUID, error)
 	GetReview(ctx context.Context, id uuid.UUID) (*Review, error)
 	UpdateReview(ctx context.Context, review Review) error
-	GetReviews(ctx context.Context) ([]Review, error)
 	DeleteReview(ctx context.Context, id uuid.UUID) error
+	GetReviews(ctx context.Context) ([]Review, error)
 	CountReviews(ctx context.Context) (int, error)
 	GetReviewToolRequests(ctx context.Context, id uuid.UUID) ([]ToolRequest, error)
 	AssignSupervisorToTool(ctx context.Context, supervisorID uuid.UUID, toolID uuid.UUID) error
@@ -57,6 +58,8 @@ type SupervisorStore interface {
 }
 
 type RunStore interface {
-	CreateRun(ctx context.Context, run Run) error
+	CreateRun(ctx context.Context, run Run) (uuid.UUID, error)
 	GetRun(ctx context.Context, id uuid.UUID) (*Run, error)
+	GetRuns(ctx context.Context) ([]Run, error)
+	GetProjectRuns(ctx context.Context, id uuid.UUID) ([]Run, error)
 }
