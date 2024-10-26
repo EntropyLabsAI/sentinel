@@ -1,6 +1,120 @@
 import ast
 import shlex
 from typing import List, Dict, Optional, Tuple, Set
+from inspect_ai.solver import TaskState
+from inspect_ai.tool import ToolCall
+from entropy_labs.supervision.config import SupervisionDecision, SupervisionDecisionType
+from entropy_labs.api._supervision import get_human_supervision_decision_api
+from rich.console import Console
+from rich.panel import Panel
+from rich.prompt import Prompt
+
+def prompt_user_cli_approval(
+    task_state: TaskState,
+    tool_call: ToolCall,
+    use_inspect_ai: bool = False,
+    n: int = 1
+) -> SupervisionDecision:
+    """Prompt the user for approval via CLI with detailed and formatted information."""
+
+    if use_inspect_ai:
+        # Use the input_screen context manager to align with inspect_ai's console handling
+        from inspect_ai.util._console import input_screen
+        with input_screen(width=None) as console:
+            _display_approval_prompt(console, task_state, tool_call)
+
+            # Prompt user for decision
+            decision = console.input(
+                "\n[bold]Choose an action[/bold]: Approve (a), Reject (r), Escalate (e), Terminate (t) [a]: "
+            ).strip().lower() or 'a'
+
+            if decision == 'a':
+                decision_str = SupervisionDecisionType.APPROVE
+                explanation = "User approved via CLI."
+            elif decision == 'r':
+                explanation = console.input("Enter reason for rejection: ")
+                decision_str = SupervisionDecisionType.REJECT
+            elif decision == 'e':
+                decision_str = SupervisionDecisionType.ESCALATE
+                explanation = "User escalated via CLI."
+            else:
+                decision_str = SupervisionDecisionType.TERMINATE
+                explanation = "User terminated via CLI."
+    else:
+        console = Console()
+        _display_approval_prompt(console, task_state, tool_call)
+
+        # Prompt user for decision
+        decision = Prompt.ask(
+            "\n[bold]Choose an action[/bold]: Approve (a), Reject (r), Escalate (e), Terminate (t)",
+            choices=["a", "r", "e", "t"],
+            default="a"
+        )
+
+        if decision.lower() == 'a':
+            decision_str = SupervisionDecisionType.APPROVE
+            explanation = "User approved via CLI."
+        elif decision.lower() == 'r':
+            explanation = Prompt.ask("Enter reason for rejection")
+            decision_str = SupervisionDecisionType.REJECT
+        elif decision.lower() == 'e':
+            decision_str = SupervisionDecisionType.ESCALATE
+            explanation = "User escalated via CLI."
+        else:
+            decision_str = SupervisionDecisionType.TERMINATE
+            explanation = "User terminated via CLI."
+
+    return SupervisionDecision(decision=decision_str, explanation=explanation)
+
+def _display_approval_prompt(console: Console, task_state: TaskState, tool_call: ToolCall):
+    """Helper function to display the approval prompt using the given console."""
+
+    # Display Task State Information
+    task_info = [
+        f"[bold]Sample ID:[/bold] {task_state.sample_id}",
+        f"[bold]Epoch:[/bold] {task_state.epoch}",
+        f"[bold]Model:[/bold] {task_state._model}",
+        f"[bold]Input:[/bold] {task_state._input}",
+        f"[bold]Completed:[/bold] {task_state.completed}"
+    ]
+    task_panel = Panel(
+        "\n".join(task_info),
+        title="[bold blue]Task State[/bold blue]",
+        border_style="green"
+    )
+
+    # Display Latest Messages
+    messages = "\n".join([
+        f"[bold]{msg.role.capitalize()}:[/bold] {msg.text}"
+        for msg in task_state.messages[-5:]
+    ])
+    messages_panel = Panel(
+        messages,
+        title="[bold blue]Conversation History (Last 5 Messages)[/bold blue]",
+        border_style="yellow"
+    )
+
+    # Display Tool Call Information
+    formatted_arguments = "\n".join([
+        f"    [cyan]{key}[/cyan]: {value}" for key, value in tool_call.arguments.items()
+    ])
+    tool_call_info = [
+        f"[bold]Function:[/bold] {tool_call.function}",
+        f"[bold]Arguments:[/bold]\n{formatted_arguments}",
+        f"[bold]Type:[/bold] {tool_call.type}"
+    ]
+    if tool_call.parse_error:
+        tool_call_info.append(f"[bold]Parse Error:[/bold] {tool_call.parse_error}")
+    tool_panel = Panel(
+        "\n".join(tool_call_info),
+        title="[bold blue]Tool Call Details[/bold blue]",
+        border_style="magenta"
+    )
+
+    # Combine and display all panels
+    console.print(task_panel)
+    console.print(messages_panel)
+    console.print(tool_panel)
 
 def check_bash_command(
     command: str,
@@ -115,3 +229,18 @@ def check_python_code(
                         return False, "Modification of system state (dunder attributes) is not allowed."
 
     return True, "Python code is approved."
+
+async def human_supervisor_wrapper(task_state: TaskState, call: ToolCall, backend_api_endpoint: Optional[str] = None, agent_id: str = "default_agent", timeout: int = 300, use_inspect_ai: bool = False, n: int = 1) -> SupervisionDecision:
+    """
+    Wrapper for human supervisor that handles both CLI and backend API approval.
+    """
+    
+    if not backend_api_endpoint:
+        supervisor_decision = prompt_user_cli_approval(task_state=task_state, tool_call=call, use_inspect_ai=use_inspect_ai, n=n)
+    else:
+        # Use backend API for supervision
+        supervisor_decision = await get_human_supervision_decision_api(backend_api_endpoint=backend_api_endpoint, agent_id=agent_id, task_state=task_state, call=call, timeout=timeout, use_inspect_ai=use_inspect_ai, n=n)
+    return supervisor_decision
+
+
+
