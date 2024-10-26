@@ -4,6 +4,7 @@ import random
 import json
 from pydantic import BaseModel, Field
 from entropy_labs.mocking.policies import MockPolicy
+from threading import Lock
 
 PREFERRED_LLM_MODEL = "gpt-4o"
 
@@ -21,8 +22,17 @@ class SupervisionDecision(BaseModel):
     modified: Any = Field(default=None)
     """Modified data for decision 'modify'."""
 
-    explanation: str | None = Field(default=None)
+    explanation: Optional[str] = Field(default=None)
     """Explanation for decision."""
+
+class SupervisionContext:
+    def __init__(self):
+        self.langchain_events: List[dict] = []  # List to store all logged events
+        self.lock = Lock()  # Ensure thread safety
+
+    def add_event(self, event: dict):
+        with self.lock:
+            self.langchain_events.append(event)
 
 class SupervisionConfig:
     def __init__(self):
@@ -33,6 +43,7 @@ class SupervisionConfig:
         self.previous_calls: Dict[str, List[Any]] = {}
         self.function_supervisors: Dict[str, List[Callable]] = {}  # Function-specific supervision chains
         self.llm = None
+        self.context = SupervisionContext()
 
     def set_global_supervision_functions(self, functions: List[Callable]):
         self.global_supervision_functions = functions

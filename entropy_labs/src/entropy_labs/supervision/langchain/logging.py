@@ -8,7 +8,10 @@ from langchain_core.callbacks import BaseCallbackHandler
 from langchain.schema import BaseMessage, LLMResult, Document
 from tenacity import RetryCallState
 from langchain.tools import BaseTool
+from langchain_core.messages import messages_to_dict
 import inspect
+
+from entropy_labs.supervision.config import supervision_config
 
 class EntropyLabsCallbackHandler(BaseCallbackHandler):
     def __init__(self, tools: List[BaseTool], log_directory=".logs/langchain", single_log_file=False, log_filename=None) -> None:
@@ -16,7 +19,7 @@ class EntropyLabsCallbackHandler(BaseCallbackHandler):
         self.raise_error = True
         self.run_inline = True
         self.log_directory = log_directory
-        self.tools = tools  # Store the list of tools
+        self.tools = tools
         # Create log directory if it doesn't exist
         os.makedirs(self.log_directory, exist_ok=True)
         self.single_log_file = single_log_file
@@ -30,9 +33,8 @@ class EntropyLabsCallbackHandler(BaseCallbackHandler):
                 self.log_filepath = os.path.join(self.log_directory, f"single_log_{current_time}.log")
             # Open the log file in append mode
             self.log_file = open(self.log_filepath, 'a', encoding='utf-8')
-        else:
-            # Map of trace_id to file handle
-            self.trace_logs: Dict[UUID, Any] = {}
+        # Initialize self.trace_logs in all cases
+        self.trace_logs: Dict[UUID, Any] = {}
         # Map of run_id to trace_id
         self.run_trace_ids: Dict[UUID, UUID] = {}
 
@@ -50,9 +52,14 @@ class EntropyLabsCallbackHandler(BaseCallbackHandler):
             return self.trace_logs[trace_id]
 
     def _close_log_file(self, trace_id: UUID):
-        if trace_id in self.trace_logs:
-            self.trace_logs[trace_id].close()
-            del self.trace_logs[trace_id]
+        if self.single_log_file:
+            if self.log_file:
+                self.log_file.close()
+                self.log_file = None
+        else:
+            if trace_id in self.trace_logs:
+                self.trace_logs[trace_id].close()
+                del self.trace_logs[trace_id]
 
     def _serialize_data(self, data: Any) -> Any:
         if isinstance(data, UUID):
@@ -80,6 +87,9 @@ class EntropyLabsCallbackHandler(BaseCallbackHandler):
         }
         log_file.write(json.dumps(event_data) + '\n')
         log_file.flush()
+
+        # Add the event data to the SupervisionContext
+        supervision_config.context.add_event(event_data)
 
     def _get_trace_id(self, run_id: UUID, parent_run_id: Optional[UUID]) -> UUID:
         if parent_run_id is None:
@@ -120,10 +130,10 @@ class EntropyLabsCallbackHandler(BaseCallbackHandler):
                         function_code_dict[func_name] = "Tool implementation not found."
                 except Exception as e:
                     function_code_dict[func_name] = f"Error retrieving source code: {str(e)}"
-        
+                    
         data = {
             "serialized": serialized,
-            "messages": [[msg.content for msg in conversation] for conversation in messages],
+            "messages": [messages_to_dict(conversation) for conversation in messages], 
             "kwargs": kwargs,
             "function_implementations": function_code_dict  # Include function code
         }
@@ -147,6 +157,9 @@ class EntropyLabsCallbackHandler(BaseCallbackHandler):
             "kwargs": kwargs,
         }
         self._log_event("on_llm_end", run_id, parent_run_id, data, trace_id)
+        # Close the log file upon top-level LLM end if not using single log file
+        if parent_run_id is None and not self.single_log_file:
+            self._close_log_file(trace_id)
 
     def on_chain_start(
         self, serialized: Dict[str, Any], inputs: Dict[str, Any], *, run_id: UUID, parent_run_id: Optional[UUID]=None, **kwargs: Any
@@ -245,8 +258,9 @@ class EntropyLabsCallbackHandler(BaseCallbackHandler):
 
     def __del__(self):
         # Close any open log files
-        if self.single_log_file and self.log_file:
+        if self.single_log_file and getattr(self, 'log_file', None):
             self.log_file.close()
+            self.log_file = None
         else:
             for log_file in self.trace_logs.values():
                 log_file.close()
