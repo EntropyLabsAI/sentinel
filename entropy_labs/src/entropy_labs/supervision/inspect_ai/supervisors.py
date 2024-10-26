@@ -1,16 +1,13 @@
 import logging
-import requests
-from typing import List, Dict, Optional, Set, Any, Tuple
+from typing import List, Dict, Optional, Set
 from inspect_ai.approval import Approval, Approver, approver
 from inspect_ai.solver import TaskState
 from inspect_ai.tool import ToolCall, ToolCallView
-from el.supervision.common import check_bash_command, check_python_code
-from el.supervision.inspect_ai._utils import (
-    generate_tool_call_change_explanation,
-    generate_tool_call_suggestions,
-    prepare_payload,
-    poll_status
+from entropy_labs.supervision.common import check_bash_command, check_python_code, human_supervisor_wrapper
+from entropy_labs.supervision.inspect_ai.utils import (
+    transform_entropy_labs_approval_to_inspect_ai_approval
 )
+from entropy_labs.api._supervision import get_llm_supervision_decision_api
 from ._config import DEFAULT_TIMEOUT, DEFAULT_SUGGESTIONS
 
 @approver
@@ -32,7 +29,6 @@ def bash_approver(
             return Approval(decision="approve", explanation=explanation)
         else:
             return Approval(decision="escalate", explanation=explanation)
-
     return approve
 
 @approver
@@ -63,11 +59,10 @@ def python_approver(
             return Approval(decision="approve", explanation=explanation)
         else:
             return Approval(decision="escalate", explanation=explanation)
-
     return approve
 
 @approver
-def human_approver(approval_api_endpoint: str, agent_id: str, n: int = DEFAULT_SUGGESTIONS, timeout: int = DEFAULT_TIMEOUT) -> Approver:
+def human_approver(agent_id: str, approval_api_endpoint: Optional[str] = None, n: int = DEFAULT_SUGGESTIONS, timeout: int = DEFAULT_TIMEOUT) -> Approver:
     async def approve(
         message: str,
         call: ToolCall,
@@ -79,40 +74,9 @@ def human_approver(approval_api_endpoint: str, agent_id: str, n: int = DEFAULT_S
 
         logging.info(f"Generating {n} tool call suggestions for user review")
 
-        last_messages, tool_options = await generate_tool_call_suggestions(state, n)
-        payload = prepare_payload(agent_id, state, last_messages, tool_options)
-
-        try:
-            response = requests.post(f'{approval_api_endpoint}/api/review/human', json=payload)
-            response.raise_for_status()
-
-            review_id = response.json().get("id")
-            if not review_id:
-                return Approval(decision="escalate", explanation="Failed to get review ID from initial response")
-
-            status_data = await poll_status(approval_api_endpoint, review_id, timeout)
-
-            decision = status_data["decision"]
-            explanation = status_data.get("explanation", "Human provided no additional explanation.")
-            selected_index = status_data.get("selected_index")
-
-            if decision == "modify":
-                modified_tool_call_data = status_data["tool_choice"]
-                explanation = generate_tool_call_change_explanation(call, modified_tool_call_data)
-                modified_tool_call = ToolCall(**modified_tool_call_data)
-            elif selected_index is not None and 0 <= selected_index < len(tool_options):
-                modified_tool_call = ToolCall(**tool_options[selected_index])
-            else:
-                modified_tool_call = None
-
-            return Approval(decision=decision, explanation=explanation, modified=modified_tool_call)
-
-        except requests.RequestException as e:
-            logging.error(f"Error communicating with remote approver: {str(e)}")
-            return Approval(decision="escalate", explanation=f"Error communicating with remote approver: {str(e)}")
-        except TimeoutError:
-            return Approval(decision="escalate", explanation="Timed out waiting for human approval")
-
+        approval_decision = await human_supervisor_wrapper(task_state=state, call=call, backend_api_endpoint=approval_api_endpoint, agent_id=agent_id, timeout=timeout, use_inspect_ai=True, n=n)
+        inspect_approval = transform_entropy_labs_approval_to_inspect_ai_approval(approval_decision)
+        return inspect_approval
     return approve
 
 @approver
@@ -126,40 +90,7 @@ def llm_approver(approval_api_endpoint: str, agent_id: str, n: int = DEFAULT_SUG
         if state is None:
             return Approval(decision="escalate", explanation="TaskState is required for this approver.")
 
-        logging.info(f"Generating {n} tool call suggestions for LLM review")
-
-        last_messages, tool_options = await generate_tool_call_suggestions(state, n)
-        payload = prepare_payload(agent_id, state, last_messages, tool_options)
-
-        assert len(payload['tool_choices']) == 1, "Only one tool call is supported for LLM approval"
-        assert len(payload['last_messages']) == 1, "Only one message is supported for LLM approval"
-
-        try:
-            response = requests.post(f'{approval_api_endpoint}/api/review/llm', json=payload)
-            response.raise_for_status()
-
-            review_result = response.json()
-
-            if "decision" in review_result:
-                decision = review_result["decision"]
-                explanation = review_result.get("reasoning", "LLM provided no additional explanation.")
-
-                if decision == "modify":
-                    modified_tool_call_data = review_result["tool_choice"]
-                    explanation = generate_tool_call_change_explanation(call, modified_tool_call_data)
-                    modified_tool_call = ToolCall(**modified_tool_call_data)
-                else:
-                    modified_tool_call = None
-
-                return Approval(decision=decision, explanation=explanation, modified=modified_tool_call)
-
-            return Approval(
-                decision="escalate",
-                explanation=f"Unexpected response from LLM review endpoint: {review_result}",
-            )
-
-        except requests.RequestException as e:
-            logging.error(f"Error communicating with LLM approver: {str(e)}")
-            return Approval(decision="escalate", explanation=f"Error communicating with LLM approver: {str(e)}")
-
+        approval_decision = await get_llm_supervision_decision_api(task_state=state, call=call, backend_api_endpoint=approval_api_endpoint, agent_id=agent_id, timeout=timeout)
+        inspect_approval = transform_entropy_labs_approval_to_inspect_ai_approval(approval_decision)
+        return inspect_approval
     return approve

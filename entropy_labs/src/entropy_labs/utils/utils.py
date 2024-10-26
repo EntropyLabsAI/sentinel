@@ -2,9 +2,6 @@ from typing import Any, get_origin, get_args, Callable, Dict, Any, Union, Option
 import random
 import string
 import inspect
-import requests
-import os
-from ..supervision.config import SupervisionDecision, SupervisionDecisionType
 
 
 def create_random_value(return_type: type) -> Any:
@@ -40,24 +37,5 @@ def get_function_code(func: Callable) -> str:
         return inspect.getsource(func)
     except Exception as e:
         return f"Error retrieving source code: {str(e)}"
-
-def prompt_user_input_or_api(data: Dict[str, Any], backend_api_endpoint: Optional[str] = None) -> SupervisionDecision:
-    """Prompt the user for input via CLI or send data to a backend API for approval."""
-    # Check if backend API endpoint is set
-    if backend_api_endpoint:
-        # Send the data to the backend API
-        response = requests.post(f'{backend_api_endpoint}/api/r', json=data)
-        if response.status_code == 200:
-            decision_str = response.json().get('decision', 'escalate').lower()
-        else:
-            decision_str = 'escalate'
-    else:
-        # Fallback to CLI input
-        while True:
-            decision_str = input(f"Do you approve execution of {data['function']} with arguments {data['args']} and {data['kwargs']}? (approve/reject/escalate): ").strip().lower()
-            if decision_str in ['approve', 'reject', 'escalate']:
-                break
-            else:
-                print("Invalid input. Please enter 'approve', 'reject', or 'escalate'.")
-
-    return SupervisionDecision(decision=decision_str, explanation="User or API decision")
+    
+    

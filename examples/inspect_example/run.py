@@ -6,7 +6,6 @@ from inspect_ai.solver import generate, system_message, use_tools
 from inspect_ai.tool import bash, python
 import random
 import logging
-# from el.supervision.inspect_ai import _registry
 
 
 # Set up logging

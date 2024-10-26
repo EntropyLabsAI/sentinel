@@ -34,7 +34,7 @@
 
 
 ## Approval configuation
-Examples of approval configuration are in `approval_human.yaml`, `approval_llm.yaml` and `approval_escalation.yaml` files. We follow the Inspect AI format for the approval configuration. More information here: [https://inspect.ai-safety-institute.org.uk/approval.html](https://inspect.ai-safety-institute.org.uk/approval.html). Our approvers are in the `el.approvers` module. You can install the `entropy-labs` package to get these approvers:
+Examples of approval configuration are in `approval_human.yaml` and `approval_escalation.yaml` files. We follow the Inspect AI format for the approval configuration. More information here: [https://inspect.ai-safety-institute.org.uk/approval.html](https://inspect.ai-safety-institute.org.uk/approval.html). Our approvers are in the `el.approvers` module. You can install the `entropy-labs` package to get these approvers:
 
 ```bash
 pip install entropy-labs
