@@ -66,39 +66,83 @@ func (s Server) CreateReview(w http.ResponseWriter, r *http.Request) {
 	apiReviewHandler(s.Hub, w, r, s.Store)
 }
 
+func (s Server) GetReview(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetReviewHandler(w, r, id, s.Store)
+}
+
+func (s Server) GetReviews(w http.ResponseWriter, r *http.Request, params GetReviewsParams) {
+	apiGetReviewsHandler(w, r, params, s.Store)
+}
+
 func (s Server) CreateRun(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	apiCreateRunHandler(w, r, id, s.Store)
+}
+
+func (s Server) GetRun(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetRunHandler(w, r, id, s.Store)
 }
 
 func (s Server) CreateTool(w http.ResponseWriter, r *http.Request) {
 	apiCreateToolHandler(w, r, s.Store)
 }
 
+func (s Server) GetTool(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetToolHandler(w, r, id, s.Store)
+}
+
+func (s Server) GetTools(w http.ResponseWriter, r *http.Request) {
+	apiGetToolsHandler(w, r, s.Store)
+}
+
+func (s Server) GetRunTools(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetRunToolsHandler(w, r, id, s.Store)
+}
+
 func (s Server) GetProject(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	apiGetProjectByIdHandler(w, r, id, s.Store)
 }
 
-func (s Server) GetLLMExplanation(w http.ResponseWriter, r *http.Request) {
-	apiLLMExplanationHandler(w, r)
+func (s Server) GetReviewResults(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetReviewResultsHandler(w, r, id, s.Store)
 }
 
-func (s Server) GetReviewStatus(w http.ResponseWriter, r *http.Request, id string) {
-	apiReviewStatusHandler(w, r, id)
+func (s Server) GetReviewToolRequests(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetReviewToolRequestsHandler(w, r, id, s.Store)
+}
+
+func (s Server) GetSupervisor(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetSupervisorHandler(w, r, id, s.Store)
+}
+
+func (s Server) GetSupervisors(w http.ResponseWriter, r *http.Request) {
+	apiGetSupervisorsHandler(w, r, s.Store)
+}
+
+func (s Server) GetToolSupervisors(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetToolSupervisorsHandler(w, r, id, s.Store)
+}
+
+func (s Server) AssignSupervisorToTool(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiAssignSupervisorToToolHandler(w, r, id, s.Store)
+}
+
+// func (s Server) GetLLMExplanation(w http.ResponseWriter, r *http.Request) {
+// 	apiLLMExplanationHandler(w, r)
+// }
+
+func (s Server) GetReviewStatus(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiReviewStatusHandler(w, r, id, s.Store)
 }
 
 func (s Server) GetHubStats(w http.ResponseWriter, r *http.Request) {
 	apiStatsHandler(s.Hub, w, r)
 }
 
-func (s Server) GetLLMReviews(w http.ResponseWriter, r *http.Request) {
-	apiGetLLMReviews(w, r)
-}
-
 func (s Server) CreateProject(w http.ResponseWriter, r *http.Request) {
 	apiRegisterProjectHandler(w, r, s.Store)
 }
 
-func (s Server) GetProjectById(w http.ResponseWriter, r *http.Request, id string) {
+func (s Server) GetProjectById(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	apiGetProjectByIdHandler(w, r, id, s.Store)
 }
 
@@ -106,11 +150,11 @@ func (s Server) GetProjects(w http.ResponseWriter, r *http.Request) {
 	apiGetProjectsHandler(w, r, s.Store)
 }
 
-func (s Server) GetProjectTools(w http.ResponseWriter, r *http.Request, id string) {
+func (s Server) GetProjectTools(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	apiGetProjectToolsHandler(w, r, id, s.Store)
 }
 
-func (s Server) RegisterProjectTool(w http.ResponseWriter, r *http.Request, id string) {
+func (s Server) RegisterProjectTool(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	apiRegisterProjectToolHandler(w, r, id, s.Store)
 }
 

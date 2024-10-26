@@ -25,7 +25,7 @@ paths:
         - Projects
     get:
       summary: List all projects
-      operationId: ListProjects
+      operationId: GetProjects
       responses:
         "200":
           description: List of projects
@@ -59,12 +59,12 @@ paths:
       tags:
         - Runs
 
-  /api/runs/{runId}/supervisors:
+  /api/tools/{toolId}/supervisors:
     get:
-      summary: Get supervisors assigned to a run
-      operationId: GetRunSupervisors
+      summary: Get supervisors assigned to a tool
+      operationId: GetToolSupervisors
       parameters:
-        - name: runId
+        - name: toolId
           in: path
           required: true
           schema:
@@ -72,7 +72,7 @@ paths:
             format: uuid
       responses:
         "200":
-          description: List of supervisors assigned to the run
+          description: List of supervisors assigned to the tool
           content:
             application/json:
               schema:
@@ -80,13 +80,13 @@ paths:
                 items:
                   $ref: "#/components/schemas/Supervisor"
       tags:
-        - Runs
+        - Tools
         - Supervisors
     post:
-      summary: Assign supervisor to run
-      operationId: AssignSupervisor
+      summary: Assign supervisor to tool
+      operationId: AssignSupervisorToTool
       parameters:
-        - name: runId
+        - name: toolId
           in: path
           required: true
           schema:
@@ -125,13 +125,12 @@ paths:
         - Reviews
     get:
       summary: List all reviews
-      operationId: ListReviews
+      operationId: GetReviews
       parameters:
         - name: type
           in: query
           schema:
-            type: string
-            enum: [llm, human]
+            $ref: "#/components/schemas/SupervisorType"
       responses:
         "200":
           description: List of reviews
@@ -168,7 +167,7 @@ paths:
   /api/tools:
     get:
       summary: List all tools
-      operationId: ListTools
+      operationId: GetTools
       responses:
         "200":
           description: List of tools
@@ -295,13 +294,7 @@ paths:
   /api/supervisors:
     get:
       summary: List all supervisors
-      operationId: ListSupervisors
-      parameters:
-        - name: type
-          in: query
-          schema:
-            type: string
-            enum: [code, llm, human]
+      operationId: GetSupervisors
       responses:
         "200":
           description: List of supervisors
@@ -407,30 +400,6 @@ paths:
         - Reviews
         - Tools
 
-  /api/users/{userId}/projects:
-    get:
-      summary: Get projects for a user
-      operationId: GetUserProjects
-      parameters:
-        - name: userId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        "200":
-          description: List of projects associated with the user
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Project"
-      tags:
-        - Users
-        - Projects
-
 components:
   schemas:
     User:
@@ -495,8 +464,7 @@ components:
           type: integer
           format: int64
         type:
-          type: string
-          enum: [code, llm, human]
+          $ref: "#/components/schemas/SupervisorType"
       required:
         - id
         - type
@@ -673,3 +641,7 @@ components:
       required:
         - name
         - description
+
+    SupervisorType:
+      type: string
+      enum: [code, llm, human, all]
