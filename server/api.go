@@ -82,19 +82,19 @@ func (s Server) GetProjectRuns(w http.ResponseWriter, r *http.Request, id uuid.U
 	apiGetProjectRunsHandler(w, r, id, s.Store)
 }
 
-func (s Server) GetRuns(w http.ResponseWriter, r *http.Request) {
-	apiGetRunsHandler(w, r, s.Store)
+func (s Server) GetRuns(w http.ResponseWriter, r *http.Request, projectId uuid.UUID) {
+	apiGetRunsHandler(w, r, projectId, s.Store)
 }
 
-func (s Server) GetRun(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiGetRunHandler(w, r, id, s.Store)
+func (s Server) GetRun(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, id uuid.UUID) {
+	apiGetRunHandler(w, r, projectId, id, s.Store)
 }
 
-func (s Server) CreateTool(w http.ResponseWriter, r *http.Request) {
-	apiCreateToolHandler(w, r, s.Store)
+func (s Server) CreateRunTool(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, runId uuid.UUID) {
+	apiCreateRunToolHandler(w, r, projectId, runId, s.Store)
 }
 
-func (s Server) GetTool(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+func (s Server) GetTool(w http.ResponseWriter, r *http.Request, _ uuid.UUID, id uuid.UUID) {
 	apiGetToolHandler(w, r, id, s.Store)
 }
 
@@ -102,8 +102,8 @@ func (s Server) GetTools(w http.ResponseWriter, r *http.Request) {
 	apiGetToolsHandler(w, r, s.Store)
 }
 
-func (s Server) GetRunTools(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiGetRunToolsHandler(w, r, id, s.Store)
+func (s Server) GetRunTools(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, id uuid.UUID) {
+	apiGetRunToolsHandler(w, r, projectId, id, s.Store)
 }
 
 func (s Server) GetProject(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
@@ -126,12 +126,16 @@ func (s Server) GetSupervisors(w http.ResponseWriter, r *http.Request) {
 	apiGetSupervisorsHandler(w, r, s.Store)
 }
 
-func (s Server) GetToolSupervisors(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+func (s Server) CreateSupervisor(w http.ResponseWriter, r *http.Request) {
+	apiCreateSupervisorHandler(w, r, s.Store)
+}
+
+func (s Server) GetToolSupervisors(w http.ResponseWriter, r *http.Request, _ uuid.UUID, id uuid.UUID) {
 	apiGetToolSupervisorsHandler(w, r, id, s.Store)
 }
 
-func (s Server) AssignSupervisorToTool(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiAssignSupervisorToToolHandler(w, r, id, s.Store)
+func (s Server) AssignSupervisorToTool(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, id uuid.UUID) {
+	apiAssignSupervisorToToolHandler(w, r, projectId, id, s.Store)
 }
 
 func (s Server) GetReviewStatus(w http.ResponseWriter, r *http.Request, id uuid.UUID) {

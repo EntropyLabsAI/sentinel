@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"time"
 
 	sentinel "github.com/entropylabsai/sentinel/server"
 	"github.com/google/uuid"
@@ -94,15 +95,18 @@ func (s *PostgresqlStore) GetProjects(ctx context.Context) ([]sentinel.Project, 
 		}
 		projects = append(projects, project)
 	}
+
+	// If no rows were found, projects will be empty slice
 	return projects, nil
 }
 
-func (s *PostgresqlStore) GetRuns(ctx context.Context) ([]sentinel.Run, error) {
+func (s *PostgresqlStore) GetRuns(ctx context.Context, projectId uuid.UUID) ([]sentinel.Run, error) {
 	query := `
 		SELECT id, project_id, created_at
-		FROM run`
+		FROM run
+		WHERE project_id = $1`
 
-	rows, err := s.db.QueryContext(ctx, query)
+	rows, err := s.db.QueryContext(ctx, query, projectId)
 	if err != nil {
 		return nil, fmt.Errorf("error getting runs: %w", err)
 	}
@@ -117,6 +121,7 @@ func (s *PostgresqlStore) GetRuns(ctx context.Context) ([]sentinel.Run, error) {
 		runs = append(runs, run)
 	}
 
+	// If no rows were found, runs will be empty slice
 	return runs, nil
 }
 
@@ -141,6 +146,7 @@ func (s *PostgresqlStore) GetProjectRuns(ctx context.Context, id uuid.UUID) ([]s
 		runs = append(runs, run)
 	}
 
+	// If no rows were found, runs will be empty slice
 	return runs, nil
 }
 
@@ -356,6 +362,21 @@ func (s *PostgresqlStore) GetSupervisorFromToolID(ctx context.Context, id uuid.U
 	return &supervisor, nil
 }
 
+func (s *PostgresqlStore) CreateSupervisor(ctx context.Context, supervisor sentinel.Supervisor) (uuid.UUID, error) {
+	id := uuid.New()
+
+	query := `
+		INSERT INTO supervisor (id, description, created_at, type)
+		VALUES ($1, $2, $3, $4)`
+
+	_, err := s.db.ExecContext(ctx, query, id, supervisor.Description, supervisor.CreatedAt, supervisor.Type)
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("error creating supervisor: %w", err)
+	}
+
+	return id, nil
+}
+
 func (s *PostgresqlStore) CreateRun(ctx context.Context, run sentinel.Run) (uuid.UUID, error) {
 	id := uuid.New()
 
@@ -370,34 +391,53 @@ func (s *PostgresqlStore) CreateRun(ctx context.Context, run sentinel.Run) (uuid
 	return id, nil
 }
 
-// ToolStore implementation
-func (s *PostgresqlStore) CreateTool(ctx context.Context, tool sentinel.Tool) error {
-	// First, check if the tool already exists
-	query := `
-		SELECT id
-		FROM tool
-		WHERE id = $1`
+func (s *PostgresqlStore) CreateRunTool(ctx context.Context, runId uuid.UUID, tool sentinel.Tool) (uuid.UUID, error) {
+	id := uuid.New()
 
-	var existingTool sentinel.Tool
-	err := s.db.QueryRowContext(ctx, query, tool.Id).Scan(&existingTool.Id)
-	if err == nil {
-		// Check if the tool has changed
-		if existingTool.Name != tool.Name || existingTool.CreatedAt != tool.CreatedAt {
-			return fmt.Errorf("tool already exists but has changed")
-		}
-		return nil
+	// Start a transaction
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("error starting transaction: %w", err)
+	}
+	err = tx.Rollback()
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("error rolling back transaction: %w", err)
 	}
 
-	// If the tool doesn't exist, create it
-	query = `
+	query := `
 		INSERT INTO tool (id, name, created_at)
 		VALUES ($1, $2, $3)`
 
-	_, err = s.db.ExecContext(ctx, query, tool.Id, tool.Name, tool.CreatedAt)
+	_, err = tx.ExecContext(ctx, query, tool.Id, tool.Name, time.Now())
 	if err != nil {
-		return fmt.Errorf("error creating tool: %w", err)
+		return uuid.UUID{}, fmt.Errorf("error creating tool: %w", err)
 	}
-	return nil
+
+	// Insert into run_tool
+	query = `
+		INSERT INTO run_tool (run_id, tool_id)
+		VALUES ($1, $2)`
+
+	_, err = tx.ExecContext(ctx, query, runId, tool.Id)
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("error creating run tool: %w", err)
+	}
+
+	return id, tx.Commit()
+}
+
+func (s *PostgresqlStore) CreateTool(ctx context.Context, tool sentinel.Tool) (uuid.UUID, error) {
+	id := uuid.New()
+	query := `
+		INSERT INTO tool (id, name, created_at)
+		VALUES ($1, $2, $3)`
+
+	_, err := s.db.ExecContext(ctx, query, id, tool.Name, time.Now())
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("error creating tool: %w", err)
+	}
+
+	return id, nil
 }
 
 func (s *PostgresqlStore) GetReviewToolRequests(ctx context.Context, id uuid.UUID) ([]sentinel.ToolRequest, error) {
@@ -424,11 +464,11 @@ func (s *PostgresqlStore) GetReviewToolRequests(ctx context.Context, id uuid.UUI
 
 }
 
-func (s *PostgresqlStore) GetRun(ctx context.Context, id uuid.UUID) (*sentinel.Run, error) {
+func (s *PostgresqlStore) GetRun(ctx context.Context, projectId uuid.UUID, id uuid.UUID) (*sentinel.Run, error) {
 	query := `
 		SELECT id, project_id, created_at
 		FROM run
-		WHERE id = $1`
+		WHERE id = $1 AND project_id = $2`
 
 	var run sentinel.Run
 	err := s.db.QueryRowContext(ctx, query, id).Scan(&run.Id, &run.ProjectId, &run.CreatedAt)
@@ -457,17 +497,16 @@ func (s *PostgresqlStore) AssignSupervisorToTool(ctx context.Context, supervisor
 
 func (s *PostgresqlStore) GetRunTools(ctx context.Context, id uuid.UUID) ([]sentinel.Tool, error) {
 	query := `
-		SELECT id, name, description, attributes
+		SELECT tool.id, tool.name, tool.description, tool.attributes
 		FROM tool
-		INNER JOIN tool_run ON tool.id = tool_run.tool_id
-		WHERE tool_run.run_id = $1`
+		INNER JOIN run_tool ON tool.id = run_tool.tool_id
+		WHERE run_tool.run_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, query, id)
-	if err != nil && err == sql.ErrNoRows {
-		return nil, nil
-	} else if err != nil {
+	if err != nil {
 		return nil, fmt.Errorf("error getting run tools: %w", err)
 	}
+	defer rows.Close()
 
 	var tools []sentinel.Tool
 	for rows.Next() {
@@ -478,6 +517,7 @@ func (s *PostgresqlStore) GetRunTools(ctx context.Context, id uuid.UUID) ([]sent
 		tools = append(tools, tool)
 	}
 
+	// If no rows were found, tools will be empty slice
 	return tools, nil
 }
 
