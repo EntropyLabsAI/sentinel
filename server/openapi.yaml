@@ -68,6 +68,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Run"
+        "404":
+          description: Project not found
       tags:
         - Runs
     post:
@@ -90,12 +92,18 @@ paths:
       tags:
         - Runs
 
-  /api/tools/{toolId}/supervisors:
+  /api/projects/{projectId}/tools/{toolId}/supervisors:
     get:
       summary: Get supervisors assigned to a tool
       operationId: GetToolSupervisors
       parameters:
         - name: toolId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: projectId
           in: path
           required: true
           schema:
@@ -110,6 +118,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Supervisor"
+        "404":
+          description: Tool not found
       tags:
         - Tools
         - Supervisors
@@ -118,6 +128,12 @@ paths:
       operationId: AssignSupervisorToTool
       parameters:
         - name: toolId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: projectId
           in: path
           required: true
           schema:
@@ -192,13 +208,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReviewStatus"
+        "404":
+          description: Review not found
       tags:
         - Reviews
 
-  /api/tools:
+  /api/projects/{projectId}/runs/{runId}/tools:
     get:
       summary: List all tools
-      operationId: GetTools
+      operationId: GetRunTools
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: List of tools
@@ -212,7 +243,20 @@ paths:
         - Tools
     post:
       summary: Create a new tool
-      operationId: CreateTool
+      operationId: CreateRunTool
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: runId
+          in: path
+          required: false
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -229,12 +273,18 @@ paths:
       tags:
         - Tools
 
-  /api/tools/{toolId}:
+  /api/projects/{projectId}/tools/{toolId}:
     get:
       summary: Get tool by ID
       operationId: GetTool
       parameters:
         - name: toolId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: projectId
           in: path
           required: true
           schema:
@@ -251,30 +301,6 @@ paths:
           description: Tool not found
       tags:
         - Tools
-
-  /api/runs/{runId}/tools:
-    get:
-      summary: Get tools associated with a run
-      operationId: GetRunTools
-      parameters:
-        - name: runId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        "200":
-          description: List of tools associated with the run
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Tool"
-      tags:
-        - Tools
-        - Runs
 
   /api/projects/{projectId}:
     get:
@@ -299,12 +325,18 @@ paths:
       tags:
         - Projects
 
-  /api/runs/{runId}:
+  /api/projects/{projectId}/runs/{runId}:
     get:
       summary: Get run by ID
       operationId: GetRun
       parameters:
         - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: projectId
           in: path
           required: true
           schema:
@@ -335,6 +367,24 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Supervisor"
+      tags:
+        - Supervisors
+    post:
+      summary: Create a new supervisor
+      operationId: CreateSupervisor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Supervisor"
+      responses:
+        "200":
+          description: Supervisor created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Supervisor"
       tags:
         - Supervisors
 
@@ -404,6 +454,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ReviewResult"
+        "404":
+          description: Review not found
       tags:
         - Reviews
 
@@ -427,6 +479,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ToolRequest"
+        "404":
+          description: Review not found
       tags:
         - Reviews
         - Tools
@@ -531,8 +585,8 @@ components:
         type:
           $ref: "#/components/schemas/SupervisorType"
       required:
-        - id
         - type
+        - description
         - created_at
 
     SupervisorAssignment:

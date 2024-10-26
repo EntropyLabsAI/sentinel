@@ -135,10 +135,10 @@ type Run struct {
 
 // Supervisor defines model for Supervisor.
 type Supervisor struct {
-	CreatedAt   time.Time          `json:"created_at"`
-	Description *string            `json:"description,omitempty"`
-	Id          openapi_types.UUID `json:"id"`
-	Type        SupervisorType     `json:"type"`
+	CreatedAt   time.Time           `json:"created_at"`
+	Description string              `json:"description"`
+	Id          *openapi_types.UUID `json:"id,omitempty"`
+	Type        SupervisorType      `json:"type"`
 }
 
 // SupervisorAssignment defines model for SupervisorAssignment.
@@ -182,14 +182,17 @@ type GetReviewsParams struct {
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = ProjectCreate
 
-// CreateReviewJSONRequestBody defines body for CreateReview for application/json ContentType.
-type CreateReviewJSONRequestBody = ReviewRequest
-
-// CreateToolJSONRequestBody defines body for CreateTool for application/json ContentType.
-type CreateToolJSONRequestBody = ToolCreate
+// CreateRunToolJSONRequestBody defines body for CreateRunTool for application/json ContentType.
+type CreateRunToolJSONRequestBody = ToolCreate
 
 // AssignSupervisorToToolJSONRequestBody defines body for AssignSupervisorToTool for application/json ContentType.
 type AssignSupervisorToToolJSONRequestBody = SupervisorAssignment
+
+// CreateReviewJSONRequestBody defines body for CreateReview for application/json ContentType.
+type CreateReviewJSONRequestBody = ReviewRequest
+
+// CreateSupervisorJSONRequestBody defines body for CreateSupervisor for application/json ContentType.
+type CreateSupervisorJSONRequestBody = Supervisor
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -211,6 +214,24 @@ type ServerInterface interface {
 	// Create a new run for a project
 	// (POST /api/projects/{projectId}/runs)
 	CreateRun(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
+	// Get run by ID
+	// (GET /api/projects/{projectId}/runs/{runId})
+	GetRun(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID, runId openapi_types.UUID)
+	// List all tools
+	// (GET /api/projects/{projectId}/runs/{runId}/tools)
+	GetRunTools(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID, runId openapi_types.UUID)
+	// Create a new tool
+	// (POST /api/projects/{projectId}/runs/{runId}/tools)
+	CreateRunTool(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID, runId openapi_types.UUID)
+	// Get tool by ID
+	// (GET /api/projects/{projectId}/tools/{toolId})
+	GetTool(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID, toolId openapi_types.UUID)
+	// Get supervisors assigned to a tool
+	// (GET /api/projects/{projectId}/tools/{toolId}/supervisors)
+	GetToolSupervisors(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID, toolId openapi_types.UUID)
+	// Assign supervisor to tool
+	// (POST /api/projects/{projectId}/tools/{toolId}/supervisors)
+	AssignSupervisorToTool(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID, toolId openapi_types.UUID)
 	// List all reviews
 	// (GET /api/reviews)
 	GetReviews(w http.ResponseWriter, r *http.Request, params GetReviewsParams)
@@ -229,36 +250,18 @@ type ServerInterface interface {
 	// Get tool requests for a review
 	// (GET /api/reviews/{reviewId}/toolrequests)
 	GetReviewToolRequests(w http.ResponseWriter, r *http.Request, reviewId openapi_types.UUID)
-	// Get run by ID
-	// (GET /api/runs/{runId})
-	GetRun(w http.ResponseWriter, r *http.Request, runId openapi_types.UUID)
-	// Get tools associated with a run
-	// (GET /api/runs/{runId}/tools)
-	GetRunTools(w http.ResponseWriter, r *http.Request, runId openapi_types.UUID)
 	// Get hub stats
 	// (GET /api/stats)
 	GetHubStats(w http.ResponseWriter, r *http.Request)
 	// List all supervisors
 	// (GET /api/supervisors)
 	GetSupervisors(w http.ResponseWriter, r *http.Request)
+	// Create a new supervisor
+	// (POST /api/supervisors)
+	CreateSupervisor(w http.ResponseWriter, r *http.Request)
 	// Get supervisor by ID
 	// (GET /api/supervisors/{supervisorId})
 	GetSupervisor(w http.ResponseWriter, r *http.Request, supervisorId openapi_types.UUID)
-	// List all tools
-	// (GET /api/tools)
-	GetTools(w http.ResponseWriter, r *http.Request)
-	// Create a new tool
-	// (POST /api/tools)
-	CreateTool(w http.ResponseWriter, r *http.Request)
-	// Get tool by ID
-	// (GET /api/tools/{toolId})
-	GetTool(w http.ResponseWriter, r *http.Request, toolId openapi_types.UUID)
-	// Get supervisors assigned to a tool
-	// (GET /api/tools/{toolId}/supervisors)
-	GetToolSupervisors(w http.ResponseWriter, r *http.Request, toolId openapi_types.UUID)
-	// Assign supervisor to tool
-	// (POST /api/tools/{toolId}/supervisors)
-	AssignSupervisorToTool(w http.ResponseWriter, r *http.Request, toolId openapi_types.UUID)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -378,6 +381,210 @@ func (siw *ServerInterfaceWrapper) CreateRun(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateRun(w, r, projectId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRun operation middleware
+func (siw *ServerInterfaceWrapper) GetRun(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectId" -------------
+	var projectId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", r.PathValue("projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "runId" -------------
+	var runId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", r.PathValue("runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRun(w, r, projectId, runId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRunTools operation middleware
+func (siw *ServerInterfaceWrapper) GetRunTools(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectId" -------------
+	var projectId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", r.PathValue("projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "runId" -------------
+	var runId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", r.PathValue("runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRunTools(w, r, projectId, runId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateRunTool operation middleware
+func (siw *ServerInterfaceWrapper) CreateRunTool(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectId" -------------
+	var projectId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", r.PathValue("projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "runId" -------------
+	var runId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", r.PathValue("runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: false})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateRunTool(w, r, projectId, runId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTool operation middleware
+func (siw *ServerInterfaceWrapper) GetTool(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectId" -------------
+	var projectId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", r.PathValue("projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "toolId" -------------
+	var toolId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "toolId", r.PathValue("toolId"), &toolId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "toolId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTool(w, r, projectId, toolId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetToolSupervisors operation middleware
+func (siw *ServerInterfaceWrapper) GetToolSupervisors(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectId" -------------
+	var projectId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", r.PathValue("projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "toolId" -------------
+	var toolId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "toolId", r.PathValue("toolId"), &toolId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "toolId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetToolSupervisors(w, r, projectId, toolId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AssignSupervisorToTool operation middleware
+func (siw *ServerInterfaceWrapper) AssignSupervisorToTool(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectId" -------------
+	var projectId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", r.PathValue("projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "toolId" -------------
+	var toolId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "toolId", r.PathValue("toolId"), &toolId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "toolId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AssignSupervisorToTool(w, r, projectId, toolId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -528,56 +735,6 @@ func (siw *ServerInterfaceWrapper) GetReviewToolRequests(w http.ResponseWriter, 
 	handler.ServeHTTP(w, r)
 }
 
-// GetRun operation middleware
-func (siw *ServerInterfaceWrapper) GetRun(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "runId" -------------
-	var runId openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "runId", r.PathValue("runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetRun(w, r, runId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetRunTools operation middleware
-func (siw *ServerInterfaceWrapper) GetRunTools(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "runId" -------------
-	var runId openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "runId", r.PathValue("runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetRunTools(w, r, runId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // GetHubStats operation middleware
 func (siw *ServerInterfaceWrapper) GetHubStats(w http.ResponseWriter, r *http.Request) {
 
@@ -606,6 +763,20 @@ func (siw *ServerInterfaceWrapper) GetSupervisors(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// CreateSupervisor operation middleware
+func (siw *ServerInterfaceWrapper) CreateSupervisor(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateSupervisor(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetSupervisor operation middleware
 func (siw *ServerInterfaceWrapper) GetSupervisor(w http.ResponseWriter, r *http.Request) {
 
@@ -622,109 +793,6 @@ func (siw *ServerInterfaceWrapper) GetSupervisor(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetSupervisor(w, r, supervisorId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetTools operation middleware
-func (siw *ServerInterfaceWrapper) GetTools(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetTools(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// CreateTool operation middleware
-func (siw *ServerInterfaceWrapper) CreateTool(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateTool(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetTool operation middleware
-func (siw *ServerInterfaceWrapper) GetTool(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "toolId" -------------
-	var toolId openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "toolId", r.PathValue("toolId"), &toolId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "toolId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetTool(w, r, toolId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetToolSupervisors operation middleware
-func (siw *ServerInterfaceWrapper) GetToolSupervisors(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "toolId" -------------
-	var toolId openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "toolId", r.PathValue("toolId"), &toolId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "toolId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetToolSupervisors(w, r, toolId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// AssignSupervisorToTool operation middleware
-func (siw *ServerInterfaceWrapper) AssignSupervisorToTool(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "toolId" -------------
-	var toolId openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "toolId", r.PathValue("toolId"), &toolId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "toolId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.AssignSupervisorToTool(w, r, toolId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -860,22 +928,22 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("GET "+options.BaseURL+"/api/projects/{projectId}", wrapper.GetProject)
 	m.HandleFunc("GET "+options.BaseURL+"/api/projects/{projectId}/runs", wrapper.GetProjectRuns)
 	m.HandleFunc("POST "+options.BaseURL+"/api/projects/{projectId}/runs", wrapper.CreateRun)
+	m.HandleFunc("GET "+options.BaseURL+"/api/projects/{projectId}/runs/{runId}", wrapper.GetRun)
+	m.HandleFunc("GET "+options.BaseURL+"/api/projects/{projectId}/runs/{runId}/tools", wrapper.GetRunTools)
+	m.HandleFunc("POST "+options.BaseURL+"/api/projects/{projectId}/runs/{runId}/tools", wrapper.CreateRunTool)
+	m.HandleFunc("GET "+options.BaseURL+"/api/projects/{projectId}/tools/{toolId}", wrapper.GetTool)
+	m.HandleFunc("GET "+options.BaseURL+"/api/projects/{projectId}/tools/{toolId}/supervisors", wrapper.GetToolSupervisors)
+	m.HandleFunc("POST "+options.BaseURL+"/api/projects/{projectId}/tools/{toolId}/supervisors", wrapper.AssignSupervisorToTool)
 	m.HandleFunc("GET "+options.BaseURL+"/api/reviews", wrapper.GetReviews)
 	m.HandleFunc("POST "+options.BaseURL+"/api/reviews", wrapper.CreateReview)
 	m.HandleFunc("GET "+options.BaseURL+"/api/reviews/{reviewId}", wrapper.GetReview)
 	m.HandleFunc("GET "+options.BaseURL+"/api/reviews/{reviewId}/results", wrapper.GetReviewResults)
 	m.HandleFunc("GET "+options.BaseURL+"/api/reviews/{reviewId}/status", wrapper.GetReviewStatus)
 	m.HandleFunc("GET "+options.BaseURL+"/api/reviews/{reviewId}/toolrequests", wrapper.GetReviewToolRequests)
-	m.HandleFunc("GET "+options.BaseURL+"/api/runs/{runId}", wrapper.GetRun)
-	m.HandleFunc("GET "+options.BaseURL+"/api/runs/{runId}/tools", wrapper.GetRunTools)
 	m.HandleFunc("GET "+options.BaseURL+"/api/stats", wrapper.GetHubStats)
 	m.HandleFunc("GET "+options.BaseURL+"/api/supervisors", wrapper.GetSupervisors)
+	m.HandleFunc("POST "+options.BaseURL+"/api/supervisors", wrapper.CreateSupervisor)
 	m.HandleFunc("GET "+options.BaseURL+"/api/supervisors/{supervisorId}", wrapper.GetSupervisor)
-	m.HandleFunc("GET "+options.BaseURL+"/api/tools", wrapper.GetTools)
-	m.HandleFunc("POST "+options.BaseURL+"/api/tools", wrapper.CreateTool)
-	m.HandleFunc("GET "+options.BaseURL+"/api/tools/{toolId}", wrapper.GetTool)
-	m.HandleFunc("GET "+options.BaseURL+"/api/tools/{toolId}/supervisors", wrapper.GetToolSupervisors)
-	m.HandleFunc("POST "+options.BaseURL+"/api/tools/{toolId}/supervisors", wrapper.AssignSupervisorToTool)
 
 	return m
 }
@@ -883,35 +951,35 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

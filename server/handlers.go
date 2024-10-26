@@ -70,6 +70,7 @@ func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request, store Pro
 
 	// Send the response
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(project)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -126,10 +127,10 @@ func apiGetProjectRunsHandler(w http.ResponseWriter, r *http.Request, id uuid.UU
 	}
 }
 
-func apiGetRunsHandler(w http.ResponseWriter, r *http.Request, store RunStore) {
+func apiGetRunsHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, store RunStore) {
 	ctx := r.Context()
 
-	runs, err := store.GetRuns(ctx)
+	runs, err := store.GetRuns(ctx, projectId)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -145,12 +146,17 @@ func apiGetRunsHandler(w http.ResponseWriter, r *http.Request, store RunStore) {
 }
 
 // apiGetRunHandler handles the GET /api/run/{id} endpoint
-func apiGetRunHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store RunStore) {
+func apiGetRunHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, id uuid.UUID, store RunStore) {
 	ctx := r.Context()
 
-	run, err := store.GetRun(ctx, id)
+	run, err := store.GetRun(ctx, projectId, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if run == nil {
+		http.Error(w, "Run not found", http.StatusNotFound)
 		return
 	}
 
@@ -173,6 +179,11 @@ func apiGetToolSupervisorsHandler(w http.ResponseWriter, r *http.Request, id uui
 		return
 	}
 
+	if supervisors == nil {
+		http.Error(w, "Supervisors not found", http.StatusNotFound)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(supervisors)
@@ -183,7 +194,7 @@ func apiGetToolSupervisorsHandler(w http.ResponseWriter, r *http.Request, id uui
 }
 
 // apiAssignSupervisorToToolHandler handles the POST /api/tools/{id}/supervisors endpoint
-func apiAssignSupervisorToToolHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
+func apiAssignSupervisorToToolHandler(w http.ResponseWriter, r *http.Request, _ uuid.UUID, id uuid.UUID, store Store) {
 	ctx := r.Context()
 
 	// Decode the request body
@@ -214,7 +225,7 @@ func apiAssignSupervisorToToolHandler(w http.ResponseWriter, r *http.Request, id
 }
 
 // apiCreateToolHandler handles the POST /api/tool endpoint
-func apiCreateToolHandler(w http.ResponseWriter, r *http.Request, store ToolStore) {
+func apiCreateRunToolHandler(w http.ResponseWriter, r *http.Request, _ uuid.UUID, runId uuid.UUID, store ToolStore) {
 	ctx := r.Context()
 
 	var request ToolCreate
@@ -227,16 +238,18 @@ func apiCreateToolHandler(w http.ResponseWriter, r *http.Request, store ToolStor
 	t := time.Now()
 
 	tool := Tool{
-		Id:        uuid.New(),
+		Id:        uuid.Nil,
 		Name:      request.Name,
 		CreatedAt: &t,
 	}
 
-	err = store.CreateTool(ctx, tool)
+	toolId, err := store.CreateRunTool(ctx, runId, tool)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	tool.Id = toolId
 
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(tool)
@@ -258,6 +271,32 @@ func apiGetSupervisorHandler(w http.ResponseWriter, r *http.Request, id uuid.UUI
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(supervisor)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func apiCreateSupervisorHandler(w http.ResponseWriter, r *http.Request, store SupervisorStore) {
+	ctx := r.Context()
+
+	var request Supervisor
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	supervisorId, err := store.CreateSupervisor(ctx, request)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	request.Id = &supervisorId
+
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(request)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -291,8 +330,12 @@ func apiGetToolHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, sto
 		return
 	}
 
+	if tool == nil {
+		http.Error(w, "Tool not found", http.StatusNotFound)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(tool)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -318,8 +361,20 @@ func apiGetToolsHandler(w http.ResponseWriter, r *http.Request, store ToolStore)
 	}
 }
 
-func apiGetRunToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store ToolStore) {
+func apiGetRunToolsHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, id uuid.UUID, store Store) {
 	ctx := r.Context()
+
+	// First check if run exists
+	run, err := store.GetRun(ctx, projectId, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if run == nil {
+		http.Error(w, "Run not found", http.StatusNotFound)
+		return
+	}
 
 	tools, err := store.GetRunTools(ctx, id)
 	if err != nil {
@@ -433,6 +488,11 @@ func apiGetReviewHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, s
 		return
 	}
 
+	if review == nil {
+		http.Error(w, "Review not found", http.StatusNotFound)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(review)
@@ -464,6 +524,18 @@ func apiGetReviewsHandler(w http.ResponseWriter, r *http.Request, _ GetReviewsPa
 // apiGetReviewResultsHandler handles the GET /api/review/{id}/results endpoint
 func apiGetReviewResultsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
 	ctx := r.Context()
+
+	// First check if review exists
+	review, err := store.GetReview(ctx, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if review == nil {
+		http.Error(w, "Review not found", http.StatusNotFound)
+		return
+	}
 
 	results, err := store.GetReviewResults(ctx, id)
 	if err != nil {
@@ -507,6 +579,18 @@ func apiReviewStatusHandler(w http.ResponseWriter, r *http.Request, reviewID uui
 // apiGetReviewToolRequestsHandler handles the GET /api/review/{id}/toolrequests endpoint
 func apiGetReviewToolRequestsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
 	ctx := r.Context()
+
+	// First check if review exists
+	review, err := store.GetReview(ctx, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if review == nil {
+		http.Error(w, "Review not found", http.StatusNotFound)
+		return
+	}
 
 	results, err := store.GetReviewToolRequests(ctx, id)
 	if err != nil {
@@ -570,6 +654,7 @@ func apiGetProjectByIdHandler(w http.ResponseWriter, r *http.Request, id uuid.UU
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(project); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
