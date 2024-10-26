@@ -90,16 +90,18 @@ func (s *PostgresqlStore) GetProjects(ctx context.Context) ([]sentinel.Project, 
 }
 
 // ReviewStore implementation
-func (s *PostgresqlStore) CreateReview(ctx context.Context, review sentinel.Review) error {
+func (s *PostgresqlStore) CreateReview(ctx context.Context, review sentinel.Review) (uuid.UUID, error) {
+	id := uuid.New()
+
 	query := `
 		INSERT INTO reviewrequest (id, run_id, task_state)
 		VALUES ($1, $2, $3)`
 
-	_, err := s.db.ExecContext(ctx, query, review.Id, review.RunId, review.TaskState)
+	_, err := s.db.ExecContext(ctx, query, id, review.RunId, review.TaskState)
 	if err != nil {
-		return fmt.Errorf("error creating review: %w", err)
+		return uuid.UUID{}, fmt.Errorf("error creating review: %w", err)
 	}
-	return nil
+	return id, nil
 }
 
 func (s *PostgresqlStore) GetReview(ctx context.Context, id uuid.UUID) (*sentinel.Review, error) {
@@ -166,7 +168,9 @@ func (s *PostgresqlStore) UpdateReview(ctx context.Context, review sentinel.Revi
 	if err != nil {
 		return fmt.Errorf("error starting transaction: %w", err)
 	}
-	defer tx.Rollback()
+	if err = tx.Rollback(); err != nil {
+		return fmt.Errorf("error rolling back transaction: %w", err)
+	}
 
 	// Update review request
 	query1 := `

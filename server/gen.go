@@ -51,6 +51,18 @@ const (
 	Llm   SupervisorType = "llm"
 )
 
+// HubStats defines model for HubStats.
+type HubStats struct {
+	AssignedReviews    map[string]int `json:"assigned_reviews"`
+	BusyClients        int            `json:"busy_clients"`
+	CompletedReviews   int            `json:"completed_reviews"`
+	ConnectedClients   int            `json:"connected_clients"`
+	FreeClients        int            `json:"free_clients"`
+	QueuedReviews      int            `json:"queued_reviews"`
+	ReviewDistribution map[string]int `json:"review_distribution"`
+	StoredReviews      int            `json:"stored_reviews"`
+}
+
 // LLMMessage defines model for LLMMessage.
 type LLMMessage struct {
 	Content string             `json:"content"`
@@ -83,11 +95,11 @@ type Review struct {
 
 // ReviewRequest defines model for ReviewRequest.
 type ReviewRequest struct {
-	Id          *openapi_types.UUID    `json:"id,omitempty"`
-	Messages    []LLMMessage           `json:"messages"`
-	RunId       openapi_types.UUID     `json:"run_id"`
-	TaskState   map[string]interface{} `json:"task_state"`
-	ToolChoices []ToolRequest          `json:"tool_choices"`
+	Id           *openapi_types.UUID    `json:"id,omitempty"`
+	Messages     []LLMMessage           `json:"messages"`
+	RunId        openapi_types.UUID     `json:"run_id"`
+	TaskState    map[string]interface{} `json:"task_state"`
+	ToolRequests []ToolRequest          `json:"tool_requests"`
 }
 
 // ReviewResult defines model for ReviewResult.
@@ -216,6 +228,9 @@ type ServerInterface interface {
 	// Get tools associated with a run
 	// (GET /api/runs/{runId}/tools)
 	GetRunTools(w http.ResponseWriter, r *http.Request, runId openapi_types.UUID)
+	// Get hub stats
+	// (GET /api/stats)
+	GetHubStats(w http.ResponseWriter, r *http.Request)
 	// List all supervisors
 	// (GET /api/supervisors)
 	GetSupervisors(w http.ResponseWriter, r *http.Request)
@@ -517,6 +532,20 @@ func (siw *ServerInterfaceWrapper) GetRunTools(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// GetHubStats operation middleware
+func (siw *ServerInterfaceWrapper) GetHubStats(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetHubStats(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetSupervisors operation middleware
 func (siw *ServerInterfaceWrapper) GetSupervisors(w http.ResponseWriter, r *http.Request) {
 
@@ -791,6 +820,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("GET "+options.BaseURL+"/api/reviews/{reviewId}/toolrequests", wrapper.GetReviewToolRequests)
 	m.HandleFunc("GET "+options.BaseURL+"/api/runs/{runId}", wrapper.GetRun)
 	m.HandleFunc("GET "+options.BaseURL+"/api/runs/{runId}/tools", wrapper.GetRunTools)
+	m.HandleFunc("GET "+options.BaseURL+"/api/stats", wrapper.GetHubStats)
 	m.HandleFunc("GET "+options.BaseURL+"/api/supervisors", wrapper.GetSupervisors)
 	m.HandleFunc("GET "+options.BaseURL+"/api/supervisors/{supervisorId}", wrapper.GetSupervisor)
 	m.HandleFunc("GET "+options.BaseURL+"/api/tools", wrapper.GetTools)
@@ -805,31 +835,34 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

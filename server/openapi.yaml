@@ -400,6 +400,40 @@ paths:
         - Reviews
         - Tools
 
+  /api/stats:
+    get:
+      summary: Get hub stats
+      operationId: GetHubStats
+      responses:
+        "200":
+          description: Hub stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HubStats"
+      tags:
+        - Hub
+
+    /api/llm/explanation:
+      post:
+        summary: Get LLM explanation
+        operationId: GetLLMExplanation
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LLMExplanationRequest"
+        responses:
+          "200":
+            description: LLM explanation
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/LLMExplanationResponse"
+      tags:
+        - LLM
+
 components:
   schemas:
     User:
@@ -512,7 +546,7 @@ components:
         task_state:
           type: object
           additionalProperties: true
-        tool_choices:
+        tool_requests:
           type: array
           items:
             $ref: "#/components/schemas/ToolRequest"
@@ -523,7 +557,7 @@ components:
       required:
         - run_id
         - task_state
-        - tool_choices
+        - tool_requests
         - messages
 
     Review:
@@ -645,3 +679,50 @@ components:
     SupervisorType:
       type: string
       enum: [code, llm, human, all]
+
+    HubStats:
+      type: object
+      properties:
+        connected_clients:
+          type: integer
+        queued_reviews:
+          type: integer
+        stored_reviews:
+          type: integer
+        free_clients:
+          type: integer
+        busy_clients:
+          type: integer
+        assigned_reviews:
+          type: object
+          additionalProperties:
+            type: integer
+        review_distribution:
+          type: object
+          additionalProperties:
+            type: integer
+        completed_reviews:
+          type: integer
+      required:
+        - connected_clients
+        - queued_reviews
+        - stored_reviews
+        - free_clients
+        - busy_clients
+        - assigned_reviews
+        - review_distribution
+        - completed_reviews
+
+    LLMExplanationRequest:
+      type: object
+      properties:
+        text:
+          type: string
+      required:
+        - text
+
+    LLMExplanationResponse:
+      type: object
+      properties:
+        explanation:
+          type: string

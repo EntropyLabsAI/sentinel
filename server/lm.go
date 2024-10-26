@@ -167,3 +167,27 @@ func getExplanationFromLLM(ctx context.Context, text string) (string, string, er
 
 	return summary, score, nil
 }
+
+// getLLMResponse is a helper function that interacts with the OpenAI API and returns the LLM response.
+func getLLMResponse(ctx context.Context, messages []openai.ChatCompletionMessage, model string) (string, error) {
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	if apiKey == "" {
+		return "", fmt.Errorf("OPENAI_API_KEY environment variable not set")
+	}
+
+	client := openai.NewClient(apiKey)
+
+	resp, err := client.CreateChatCompletion(
+		ctx,
+		openai.ChatCompletionRequest{
+			Model:    model,
+			Messages: messages,
+		},
+	)
+
+	if err != nil {
+		return "", fmt.Errorf("error creating LLM chat completion: %v", err)
+	}
+
+	return resp.Choices[0].Message.Content, nil
+}

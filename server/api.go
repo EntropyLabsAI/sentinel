@@ -126,10 +126,6 @@ func (s Server) AssignSupervisorToTool(w http.ResponseWriter, r *http.Request, i
 	apiAssignSupervisorToToolHandler(w, r, id, s.Store)
 }
 
-// func (s Server) GetLLMExplanation(w http.ResponseWriter, r *http.Request) {
-// 	apiLLMExplanationHandler(w, r)
-// }
-
 func (s Server) GetReviewStatus(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	apiReviewStatusHandler(w, r, id, s.Store)
 }
@@ -142,24 +138,8 @@ func (s Server) CreateProject(w http.ResponseWriter, r *http.Request) {
 	apiRegisterProjectHandler(w, r, s.Store)
 }
 
-func (s Server) GetProjectById(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiGetProjectByIdHandler(w, r, id, s.Store)
-}
-
 func (s Server) GetProjects(w http.ResponseWriter, r *http.Request) {
 	apiGetProjectsHandler(w, r, s.Store)
-}
-
-func (s Server) GetProjectTools(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiGetProjectToolsHandler(w, r, id, s.Store)
-}
-
-func (s Server) RegisterProjectTool(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiRegisterProjectToolHandler(w, r, id, s.Store)
-}
-
-func (s Server) AssignSupervisor(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiAssignSupervisorHandler(w, r, id, s.Store)
 }
 
 func enableCorsMiddleware(handler http.Handler) http.Handler {
@@ -178,4 +158,24 @@ func enableCorsMiddleware(handler http.Handler) http.Handler {
 		// Call the next handler
 		handler.ServeHTTP(w, r)
 	})
+}
+
+// func (s Server) GetProjectById(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+// 	apiGetProjectByIdHandler(w, r, id, s.Store)
+// }
+
+// func (s Server) RegisterProjectTool(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+// 	apiRegisterProjectToolHandler(w, r, id, s.Store)
+// }
+
+// func (s Server) GetProjectTools(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+// 	apiGetProjectToolsHandler(w, r, id, s.Store)
+// }
+
+// func (s Server) GetProjectTools(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+// 	apiGetProjectToolsHandler(w, r, id, s.Store)
+// }
+
+func (s Server) GetLLMExplanation(w http.ResponseWriter, r *http.Request) {
+	apiLLMExplanationHandler(w, r)
 }
