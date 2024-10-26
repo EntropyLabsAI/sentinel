@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/google/uuid"
 )
 
 type Server struct {
@@ -60,14 +62,20 @@ func (s Server) GetOpenAPI(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "openapi.yaml")
 }
 
-// SubmitReview handles the POST /api/review/human endpoint
-func (s Server) SubmitReviewHuman(w http.ResponseWriter, r *http.Request) {
-	apiReviewHandler(s.Hub, w, r)
+func (s Server) CreateReview(w http.ResponseWriter, r *http.Request) {
+	apiReviewHandler(s.Hub, w, r, s.Store)
 }
 
-// GetReviewLLM handles the POST /api/review/llm endpoint
-func (s Server) SubmitReviewLLM(w http.ResponseWriter, r *http.Request) {
-	apiReviewLLMHandler(w, r)
+func (s Server) CreateRun(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiCreateRunHandler(w, r, id, s.Store)
+}
+
+func (s Server) CreateTool(w http.ResponseWriter, r *http.Request) {
+	apiCreateToolHandler(w, r, s.Store)
+}
+
+func (s Server) GetProject(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetProjectByIdHandler(w, r, id, s.Store)
 }
 
 func (s Server) GetLLMExplanation(w http.ResponseWriter, r *http.Request) {
@@ -78,49 +86,36 @@ func (s Server) GetReviewStatus(w http.ResponseWriter, r *http.Request, id strin
 	apiReviewStatusHandler(w, r, id)
 }
 
-// GetHubStats handles the GET /api/stats endpoint
 func (s Server) GetHubStats(w http.ResponseWriter, r *http.Request) {
 	apiStatsHandler(s.Hub, w, r)
 }
 
-// GetReviewLLMResult handles the GET /api/review/llm/list endpoint
 func (s Server) GetLLMReviews(w http.ResponseWriter, r *http.Request) {
 	apiGetLLMReviews(w, r)
 }
 
-// SetLLMPrompt handles the POST /api/llm/prompt endpoint
-func (s Server) SetLLMPrompt(w http.ResponseWriter, r *http.Request) {
-	apiSetLLMPromptHandler(w, r)
-}
-
-// GetLLMPrompt handles the GET /api/review/llm/prompt endpoint
-func (s Server) GetLLMPrompt(w http.ResponseWriter, r *http.Request) {
-	apiGetLLMPromptHandler(w, r)
-}
-
-// RegisterProject handles the POST /api/project endpoint
-func (s Server) RegisterProject(w http.ResponseWriter, r *http.Request) {
+func (s Server) CreateProject(w http.ResponseWriter, r *http.Request) {
 	apiRegisterProjectHandler(w, r, s.Store)
 }
 
-// GetProjectById handles the GET /api/project/{id} endpoint
 func (s Server) GetProjectById(w http.ResponseWriter, r *http.Request, id string) {
 	apiGetProjectByIdHandler(w, r, id, s.Store)
 }
 
-// GetProjects handles the GET /api/project endpoint
 func (s Server) GetProjects(w http.ResponseWriter, r *http.Request) {
 	apiGetProjectsHandler(w, r, s.Store)
 }
 
-// GetProjectTools handles the GET /api/project/{id}/tools endpoint
 func (s Server) GetProjectTools(w http.ResponseWriter, r *http.Request, id string) {
 	apiGetProjectToolsHandler(w, r, id, s.Store)
 }
 
-// RegisterProjectTool handles the POST /api/project/{id}/tools endpoint
 func (s Server) RegisterProjectTool(w http.ResponseWriter, r *http.Request, id string) {
 	apiRegisterProjectToolHandler(w, r, id, s.Store)
+}
+
+func (s Server) AssignSupervisor(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiAssignSupervisorHandler(w, r, id, s.Store)
 }
 
 func enableCorsMiddleware(handler http.Handler) http.Handler {

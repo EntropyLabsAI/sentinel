@@ -4,33 +4,31 @@ info:
   version: 1.0.0
 
 paths:
-  /api/project:
+  /api/projects:
     post:
-      summary: Register a project.
-      description: Register a project. If the project name does not exist, it will be created. A new run ID will be returned.
+      summary: Create a new project
+      operationId: CreateProject
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RegisterProjectRequest"
-      operationId: RegisterProject
+              $ref: "#/components/schemas/ProjectCreate"
       responses:
         "200":
-          description: Project registered successfully
+          description: Project created successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RegisterProjectResponse"
+                $ref: "#/components/schemas/Project"
       tags:
-        - Project
+        - Projects
     get:
-      summary: Get all projects.
-      description: Get all previously registered projects.
-      operationId: GetProjects
+      summary: List all projects
+      operationId: ListProjects
       responses:
         "200":
-          description: List of all projects
+          description: List of projects
           content:
             application/json:
               schema:
@@ -38,63 +36,78 @@ paths:
                 items:
                   $ref: "#/components/schemas/Project"
       tags:
-        - Project
-  /api/project/{id}:
-    get:
+        - Projects
+
+  /api/projects/{projectId}/runs:
+    post:
+      summary: Create a new run for a project
+      operationId: CreateRun
       parameters:
-        - name: id
+        - name: projectId
           in: path
           required: true
           schema:
             type: string
-      summary: Get a project by ID
-      operationId: GetProjectById
+            format: uuid
       responses:
         "200":
-          description: Project retrieved successfully
+          description: Run created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Run"
       tags:
-        - Project
-  /api/project/{id}/tools:
+        - Runs
+
+  /api/runs/{runId}/supervisors:
     get:
-      summary: Get the tools for a project.
-      operationId: GetProjectTools
+      summary: Get supervisors assigned to a run
+      operationId: GetRunSupervisors
       parameters:
-        - name: id
+        - name: runId
           in: path
           required: true
           schema:
             type: string
+            format: uuid
       responses:
         "200":
-          description: List of tools for the project
+          description: List of supervisors assigned to the run
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Tool"
+                  $ref: "#/components/schemas/Supervisor"
+      tags:
+        - Runs
+        - Supervisors
     post:
-      summary: Register a tool for a project.
-      operationId: RegisterProjectTool
+      summary: Assign supervisor to run
+      operationId: AssignSupervisor
       parameters:
-        - name: id
+        - name: runId
           in: path
           required: true
           schema:
             type: string
+            format: uuid
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/Tool"
+              $ref: "#/components/schemas/SupervisorAssignment"
+      responses:
+        "200":
+          description: Supervisor assigned successfully
       tags:
-        - Project
+        - Supervisors
 
-  /api/review/human:
+  /api/reviews:
     post:
-      summary: Submit a review to a human supervisor
-      operationId: SubmitReviewHuman
+      summary: Create a review request
+      operationId: CreateReview
       requestBody:
         required: true
         content:
@@ -103,20 +116,25 @@ paths:
               $ref: "#/components/schemas/ReviewRequest"
       responses:
         "200":
-          description: Review queued successfully
+          description: Review created successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReviewStatusResponse"
+                $ref: "#/components/schemas/ReviewStatus"
       tags:
-        - Human Supervisor
-  /api/review/llm:
+        - Reviews
     get:
-      summary: Get all LLM review results
-      operationId: GetLLMReviews
+      summary: List all reviews
+      operationId: ListReviews
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [llm, human]
       responses:
         "200":
-          description: List of all LLM review results
+          description: List of reviews
           content:
             application/json:
               schema:
@@ -124,287 +142,527 @@ paths:
                 items:
                   $ref: "#/components/schemas/Review"
       tags:
-        - LLM Supervisor
-    post:
-      summary: Submit a review to an LLM supervisor
-      operationId: SubmitReviewLLM
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReviewRequest"
-      responses:
-        "200":
-          description: Review queued successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReviewStatusResponse"
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-      tags:
-        - LLM Supervisor
-  /api/review/status/{id}:
+        - Reviews
+
+  /api/reviews/{reviewId}/status:
     get:
       summary: Get review status
       operationId: GetReviewStatus
       parameters:
-        - name: id
+        - name: reviewId
           in: path
           required: true
           schema:
             type: string
+            format: uuid
       responses:
         "200":
-          description: Review status retrieved successfully
+          description: Review status
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReviewResult"
+                $ref: "#/components/schemas/ReviewStatus"
+      tags:
+        - Reviews
+
+  /api/tools:
+    get:
+      summary: List all tools
+      operationId: ListTools
+      responses:
+        "200":
+          description: List of tools
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tool"
+      tags:
+        - Tools
+    post:
+      summary: Create a new tool
+      operationId: CreateTool
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToolCreate"
+      responses:
+        "200":
+          description: Tool created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tool"
+      tags:
+        - Tools
+
+  /api/tools/{toolId}:
+    get:
+      summary: Get tool by ID
+      operationId: GetTool
+      parameters:
+        - name: toolId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Tool details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tool"
+        "404":
+          description: Tool not found
+      tags:
+        - Tools
+
+  /api/runs/{runId}/tools:
+    get:
+      summary: Get tools associated with a run
+      operationId: GetRunTools
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of tools associated with the run
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tool"
+      tags:
+        - Tools
+        - Runs
+
+  /api/projects/{projectId}:
+    get:
+      summary: Get project by ID
+      operationId: GetProject
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Project details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "404":
+          description: Project not found
+      tags:
+        - Projects
+
+  /api/runs/{runId}:
+    get:
+      summary: Get run by ID
+      operationId: GetRun
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Run details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Run"
+        "404":
+          description: Run not found
+      tags:
+        - Runs
+
+  /api/supervisors:
+    get:
+      summary: List all supervisors
+      operationId: ListSupervisors
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [code, llm, human]
+      responses:
+        "200":
+          description: List of supervisors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Supervisor"
+      tags:
+        - Supervisors
+
+  /api/supervisors/{supervisorId}:
+    get:
+      summary: Get supervisor by ID
+      operationId: GetSupervisor
+      parameters:
+        - name: supervisorId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Supervisor details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Supervisor"
+        "404":
+          description: Supervisor not found
+      tags:
+        - Supervisors
+
+  /api/reviews/{reviewId}:
+    get:
+      summary: Get review by ID
+      operationId: GetReview
+      parameters:
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Review details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
         "404":
           description: Review not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
       tags:
-        - Review
-  /api/review/llm/prompt:
-    post:
-      summary: Submit a new prompt for LLM reviews
-      operationId: SetLLMPrompt
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/LLMPrompt"
-      responses:
-        "200":
-          description: Prompt updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LLMPromptResponse"
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-      tags:
-        - LLM Supervisor
+        - Reviews
+
+  /api/reviews/{reviewId}/results:
     get:
-      summary: Get the current LLM review prompt
-      operationId: GetLLMPrompt
+      summary: Get review results
+      operationId: GetReviewResults
+      parameters:
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
-          description: Current LLM prompt retrieved successfully
+          description: Review results
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  prompt:
-                    type: string
+                type: array
+                items:
+                  $ref: "#/components/schemas/ReviewResult"
       tags:
-        - LLM Supervisor
-  /api/hub/stats:
+        - Reviews
+
+  /api/reviews/{reviewId}/toolrequests:
     get:
-      summary: Get hub statistics
-      operationId: GetHubStats
+      summary: Get tool requests for a review
+      operationId: GetReviewToolRequests
+      parameters:
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
-          description: Hub statistics retrieved successfully
+          description: Tool requests for the review
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HubStats"
+                type: array
+                items:
+                  $ref: "#/components/schemas/ToolRequest"
       tags:
-        - Utility
-  /api/explain:
-    post:
-      summary: Get an explanation and danger score for a code snippet
-      operationId: GetLLMExplanation
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CodeSnippet"
-      responses:
-        "200":
-          description: LLM explanation retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LLMExplanation"
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-      tags:
-        - Utility
-  /api/docs:
+        - Reviews
+        - Tools
+
+  /api/users/{userId}/projects:
     get:
-      summary: Get the API documentation
-      operationId: GetSwaggerDocs
+      summary: Get projects for a user
+      operationId: GetUserProjects
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
-          description: API documentation retrieved successfully
+          description: List of projects associated with the user
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
       tags:
-        - Utility
-  /api/openapi.yaml:
-    get:
-      summary: Get the OpenAPI schema
-      operationId: GetOpenAPI
-      responses:
-        "200":
-          description: OpenAPI schema retrieved successfully
-      tags:
-        - Utility
+        - Users
+        - Projects
+
 components:
   schemas:
-    CodeSnippet:
-      type: object
-      properties:
-        text:
-          type: string
-      required:
-        - text
-    LLMExplanation:
-      type: object
-      properties:
-        explanation:
-          type: string
-        score:
-          type: number
-      required:
-        - explanation
-        - score
-    Review:
+    User:
       type: object
       properties:
         id:
           type: string
-        request:
-          $ref: "#/components/schemas/ReviewRequest"
+          format: uuid
       required:
         - id
-        - request
-    ReviewRequest:
-      type: object
-      properties:
-        agent_id:
-          type: string
-        task_state:
-          $ref: "#/components/schemas/TaskState"
-        tool_choices:
-          type: array
-          items:
-            $ref: "#/components/schemas/ToolChoice"
-        last_messages:
-          type: array
-          items:
-            $ref: "#/components/schemas/Message"
-      required:
-        - agent_id
-        - task_state
-        - tool_choices
-        - last_messages
-    ReviewStatusResponse:
+
+    Project:
       type: object
       properties:
         id:
           type: string
-        status:
-          $ref: "#/components/schemas/Status"
+          format: uuid
+        name:
+          type: string
+        created_at:
+          type: integer
+          format: int64
       required:
         - id
-        - status
-    ReviewResult:
+        - name
+        - created_at
+
+    ProjectCreate:
+      type: object
+      properties:
+        name:
+          type: string
+      required:
+        - name
+
+    Run:
       type: object
       properties:
         id:
           type: string
-        decision:
-          $ref: "#/components/schemas/Decision"
-        tool_choice:
-          $ref: "#/components/schemas/ToolChoice"
-        reasoning:
+          format: uuid
+        project_id:
           type: string
+          format: uuid
+        created_at:
+          type: integer
+          format: int64
       required:
         - id
-        - decision
-        - tool_choice
-        - reasoning
-    ErrorResponse:
+        - project_id
+        - created_at
+
+    Supervisor:
       type: object
       properties:
-        status:
+        id:
           type: string
+          format: uuid
+        description:
+          type: string
+        created_at:
+          type: integer
+          format: int64
+        type:
+          type: string
+          enum: [code, llm, human]
       required:
-        - status
-    TaskState:
+        - id
+        - type
+        - created_at
+
+    SupervisorAssignment:
       type: object
       properties:
-        messages:
-          type: array
-          items:
-            $ref: "#/components/schemas/Message"
-        tools:
-          type: array
-          items:
-            $ref: "#/components/schemas/Tool"
-        tool_choice:
-          $ref: "#/components/schemas/ToolChoice"
-        store:
-          type: object
-          additionalProperties: true
-        output:
-          $ref: "#/components/schemas/Output"
-        completed:
-          type: boolean
-        metadata:
-          type: object
-          additionalProperties: true
+        supervisor_id:
+          type: string
+          format: uuid
       required:
-        - messages
-        - tools
-        - output
-        - completed
-    Message:
-      type: object
-      properties:
-        content:
-          type: string
-        role:
-          type: string
-        source:
-          type: string
-        tool_calls:
-          type: array
-          items:
-            $ref: "#/components/schemas/ToolCall"
-        tool_call_id:
-          type: string
-        function:
-          type: string
-      required:
-        - content
-        - role
+        - supervisor_id
+
     Tool:
       type: object
       properties:
         id:
           type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        attributes:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: integer
+          format: int64
+      required:
+        - id
+        - name
+        - description
+
+    ReviewRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        run_id:
+          type: string
+          format: uuid
+        task_state:
+          type: object
+          additionalProperties: true
+        tool_choices:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolRequest"
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/LLMMessage"
+      required:
+        - run_id
+        - task_state
+        - tool_choices
+        - messages
+
+    Review:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        run_id:
+          type: string
+          format: uuid
+        task_state:
+          type: object
+          additionalProperties: true
+        status:
+          $ref: "#/components/schemas/ReviewStatus"
+      required:
+        - id
+        - run_id
+        - task_state
+
+    ReviewStatus:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [timeout, pending, completed]
+        created_at:
+          type: integer
+          format: int64
+      required:
+        - id
+        - status
+        - created_at
+
+    ReviewResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        review_request_id:
+          type: string
+          format: uuid
+        created_at:
+          type: integer
+          format: int64
+        decision:
+          type: string
+          enum: [approve, reject, terminate, modify, escalate]
+        toolrequest:
+          $ref: "#/components/schemas/ToolRequest"
+        reasoning:
+          type: string
+      required:
+        - id
+        - review_request_id
+        - created_at
+        - decision
+        - reasoning
+
+    LLMMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [system, user, assistant]
+        content:
+          type: string
+      required:
+        - id
+        - role
+        - content
+
+    ToolRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tool_id:
+          type: string
+          format: uuid
+        review_request_id:
+          type: string
+          format: uuid
+        message_id:
+          type: string
+          format: uuid
+        arguments:
+          type: object
+          additionalProperties: true
+      required:
+        - id
+        - review_request_id
+        - tool_id
+        - arguments
+
+    ToolCreate:
+      type: object
+      properties:
         name:
           type: string
         description:
@@ -415,186 +673,3 @@ components:
       required:
         - name
         - description
-        - attributes
-    ToolChoice:
-      type: object
-      properties:
-        id:
-          type: string
-        function:
-          type: string
-        arguments:
-          $ref: "#/components/schemas/Arguments"
-        type:
-          type: string
-      required:
-        - id
-        - function
-        - arguments
-        - type
-    Arguments:
-      type: object
-      properties:
-        cmd:
-          type: string
-        code:
-          type: string
-    Output:
-      type: object
-      properties:
-        model:
-          type: string
-        choices:
-          type: array
-          items:
-            $ref: "#/components/schemas/Choice"
-        usage:
-          $ref: "#/components/schemas/Usage"
-    Choice:
-      type: object
-      properties:
-        message:
-          $ref: "#/components/schemas/AssistantMessage"
-        stop_reason:
-          type: string
-      required:
-        - message
-    AssistantMessage:
-      type: object
-      properties:
-        content:
-          type: string
-        source:
-          type: string
-        role:
-          type: string
-        tool_calls:
-          type: array
-          items:
-            $ref: "#/components/schemas/ToolCall"
-      required:
-        - content
-        - role
-    ToolCall:
-      type: object
-      properties:
-        id:
-          type: string
-        function:
-          type: string
-        arguments:
-          type: object
-          additionalProperties: true
-        type:
-          type: string
-        parse_error:
-          type: string
-      required:
-        - id
-        - function
-        - arguments
-        - type
-    Usage:
-      type: object
-      properties:
-        input_tokens:
-          type: integer
-        output_tokens:
-          type: integer
-        total_tokens:
-          type: integer
-      required:
-        - input_tokens
-        - output_tokens
-        - total_tokens
-    Decision:
-      type: string
-      enum:
-        - approve
-        - reject
-        - escalate
-        - terminate
-        - modify
-    Status:
-      type: string
-      enum:
-        - queued
-        - processing
-        - completed
-        - timeout
-    HubStats:
-      type: object
-      properties:
-        connected_clients:
-          type: integer
-        queued_reviews:
-          type: integer
-        stored_reviews:
-          type: integer
-        free_clients:
-          type: integer
-        busy_clients:
-          type: integer
-        assigned_reviews:
-          type: object
-          additionalProperties:
-            type: integer
-        review_distribution:
-          type: object
-          additionalProperties:
-            type: integer
-        completed_reviews:
-          type: integer
-      required:
-        - connected_clients
-        - queued_reviews
-        - stored_reviews
-        - free_clients
-        - busy_clients
-        - assigned_reviews
-        - review_distribution
-        - completed_reviews
-    LLMPrompt:
-      type: object
-      properties:
-        prompt:
-          type: string
-      required:
-        - prompt
-    LLMPromptResponse:
-      type: object
-      properties:
-        status:
-          type: string
-        message:
-          type: string
-      required:
-        - status
-        - message
-    RegisterProjectRequest:
-      type: object
-      properties:
-        name:
-          type: string
-      required:
-        - name
-    RegisterProjectResponse:
-      type: object
-      properties:
-        id:
-          type: string
-        run_id:
-          type: string
-      required:
-        - id
-        - run_id
-    Project:
-      type: object
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-      required:
-        - id
-        - name

@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -159,7 +160,7 @@ func (h *Hub) assignReviewToClient(review Review) bool {
 				continue
 			}
 
-			h.AssignedReviews[client][review.Id] = true
+			h.AssignedReviews[client][review.Id.String()] = true
 			log.Printf("Assigned review.RequestId %s to client.", review.Id)
 			return true // Review assignekd
 		}
@@ -172,6 +173,12 @@ func (h *Hub) assignReviewToClient(review Review) bool {
 func (h *Hub) requeueAssignedReviews(client *Client) {
 	if assignedReviews, ok := h.AssignedReviews[client]; ok {
 		for reviewID := range assignedReviews {
+			reviewID, err := uuid.Parse(reviewID)
+			if err != nil {
+				fmt.Printf("Error parsing review ID: %v\n", err)
+				continue
+			}
+
 			review, err := h.Store.GetReview(context.Background(), reviewID)
 			if err != nil {
 				fmt.Printf("Error getting review from store: %v\n", err)
@@ -264,7 +271,7 @@ func (c *Client) ReadPump() {
 		// Thread-safe removal of the review ID from assigned reviews
 		c.Hub.AssignedReviewsMutex.Lock()
 		if _, exists := c.Hub.AssignedReviews[c]; exists {
-			delete(c.Hub.AssignedReviews[c], response.Id)
+			delete(c.Hub.AssignedReviews[c], response.Id.String())
 		}
 		c.Hub.AssignedReviewsMutex.Unlock()
 
@@ -279,6 +286,17 @@ func (c *Client) ReadPump() {
 		// Process the next review in the queue
 		c.Hub.processQueue()
 	}
+}
+
+type HubStats struct {
+	ConnectedClients   int
+	QueuedReviews      int
+	StoredReviews      int
+	AssignedReviews    map[string]int
+	BusyClients        int
+	FreeClients        int
+	CompletedReviews   int
+	ReviewDistribution map[string]int
 }
 
 func (h *Hub) getStats() HubStats {

@@ -42,20 +42,32 @@ var reviewTool = openai.Tool{
 }
 
 // callLLMForReview calls the LLM to evaluate a tool choice and returns the reasoning and decision.
-func callLLMForReview(ctx context.Context, toolChoice ToolChoice) (string, Decision, error) {
+func callLLMForReview(ctx context.Context, toolChoice ToolRequest, toolStore ToolStore) (string, ReviewResultDecision, error) {
+	// Check if Arguments.Cmd or Arguments.Code is populated
+	// If both are populated, return an error
+	args := toolChoice.Arguments
+	if args != nil && args["cmd"] != nil && args["code"] != nil {
+		return "", "", fmt.Errorf("toolChoice.Arguments cannot be both populated")
+	}
+
 	argStr := ""
-	if toolChoice.Arguments.Cmd != nil {
-		argStr = fmt.Sprintf("Arguments: %s", *toolChoice.Arguments.Cmd)
-	} else if toolChoice.Arguments.Code != nil {
-		argStr = fmt.Sprintf("Arguments: %s", *toolChoice.Arguments.Code)
+	if args["cmd"] != nil {
+		argStr = fmt.Sprintf("Arguments: %s", args["cmd"])
+	} else if args["code"] != nil {
+		argStr = fmt.Sprintf("Arguments: %s", args["code"])
 	} else {
 		return "", "", fmt.Errorf("toolChoice.Arguments doesn't seem to be properly populated")
+	}
+
+	tool, err := toolStore.GetTool(ctx, toolChoice.ToolId)
+	if err != nil {
+		return "", "", fmt.Errorf("error getting tool: %w", err)
 	}
 
 	// Prepare the prompt by substituting placeholders
 	prompt := llmReviewPrompt
 	// Replace placeholders with actual values
-	prompt = strings.ReplaceAll(prompt, "{function}", toolChoice.Function)
+	prompt = strings.ReplaceAll(prompt, "{function}", tool.Name)
 	prompt = strings.ReplaceAll(prompt, "{arguments}", argStr)
 
 	messages := []openai.ChatCompletionMessage{
@@ -100,7 +112,7 @@ func callLLMForReview(ctx context.Context, toolChoice ToolChoice) (string, Decis
 		return "", "", fmt.Errorf("error parsing tool call arguments: %v", err)
 	}
 
-	var decision Decision
+	var decision ReviewResultDecision
 	switch strings.ToLower(result.Decision) {
 	case "approve":
 		decision = Approve
