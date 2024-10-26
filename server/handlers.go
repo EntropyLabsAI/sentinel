@@ -238,9 +238,11 @@ func apiCreateRunToolHandler(w http.ResponseWriter, r *http.Request, _ uuid.UUID
 	t := time.Now()
 
 	tool := Tool{
-		Id:        uuid.Nil,
-		Name:      request.Name,
-		CreatedAt: &t,
+		Id:          uuid.Nil,
+		Name:        request.Name,
+		CreatedAt:   &t,
+		Description: request.Description,
+		Attributes:  request.Attributes,
 	}
 
 	toolId, err := store.CreateRunTool(ctx, runId, tool)
