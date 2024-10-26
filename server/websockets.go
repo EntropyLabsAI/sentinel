@@ -110,6 +110,10 @@ func (h *Hub) unregisterClient(client *Client) {
 
 // assignReview assigns a review to a client if they have capacity, otherwise it queues the review
 func (h *Hub) assignReview(review Review) {
+	if review.Id == uuid.Nil {
+		log.Fatalf("can't assign review with nil ID")
+	}
+
 	h.ClientsMutex.RLock()
 	defer h.ClientsMutex.RUnlock()
 
@@ -131,6 +135,10 @@ func (h *Hub) processQueue() {
 		next = e.Next()
 		review := e.Value.(Review)
 
+		if review.Id == uuid.Nil {
+			log.Fatalf("can't process queue item with nil ID")
+		}
+
 		if h.assignReviewToClient(review) {
 			h.Queue.Remove(e)
 		} else {
@@ -142,8 +150,6 @@ func (h *Hub) processQueue() {
 
 // assignReviewToClient attempts to assign a review to a client if they have capacity
 func (h *Hub) assignReviewToClient(review Review) bool {
-	ctx := context.Background()
-
 	h.AssignedReviewsMutex.Lock()
 	defer h.AssignedReviewsMutex.Unlock()
 
@@ -154,15 +160,9 @@ func (h *Hub) assignReviewToClient(review Review) bool {
 		if assignedReviewsCount < MAX_REVIEWS_PER_CLIENT {
 			client.Send <- review
 
-			err := h.Store.CreateReview(ctx, review)
-			if err != nil {
-				fmt.Printf("Error creating review in store: %v\n", err)
-				continue
-			}
-
 			h.AssignedReviews[client][review.Id.String()] = true
 			log.Printf("Assigned review.RequestId %s to client.", review.Id)
-			return true // Review assignekd
+			return true // Review assigned
 		}
 	}
 
@@ -286,17 +286,6 @@ func (c *Client) ReadPump() {
 		// Process the next review in the queue
 		c.Hub.processQueue()
 	}
-}
-
-type HubStats struct {
-	ConnectedClients   int
-	QueuedReviews      int
-	StoredReviews      int
-	AssignedReviews    map[string]int
-	BusyClients        int
-	FreeClients        int
-	CompletedReviews   int
-	ReviewDistribution map[string]int
 }
 
 func (h *Hub) getStats() HubStats {
