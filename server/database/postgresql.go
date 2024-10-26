@@ -3,9 +3,9 @@ package database
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
-	"time"
 
 	sentinel "github.com/entropylabsai/sentinel/server"
 	"github.com/google/uuid"
@@ -154,11 +154,17 @@ func (s *PostgresqlStore) GetProjectRuns(ctx context.Context, id uuid.UUID) ([]s
 func (s *PostgresqlStore) CreateReview(ctx context.Context, review sentinel.Review) (uuid.UUID, error) {
 	id := uuid.New()
 
+	// Marshal the TaskState map to JSON if it's a map
+	taskStateJSON, err := json.Marshal(review.TaskState)
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("error marshalling task state: %w", err)
+	}
+
 	query := `
 		INSERT INTO reviewrequest (id, run_id, task_state)
 		VALUES ($1, $2, $3)`
 
-	_, err := s.db.ExecContext(ctx, query, id, review.RunId, review.TaskState)
+	_, err = s.db.ExecContext(ctx, query, id, review.RunId, taskStateJSON)
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error creating review: %w", err)
 	}
@@ -309,12 +315,18 @@ func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*sentinel.
 		WHERE id = $1`
 
 	var tool sentinel.Tool
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&tool.Id, &tool.Name, &tool.Attributes, &tool.Description)
+	var attributesJSON []byte
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&tool.Id, &tool.Name, &attributesJSON, &tool.Description)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error getting tool: %w", err)
+	}
+
+	// Parse the JSON attributes
+	if err := json.Unmarshal(attributesJSON, &tool.Attributes); err != nil {
+		return nil, fmt.Errorf("error parsing tool attributes: %w", err)
 	}
 
 	return &tool, nil
@@ -334,9 +346,16 @@ func (s *PostgresqlStore) GetTools(ctx context.Context) ([]sentinel.Tool, error)
 	var tools []sentinel.Tool
 	for rows.Next() {
 		var tool sentinel.Tool
-		if err := rows.Scan(&tool.Id, &tool.Name, &tool.Attributes, &tool.Description); err != nil {
+		var attributesJSON []byte
+		if err := rows.Scan(&tool.Id, &tool.Name, &attributesJSON, &tool.Description); err != nil {
 			return nil, fmt.Errorf("error scanning tool: %w", err)
 		}
+
+		// Parse the JSON attributes
+		if err := json.Unmarshal(attributesJSON, &tool.Attributes); err != nil {
+			return nil, fmt.Errorf("error parsing tool attributes: %w", err)
+		}
+
 		tools = append(tools, tool)
 	}
 
@@ -392,47 +411,87 @@ func (s *PostgresqlStore) CreateRun(ctx context.Context, run sentinel.Run) (uuid
 }
 
 func (s *PostgresqlStore) CreateRunTool(ctx context.Context, runId uuid.UUID, tool sentinel.Tool) (uuid.UUID, error) {
-	id := uuid.New()
+	var id uuid.UUID
+
+	if tool.Name == "" || tool.Description == "" || tool.Attributes == nil {
+		return uuid.UUID{}, fmt.Errorf("can't create run tool, tool name, description, and attributes are required. Values: %+v", tool)
+	}
+
+	attributes, err := json.Marshal(tool.Attributes)
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("error marshalling tool attributes: %w", err)
+	}
+
+	// Check if there is a tool already with the same name, description, and attributes
+	query := `
+		SELECT id
+		FROM tool
+		WHERE name = $1 AND description = $2 AND attributes = $3`
+
+	var existingToolId uuid.UUID
+	err = s.db.QueryRowContext(ctx, query, tool.Name, tool.Description, attributes).Scan(&existingToolId)
+	if err != nil && err != sql.ErrNoRows {
+		return uuid.UUID{}, fmt.Errorf("error checking if tool already exists: %w", err)
+	}
 
 	// Start a transaction
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error starting transaction: %w", err)
 	}
-	err = tx.Rollback()
-	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("error rolling back transaction: %w", err)
+	defer func() { _ = tx.Rollback() }()
+
+	// If the tool already exists, just use the existing ID, else create a new one
+	if existingToolId != uuid.Nil {
+		id = existingToolId
+	} else {
+		id = uuid.New()
+
+		query = `
+		INSERT INTO tool (id, name, description, attributes)
+		VALUES ($1, $2, $3, $4)`
+
+		_, err = tx.ExecContext(ctx, query, id, tool.Name, tool.Description, attributes)
+		if err != nil {
+			return uuid.UUID{}, fmt.Errorf("error creating tool: %w", err)
+		}
 	}
 
-	query := `
-		INSERT INTO tool (id, name, created_at)
-		VALUES ($1, $2, $3)`
-
-	_, err = tx.ExecContext(ctx, query, tool.Id, tool.Name, time.Now())
-	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("error creating tool: %w", err)
-	}
-
-	// Insert into run_tool
+	// Insert a connection between the run and the tool into run_tool
 	query = `
 		INSERT INTO run_tool (run_id, tool_id)
 		VALUES ($1, $2)`
 
-	_, err = tx.ExecContext(ctx, query, runId, tool.Id)
+	_, err = tx.ExecContext(ctx, query, runId, id)
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error creating run tool: %w", err)
 	}
 
-	return id, tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("error committing transaction: %w", err)
+	}
+
+	return id, nil
 }
 
 func (s *PostgresqlStore) CreateTool(ctx context.Context, tool sentinel.Tool) (uuid.UUID, error) {
 	id := uuid.New()
-	query := `
-		INSERT INTO tool (id, name, created_at)
-		VALUES ($1, $2, $3)`
 
-	_, err := s.db.ExecContext(ctx, query, id, tool.Name, time.Now())
+	if tool.Name == "" || tool.Description == "" || tool.Attributes == nil {
+		return uuid.UUID{}, fmt.Errorf("can't create tool, tool name, description, and attributes are required. Values: %+v", tool)
+	}
+
+	attributes, err := json.Marshal(tool.Attributes)
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("error marshalling tool attributes: %w", err)
+	}
+
+	query := `
+		INSERT INTO tool (id, name, description, attributes)
+		VALUES ($1, $2, $3, $4)`
+
+	_, err = s.db.ExecContext(ctx, query, id, tool.Name, tool.Description, attributes)
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error creating tool: %w", err)
 	}
@@ -471,7 +530,7 @@ func (s *PostgresqlStore) GetRun(ctx context.Context, projectId uuid.UUID, id uu
 		WHERE id = $1 AND project_id = $2`
 
 	var run sentinel.Run
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&run.Id, &run.ProjectId, &run.CreatedAt)
+	err := s.db.QueryRowContext(ctx, query, id, projectId).Scan(&run.Id, &run.ProjectId, &run.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}

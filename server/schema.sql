@@ -80,9 +80,9 @@ CREATE TABLE code_supervisor (
 );
 
 CREATE TABLE run_tool (
-    id UUID PRIMARY KEY,
     tool_id UUID,
     run_id UUID,
+    PRIMARY KEY (tool_id, run_id),
     FOREIGN KEY (tool_id) REFERENCES tool(id),
     FOREIGN KEY (run_id) REFERENCES run(id)
 );
