@@ -1,5 +1,4 @@
 import logging
-import requests
 from typing import List, Dict, Optional, Set
 from inspect_ai.approval import Approval, Approver, approver
 from inspect_ai.solver import TaskState
@@ -30,7 +29,6 @@ def bash_approver(
             return Approval(decision="approve", explanation=explanation)
         else:
             return Approval(decision="escalate", explanation=explanation)
-
     return approve
 
 @approver
@@ -61,7 +59,6 @@ def python_approver(
             return Approval(decision="approve", explanation=explanation)
         else:
             return Approval(decision="escalate", explanation=explanation)
-
     return approve
 
 @approver
@@ -96,5 +93,4 @@ def llm_approver(approval_api_endpoint: str, agent_id: str, n: int = DEFAULT_SUG
         approval_decision = await get_llm_supervision_decision_api(task_state=state, call=call, backend_api_endpoint=approval_api_endpoint, agent_id=agent_id, timeout=timeout)
         inspect_approval = transform_entropy_labs_approval_to_inspect_ai_approval(approval_decision)
         return inspect_approval
-
     return approve
