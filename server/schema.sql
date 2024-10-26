@@ -1,27 +1,47 @@
-DROP TABLE IF EXISTS reviewrequest CASCADE;
-DROP TABLE IF EXISTS toolrequest CASCADE;
-DROP TABLE IF EXISTS llm_message CASCADE;
 DROP TABLE IF EXISTS reviewresult CASCADE;
+DROP TABLE IF EXISTS toolrequest CASCADE;
 DROP TABLE IF EXISTS reviewrequest_status CASCADE;
+DROP TABLE IF EXISTS reviewrequest CASCADE;
 DROP TABLE IF EXISTS run_tool CASCADE;
-DROP TABLE IF EXISTS tool CASCADE;
+DROP TABLE IF EXISTS llm_message CASCADE;
 DROP TABLE IF EXISTS code_supervisor CASCADE;
 DROP TABLE IF EXISTS llm_supervisor CASCADE;
-DROP TABLE IF EXISTS run_supervisor CASCADE;
+DROP TABLE IF EXISTS tool_supervisor CASCADE;
 DROP TABLE IF EXISTS supervisor CASCADE;
 DROP TABLE IF EXISTS run CASCADE;
 DROP TABLE IF EXISTS user_project CASCADE;
 DROP TABLE IF EXISTS project CASCADE;
+DROP TABLE IF EXISTS tool CASCADE;
 DROP TABLE IF EXISTS sentinel_user CASCADE;
 
 CREATE TABLE sentinel_user (
     id UUID PRIMARY KEY
 );
 
+CREATE TABLE tool (
+    id UUID PRIMARY KEY,
+    name VARCHAR,
+    description TEXT,
+    attributes JSONB
+);
+
 CREATE TABLE project (
     id UUID PRIMARY KEY,
     name TEXT,
-    created_at TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE supervisor (
+    id UUID PRIMARY KEY,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE,
+    type TEXT CHECK (type in ('code', 'llm', 'human'))
+);
+
+CREATE TABLE llm_message (
+    id UUID PRIMARY KEY,
+    role TEXT CHECK (role IN ('system', 'user', 'assistant')),
+    content TEXT
 );
 
 CREATE TABLE user_project (
@@ -35,15 +55,8 @@ CREATE TABLE user_project (
 CREATE TABLE run (
     id UUID PRIMARY KEY,
     project_id UUID,
-    created_at TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE,
     FOREIGN KEY (project_id) REFERENCES project(id)
-);
-
-CREATE TABLE supervisor (
-    id UUID PRIMARY KEY,
-    description TEXT,
-    created_at TIMESTAMP,
-    type TEXT CHECK (type in ('code', 'llm', 'human'))
 );
 
 CREATE TABLE tool_supervisor (
@@ -66,13 +79,6 @@ CREATE TABLE code_supervisor (
     FOREIGN KEY (supervisor_id) REFERENCES supervisor(id)
 );
 
-CREATE TABLE tool (
-    id UUID PRIMARY KEY,
-    name VARCHAR,
-    description TEXT,
-    attributes JSONB
-);
-
 CREATE TABLE run_tool (
     id UUID PRIMARY KEY,
     tool_id UUID,
@@ -91,15 +97,9 @@ CREATE TABLE reviewrequest (
 CREATE TABLE reviewrequest_status (
     id UUID PRIMARY KEY,
     reviewrequest_id UUID,
-    created_at TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE,
     status TEXT CHECK (status IN ('timeout', 'pending', 'completed')),
     FOREIGN KEY (reviewrequest_id) REFERENCES reviewrequest(id)
-);
-
-CREATE TABLE llm_message (
-    id UUID PRIMARY KEY,
-    role TEXT CHECK (role IN ('system', 'user', 'assistant')),
-    content TEXT
 );
 
 CREATE TABLE toolrequest (
@@ -116,7 +116,7 @@ CREATE TABLE toolrequest (
 CREATE TABLE reviewresult (
     id UUID PRIMARY KEY,
     reviewrequest_id UUID,
-    created_at TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE,
     decision TEXT CHECK (decision IN ('approve', 'reject', 'terminate', 'modify', 'escalate')),
     toolrequest_id UUID,
     FOREIGN KEY (reviewrequest_id) REFERENCES reviewrequest(id),
