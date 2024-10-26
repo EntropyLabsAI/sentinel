@@ -58,13 +58,13 @@ func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request, store Pro
 	project := Project{
 		Id:        id,
 		Name:      request.Name,
-		CreatedAt: time.Now().Unix(),
+		CreatedAt: time.Now(),
 	}
 
 	// Store the project in the global projects map
 	err = store.CreateProject(ctx, project)
 	if err != nil {
-		http.Error(w, "Failed to register project", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Failed to register project, %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -81,22 +81,63 @@ func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request, store Pro
 func apiCreateRunHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store RunStore) {
 	ctx := r.Context()
 
-	log.Printf("received new run request")
+	log.Printf("received new run request for project ID: %s", id)
 
 	run := Run{
-		Id:        uuid.New(),
+		Id:        uuid.Nil,
 		ProjectId: id,
-		CreatedAt: time.Now().Unix(),
+		CreatedAt: time.Now(),
 	}
 
-	err := store.CreateRun(ctx, run)
+	runID, err := store.CreateRun(ctx, run)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	run.Id = runID
+
+	log.Printf("created run with ID: %s", run.Id)
+
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(run)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// apiGetProjectRunsHandler handles the GET /api/project/{id}/runs endpoint
+func apiGetProjectRunsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store RunStore) {
+	ctx := r.Context()
+
+	runs, err := store.GetProjectRuns(ctx, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(runs)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func apiGetRunsHandler(w http.ResponseWriter, r *http.Request, store RunStore) {
+	ctx := r.Context()
+
+	runs, err := store.GetRuns(ctx)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(runs)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -183,7 +224,7 @@ func apiCreateToolHandler(w http.ResponseWriter, r *http.Request, store ToolStor
 		return
 	}
 
-	t := time.Now().Unix()
+	t := time.Now()
 
 	tool := Tool{
 		Id:        uuid.New(),
@@ -299,7 +340,7 @@ func apiGetRunToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID,
 func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request, store Store) {
 	ctx := r.Context()
 
-	t := time.Now().Unix()
+	t := time.Now()
 
 	var request ReviewRequest
 
@@ -517,16 +558,20 @@ func apiGetProjectsHandler(w http.ResponseWriter, r *http.Request, store Project
 func apiGetProjectByIdHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store ProjectStore) {
 	ctx := r.Context()
 
-	// Retrieve the project from the projects map
-	if project, err := store.GetProject(ctx, id); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		err := json.NewEncoder(w).Encode(project)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	} else {
+	project, err := store.GetProject(ctx, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if project == nil {
 		http.Error(w, "Project not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(project); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }

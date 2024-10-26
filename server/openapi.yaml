@@ -4,6 +4,16 @@ info:
   version: 1.0.0
 
 paths:
+  /api/openapi.yaml:
+    get:
+      summary: Get the OpenAPI schema
+      operationId: GetOpenAPI
+      responses:
+        "200":
+          description: OpenAPI schema
+      tags:
+        - API
+
   /api/projects:
     post:
       summary: Create a new project
@@ -39,6 +49,27 @@ paths:
         - Projects
 
   /api/projects/{projectId}/runs:
+    get:
+      summary: Get runs for a project
+      operationId: GetProjectRuns
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of runs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Run"
+      tags:
+        - Runs
     post:
       summary: Create a new run for a project
       operationId: CreateRun
@@ -454,8 +485,8 @@ components:
         name:
           type: string
         created_at:
-          type: integer
-          format: int64
+          type: string
+          format: date-time
       required:
         - id
         - name
@@ -479,8 +510,8 @@ components:
           type: string
           format: uuid
         created_at:
-          type: integer
-          format: int64
+          type: string
+          format: date-time
       required:
         - id
         - project_id
@@ -495,8 +526,8 @@ components:
         description:
           type: string
         created_at:
-          type: integer
-          format: int64
+          type: string
+          format: date-time
         type:
           $ref: "#/components/schemas/SupervisorType"
       required:
@@ -527,8 +558,8 @@ components:
           type: object
           additionalProperties: true
         created_at:
-          type: integer
-          format: int64
+          type: string
+          format: date-time
       required:
         - id
         - name
@@ -589,8 +620,8 @@ components:
           type: string
           enum: [timeout, pending, completed]
         created_at:
-          type: integer
-          format: int64
+          type: string
+          format: date-time
       required:
         - id
         - status
@@ -606,8 +637,8 @@ components:
           type: string
           format: uuid
         created_at:
-          type: integer
-          format: int64
+          type: string
+          format: date-time
         decision:
           type: string
           enum: [approve, reject, terminate, modify, escalate]

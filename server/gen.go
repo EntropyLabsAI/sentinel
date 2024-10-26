@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/oapi-codegen/runtime"
@@ -75,7 +76,7 @@ type LLMMessageRole string
 
 // Project defines model for Project.
 type Project struct {
-	CreatedAt int64              `json:"created_at"`
+	CreatedAt time.Time          `json:"created_at"`
 	Id        openapi_types.UUID `json:"id"`
 	Name      string             `json:"name"`
 }
@@ -104,7 +105,7 @@ type ReviewRequest struct {
 
 // ReviewResult defines model for ReviewResult.
 type ReviewResult struct {
-	CreatedAt       int64                `json:"created_at"`
+	CreatedAt       time.Time            `json:"created_at"`
 	Decision        ReviewResultDecision `json:"decision"`
 	Id              openapi_types.UUID   `json:"id"`
 	Reasoning       string               `json:"reasoning"`
@@ -117,7 +118,7 @@ type ReviewResultDecision string
 
 // ReviewStatus defines model for ReviewStatus.
 type ReviewStatus struct {
-	CreatedAt int64              `json:"created_at"`
+	CreatedAt time.Time          `json:"created_at"`
 	Id        openapi_types.UUID `json:"id"`
 	Status    ReviewStatusStatus `json:"status"`
 }
@@ -127,14 +128,14 @@ type ReviewStatusStatus string
 
 // Run defines model for Run.
 type Run struct {
-	CreatedAt int64              `json:"created_at"`
+	CreatedAt time.Time          `json:"created_at"`
 	Id        openapi_types.UUID `json:"id"`
 	ProjectId openapi_types.UUID `json:"project_id"`
 }
 
 // Supervisor defines model for Supervisor.
 type Supervisor struct {
-	CreatedAt   int64              `json:"created_at"`
+	CreatedAt   time.Time          `json:"created_at"`
 	Description *string            `json:"description,omitempty"`
 	Id          openapi_types.UUID `json:"id"`
 	Type        SupervisorType     `json:"type"`
@@ -151,7 +152,7 @@ type SupervisorType string
 // Tool defines model for Tool.
 type Tool struct {
 	Attributes  *map[string]interface{} `json:"attributes,omitempty"`
-	CreatedAt   *int64                  `json:"created_at,omitempty"`
+	CreatedAt   *time.Time              `json:"created_at,omitempty"`
 	Description string                  `json:"description"`
 	Id          openapi_types.UUID      `json:"id"`
 	Name        string                  `json:"name"`
@@ -192,6 +193,9 @@ type AssignSupervisorToToolJSONRequestBody = SupervisorAssignment
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Get the OpenAPI schema
+	// (GET /api/openapi.yaml)
+	GetOpenAPI(w http.ResponseWriter, r *http.Request)
 	// List all projects
 	// (GET /api/projects)
 	GetProjects(w http.ResponseWriter, r *http.Request)
@@ -201,6 +205,9 @@ type ServerInterface interface {
 	// Get project by ID
 	// (GET /api/projects/{projectId})
 	GetProject(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
+	// Get runs for a project
+	// (GET /api/projects/{projectId}/runs)
+	GetProjectRuns(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
 	// Create a new run for a project
 	// (POST /api/projects/{projectId}/runs)
 	CreateRun(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
@@ -263,6 +270,20 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
+// GetOpenAPI operation middleware
+func (siw *ServerInterfaceWrapper) GetOpenAPI(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOpenAPI(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetProjects operation middleware
 func (siw *ServerInterfaceWrapper) GetProjects(w http.ResponseWriter, r *http.Request) {
 
@@ -307,6 +328,31 @@ func (siw *ServerInterfaceWrapper) GetProject(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetProject(w, r, projectId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetProjectRuns operation middleware
+func (siw *ServerInterfaceWrapper) GetProjectRuns(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectId" -------------
+	var projectId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", r.PathValue("projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProjectRuns(w, r, projectId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -808,9 +854,11 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
+	m.HandleFunc("GET "+options.BaseURL+"/api/openapi.yaml", wrapper.GetOpenAPI)
 	m.HandleFunc("GET "+options.BaseURL+"/api/projects", wrapper.GetProjects)
 	m.HandleFunc("POST "+options.BaseURL+"/api/projects", wrapper.CreateProject)
 	m.HandleFunc("GET "+options.BaseURL+"/api/projects/{projectId}", wrapper.GetProject)
+	m.HandleFunc("GET "+options.BaseURL+"/api/projects/{projectId}/runs", wrapper.GetProjectRuns)
 	m.HandleFunc("POST "+options.BaseURL+"/api/projects/{projectId}/runs", wrapper.CreateRun)
 	m.HandleFunc("GET "+options.BaseURL+"/api/reviews", wrapper.GetReviews)
 	m.HandleFunc("POST "+options.BaseURL+"/api/reviews", wrapper.CreateReview)
@@ -835,34 +883,35 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/9xaW2/bOBP9KwK/71GI091iH/zWvaAN4ACB3bdFYNDS2GFXIhVe0jUM//cFSVGiJOqW",
-	"Nm7Sp9jSiJw5Z+bMiPEJJSwvGAUqBVqekEgeIMfm4ye120hsLxecFcAlAfMNC0EOFNIthycCX+21NCWS",
-	"MIqzu4atPBaAlohQCQfg6By7K2z3BRKpL+yUOG6TjDgfuo9oHzOQzR1DZpRCos0GV9tzgGGLRwVqbDN7",
-	"c5sSITnZKR37N+IgJOPDu5ptHxXhkKLl34F4O653Vm2F30I/7nIbjjTEyX0gptXq9haEwAfoplHCqAQq",
-	"vUD1BvSgnyOpvrxnPMcSLZFSJEVx14yzzCwMVOUaEXEUEnIUIyWAl9EIian0nHNPt8A0G5j14sqzUER3",
-	"nJmP3XA4YA0Hlg3XCZW/va999xJgYowU5xDAKOS+MY19TwYi+MNYdeOYtp+xCq2+NtnQXXYqo4puJ5oK",
-	"iaUya/+fwx4t0f8WtZgtSiVbWH821laXHRb/bPWj0F+ukivohBbMF+ttY9V+UNbwqEDIZ2OT20qyj0jI",
-	"R2P3qq8WHMw5Ps6E+tmgxUgylm25jXy6558ZyxxcHddbTIRIaO/rgTfEj1DZ96jsFBIiyobgpAkXBWdP",
-	"YPTUbBsjCTwn1Lqbs5TsjyhGIBKcNfNoviwCFozqLyFtLfW8xGZyCjCW8TqBJ5MXLJuOBw3R8gD0Y+kn",
-	"blMpwWUkuVYex64kOTClXS+AptrM65ATm0+56qh+rxW9XKiFbRbTsiQUlbfAaGQbVQB/IoLx71KEIuGk",
-	"cIPZc2vJXhhO+Nrvz9o6iINZZwYCH8wglpcDUhMLUVk9i5fm48NufC7Dd4mesFSHkWV6ynpQOdY1irMs",
-	"KFdaCAKvD9LOkSBmN5MflQTzZzB/4xDCGpq+CewbABqLd8ZwNy2G3pkG84PK3SvWrBjmTUPbyT3xuV3v",
-	"+doX6nNuxdhDqAuuXo7QPTNcEanfctAGqCQUsujD3Q2K0RNwO2Ogd1fXV9faW1YAxQVBS/Tr1fXVO62+",
-	"WD4YBha4IItSi82FAxjSNBtYU3OToiX6CPLO2Wj3RcGosHz+cn3demnDRZGRxDy8+CJswllFnDzmuZep",
-	"7ojXzmW0IkJGbB9VMWgTofIc86O7jbOsvq/nwYPQXFQh3euGxkQgcFuKzh1LJQj5O0uPs6KeEGxZ9edm",
-	"xuhaOH8j5JOQ7iJb3opKcY2EShIQYq+y7NhC2foe4YjCV4d0GOhz3Ey5xan8dJOeJ6SfSV2Oc5DA9dIn",
-	"RLSrOp2dxi5RtSJqIxl7qIzV7f2PRT0FiUlmXk3fX7/XC4btKJPRnimatij5CNIxEe2O0c2f8/lYcEXt",
-	"9DxQG3rq/DlI0ZEECFkrOrsEuKLRnvEIB4phrUGtgfeO9fpyf10duYVgflTAjzXO5Tw5LeTOgHp/CXUv",
-	"j4JmiLsDqUfb6zPJCmR39jii7KUrLyPszdOdCwt783wrkNbm/qzMtjBH7m0/hHYrqxcn+2FE3CsWxmXE",
-	"rfd6VaRM7l7Ex4S9NBvS9ZKItqxPoWHBzWHWBL1Zl4ZvhpUZ2lOe6E1QoLXLeQtGLxe8QmsWG/WJ0TAZ",
-	"G3cG9NNUyKgyCWfQg3h1LDYLcO+4cgLs3pvsz1YIwyfpHVK0uVN+YWYb+QAlFQGOZMfctY8AYfbEoEGc",
-	"opo1Rccax8Th06z0FgfP0Wah6HCnULTbJloDqIe1KQ8xgrgl623APrkU5kyjBqQIC8ESYoanr0Q+2How",
-	"TIaKoWuPjXVNi4O1RY9wv7Uw37IsX8C/RYYpdmd54fH2I8jV6vYvz/RlZtzmJj9o1m07YbcJUri6jXz8",
-	"umR1LGqGVqtb80LRVxvVL2NeMNRqj0Bwn9QuEuXNdlgP1b06nk9q5yda9S44KAAbz+wSxen972dGifrB",
-	"9Lw0ikYgDhM/vCA2i1P9ZaQ7ea5PUUt/3Vfbq3w6uvDXd0c7l2c61MBqUDp9LEzVaAdzOvtK+0pfusrS",
-	"7Wa7GDvfMC68jPJ7/6m6sNxbXHtm1LlHddIi1Ia1kU6Lk/4zUu0l1ON1btd6tRU+iO5YVRujoXo2Lwbt",
-	"Sh4GfWpn0qs0u9Ob4OIyXTByP+CMJDOjqrQ09+tt8xEcLpS4pcJ9amR/teAdN7OLl8v3V8DgjzKma2Fv",
-	"P6xwH9Awu6PfHjWvTYpaDfJ8/i8AAP//0c9LodYtAAA=",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
