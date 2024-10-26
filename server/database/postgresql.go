@@ -66,7 +66,7 @@ func (s *PostgresqlStore) GetProject(ctx context.Context, id uuid.UUID) (*sentin
 	return &project, nil
 }
 
-func (s *PostgresqlStore) ListProjects(ctx context.Context) ([]sentinel.Project, error) {
+func (s *PostgresqlStore) GetProjects(ctx context.Context) ([]sentinel.Project, error) {
 	query := `
 		SELECT id, name, created_at
 		FROM project
@@ -128,6 +128,39 @@ func (s *PostgresqlStore) GetReview(ctx context.Context, id uuid.UUID) (*sentine
 	return &review, nil
 }
 
+func (s *PostgresqlStore) GetReviewResults(ctx context.Context, id uuid.UUID) ([]*sentinel.ReviewResult, error) {
+	query := `
+		SELECT rr.id, rr.reviewrequest_id, rr.created_at, rr.decision, rr.reasoning, 
+		rr.toolrequest_id, tr.tool_id, tr.message_id, tr.arguments
+		FROM reviewresult rr
+		LEFT JOIN toolrequest tr ON rr.toolrequest_id = tr.id
+		WHERE rr.reviewrequest_id = $1`
+
+	var tr sentinel.ToolRequest
+
+	rows, err := s.db.QueryContext(ctx, query, id)
+	if err != nil {
+		return nil, fmt.Errorf("error getting review results: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*sentinel.ReviewResult
+	for rows.Next() {
+		var result sentinel.ReviewResult
+		if err := rows.Scan(
+			&result.Id, &result.ReviewRequestId, &result.CreatedAt, &result.Decision, &result.Reasoning,
+			&tr.Id, &tr.ToolId, &tr.MessageId, &tr.Arguments,
+		); err != nil {
+			return nil, fmt.Errorf("error scanning review result: %w", err)
+		}
+		result.Toolrequest = &tr
+		results = append(results, &result)
+	}
+
+	return results, nil
+
+}
+
 func (s *PostgresqlStore) UpdateReview(ctx context.Context, review sentinel.Review) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -151,7 +184,7 @@ func (s *PostgresqlStore) UpdateReview(ctx context.Context, review sentinel.Revi
 		INSERT INTO reviewrequest_status (id, reviewrequest_id, created_at, status)
 		VALUES ($1, $2, CURRENT_TIMESTAMP, $3)`
 
-	_, err = tx.ExecContext(ctx, query2, review.Id, review.Id, review.Status)
+	_, err = tx.ExecContext(ctx, query2, review.Id, review.Id, review.Status.Status)
 	if err != nil {
 		return fmt.Errorf("error updating review status: %w", err)
 	}
@@ -159,14 +192,29 @@ func (s *PostgresqlStore) UpdateReview(ctx context.Context, review sentinel.Revi
 	return tx.Commit()
 }
 
-func (s *PostgresqlStore) ListHumanReviews(ctx context.Context) ([]sentinel.Review, error) {
-	fmt.Println("Stub: ListHumanReviews called")
-	return []sentinel.Review{}, nil
-}
+func (s *PostgresqlStore) GetReviews(ctx context.Context) ([]sentinel.Review, error) {
+	query := `
+		SELECT id, run_id, task_state, rs.id, rs.status, rs.created_at
+		FROM reviewrequest
+		LEFT JOIN reviewrequest_status rs ON reviewrequest.id = rs.reviewrequest_id
+		ORDER BY rs.created_at DESC`
 
-func (s *PostgresqlStore) ListLLMReviews(ctx context.Context) ([]sentinel.Review, error) {
-	fmt.Println("Stub: ListLLMReviews called")
-	return []sentinel.Review{}, nil
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("error getting reviews: %w", err)
+	}
+	defer rows.Close()
+
+	var reviews []sentinel.Review
+	for rows.Next() {
+		var review sentinel.Review
+		if err := rows.Scan(&review.Id, &review.RunId, &review.TaskState, &review.Status.Id, &review.Status.Status, &review.Status.CreatedAt); err != nil {
+			return nil, fmt.Errorf("error scanning review: %w", err)
+		}
+		reviews = append(reviews, review)
+	}
+
+	return reviews, nil
 }
 
 func (s *PostgresqlStore) DeleteReview(ctx context.Context, id uuid.UUID) error {
@@ -192,12 +240,12 @@ func (s *PostgresqlStore) CreateProjectTool(ctx context.Context, id uuid.UUID, t
 
 func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*sentinel.Tool, error) {
 	query := `
-		SELECT id, name, created_at
+		SELECT id, name, attributes, description
 		FROM tool
 		WHERE id = $1`
 
 	var tool sentinel.Tool
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&tool.Id, &tool.Name, &tool.CreatedAt)
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&tool.Id, &tool.Name, &tool.Attributes, &tool.Description)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -206,6 +254,29 @@ func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*sentinel.
 	}
 
 	return &tool, nil
+}
+
+func (s *PostgresqlStore) GetTools(ctx context.Context) ([]sentinel.Tool, error) {
+	query := `
+		SELECT id, name, attributes, description
+		FROM tool`
+
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("error getting tools: %w", err)
+	}
+	defer rows.Close()
+
+	var tools []sentinel.Tool
+	for rows.Next() {
+		var tool sentinel.Tool
+		if err := rows.Scan(&tool.Id, &tool.Name, &tool.Attributes, &tool.Description); err != nil {
+			return nil, fmt.Errorf("error scanning tool: %w", err)
+		}
+		tools = append(tools, tool)
+	}
+
+	return tools, nil
 }
 
 func (s *PostgresqlStore) GetSupervisorFromToolID(ctx context.Context, id uuid.UUID) (*sentinel.Supervisor, error) {
@@ -267,4 +338,123 @@ func (s *PostgresqlStore) CreateTool(ctx context.Context, tool sentinel.Tool) er
 		return fmt.Errorf("error creating tool: %w", err)
 	}
 	return nil
+}
+
+func (s *PostgresqlStore) GetReviewToolRequests(ctx context.Context, id uuid.UUID) ([]sentinel.ToolRequest, error) {
+	query := `
+		SELECT id, reviewrequest_id, tool_id, message_id, arguments
+		FROM toolrequest
+		WHERE reviewrequest_id = $1`
+
+	rows, err := s.db.QueryContext(ctx, query, id)
+	if err != nil {
+		return nil, fmt.Errorf("error getting review tool requests: %w", err)
+	}
+	defer rows.Close()
+
+	var toolRequests []sentinel.ToolRequest
+	for rows.Next() {
+		var toolRequest sentinel.ToolRequest
+		if err := rows.Scan(&toolRequest.Id, &toolRequest.ReviewRequestId, &toolRequest.ToolId, &toolRequest.MessageId, &toolRequest.Arguments); err != nil {
+			return nil, fmt.Errorf("error scanning tool request: %w", err)
+		}
+		toolRequests = append(toolRequests, toolRequest)
+	}
+	return toolRequests, nil
+
+}
+
+func (s *PostgresqlStore) GetRun(ctx context.Context, id uuid.UUID) (*sentinel.Run, error) {
+	query := `
+		SELECT id, project_id, created_at
+		FROM run
+		WHERE id = $1`
+
+	var run sentinel.Run
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&run.Id, &run.ProjectId, &run.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("error getting run: %w", err)
+	}
+
+	return &run, nil
+}
+
+func (s *PostgresqlStore) AssignSupervisorToTool(ctx context.Context, supervisorID uuid.UUID, toolID uuid.UUID) error {
+	query := `
+		INSERT INTO tool_supervisor (tool_id, supervisor_id)
+		VALUES ($1, $2)`
+
+	_, err := s.db.ExecContext(ctx, query, toolID, supervisorID)
+	if err != nil {
+		return fmt.Errorf("error assigning supervisor to tool: %w", err)
+	}
+
+	return nil
+}
+
+func (s *PostgresqlStore) GetRunTools(ctx context.Context, id uuid.UUID) ([]sentinel.Tool, error) {
+	query := `
+		SELECT id, name, description, attributes
+		FROM tool
+		INNER JOIN tool_run ON tool.id = tool_run.tool_id
+		WHERE tool_run.run_id = $1`
+
+	rows, err := s.db.QueryContext(ctx, query, id)
+	if err != nil {
+		return nil, fmt.Errorf("error getting run tools: %w", err)
+	}
+
+	var tools []sentinel.Tool
+	for rows.Next() {
+		var tool sentinel.Tool
+		if err := rows.Scan(&tool.Id, &tool.Name, &tool.Description, &tool.Attributes); err != nil {
+			return nil, fmt.Errorf("error scanning tool: %w", err)
+		}
+		tools = append(tools, tool)
+	}
+
+	return tools, nil
+}
+
+func (s *PostgresqlStore) GetSupervisor(ctx context.Context, id uuid.UUID) (*sentinel.Supervisor, error) {
+	query := `
+		SELECT id, description, created_at, type
+		FROM supervisor
+		WHERE id = $1`
+
+	var supervisor sentinel.Supervisor
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&supervisor.Id, &supervisor.Description, &supervisor.CreatedAt, &supervisor.Type)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error getting supervisor: %w", err)
+	}
+
+	return &supervisor, nil
+}
+
+func (s *PostgresqlStore) GetSupervisors(ctx context.Context) ([]sentinel.Supervisor, error) {
+	query := `
+		SELECT id, description, created_at, type
+		FROM supervisor`
+
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("error getting supervisors: %w", err)
+	}
+	defer rows.Close()
+
+	var supervisors []sentinel.Supervisor
+	for rows.Next() {
+		var supervisor sentinel.Supervisor
+		if err := rows.Scan(&supervisor.Id, &supervisor.Description, &supervisor.CreatedAt, &supervisor.Type); err != nil {
+			return nil, fmt.Errorf("error scanning supervisor: %w", err)
+		}
+		supervisors = append(supervisors, supervisor)
+	}
+
+	return supervisors, nil
 }
