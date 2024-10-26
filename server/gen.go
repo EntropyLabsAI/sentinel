@@ -17,260 +17,252 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// Defines values for Decision.
+// Defines values for LLMMessageRole.
 const (
-	Approve   Decision = "approve"
-	Escalate  Decision = "escalate"
-	Modify    Decision = "modify"
-	Reject    Decision = "reject"
-	Terminate Decision = "terminate"
+	Assistant LLMMessageRole = "assistant"
+	System    LLMMessageRole = "system"
+	User      LLMMessageRole = "user"
 )
 
-// Defines values for Status.
+// Defines values for ReviewResultDecision.
 const (
-	Completed  Status = "completed"
-	Processing Status = "processing"
-	Queued     Status = "queued"
-	Timeout    Status = "timeout"
+	Approve   ReviewResultDecision = "approve"
+	Escalate  ReviewResultDecision = "escalate"
+	Modify    ReviewResultDecision = "modify"
+	Reject    ReviewResultDecision = "reject"
+	Terminate ReviewResultDecision = "terminate"
 )
 
-// Arguments defines model for Arguments.
-type Arguments struct {
-	Cmd  *string `json:"cmd,omitempty"`
-	Code *string `json:"code,omitempty"`
+// Defines values for ReviewStatusStatus.
+const (
+	Completed ReviewStatusStatus = "completed"
+	Pending   ReviewStatusStatus = "pending"
+	Timeout   ReviewStatusStatus = "timeout"
+)
+
+// Defines values for SupervisorType.
+const (
+	SupervisorTypeCode  SupervisorType = "code"
+	SupervisorTypeHuman SupervisorType = "human"
+	SupervisorTypeLlm   SupervisorType = "llm"
+)
+
+// Defines values for ListReviewsParamsType.
+const (
+	ListReviewsParamsTypeHuman ListReviewsParamsType = "human"
+	ListReviewsParamsTypeLlm   ListReviewsParamsType = "llm"
+)
+
+// Defines values for ListSupervisorsParamsType.
+const (
+	Code  ListSupervisorsParamsType = "code"
+	Human ListSupervisorsParamsType = "human"
+	Llm   ListSupervisorsParamsType = "llm"
+)
+
+// LLMMessage defines model for LLMMessage.
+type LLMMessage struct {
+	Content string             `json:"content"`
+	Id      openapi_types.UUID `json:"id"`
+	Role    LLMMessageRole     `json:"role"`
 }
 
-// AssistantMessage defines model for AssistantMessage.
-type AssistantMessage struct {
-	Content   string      `json:"content"`
-	Role      string      `json:"role"`
-	Source    *string     `json:"source,omitempty"`
-	ToolCalls *[]ToolCall `json:"tool_calls,omitempty"`
-}
-
-// Choice defines model for Choice.
-type Choice struct {
-	Message    AssistantMessage `json:"message"`
-	StopReason *string          `json:"stop_reason,omitempty"`
-}
-
-// CodeSnippet defines model for CodeSnippet.
-type CodeSnippet struct {
-	Text string `json:"text"`
-}
-
-// Decision defines model for Decision.
-type Decision string
-
-// ErrorResponse defines model for ErrorResponse.
-type ErrorResponse struct {
-	Status string `json:"status"`
-}
-
-// HubStats defines model for HubStats.
-type HubStats struct {
-	AssignedReviews    map[string]int `json:"assigned_reviews"`
-	BusyClients        int            `json:"busy_clients"`
-	CompletedReviews   int            `json:"completed_reviews"`
-	ConnectedClients   int            `json:"connected_clients"`
-	FreeClients        int            `json:"free_clients"`
-	QueuedReviews      int            `json:"queued_reviews"`
-	ReviewDistribution map[string]int `json:"review_distribution"`
-	StoredReviews      int            `json:"stored_reviews"`
-}
-
-// LLMExplanation defines model for LLMExplanation.
-type LLMExplanation struct {
-	Explanation string  `json:"explanation"`
-	Score       float32 `json:"score"`
-}
-
-// LLMPrompt defines model for LLMPrompt.
-type LLMPrompt struct {
-	Prompt string `json:"prompt"`
-}
-
-// LLMPromptResponse defines model for LLMPromptResponse.
-type LLMPromptResponse struct {
-	Message string `json:"message"`
-	Status  string `json:"status"`
-}
-
-// Message defines model for Message.
-type Message struct {
-	Content    string      `json:"content"`
-	Function   *string     `json:"function,omitempty"`
-	Role       string      `json:"role"`
-	Source     *string     `json:"source,omitempty"`
-	ToolCallId *string     `json:"tool_call_id,omitempty"`
-	ToolCalls  *[]ToolCall `json:"tool_calls,omitempty"`
-}
-
-// Output defines model for Output.
-type Output struct {
-	Choices *[]Choice `json:"choices,omitempty"`
-	Model   *string   `json:"model,omitempty"`
-	Usage   *Usage    `json:"usage,omitempty"`
-}
+// LLMMessageRole defines model for LLMMessage.Role.
+type LLMMessageRole string
 
 // Project defines model for Project.
 type Project struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
+	CreatedAt int64              `json:"created_at"`
+	Id        openapi_types.UUID `json:"id"`
+	Name      string             `json:"name"`
 }
 
-// RegisterProjectRequest defines model for RegisterProjectRequest.
-type RegisterProjectRequest struct {
+// ProjectCreate defines model for ProjectCreate.
+type ProjectCreate struct {
 	Name string `json:"name"`
-}
-
-// RegisterProjectResponse defines model for RegisterProjectResponse.
-type RegisterProjectResponse struct {
-	Id    string `json:"id"`
-	RunId string `json:"run_id"`
 }
 
 // Review defines model for Review.
 type Review struct {
-	Id      string        `json:"id"`
-	Request ReviewRequest `json:"request"`
+	Id        openapi_types.UUID     `json:"id"`
+	RunId     openapi_types.UUID     `json:"run_id"`
+	Status    *ReviewStatus          `json:"status,omitempty"`
+	TaskState map[string]interface{} `json:"task_state"`
 }
 
 // ReviewRequest defines model for ReviewRequest.
 type ReviewRequest struct {
-	AgentId      string       `json:"agent_id"`
-	LastMessages []Message    `json:"last_messages"`
-	TaskState    TaskState    `json:"task_state"`
-	ToolChoices  []ToolChoice `json:"tool_choices"`
+	Id          *openapi_types.UUID    `json:"id,omitempty"`
+	Messages    []LLMMessage           `json:"messages"`
+	RunId       openapi_types.UUID     `json:"run_id"`
+	TaskState   map[string]interface{} `json:"task_state"`
+	ToolChoices []ToolRequest          `json:"tool_choices"`
 }
 
 // ReviewResult defines model for ReviewResult.
 type ReviewResult struct {
-	Decision   Decision   `json:"decision"`
-	Id         string     `json:"id"`
-	Reasoning  string     `json:"reasoning"`
-	ToolChoice ToolChoice `json:"tool_choice"`
+	CreatedAt       int64                `json:"created_at"`
+	Decision        ReviewResultDecision `json:"decision"`
+	Id              openapi_types.UUID   `json:"id"`
+	Reasoning       string               `json:"reasoning"`
+	ReviewRequestId openapi_types.UUID   `json:"review_request_id"`
+	Toolrequest     *ToolRequest         `json:"toolrequest,omitempty"`
 }
 
-// ReviewStatusResponse defines model for ReviewStatusResponse.
-type ReviewStatusResponse struct {
-	Id     string `json:"id"`
-	Status Status `json:"status"`
+// ReviewResultDecision defines model for ReviewResult.Decision.
+type ReviewResultDecision string
+
+// ReviewStatus defines model for ReviewStatus.
+type ReviewStatus struct {
+	CreatedAt int64              `json:"created_at"`
+	Id        openapi_types.UUID `json:"id"`
+	Status    ReviewStatusStatus `json:"status"`
 }
 
-// Status defines model for Status.
-type Status string
+// ReviewStatusStatus defines model for ReviewStatus.Status.
+type ReviewStatusStatus string
 
-// TaskState defines model for TaskState.
-type TaskState struct {
-	Completed  bool                    `json:"completed"`
-	Messages   []Message               `json:"messages"`
-	Metadata   *map[string]interface{} `json:"metadata,omitempty"`
-	Output     Output                  `json:"output"`
-	Store      *map[string]interface{} `json:"store,omitempty"`
-	ToolChoice *ToolChoice             `json:"tool_choice,omitempty"`
-	Tools      []Tool                  `json:"tools"`
+// Run defines model for Run.
+type Run struct {
+	CreatedAt int64              `json:"created_at"`
+	Id        openapi_types.UUID `json:"id"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+}
+
+// Supervisor defines model for Supervisor.
+type Supervisor struct {
+	CreatedAt   int64              `json:"created_at"`
+	Description *string            `json:"description,omitempty"`
+	Id          openapi_types.UUID `json:"id"`
+	Type        SupervisorType     `json:"type"`
+}
+
+// SupervisorType defines model for Supervisor.Type.
+type SupervisorType string
+
+// SupervisorAssignment defines model for SupervisorAssignment.
+type SupervisorAssignment struct {
+	SupervisorId openapi_types.UUID `json:"supervisor_id"`
 }
 
 // Tool defines model for Tool.
 type Tool struct {
-	Attributes  map[string]interface{} `json:"attributes"`
-	Description string                 `json:"description"`
-	Id          *string                `json:"id,omitempty"`
-	Name        string                 `json:"name"`
+	Attributes  *map[string]interface{} `json:"attributes,omitempty"`
+	CreatedAt   *int64                  `json:"created_at,omitempty"`
+	Description string                  `json:"description"`
+	Id          openapi_types.UUID      `json:"id"`
+	Name        string                  `json:"name"`
 }
 
-// ToolCall defines model for ToolCall.
-type ToolCall struct {
-	Arguments  map[string]interface{} `json:"arguments"`
-	Function   string                 `json:"function"`
-	Id         string                 `json:"id"`
-	ParseError *string                `json:"parse_error,omitempty"`
-	Type       string                 `json:"type"`
+// ToolCreate defines model for ToolCreate.
+type ToolCreate struct {
+	Attributes  *map[string]interface{} `json:"attributes,omitempty"`
+	Description string                  `json:"description"`
+	Name        string                  `json:"name"`
 }
 
-// ToolChoice defines model for ToolChoice.
-type ToolChoice struct {
-	Arguments Arguments `json:"arguments"`
-	Function  string    `json:"function"`
-	Id        string    `json:"id"`
-	Type      string    `json:"type"`
+// ToolRequest defines model for ToolRequest.
+type ToolRequest struct {
+	Arguments       map[string]interface{} `json:"arguments"`
+	Id              openapi_types.UUID     `json:"id"`
+	MessageId       *openapi_types.UUID    `json:"message_id,omitempty"`
+	ReviewRequestId openapi_types.UUID     `json:"review_request_id"`
+	ToolId          openapi_types.UUID     `json:"tool_id"`
 }
 
-// Usage defines model for Usage.
-type Usage struct {
-	InputTokens  int `json:"input_tokens"`
-	OutputTokens int `json:"output_tokens"`
-	TotalTokens  int `json:"total_tokens"`
+// ListReviewsParams defines parameters for ListReviews.
+type ListReviewsParams struct {
+	Type *ListReviewsParamsType `form:"type,omitempty" json:"type,omitempty"`
 }
 
-// GetLLMExplanationJSONRequestBody defines body for GetLLMExplanation for application/json ContentType.
-type GetLLMExplanationJSONRequestBody = CodeSnippet
+// ListReviewsParamsType defines parameters for ListReviews.
+type ListReviewsParamsType string
 
-// RegisterProjectJSONRequestBody defines body for RegisterProject for application/json ContentType.
-type RegisterProjectJSONRequestBody = RegisterProjectRequest
+// ListSupervisorsParams defines parameters for ListSupervisors.
+type ListSupervisorsParams struct {
+	Type *ListSupervisorsParamsType `form:"type,omitempty" json:"type,omitempty"`
+}
 
-// RegisterProjectToolJSONRequestBody defines body for RegisterProjectTool for application/json ContentType.
-type RegisterProjectToolJSONRequestBody = Tool
+// ListSupervisorsParamsType defines parameters for ListSupervisors.
+type ListSupervisorsParamsType string
 
-// SubmitReviewHumanJSONRequestBody defines body for SubmitReviewHuman for application/json ContentType.
-type SubmitReviewHumanJSONRequestBody = ReviewRequest
+// CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
+type CreateProjectJSONRequestBody = ProjectCreate
 
-// SubmitReviewLLMJSONRequestBody defines body for SubmitReviewLLM for application/json ContentType.
-type SubmitReviewLLMJSONRequestBody = ReviewRequest
+// CreateReviewJSONRequestBody defines body for CreateReview for application/json ContentType.
+type CreateReviewJSONRequestBody = ReviewRequest
 
-// SetLLMPromptJSONRequestBody defines body for SetLLMPrompt for application/json ContentType.
-type SetLLMPromptJSONRequestBody = LLMPrompt
+// AssignSupervisorJSONRequestBody defines body for AssignSupervisor for application/json ContentType.
+type AssignSupervisorJSONRequestBody = SupervisorAssignment
+
+// CreateToolJSONRequestBody defines body for CreateTool for application/json ContentType.
+type CreateToolJSONRequestBody = ToolCreate
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Get the API documentation
-	// (GET /api/docs)
-	GetSwaggerDocs(w http.ResponseWriter, r *http.Request)
-	// Get an explanation and danger score for a code snippet
-	// (POST /api/explain)
-	GetLLMExplanation(w http.ResponseWriter, r *http.Request)
-	// Get hub statistics
-	// (GET /api/hub/stats)
-	GetHubStats(w http.ResponseWriter, r *http.Request)
-	// Get the OpenAPI schema
-	// (GET /api/openapi.yaml)
-	GetOpenAPI(w http.ResponseWriter, r *http.Request)
-	// Get all projects.
-	// (GET /api/project)
-	GetProjects(w http.ResponseWriter, r *http.Request)
-	// Register a project.
-	// (POST /api/project)
-	RegisterProject(w http.ResponseWriter, r *http.Request)
-	// Get a project by ID
-	// (GET /api/project/{id})
-	GetProjectById(w http.ResponseWriter, r *http.Request, id string)
-	// Get the tools for a project.
-	// (GET /api/project/{id}/tools)
-	GetProjectTools(w http.ResponseWriter, r *http.Request, id string)
-	// Register a tool for a project.
-	// (POST /api/project/{id}/tools)
-	RegisterProjectTool(w http.ResponseWriter, r *http.Request, id string)
-	// Submit a review to a human supervisor
-	// (POST /api/review/human)
-	SubmitReviewHuman(w http.ResponseWriter, r *http.Request)
-	// Get all LLM review results
-	// (GET /api/review/llm)
-	GetLLMReviews(w http.ResponseWriter, r *http.Request)
-	// Submit a review to an LLM supervisor
-	// (POST /api/review/llm)
-	SubmitReviewLLM(w http.ResponseWriter, r *http.Request)
-	// Get the current LLM review prompt
-	// (GET /api/review/llm/prompt)
-	GetLLMPrompt(w http.ResponseWriter, r *http.Request)
-	// Submit a new prompt for LLM reviews
-	// (POST /api/review/llm/prompt)
-	SetLLMPrompt(w http.ResponseWriter, r *http.Request)
+	// List all projects
+	// (GET /api/projects)
+	ListProjects(w http.ResponseWriter, r *http.Request)
+	// Create a new project
+	// (POST /api/projects)
+	CreateProject(w http.ResponseWriter, r *http.Request)
+	// Get project by ID
+	// (GET /api/projects/{projectId})
+	GetProject(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
+	// Create a new run for a project
+	// (POST /api/projects/{projectId}/runs)
+	CreateRun(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
+	// List all reviews
+	// (GET /api/reviews)
+	ListReviews(w http.ResponseWriter, r *http.Request, params ListReviewsParams)
+	// Create a review request
+	// (POST /api/reviews)
+	CreateReview(w http.ResponseWriter, r *http.Request)
+	// Get review by ID
+	// (GET /api/reviews/{reviewId})
+	GetReview(w http.ResponseWriter, r *http.Request, reviewId openapi_types.UUID)
+	// Get review results
+	// (GET /api/reviews/{reviewId}/results)
+	GetReviewResults(w http.ResponseWriter, r *http.Request, reviewId openapi_types.UUID)
 	// Get review status
-	// (GET /api/review/status/{id})
-	GetReviewStatus(w http.ResponseWriter, r *http.Request, id string)
+	// (GET /api/reviews/{reviewId}/status)
+	GetReviewStatus(w http.ResponseWriter, r *http.Request, reviewId openapi_types.UUID)
+	// Get tool requests for a review
+	// (GET /api/reviews/{reviewId}/toolrequests)
+	GetReviewToolRequests(w http.ResponseWriter, r *http.Request, reviewId openapi_types.UUID)
+	// Get run by ID
+	// (GET /api/runs/{runId})
+	GetRun(w http.ResponseWriter, r *http.Request, runId openapi_types.UUID)
+	// Get supervisors assigned to a run
+	// (GET /api/runs/{runId}/supervisors)
+	GetRunSupervisors(w http.ResponseWriter, r *http.Request, runId openapi_types.UUID)
+	// Assign supervisor to run
+	// (POST /api/runs/{runId}/supervisors)
+	AssignSupervisor(w http.ResponseWriter, r *http.Request, runId openapi_types.UUID)
+	// Get tools associated with a run
+	// (GET /api/runs/{runId}/tools)
+	GetRunTools(w http.ResponseWriter, r *http.Request, runId openapi_types.UUID)
+	// List all supervisors
+	// (GET /api/supervisors)
+	ListSupervisors(w http.ResponseWriter, r *http.Request, params ListSupervisorsParams)
+	// Get supervisor by ID
+	// (GET /api/supervisors/{supervisorId})
+	GetSupervisor(w http.ResponseWriter, r *http.Request, supervisorId openapi_types.UUID)
+	// List all tools
+	// (GET /api/tools)
+	ListTools(w http.ResponseWriter, r *http.Request)
+	// Create a new tool
+	// (POST /api/tools)
+	CreateTool(w http.ResponseWriter, r *http.Request)
+	// Get tool by ID
+	// (GET /api/tools/{toolId})
+	GetTool(w http.ResponseWriter, r *http.Request, toolId openapi_types.UUID)
+	// Get projects for a user
+	// (GET /api/users/{userId}/projects)
+	GetUserProjects(w http.ResponseWriter, r *http.Request, userId openapi_types.UUID)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -282,11 +274,11 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
-// GetSwaggerDocs operation middleware
-func (siw *ServerInterfaceWrapper) GetSwaggerDocs(w http.ResponseWriter, r *http.Request) {
+// ListProjects operation middleware
+func (siw *ServerInterfaceWrapper) ListProjects(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetSwaggerDocs(w, r)
+		siw.Handler.ListProjects(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -296,11 +288,11 @@ func (siw *ServerInterfaceWrapper) GetSwaggerDocs(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
-// GetLLMExplanation operation middleware
-func (siw *ServerInterfaceWrapper) GetLLMExplanation(w http.ResponseWriter, r *http.Request) {
+// CreateProject operation middleware
+func (siw *ServerInterfaceWrapper) CreateProject(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetLLMExplanation(w, r)
+		siw.Handler.CreateProject(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -310,78 +302,22 @@ func (siw *ServerInterfaceWrapper) GetLLMExplanation(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
-// GetHubStats operation middleware
-func (siw *ServerInterfaceWrapper) GetHubStats(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetHubStats(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetOpenAPI operation middleware
-func (siw *ServerInterfaceWrapper) GetOpenAPI(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetOpenAPI(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetProjects operation middleware
-func (siw *ServerInterfaceWrapper) GetProjects(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetProjects(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// RegisterProject operation middleware
-func (siw *ServerInterfaceWrapper) RegisterProject(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RegisterProject(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetProjectById operation middleware
-func (siw *ServerInterfaceWrapper) GetProjectById(w http.ResponseWriter, r *http.Request) {
+// GetProject operation middleware
+func (siw *ServerInterfaceWrapper) GetProject(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
-	// ------------- Path parameter "id" -------------
-	var id string
+	// ------------- Path parameter "projectId" -------------
+	var projectId openapi_types.UUID
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", r.PathValue("projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
 		return
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetProjectById(w, r, id)
+		siw.Handler.GetProject(w, r, projectId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -391,22 +327,22 @@ func (siw *ServerInterfaceWrapper) GetProjectById(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
-// GetProjectTools operation middleware
-func (siw *ServerInterfaceWrapper) GetProjectTools(w http.ResponseWriter, r *http.Request) {
+// CreateRun operation middleware
+func (siw *ServerInterfaceWrapper) CreateRun(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
-	// ------------- Path parameter "id" -------------
-	var id string
+	// ------------- Path parameter "projectId" -------------
+	var projectId openapi_types.UUID
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", r.PathValue("projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
 		return
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetProjectTools(w, r, id)
+		siw.Handler.CreateRun(w, r, projectId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -416,22 +352,24 @@ func (siw *ServerInterfaceWrapper) GetProjectTools(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
-// RegisterProjectTool operation middleware
-func (siw *ServerInterfaceWrapper) RegisterProjectTool(w http.ResponseWriter, r *http.Request) {
+// ListReviews operation middleware
+func (siw *ServerInterfaceWrapper) ListReviews(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
-	// ------------- Path parameter "id" -------------
-	var id string
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListReviewsParams
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	// ------------- Optional query parameter "type" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "type", r.URL.Query(), &params.Type)
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
 		return
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RegisterProjectTool(w, r, id)
+		siw.Handler.ListReviews(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -441,11 +379,11 @@ func (siw *ServerInterfaceWrapper) RegisterProjectTool(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
-// SubmitReviewHuman operation middleware
-func (siw *ServerInterfaceWrapper) SubmitReviewHuman(w http.ResponseWriter, r *http.Request) {
+// CreateReview operation middleware
+func (siw *ServerInterfaceWrapper) CreateReview(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.SubmitReviewHuman(w, r)
+		siw.Handler.CreateReview(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -455,11 +393,22 @@ func (siw *ServerInterfaceWrapper) SubmitReviewHuman(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
-// GetLLMReviews operation middleware
-func (siw *ServerInterfaceWrapper) GetLLMReviews(w http.ResponseWriter, r *http.Request) {
+// GetReview operation middleware
+func (siw *ServerInterfaceWrapper) GetReview(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "reviewId" -------------
+	var reviewId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "reviewId", r.PathValue("reviewId"), &reviewId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "reviewId", Err: err})
+		return
+	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetLLMReviews(w, r)
+		siw.Handler.GetReview(w, r, reviewId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -469,39 +418,22 @@ func (siw *ServerInterfaceWrapper) GetLLMReviews(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
-// SubmitReviewLLM operation middleware
-func (siw *ServerInterfaceWrapper) SubmitReviewLLM(w http.ResponseWriter, r *http.Request) {
+// GetReviewResults operation middleware
+func (siw *ServerInterfaceWrapper) GetReviewResults(w http.ResponseWriter, r *http.Request) {
 
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.SubmitReviewLLM(w, r)
-	}))
+	var err error
 
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
+	// ------------- Path parameter "reviewId" -------------
+	var reviewId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "reviewId", r.PathValue("reviewId"), &reviewId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "reviewId", Err: err})
+		return
 	}
 
-	handler.ServeHTTP(w, r)
-}
-
-// GetLLMPrompt operation middleware
-func (siw *ServerInterfaceWrapper) GetLLMPrompt(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetLLMPrompt(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// SetLLMPrompt operation middleware
-func (siw *ServerInterfaceWrapper) SetLLMPrompt(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.SetLLMPrompt(w, r)
+		siw.Handler.GetReviewResults(w, r, reviewId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -516,17 +448,272 @@ func (siw *ServerInterfaceWrapper) GetReviewStatus(w http.ResponseWriter, r *htt
 
 	var err error
 
-	// ------------- Path parameter "id" -------------
-	var id string
+	// ------------- Path parameter "reviewId" -------------
+	var reviewId openapi_types.UUID
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "reviewId", r.PathValue("reviewId"), &reviewId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "reviewId", Err: err})
 		return
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetReviewStatus(w, r, id)
+		siw.Handler.GetReviewStatus(w, r, reviewId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetReviewToolRequests operation middleware
+func (siw *ServerInterfaceWrapper) GetReviewToolRequests(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "reviewId" -------------
+	var reviewId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "reviewId", r.PathValue("reviewId"), &reviewId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "reviewId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetReviewToolRequests(w, r, reviewId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRun operation middleware
+func (siw *ServerInterfaceWrapper) GetRun(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "runId" -------------
+	var runId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", r.PathValue("runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRun(w, r, runId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRunSupervisors operation middleware
+func (siw *ServerInterfaceWrapper) GetRunSupervisors(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "runId" -------------
+	var runId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", r.PathValue("runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRunSupervisors(w, r, runId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AssignSupervisor operation middleware
+func (siw *ServerInterfaceWrapper) AssignSupervisor(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "runId" -------------
+	var runId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", r.PathValue("runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AssignSupervisor(w, r, runId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRunTools operation middleware
+func (siw *ServerInterfaceWrapper) GetRunTools(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "runId" -------------
+	var runId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", r.PathValue("runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRunTools(w, r, runId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListSupervisors operation middleware
+func (siw *ServerInterfaceWrapper) ListSupervisors(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListSupervisorsParams
+
+	// ------------- Optional query parameter "type" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "type", r.URL.Query(), &params.Type)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSupervisors(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSupervisor operation middleware
+func (siw *ServerInterfaceWrapper) GetSupervisor(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "supervisorId" -------------
+	var supervisorId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "supervisorId", r.PathValue("supervisorId"), &supervisorId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "supervisorId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSupervisor(w, r, supervisorId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListTools operation middleware
+func (siw *ServerInterfaceWrapper) ListTools(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListTools(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateTool operation middleware
+func (siw *ServerInterfaceWrapper) CreateTool(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateTool(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTool operation middleware
+func (siw *ServerInterfaceWrapper) GetTool(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "toolId" -------------
+	var toolId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "toolId", r.PathValue("toolId"), &toolId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "toolId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTool(w, r, toolId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetUserProjects operation middleware
+func (siw *ServerInterfaceWrapper) GetUserProjects(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "userId" -------------
+	var userId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", r.PathValue("userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUserProjects(w, r, userId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -656,21 +843,26 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
-	m.HandleFunc("GET "+options.BaseURL+"/api/docs", wrapper.GetSwaggerDocs)
-	m.HandleFunc("POST "+options.BaseURL+"/api/explain", wrapper.GetLLMExplanation)
-	m.HandleFunc("GET "+options.BaseURL+"/api/hub/stats", wrapper.GetHubStats)
-	m.HandleFunc("GET "+options.BaseURL+"/api/openapi.yaml", wrapper.GetOpenAPI)
-	m.HandleFunc("GET "+options.BaseURL+"/api/project", wrapper.GetProjects)
-	m.HandleFunc("POST "+options.BaseURL+"/api/project", wrapper.RegisterProject)
-	m.HandleFunc("GET "+options.BaseURL+"/api/project/{id}", wrapper.GetProjectById)
-	m.HandleFunc("GET "+options.BaseURL+"/api/project/{id}/tools", wrapper.GetProjectTools)
-	m.HandleFunc("POST "+options.BaseURL+"/api/project/{id}/tools", wrapper.RegisterProjectTool)
-	m.HandleFunc("POST "+options.BaseURL+"/api/review/human", wrapper.SubmitReviewHuman)
-	m.HandleFunc("GET "+options.BaseURL+"/api/review/llm", wrapper.GetLLMReviews)
-	m.HandleFunc("POST "+options.BaseURL+"/api/review/llm", wrapper.SubmitReviewLLM)
-	m.HandleFunc("GET "+options.BaseURL+"/api/review/llm/prompt", wrapper.GetLLMPrompt)
-	m.HandleFunc("POST "+options.BaseURL+"/api/review/llm/prompt", wrapper.SetLLMPrompt)
-	m.HandleFunc("GET "+options.BaseURL+"/api/review/status/{id}", wrapper.GetReviewStatus)
+	m.HandleFunc("GET "+options.BaseURL+"/api/projects", wrapper.ListProjects)
+	m.HandleFunc("POST "+options.BaseURL+"/api/projects", wrapper.CreateProject)
+	m.HandleFunc("GET "+options.BaseURL+"/api/projects/{projectId}", wrapper.GetProject)
+	m.HandleFunc("POST "+options.BaseURL+"/api/projects/{projectId}/runs", wrapper.CreateRun)
+	m.HandleFunc("GET "+options.BaseURL+"/api/reviews", wrapper.ListReviews)
+	m.HandleFunc("POST "+options.BaseURL+"/api/reviews", wrapper.CreateReview)
+	m.HandleFunc("GET "+options.BaseURL+"/api/reviews/{reviewId}", wrapper.GetReview)
+	m.HandleFunc("GET "+options.BaseURL+"/api/reviews/{reviewId}/results", wrapper.GetReviewResults)
+	m.HandleFunc("GET "+options.BaseURL+"/api/reviews/{reviewId}/status", wrapper.GetReviewStatus)
+	m.HandleFunc("GET "+options.BaseURL+"/api/reviews/{reviewId}/toolrequests", wrapper.GetReviewToolRequests)
+	m.HandleFunc("GET "+options.BaseURL+"/api/runs/{runId}", wrapper.GetRun)
+	m.HandleFunc("GET "+options.BaseURL+"/api/runs/{runId}/supervisors", wrapper.GetRunSupervisors)
+	m.HandleFunc("POST "+options.BaseURL+"/api/runs/{runId}/supervisors", wrapper.AssignSupervisor)
+	m.HandleFunc("GET "+options.BaseURL+"/api/runs/{runId}/tools", wrapper.GetRunTools)
+	m.HandleFunc("GET "+options.BaseURL+"/api/supervisors", wrapper.ListSupervisors)
+	m.HandleFunc("GET "+options.BaseURL+"/api/supervisors/{supervisorId}", wrapper.GetSupervisor)
+	m.HandleFunc("GET "+options.BaseURL+"/api/tools", wrapper.ListTools)
+	m.HandleFunc("POST "+options.BaseURL+"/api/tools", wrapper.CreateTool)
+	m.HandleFunc("GET "+options.BaseURL+"/api/tools/{toolId}", wrapper.GetTool)
+	m.HandleFunc("GET "+options.BaseURL+"/api/users/{userId}/projects", wrapper.GetUserProjects)
 
 	return m
 }
@@ -678,37 +870,32 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/+xaS2/bPhL/KoR2j4ad/+7/5FvaFNsADhrE7WkRGLQ0dthSpMpHUqPwd1/wIYmSKFpu",
-	"HshhT42l4Tx+8+DMqL+znJcVZ8CUzJa/M5k/QIntn5dir8v6eSV4BUIRsL/ysjD/qEMF2TKTShC2z46z",
-	"LOcFRF4cZ/UTvv0OuTKkl1ISqTBTNyAl3kNECGcKmIoKEpxC9IXkWuTxV4pzuskxpZY7UVDaP/4pYJct",
-	"s38sWiAWHoXFV87pR0xp1lqAhcAHa5KAn5oIKLLlfxtdvWb3EYM/PnCSR8wsW/tTqgzwMsYqXm0EYMlZ",
-	"HPVQxVpOVDdewJqRqgI1VFDBL3WavaWK8b6CnEjiNASmS0OMq0rwRzBwgaWbZSBzTLEyzxSIkjD3d8kL",
-	"sjsEjFt/fhKCizuQFWcygqtUWGl5WnFPF1P9s96uFY4lAJaS7BkUGwGPBJ7cs6IginCG6W0XP8eWMAV7",
-	"EFksGbZaHjY5JXW2DY+YiKCguhJjZIxBbsiS3HYCIE3xU4M+Jcy93BTEILvVyjv5GThIxUVa6jDvevYO",
-	"VB9w7ZnfQ3829G3c0phPYkG0Wt18+lVRzHANUDeUoPtyWNFyLsKCxnS5jSARsqkPjahzK3hZRRK9ap6n",
-	"M8bTJbmP52VQ74a2npezs2RR+6OLZadZPuqKZ906G1K8x2vpi1aVjgRDbq+r6Tr5622gkS3hQKOm6ykX",
-	"3zd328XKxa3g9s+B8iNQM1zC6eAiReZJY3jdwZ5IBcLLvoOfGmREhWmyposZS6cRU4Vm8YCLGeuJ43qY",
-	"yjZdbAtHyqeOa41dXCf/clypUejxHpgaSzeKpdr4sjE9uoOmqx/eCssfG1OQTkbyVyx/rC1hk/ZnJplN",
-	"/JFE64HYgNDRsCe3D0cKbKlpBOsi6O5Smjdd4HE2HjumkTU/xstk00NPRSkWWo3OXa6hBuNArO3Vc3Y+",
-	"tjdbSnPHPK51ok9dN8zrBtv1QNnMKJeDlEaLoGExlpMSuFbRzroN1MjdWbNordxyTgFb175kYpWgcIEV",
-	"Hu8pldAQgYM3V1pKsr/46q7zbCl/GJDu4HkpfzLZG9hr7g0IodNjoWPZDyuocn0uyLNhKUDmglSjPdSz",
-	"rmZL1ZUxC5Uds9A2S0MrwwXHWUYmu8QRCyssJGzADK3xAmcfTLqvG/GzwAbPYRSCkfVDB4TkAqIh/EMA",
-	"XtHAb/FGn7BKq43iP4CNTKAuS5IkiitMExR9/UOZfQE9bkNTDDfCdtwKIsqMG9kamCIMKLq8vc5m2SMI",
-	"d+Fmf80v5hfWigoYrki2zP49v5j/Zco+Vg9W2wWuyKLguf2xd+sdA5EdFK+LbJn9B9T6Ce/3IK4MmbHG",
-	"3W32yL8uLtw1H2R1dnl7jQqeW79YRkiAEgQeoUBS5+bC2WlKXZ2SuiyxODhJSD0AGhy3PcpeGvi+KUKJ",
-	"OmT35qhV3g62xA3OXMYN6M3YTff4gReH3sSHq4qS3NItvvvFmQvxkxNOsCQ7dt1uysQxjtyLiO7ZZ6V3",
-	"XbJa3aBgBTDqkFn29wvq1V3BRdT6gAskgja/GwyYdXTGrEAFZnsQyO4v0I4LhFHOC0DSA5+KlAe9Xch6",
-	"XzcW681O7xXd1ciIIPJZb5FRkkhFcjk9cR4655I4+HIwP+CSpqD4UgFzNeV0ynta5Ew8L9+7Z5OqV+1E",
-	"77XuqmGjhlJUCXgkXEt6QMJPylAgf1rOs9nQWj9JP9vxk7q2ejMxbNyGmUukQnznzfI6RnIleD0PMKwl",
-	"3ZsWw9fHroB6lYBwzWCOrnfWM/43Mn0VKjhIxLhC8ItINUNEoSdCKdoCygVgBcUcXSIGT0hohq6vmrcC",
-	"lBYMiiHsvS3GKxXmkZXMG9fosY1NxOWeJAzdRBpF/Bf1fy+HFr9JcUylvz/54XBtB0UscAkKhOFqWqds",
-	"abuIehe2bNcyLZ6zAJt+W3c/pay0SEysJw0GaHtA11eTgVg0U9cJOL76+emt8HjZujMyLY4WHYuKvWeD",
-	"cjBSxlvaIBCDqpNMfavYa6H68iXF4XiqgDBN6UimGrD6WKVi1X1BWjzoEida3bXelkS5RdRnS/paFbW7",
-	"n33jQhrZs0Vi2NEht+pK1Q2HGjJdiz2hOMLIIo2krkA8EslF4B2LLFq3rwZuorRMlZLV6uYu+Hb42knv",
-	"d/Rn9hpmYvCACLvcHes6IoQtVuZlB6nZhNBdrW7+H7jxwH0381ksaZiNhWjODOJgmDGL9vtyInH8x+ln",
-	"umn6h+3IAqYL0UctBDBlTXeMzpt+8uC8x7KqbTw/i/oYvXwKtfzffsnR+78D8dbZeEBXhRlI3n3ysMbb",
-	"thloY0CekTvuy8/Jfj4sP++xgZ1St+1HxvGS6ZBILrf+fjv/e6XMyLzjmhWRAiBCvQOX+yv7/ng8Hv8X",
-	"AAD//+xeS/KDKQAA",
+	"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",
+	"liCDroHVf/9yOv0XAAD//7smhnfgKgAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

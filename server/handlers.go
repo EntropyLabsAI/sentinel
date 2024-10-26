@@ -7,8 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"regexp"
-	"strings"
 	"sync"
 	"time"
 
@@ -49,7 +47,7 @@ func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request, store Pro
 	ctx := r.Context()
 
 	log.Printf("received new project registration request")
-	var request RegisterProjectRequest
+	var request ProjectCreate
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -57,12 +55,13 @@ func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request, store Pro
 	}
 
 	// Generate a new Project ID
-	id := uuid.New().String()
+	id := uuid.New()
 
 	// Create the Project struct
 	project := Project{
-		Id:   id,
-		Name: request.Name,
+		Id:        id,
+		Name:      request.Name,
+		CreatedAt: time.Now().Unix(),
 	}
 
 	// Store the project in the global projects map
@@ -72,22 +71,79 @@ func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request, store Pro
 		return
 	}
 
-	// Prepare the response
-	response := map[string]string{
-		"id": id,
-	}
-
 	// Send the response
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(response)
+	err = json.NewEncoder(w).Encode(project)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
+// apiCreateRunHandler handles the POST /api/run endpoint
+func apiCreateRunHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store RunStore) {
+	ctx := r.Context()
+
+	log.Printf("received new run request")
+
+	run := Run{
+		Id:        uuid.New(),
+		ProjectId: id,
+		CreatedAt: time.Now().Unix(),
+	}
+
+	err := store.CreateRun(ctx, run)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(run)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// apiCreateToolHandler handles the POST /api/tool endpoint
+func apiCreateToolHandler(w http.ResponseWriter, r *http.Request, store ToolStore) {
+	ctx := r.Context()
+
+	var request ToolCreate
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	t := time.Now().Unix()
+
+	tool := Tool{
+		Id:        uuid.New(),
+		Name:      request.Name,
+		CreatedAt: &t,
+	}
+
+	err = store.CreateTool(ctx, tool)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(tool)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+}
+
 // apiReviewHandler receives review requests via the HTTP API
-func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
+func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request, store Store) {
+	ctx := r.Context()
+
 	var request ReviewRequest
 
 	err := json.NewDecoder(r.Body).Decode(&request)
@@ -96,22 +152,66 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert the request to a Review by adding an ID
-	id := uuid.New().String()
+	id := uuid.New()
 
 	review := Review{
-		Id:      id,
-		Request: request,
+		Id:        id,
+		RunId:     request.RunId,
+		TaskState: request.TaskState,
+		Status: &ReviewStatus{
+			Status:    Pending,
+			CreatedAt: time.Now().Unix(),
+		},
 	}
 
-	// Add the review request to the queue
+	// Handle the review depending on the type of supervisor
+	supervisor, err := store.GetSupervisorFromToolID(ctx, request.ToolChoices[0].Id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	switch supervisor.Type {
+	case SupervisorTypeHuman:
+		if err := processHumanReview(ctx, hub, review, store); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	case SupervisorTypeLlm:
+		// if err := processLLMReview(hub, w, r, store); err != nil {
+		// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+		// 	return
+		// }
+	default:
+		http.Error(w, "Invalid supervisor type", http.StatusBadRequest)
+		return
+	}
+
+	response := ReviewStatus{
+		Id:        id,
+		Status:    Pending,
+		CreatedAt: time.Now().Unix(),
+	}
+
+	// Respond immediately with 200 OK.
+	// The client will receive and ID they can use to poll the status of their review
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func processHumanReview(ctx context.Context, hub *Hub, review Review, store Store) error {
+	// Add the review request to the human review queue
 	hub.ReviewChan <- review
 
 	log.Printf("received new review request ID %s via API.", review.Id)
 
 	// Create a channel for this review request
 	responseChan := make(chan ReviewResult)
-	reviewChannels.Store(id, responseChan)
+	reviewChannels.Store(review.Id, responseChan)
 
 	// Start a goroutine to wait for the response
 	go func() {
@@ -123,9 +223,10 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 			log.Printf("review ID %s completed with decision: %s.", response.Id, response.Decision)
 		case <-time.After(reviewTimeout):
 
-			reviewStatus := ReviewStatusResponse{
-				Status: Timeout,
-				Id:     review.Id,
+			reviewStatus := ReviewStatus{
+				Id:        review.Id,
+				Status:    Timeout,
+				CreatedAt: time.Now().Unix(),
 			}
 
 			// Timeout occurred
@@ -135,15 +236,41 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	response := ReviewStatusResponse{
-		Id:     id,
-		Status: Queued,
+	return nil
+}
+
+// apiGetReviewHandler handles the GET /api/review/{id} endpoint
+func apiGetReviewHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	review, err := store.GetReview(ctx, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	// Respond immediately with 200 OK.
-	// The client will receive and ID they can use to poll the status of their review
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(response)
+	err = json.NewEncoder(w).Encode(review)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// apiGetReviewResultsHandler handles the GET /api/review/{id}/results endpoint
+func apiGetReviewResultsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	results, err := store.GetReviewResults(ctx, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(results)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -220,7 +347,7 @@ func apiLLMExplanationHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func apiReviewLLMHandler(w http.ResponseWriter, r *http.Request) {
+func apiReviewLLMHandler(w http.ResponseWriter, r *http.Request, store Store) {
 	id := uuid.New().String()
 
 	log.Printf("received new LLM review request, ID: %s", id)
@@ -239,19 +366,27 @@ func apiReviewLLMHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	toolChoice := reviewRequest.ToolChoices[0]
+
 	// Call the LLM to evaluate the tool_choice
-	llmReasoning, decision, err := callLLMForReview(r.Context(), reviewRequest.ToolChoices[0])
+	llmReasoning, decision, err := callLLMForReview(r.Context(), toolChoice, store)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error calling LLM: %v", err), http.StatusInternalServerError)
 		return
 	}
 
+	resultID, err := uuid.Parse(id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error parsing UUID: %v", err), http.StatusInternalServerError)
+		return
+	}
+
 	// Prepare the response
 	response := ReviewResult{
-		Id:         id,
-		Decision:   decision,
-		ToolChoice: reviewRequest.ToolChoices[0],
-		Reasoning:  llmReasoning,
+		Id:          resultID,
+		Decision:    decision,
+		Toolrequest: &toolChoice,
+		Reasoning:   llmReasoning,
 	}
 
 	// Store the completed LLM review
@@ -339,73 +474,8 @@ func apiGetProjectsHandler(w http.ResponseWriter, r *http.Request, store Project
 	}
 }
 
-func apiSetLLMPromptHandler(w http.ResponseWriter, r *http.Request) {
-	var request LLMPrompt
-
-	// Decode the request body
-	err := json.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
-		http.Error(w, "api: invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	// Sanitize the prompt.
-	sanitizedPrompt := sanitizePrompt(request.Prompt)
-	if sanitizedPrompt == "" {
-		http.Error(w, "api: invalid prompt", http.StatusBadRequest)
-		return
-	}
-
-	// Update the global prompt
-	llmReviewPrompt = sanitizedPrompt
-
-	response := LLMPromptResponse{
-		Status:  "success",
-		Message: "LLM prompt updated successfully",
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-// Sanitize the prompt to prevent XSS
-func sanitizePrompt(prompt string) string {
-	// Remove any HTML tags
-	cleanPrompt := stripHTMLTags(prompt)
-	// Trim whitespace
-	cleanPrompt = strings.TrimSpace(cleanPrompt)
-	return cleanPrompt
-}
-
-func stripHTMLTags(input string) string {
-	// Simple regex to remove HTML tags
-	re := regexp.MustCompile(`<.*?>`)
-	return re.ReplaceAllString(input, "")
-}
-
-// Add this to your handlers.go file
-
-func apiGetLLMPromptHandler(w http.ResponseWriter, _ *http.Request) {
-	response := struct {
-		Prompt string `json:"prompt"`
-	}{
-		Prompt: llmReviewPrompt,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(response)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
 // apiGetProjectByIdHandler handles the GET /api/project/{id} endpoint
-func apiGetProjectByIdHandler(w http.ResponseWriter, r *http.Request, id string, store ProjectStore) {
+func apiGetProjectByIdHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store ProjectStore) {
 	ctx := r.Context()
 
 	// Retrieve the project from the projects map
@@ -422,11 +492,11 @@ func apiGetProjectByIdHandler(w http.ResponseWriter, r *http.Request, id string,
 	}
 }
 
-func apiGetProjectToolsHandler(w http.ResponseWriter, r *http.Request, id string, store Store) {
+func apiGetProjectToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
 	ctx := r.Context()
 
 	// Check if the project exists
-	if _, err := store.GetProject(context.Background(), id); err != nil {
+	if _, err := store.GetProject(ctx, id); err != nil {
 		http.Error(w, "Project not found", http.StatusNotFound)
 		return
 	}
@@ -447,7 +517,7 @@ func apiGetProjectToolsHandler(w http.ResponseWriter, r *http.Request, id string
 	}
 }
 
-func apiRegisterProjectToolHandler(w http.ResponseWriter, r *http.Request, id string, store Store) {
+func apiRegisterProjectToolHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
 	ctx := r.Context()
 
 	var request struct {
@@ -466,4 +536,8 @@ func apiRegisterProjectToolHandler(w http.ResponseWriter, r *http.Request, id st
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func apiAssignSupervisorHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
+	return
 }
