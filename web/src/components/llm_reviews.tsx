@@ -5,7 +5,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { Review, ReviewResult } from '@/types';
+import { SupervisionResult, SupervisionRequest } from '@/types';
 
 interface ReviewListProps {
   API_BASE_URL: string;
@@ -13,14 +13,14 @@ interface ReviewListProps {
 
 export default function ReviewList({ API_BASE_URL }: ReviewListProps) {
   const [llmPrompt, setLLMPrompt] = useState('');
-  const [llmReviewDataList, setLLMReviewDataList] = useState<ReviewResult[]>([]);
+  const [llmReviewDataList, setLLMReviewDataList] = useState<SupervisionResult[]>([]);
 
   // Fetch LLM reviews and current prompt on component mount
   useEffect(() => {
     const fetchLLMReviews = async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/api/review/llm/list`);
-        const data: ReviewResult[] = await response.json();
+        const data: SupervisionResult[] = await response.json();
         setLLMReviewDataList(data);
       } catch (error) {
         console.error('Error fetching LLM reviews:', error);
@@ -112,7 +112,7 @@ export default function ReviewList({ API_BASE_URL }: ReviewListProps) {
                     {review.decision.charAt(0).toUpperCase() + review.decision.slice(1)}
                   </span>
                   <span className="text-sm font-mono text-gray-900 truncate">
-                    {review.tool_choice.arguments.cmd}
+                    {review.toolrequest?.id?.slice(0, 8)}
                   </span>
                   <span className="text-sm text-gray-500 justify-self-end">ID: {review.id.slice(0, 8)}</span>
                 </div>
@@ -123,7 +123,7 @@ export default function ReviewList({ API_BASE_URL }: ReviewListProps) {
                 <div className="bg-gray-100 p-4 rounded-md">
                   <h3 className="text-md font-semibold mb-2">Command:</h3>
                   <code className="text-sm bg-gray-200 px-2 py-1 rounded">
-                    {review.tool_choice.arguments.cmd}
+                    {JSON.stringify(review.toolrequest?.arguments, null, 2)}
                   </code>
                 </div>
               </AccordionContent>

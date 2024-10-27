@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { MessageSquare, Info, Hammer, Text, Code, Check, X, SkullIcon } from "lucide-react"
-import { Message, Output, TaskState, ReviewRequest, Tool, ToolChoice, Decision, Review } from "@/types"
+import { LLMMessage, SupervisionRequestTaskState, SupervisionRequest, Tool, ToolRequest, Decision } from "@/types"
 import ToolChoiceDisplay from "./tool_call"
 import React, { useState, useEffect, useRef } from "react"
 import { Button } from "./ui/button"
@@ -10,8 +10,8 @@ import CopyButton from "./copy_button"
 import { MessagesDisplay } from "./messages"
 
 interface ReviewRequestProps {
-  reviewRequest: Review;
-  sendResponse: (decision: Decision, toolChoice: ToolChoice) => void;
+  reviewRequest: SupervisionRequest;
+  sendResponse: (decision: Decision, toolChoice: ToolRequest) => void;
 }
 
 export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: ReviewRequestProps) {
@@ -23,8 +23,8 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
     setSelectedToolIndex(0); // Initialize the first tool as selected
   }, [reviewRequest]);
 
-  function handleToolChoiceChange(updatedToolChoice: ToolChoice, index: number) {
-    const updatedToolChoices = [...(updatedReviewRequest.request.tool_choices || [])];
+  function handleToolChoiceChange(updatedToolChoice: ToolRequest, index: number) {
+    const updatedToolChoices = [...(updatedReviewRequest.tool_requests || [])];
     updatedToolChoices[index] = updatedToolChoice;
 
     const updatedReview = {
@@ -36,7 +36,7 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
   }
 
   function handleSendResponse(decision: Decision) {
-    const selectedToolChoice = updatedReviewRequest.request.tool_choices[selectedToolIndex];
+    const selectedToolChoice = updatedReviewRequest.tool_requests[selectedToolIndex];
     sendResponse(decision, selectedToolChoice);
   }
 
@@ -45,7 +45,7 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
       {/* Action Buttons */}
       <div className="w-full flex-shrink-0">
         <h2 className="text-2xl mb-4">
-          Agent #<code>{updatedReviewRequest.request.agent_id}</code> is requesting approval
+          Agent #<code>{updatedReviewRequest.run_id.slice(0, 8)}</code> is requesting approval
         </h2>
         <div className="my-4 flex flex-wrap gap-2">
           <Button
@@ -76,13 +76,13 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
 
         {/* Tool Choices */}
         <div className="space-y-4">
-          {updatedReviewRequest.request.tool_choices &&
-            updatedReviewRequest.request.last_messages &&
-            updatedReviewRequest.request.tool_choices.map((toolChoice, index) => (
+          {updatedReviewRequest.tool_requests &&
+            updatedReviewRequest.messages &&
+            updatedReviewRequest.tool_requests.map((toolChoice, index) => (
               <ToolChoiceDisplay
                 key={index}
                 toolChoice={toolChoice}
-                lastMessage={updatedReviewRequest.request.last_messages[index]}
+                lastMessage={updatedReviewRequest.messages[index]}
                 onToolChoiceChange={(updatedToolChoice) => handleToolChoiceChange(updatedToolChoice, index)}
                 isSelected={selectedToolIndex === index}
                 onSelect={() => setSelectedToolIndex(index)}
@@ -94,8 +94,8 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
 
       {/* Context Display */}
       <div className="w-full flex-grow overflow-auto">
-        <ContextDisplay context={updatedReviewRequest.request.task_state} />
-        <JsonDisplay reviewRequest={updatedReviewRequest.request} />
+        <ContextDisplay context={updatedReviewRequest.task_state} />
+        <JsonDisplay reviewRequest={updatedReviewRequest} />
       </div>
     </div>
   )

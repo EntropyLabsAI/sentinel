@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Review, ReviewResult, Decision, ToolChoice } from '@/types';
+import { SupervisionResult, ToolRequest, Decision, SupervisionRequest } from '@/types';
 import ReviewRequestDisplay from '@/components/review_request';
 import { HubStatsAccordion } from './hub_stats';
 
@@ -14,7 +14,7 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({
   WEBSOCKET_BASE_URL,
   setIsSocketConnected,
 }) => {
-  const [humanReviewDataList, setHumanReviewDataList] = useState<Review[]>([]);
+  const [humanReviewDataList, setHumanReviewDataList] = useState<SupervisionRequest[]>([]);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [socket, setSocket] = useState<WebSocket | null>(null);
 
@@ -29,19 +29,21 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({
     };
 
     ws.onmessage = (event) => {
-      const data: Review = JSON.parse(event.data);
+      const data: SupervisionRequest = JSON.parse(event.data);
+
+      if (!data.id) {
+        console.error('Received a message with no ID');
+        return;
+      }
 
       // Use functional update to ensure we have the latest state
       setHumanReviewDataList((prevList) => {
         const newList = [...prevList, data];
-        if (newList.length > 10) {
-          newList.shift(); // Remove the oldest item
-        }
         return newList;
       });
 
-      // If no review is selected, automatically select the first one
-      setSelectedRequestId((prevSelectedId) => prevSelectedId || data.id);
+      // If no review is selected, automatically select the first one in the list
+      setSelectedRequestId(humanReviewDataList[0]?.id || null);
     };
 
     ws.onclose = () => {
@@ -62,44 +64,38 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({
   }, [WEBSOCKET_BASE_URL, setIsSocketConnected]);
 
   // toolChoiceModified is a helper function to check if the tool choice has been modified
-  const toolChoiceModified = (allToolChoices: ToolChoice[], toolChoice: ToolChoice) => {
+  const toolChoiceModified = (allToolChoices: ToolRequest[], toolChoice: ToolRequest) => {
     const originalToolChoice = allToolChoices.find(t => t.id === toolChoice.id);
     const modified = originalToolChoice && originalToolChoice.arguments !== toolChoice.arguments;
     return modified;
   };
 
-  // Send a response to the Approvals API with the decision and the tool choice
-  const sendResponse = (decision: Decision, requestId: string, toolChoice: ToolChoice) => {
+  // Send a response to the API with the decision and the tool choice
+  const sendResponse = (decision: Decision, requestId: string, toolChoice: ToolRequest) => {
     const selectedReviewRequest = humanReviewDataList.find(
       (req) => req.id === requestId
     );
 
     // Check if the tool args of the tool the user chose is not the same was it was originally
-    if (selectedReviewRequest && toolChoiceModified(selectedReviewRequest.request.tool_choices, toolChoice)) {
+    if (selectedReviewRequest && toolChoiceModified(selectedReviewRequest.tool_requests, toolChoice)) {
       decision = Decision.modify;
     }
 
     if (socket && socket.readyState === WebSocket.OPEN) {
-      const response: ReviewResult = {
+      const response: SupervisionResult = {
         id: requestId,
         decision: decision,
         reasoning: "Human decided via interface",
-        tool_choice: toolChoice
+        toolrequest: toolChoice,
+        created_at: new Date().toISOString(),
+        supervision_request_id: requestId,
       };
       socket.send(JSON.stringify(response));
 
       // Remove the handled review request from the list
-      setHumanReviewDataList((prevList) => {
-        const newList = prevList.filter((req) => req.id !== requestId);
-        setSelectedRequestId((prevSelectedId) => {
-          if (prevSelectedId === requestId) {
-            return newList.length > 0 ? newList[0].id : null;
-          } else {
-            return prevSelectedId;
-          }
-        });
-        return newList;
-      });
+      setHumanReviewDataList((prevList) => prevList.filter((req) => req.id !== requestId));
+      // If the selected review request was the one that was handled, select the first one in the list
+      setSelectedRequestId(humanReviewDataList[0]?.id || null);
     }
   };
 
@@ -130,12 +126,12 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-100 text-gray-800'
                     }`}
-                  onClick={() => selectReviewRequest(req.id)}
+                  onClick={() => selectReviewRequest(req.id || '')}
                 >
-                  <div className="font-semibold">Agent #{req.request.agent_id}</div>
-                  <div className="text-sm">Request ID: {req.id.slice(0, 8)}</div>
-                  {req.request.tool_choices && (
-                    <div className="text-xs italic mt-1">Tool: {req.request.tool_choices[0].function}</div>
+                  <div className="font-semibold">Agent #{req.run_id}</div>
+                  <div className="text-sm">Request ID: {req.id?.slice(0, 8)}</div>
+                  {req.tool_requests && (
+                    <div className="text-xs italic mt-1">Tool: {req.tool_requests[0].id}</div>
                   )}
                 </li>
               ))}
@@ -154,8 +150,8 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({
               <div id="content" className="space-y-6">
                 <ReviewRequestDisplay
                   reviewRequest={selectedReviewRequest}
-                  sendResponse={(decision: Decision, toolChoice: ToolChoice) =>
-                    sendResponse(decision, selectedReviewRequest.id, toolChoice)
+                  sendResponse={(decision: Decision, toolChoice: ToolRequest) =>
+                    sendResponse(decision, selectedReviewRequest.id || '', toolChoice)
                   }
                 />
               </div>
