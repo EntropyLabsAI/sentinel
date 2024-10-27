@@ -1,8 +1,9 @@
 import ast
 import shlex
-from typing import List, Dict, Optional, Tuple, Set
+from typing import List, Dict, Optional, Tuple, Set, Literal
 from inspect_ai.solver import TaskState
 from inspect_ai.tool import ToolCall
+from inspect_ai.approval import Approval
 from entropy_labs.supervision.config import SupervisionDecision, SupervisionDecisionType
 from entropy_labs.api._supervision import get_human_supervision_decision_api
 from rich.console import Console
@@ -244,3 +245,29 @@ async def human_supervisor_wrapper(task_state: TaskState, call: ToolCall, backen
 
 
 
+def _transform_entropy_labs_approval_to_inspect_ai_approval(approval_decision: SupervisionDecision) -> Approval:
+    """
+    Transform an EntropyLabs SupervisionDecision to an InspectAI Approval
+    """
+    # Map the decision types
+    decision_mapping: dict[str, Literal['approve', 'modify', 'reject', 'terminate', 'escalate']] = {
+        "approve": "approve",
+        "reject": "reject",
+        "escalate": "escalate",
+        "terminate": "terminate",
+        "modify": "modify"
+    }
+
+    inspect_ai_decision = decision_mapping[approval_decision.decision]
+
+    # Handle the 'modified' field
+    modified = None
+    if inspect_ai_decision == "modify" and approval_decision.modified is not None:
+        # Create ToolCall instance directly from the modified data
+        modified = ToolCall(**approval_decision.modified)
+
+    return Approval(
+        decision=inspect_ai_decision,
+        modified=modified,
+        explanation=approval_decision.explanation
+    )
