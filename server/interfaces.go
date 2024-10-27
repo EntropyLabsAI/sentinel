@@ -9,12 +9,18 @@ import (
 // Store defines the interface for all storage operations
 type Store interface {
 	ProjectStore
-	ReviewStore
+	ReviewRequestStore
 	ProjectToolStore
 	ToolStore
 	SupervisorStore
 	RunStore
 	ReviewResultsStore
+	ReviewStatusStore
+}
+
+type ReviewStatusStore interface {
+	CreateReviewStatus(ctx context.Context, requestID uuid.UUID, status ReviewStatus) error
+	CountReviewRequests(ctx context.Context, status ReviewStatusStatus) (int, error)
 }
 
 type ProjectStore interface {
@@ -24,19 +30,17 @@ type ProjectStore interface {
 	GetProjectRuns(ctx context.Context, id uuid.UUID) ([]Run, error)
 }
 
-type ReviewStore interface {
+type ReviewRequestStore interface {
 	CreateReviewRequest(ctx context.Context, request ReviewRequest) (uuid.UUID, error)
-	GetReview(ctx context.Context, id uuid.UUID) (*Review, error)
-	UpdateReview(ctx context.Context, review Review) error
-	DeleteReview(ctx context.Context, id uuid.UUID) error
-	GetReviews(ctx context.Context) ([]Review, error)
-	CountReviews(ctx context.Context) (int, error)
-	GetReviewToolRequests(ctx context.Context, id uuid.UUID) ([]ToolRequest, error)
-	AssignSupervisorToTool(ctx context.Context, supervisorID uuid.UUID, toolID uuid.UUID) error
+	GetReviewRequest(ctx context.Context, id uuid.UUID) (*ReviewRequest, error)
+	GetReviewRequests(ctx context.Context) ([]ReviewRequest, error)
+	UpdateReviewRequest(ctx context.Context, reviewRequest ReviewRequest) error
+	GetPendingReviewRequests(ctx context.Context) ([]ReviewRequest, error)
 }
 
 type ReviewResultsStore interface {
 	GetReviewResults(ctx context.Context, id uuid.UUID) ([]*ReviewResult, error)
+	CreateReviewResult(ctx context.Context, result ReviewResult) error
 }
 
 type ProjectToolStore interface {
@@ -49,6 +53,7 @@ type ToolStore interface {
 	GetTools(ctx context.Context) ([]Tool, error)
 	GetRunTools(ctx context.Context, id uuid.UUID) ([]Tool, error)
 	CreateRunTool(ctx context.Context, runId uuid.UUID, tool Tool) (uuid.UUID, error)
+	GetReviewToolRequests(ctx context.Context, id uuid.UUID) ([]ToolRequest, error)
 }
 
 type SupervisorStore interface {
@@ -56,6 +61,7 @@ type SupervisorStore interface {
 	GetSupervisor(ctx context.Context, id uuid.UUID) (*Supervisor, error)
 	GetSupervisors(ctx context.Context) ([]Supervisor, error)
 	CreateSupervisor(ctx context.Context, supervisor Supervisor) (uuid.UUID, error)
+	AssignSupervisorToTool(ctx context.Context, supervisorID uuid.UUID, toolID uuid.UUID) error
 }
 
 type RunStore interface {

@@ -1,6 +1,7 @@
 package sentinel
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -15,8 +16,10 @@ type Server struct {
 }
 
 func InitAPI(store Store) {
+	humanReviewChan := make(chan ReviewRequest, 100)
+
 	// Initialize the WebSocket hub
-	hub := NewHub(store)
+	hub := NewHub(store, humanReviewChan)
 	go hub.Run()
 
 	// Create an instance of your ServerInterface implementation
@@ -24,6 +27,10 @@ func InitAPI(store Store) {
 		Hub:   hub,
 		Store: store,
 	}
+
+	// Start the processor which will pick up reviews from the DB and send them to the humanReviewChan
+	processor := NewProcessor(store, humanReviewChan)
+	go processor.Start(context.Background())
 
 	// Generate the API handler using the generated code
 	apiHandler := Handler(server)
@@ -62,16 +69,16 @@ func (s Server) GetOpenAPI(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "openapi.yaml")
 }
 
-func (s Server) CreateReview(w http.ResponseWriter, r *http.Request) {
-	apiReviewHandler(s.Hub, w, r, s.Store)
+func (s Server) CreateReviewRequest(w http.ResponseWriter, r *http.Request) {
+	apiCreateReviewRequestHandler(w, r, s.Store)
 }
 
-func (s Server) GetReview(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiGetReviewHandler(w, r, id, s.Store)
+func (s Server) GetReviewRequest(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetReviewRequestHandler(w, r, id, s.Store)
 }
 
-func (s Server) GetReviews(w http.ResponseWriter, r *http.Request, params GetReviewsParams) {
-	apiGetReviewsHandler(w, r, params, s.Store)
+func (s Server) GetReviewRequests(w http.ResponseWriter, r *http.Request, params GetReviewRequestsParams) {
+	apiGetReviewRequestsHandler(w, r, params, s.Store)
 }
 
 func (s Server) CreateRun(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
