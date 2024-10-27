@@ -94,26 +94,26 @@ paths:
 
   /api/reviews:
     post:
-      summary: Create a review request
-      operationId: CreateReviewRequest
+      summary: Create a supervisor request
+      operationId: CreateSupervisionRequest
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ReviewRequest"
+              $ref: "#/components/schemas/SupervisionRequest"
       responses:
         "200":
-          description: Review created successfully
+          description: Supervisor created successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReviewStatus"
+                $ref: "#/components/schemas/SupervisionStatus"
       tags:
         - Reviews
     get:
-      summary: List all review requests
-      operationId: GetReviewRequests
+      summary: List all supervisor requests
+      operationId: GetSupervisionRequests
       parameters:
         - name: type
           in: query
@@ -121,20 +121,20 @@ paths:
             $ref: "#/components/schemas/SupervisorType"
       responses:
         "200":
-          description: List of review requests
+          description: List of supervisor requests
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/ReviewRequest"
+                  $ref: "#/components/schemas/SupervisionRequest"
       tags:
         - Reviews
 
   /api/reviews/{reviewId}/status:
     get:
-      summary: Get review status
-      operationId: GetReviewStatus
+      summary: Get supervisor status
+      operationId: GetSupervisionStatus
       parameters:
         - name: reviewId
           in: path
@@ -144,13 +144,13 @@ paths:
             format: uuid
       responses:
         "200":
-          description: Review status
+          description: Supervisor status
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReviewStatus"
+                $ref: "#/components/schemas/SupervisionStatus"
         "404":
-          description: Review not found
+          description: Supervisor not found
       tags:
         - Reviews
 
@@ -243,6 +243,57 @@ paths:
       tags:
         - Tools
         - Supervisors
+
+  /api/runs/{runId}/executions:
+    get:
+      summary: Get executions for a run
+      operationId: GetRunExecutions
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of executions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Execution"
+      tags:
+        - Runs
+        - Executions
+    post:
+      summary: Create an execution
+      operationId: CreateExecution
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: string
+              format: uuid
+      responses:
+        "200":
+          description: Execution created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Execution"
+      tags:
+        - Runs
+        - Executions
 
   /api/tools/{toolId}:
     get:
@@ -405,8 +456,8 @@ paths:
 
   /api/reviews/{reviewId}:
     get:
-      summary: Get review request by ID
-      operationId: GetReviewRequest
+      summary: Get supervisor request by ID
+      operationId: GetSupervisionRequest
       parameters:
         - name: reviewId
           in: path
@@ -416,20 +467,20 @@ paths:
             format: uuid
       responses:
         "200":
-          description: Review details
+          description: Supervisor details
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReviewRequest"
+                $ref: "#/components/schemas/SupervisionRequest"
         "404":
-          description: Review not found
+          description: Supervisor not found
       tags:
         - Reviews
 
   /api/reviews/{reviewId}/results:
     get:
-      summary: Get review results
-      operationId: GetReviewResults
+      summary: Get supervisor results
+      operationId: GetSupervisionResults
       parameters:
         - name: reviewId
           in: path
@@ -439,20 +490,20 @@ paths:
             format: uuid
       responses:
         "200":
-          description: Review results
+          description: Supervisor results
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/ReviewResult"
+                  $ref: "#/components/schemas/SupervisionResult"
         "404":
-          description: Review not found
+          description: Supervisor not found
       tags:
         - Reviews
     post:
-      summary: Create a review result
-      operationId: CreateReviewResult
+      summary: Create a supervisor result
+      operationId: CreateSupervisionResult
       parameters:
         - name: reviewId
           in: path
@@ -465,16 +516,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateReviewResult"
+              $ref: "#/components/schemas/CreateSupervisionResult"
       responses:
         "200":
-          description: Review result created successfully
+          description: Supervisor result created successfully
       tags:
         - Reviews
 
   /api/reviews/{reviewId}/toolrequests:
     get:
-      summary: Get tool requests for a review
+      summary: Get tool requests for a supervisor
       operationId: GetReviewToolRequests
       parameters:
         - name: reviewId
@@ -485,7 +536,7 @@ paths:
             format: uuid
       responses:
         "200":
-          description: Tool requests for the review
+          description: Tool requests for the supervisor
           content:
             application/json:
               schema:
@@ -493,7 +544,7 @@ paths:
                 items:
                   $ref: "#/components/schemas/ToolRequest"
         "404":
-          description: Review not found
+          description: Supervisor not found
       tags:
         - Reviews
         - Tools
@@ -634,10 +685,13 @@ components:
         - name
         - description
 
-    ReviewRequest:
+    SupervisionRequest:
       type: object
       properties:
         id:
+          type: string
+          format: uuid
+        execution_id:
           type: string
           format: uuid
         run_id:
@@ -655,41 +709,22 @@ components:
           items:
             $ref: "#/components/schemas/LLMMessage"
         status:
-          $ref: "#/components/schemas/ReviewStatus"
+          $ref: "#/components/schemas/SupervisionStatus"
       required:
         - run_id
+        - execution_id
         - task_state
         - tool_requests
         - messages
 
-    Review:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        run_id:
-          type: string
-          format: uuid
-        task_state:
-          type: object
-          additionalProperties: true
-        status:
-          $ref: "#/components/schemas/ReviewStatus"
-      required:
-        - id
-        - run_id
-        - task_state
-
-    ReviewStatus:
+    SupervisionStatus:
       type: object
       properties:
         id:
           type: string
           format: uuid
         status:
-          type: string
-          enum: [pending, completed, assigned]
+          $ref: "#/components/schemas/Status"
         created_at:
           type: string
           format: date-time
@@ -698,13 +733,13 @@ components:
         - status
         - created_at
 
-    ReviewResult:
+    SupervisionResult:
       type: object
       properties:
         id:
           type: string
           format: uuid
-        review_request_id:
+        supervision_request_id:
           type: string
           format: uuid
         created_at:
@@ -719,7 +754,7 @@ components:
           type: string
       required:
         - id
-        - review_request_id
+        - supervision_request_id
         - created_at
         - decision
         - reasoning
@@ -749,7 +784,7 @@ components:
         tool_id:
           type: string
           format: uuid
-        review_request_id:
+        supervision_request_id:
           type: string
           format: uuid
         message_id:
@@ -829,9 +864,12 @@ components:
         explanation:
           type: string
 
-    CreateReviewResult:
+    CreateSupervisionResult:
       type: object
       properties:
+        execution_id:
+          type: string
+          format: uuid
         run_id:
           type: string
           format: uuid
@@ -841,13 +879,38 @@ components:
         supervisor_id:
           type: string
           format: uuid
-        review_result:
-          $ref: "#/components/schemas/ReviewResult"
+        supervision_result:
+          $ref: "#/components/schemas/SupervisionResult"
         tool_request:
           $ref: "#/components/schemas/ToolRequest"
       required:
         - run_id
+        - execution_id
         - tool_id
         - supervisor_id
-        - review_result
+        - supervision_result
         - tool_request
+
+    Execution:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        run_id:
+          type: string
+          format: uuid
+        tool_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        status:
+          $ref: "#/components/schemas/Status"
+      required:
+        - id
+
+    Status:
+      type: string
+      enum: [pending, completed, failed, assigned]

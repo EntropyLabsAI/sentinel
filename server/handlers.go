@@ -349,13 +349,13 @@ func apiGetRunToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID,
 	}
 }
 
-// apiCreateReviewRequestHandler receives review requests via the HTTP API
-func apiCreateReviewRequestHandler(w http.ResponseWriter, r *http.Request, store Store) {
+// apiCreateSupervisionRequestHandler receives supervisor requests via the HTTP API
+func apiCreateSupervisionRequestHandler(w http.ResponseWriter, r *http.Request, store Store) {
 	ctx := r.Context()
 
 	t := time.Now()
 
-	var request ReviewRequest
+	var request SupervisionRequest
 
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
@@ -382,24 +382,24 @@ func apiCreateReviewRequestHandler(w http.ResponseWriter, r *http.Request, store
 		}
 	}
 
-	// Store the review in the database
-	reviewID, err := store.CreateReviewRequest(ctx, request)
+	// Store the supervisor in the database
+	reviewID, err := store.CreateSupervisionRequest(ctx, request)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// review := Review{
+	// supervisor := Supervisor{
 	// 	Id:        reviewID,
 	// 	RunId:     request.RunId,
 	// 	TaskState: request.TaskState,
-	// 	Status: &ReviewStatus{
+	// 	Status: &SupervisorStatus{
 	// 		Status:    Pending,
 	// 		CreatedAt: t,
 	// 	},
 	// }
 
-	// // Handle the review depending on the type of supervisor
+	// // Handle the supervisor depending on the type of supervisor
 	// supervisor, err := store.GetSupervisorFromToolID(ctx, toolID)
 	// if err != nil {
 	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -413,7 +413,7 @@ func apiCreateReviewRequestHandler(w http.ResponseWriter, r *http.Request, store
 
 	// switch supervisor.Type {
 	// case Human:
-	// 	if err := processHumanReview(ctx, hub, review, store); err != nil {
+	// 	if err := processHumanReview(ctx, hub, supervisor, store); err != nil {
 	// 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	// 		return
 	// 	}
@@ -429,14 +429,14 @@ func apiCreateReviewRequestHandler(w http.ResponseWriter, r *http.Request, store
 	// 	return
 	// }
 
-	response := ReviewStatus{
+	response := SupervisionStatus{
 		Id:        reviewID,
 		Status:    Pending,
 		CreatedAt: t,
 	}
 
 	// Respond immediately with 200 OK.
-	// The client will receive and ID they can use to poll the status of their review
+	// The client will receive and ID they can use to poll the status of their supervisor
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
@@ -445,35 +445,96 @@ func apiCreateReviewRequestHandler(w http.ResponseWriter, r *http.Request, store
 	}
 }
 
-// apiGetReviewRequestHandler handles the GET /api/review/{id} endpoint
-func apiGetReviewRequestHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
+func apiGetExecutionHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
 	ctx := r.Context()
 
-	review, err := store.GetReviewRequest(ctx, id)
+	execution, err := store.GetExecution(ctx, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if review == nil {
-		http.Error(w, "Review not found", http.StatusNotFound)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(review)
+	err = json.NewEncoder(w).Encode(execution)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
-// apiGetReviewRequestsHandler handles the GET /api/review endpoint
-func apiGetReviewRequestsHandler(w http.ResponseWriter, r *http.Request, _ GetReviewRequestsParams, store Store) {
+func apiGetRunExecutionsHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
 	ctx := r.Context()
 
-	reviews, err := store.GetReviewRequests(ctx)
+	executions, err := store.GetRunExecutions(ctx, runId)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(executions)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func apiCreateExecutionHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	var request struct {
+		ToolId uuid.UUID `json:"toolId"`
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	executionId, err := store.CreateExecution(ctx, runId, request.ToolId)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(executionId)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// apiGetSupervisionRequestHandler handles the GET /api/supervisor/{id} endpoint
+func apiGetSupervisionRequestHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	supervisor, err := store.GetSupervisionRequest(ctx, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if supervisor == nil {
+		http.Error(w, "Supervisor not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(supervisor)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// apiGetSupervisorRequestsHandler handles the GET /api/supervisor endpoint
+func apiGetSupervisionRequestsHandler(w http.ResponseWriter, r *http.Request, _ GetSupervisionRequestsParams, store Store) {
+	ctx := r.Context()
+
+	reviews, err := store.GetSupervisionRequests(ctx)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -488,23 +549,23 @@ func apiGetReviewRequestsHandler(w http.ResponseWriter, r *http.Request, _ GetRe
 	}
 }
 
-// apiGetReviewResultsHandler handles the GET /api/review/{id}/results endpoint
-func apiGetReviewResultsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
+// apiGetSupervisionResultsHandler handles the GET /api/supervisor/{id}/results endpoint
+func apiGetSupervisionResultsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
 	ctx := r.Context()
 
-	// First check if review exists
-	review, err := store.GetReviewRequest(ctx, id)
+	// First check if supervisor exists
+	supervisor, err := store.GetSupervisionRequest(ctx, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if review == nil {
-		http.Error(w, "Review not found", http.StatusNotFound)
+	if supervisor == nil {
+		http.Error(w, "Supervisor not found", http.StatusNotFound)
 		return
 	}
 
-	results, err := store.GetReviewResults(ctx, id)
+	results, err := store.GetSupervisionResults(ctx, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -519,11 +580,11 @@ func apiGetReviewResultsHandler(w http.ResponseWriter, r *http.Request, id uuid.
 	}
 }
 
-// apiCreateReviewResultHandler handles the POST /api/review/{id}/results endpoint
-func apiCreateReviewResultHandler(w http.ResponseWriter, r *http.Request, reviewRequestId uuid.UUID, store Store) {
+// apiCreateSupervisionResultHandler handles the POST /api/supervisor/{id}/results endpoint
+func apiCreateSupervisionResultHandler(w http.ResponseWriter, r *http.Request, _ uuid.UUID, store Store) {
 	ctx := r.Context()
 
-	var request CreateReviewResult
+	var request CreateSupervisionResult
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -556,7 +617,7 @@ func apiCreateReviewResultHandler(w http.ResponseWriter, r *http.Request, review
 		return
 	}
 
-	err = store.CreateReviewResult(ctx, request.ReviewResult)
+	err = store.CreateSupervisionResult(ctx, request.SupervisionResult)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -565,43 +626,43 @@ func apiCreateReviewResultHandler(w http.ResponseWriter, r *http.Request, review
 	w.WriteHeader(http.StatusOK)
 }
 
-// apiReviewStatusHandler checks the status of a review request
-func apiReviewStatusHandler(w http.ResponseWriter, r *http.Request, reviewID uuid.UUID, store Store) {
+// apiSupervisionStatusHandler checks the status of a supervisor request
+func apiSupervisionStatusHandler(w http.ResponseWriter, r *http.Request, reviewID uuid.UUID, store Store) {
 	ctx := r.Context()
 	// Use the reviewID directly
-	review, err := store.GetReviewRequest(ctx, reviewID)
+	supervisor, err := store.GetSupervisionRequest(ctx, reviewID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if review == nil {
-		http.Error(w, "Review not found", http.StatusNotFound)
+	if supervisor == nil {
+		http.Error(w, "Supervisor not found", http.StatusNotFound)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(review.Status)
+	err = json.NewEncoder(w).Encode(supervisor.Status)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
-// apiGetReviewToolRequestsHandler handles the GET /api/review/{id}/toolrequests endpoint
+// apiGetReviewToolRequestsHandler handles the GET /api/supervisor/{id}/toolrequests endpoint
 func apiGetReviewToolRequestsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
 	ctx := r.Context()
 
-	// First check if review exists
-	review, err := store.GetReviewRequest(ctx, id)
+	// First check if supervisor exists
+	supervisor, err := store.GetSupervisionRequest(ctx, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if review == nil {
-		http.Error(w, "Review not found", http.StatusNotFound)
+	if supervisor == nil {
+		http.Error(w, "Supervisor not found", http.StatusNotFound)
 		return
 	}
 
