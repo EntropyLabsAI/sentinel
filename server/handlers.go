@@ -121,10 +121,10 @@ func apiGetRunsHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UU
 }
 
 // apiGetRunHandler handles the GET /api/run/{id} endpoint
-func apiGetRunHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, id uuid.UUID, store RunStore) {
+func apiGetRunHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store RunStore) {
 	ctx := r.Context()
 
-	run, err := store.GetRun(ctx, projectId, id)
+	run, err := store.GetRun(ctx, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -144,11 +144,11 @@ func apiGetRunHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUI
 	}
 }
 
-// apiGetToolSupervisorsHandler handles the GET /api/tools/{id}/supervisors endpoint
-func apiGetToolSupervisorsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store SupervisorStore) {
+// apiGetRunToolSupervisorsHandler handles the GET /api/runs/{runId}/tools/{toolId}/supervisors endpoint
+func apiGetRunToolSupervisorsHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, toolId uuid.UUID, store SupervisorStore) {
 	ctx := r.Context()
 
-	supervisors, err := store.GetSupervisorFromToolID(ctx, id)
+	supervisors, err := store.GetRunToolSupervisors(ctx, runId, toolId)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -168,72 +168,53 @@ func apiGetToolSupervisorsHandler(w http.ResponseWriter, r *http.Request, id uui
 	}
 }
 
-// apiAssignSupervisorToToolHandler handles the POST /api/tools/{id}/supervisors endpoint
-func apiAssignSupervisorToToolHandler(w http.ResponseWriter, r *http.Request, _ uuid.UUID, toolId uuid.UUID, store Store) {
+func apiCreateToolHandler(w http.ResponseWriter, r *http.Request, store ToolStore) {
 	ctx := r.Context()
 
-	// Decode the request body
-	var request SupervisorAssignment
-
-	err := json.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Invalid request body: %v", err), http.StatusBadRequest)
-		return
-	}
-
-	fmt.Printf("request: %+v\n", request)
-
-	if request.SupervisorId == uuid.Nil {
-		http.Error(w, "Supervisor ID is required", http.StatusBadRequest)
-		return
-	}
-
-	log.Printf("received new supervisor assignment request for tool ID: %s and supervisor ID: %s", toolId, request.SupervisorId)
-
-	err = store.AssignSupervisorToTool(ctx, request.SupervisorId, toolId)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-}
-
-// apiCreateToolHandler handles the POST /api/tool endpoint
-func apiCreateRunToolHandler(w http.ResponseWriter, r *http.Request, _ uuid.UUID, runId uuid.UUID, store ToolStore) {
-	ctx := r.Context()
-
-	var request ToolCreate
+	var request Tool
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	t := time.Now()
-
-	tool := Tool{
-		Id:          uuid.Nil,
-		Name:        request.Name,
-		CreatedAt:   &t,
-		Description: request.Description,
-		Attributes:  request.Attributes,
-	}
-
-	toolId, err := store.CreateRunTool(ctx, runId, tool)
+	toolId, err := store.CreateTool(ctx, request)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	tool.Id = toolId
 
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(tool)
+	err = json.NewEncoder(w).Encode(toolId)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+// apiCreateToolHandler handles the POST /api/tool endpoint
+func apiCreateRunToolSupervisorsHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, toolId uuid.UUID, store SupervisorStore) {
+	ctx := r.Context()
+
+	var request []uuid.UUID
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if len(request) == 0 {
+		http.Error(w, "No supervisors provided", http.StatusBadRequest)
+		return
+	}
+
+	err = store.AssignSupervisorsToTool(ctx, runId, toolId, request)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func apiGetSupervisorHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store SupervisorStore) {
@@ -338,11 +319,11 @@ func apiGetToolsHandler(w http.ResponseWriter, r *http.Request, store ToolStore)
 	}
 }
 
-func apiGetRunToolsHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, id uuid.UUID, store Store) {
+func apiGetRunToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
 	ctx := r.Context()
 
 	// First check if run exists
-	run, err := store.GetRun(ctx, projectId, id)
+	run, err := store.GetRun(ctx, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

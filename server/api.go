@@ -85,6 +85,10 @@ func (s Server) CreateRun(w http.ResponseWriter, r *http.Request, id uuid.UUID) 
 	apiCreateRunHandler(w, r, id, s.Store)
 }
 
+func (s Server) CreateTool(w http.ResponseWriter, r *http.Request) {
+	apiCreateToolHandler(w, r, s.Store)
+}
+
 func (s Server) GetProjectRuns(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	apiGetProjectRunsHandler(w, r, id, s.Store)
 }
@@ -93,15 +97,19 @@ func (s Server) GetRuns(w http.ResponseWriter, r *http.Request, projectId uuid.U
 	apiGetRunsHandler(w, r, projectId, s.Store)
 }
 
-func (s Server) GetRun(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, id uuid.UUID) {
-	apiGetRunHandler(w, r, projectId, id, s.Store)
+func (s Server) GetRun(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetRunHandler(w, r, id, s.Store)
 }
 
-func (s Server) CreateRunTool(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, runId uuid.UUID) {
-	apiCreateRunToolHandler(w, r, projectId, runId, s.Store)
+func (s Server) GetRunTools(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
+	apiGetRunToolsHandler(w, r, runId, s.Store)
 }
 
-func (s Server) GetTool(w http.ResponseWriter, r *http.Request, _ uuid.UUID, id uuid.UUID) {
+func (s Server) CreateRunToolSupervisors(w http.ResponseWriter, r *http.Request, toolId uuid.UUID, runId uuid.UUID) {
+	apiCreateRunToolSupervisorsHandler(w, r, toolId, runId, s.Store)
+}
+
+func (s Server) GetTool(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	apiGetToolHandler(w, r, id, s.Store)
 }
 
@@ -109,8 +117,8 @@ func (s Server) GetTools(w http.ResponseWriter, r *http.Request) {
 	apiGetToolsHandler(w, r, s.Store)
 }
 
-func (s Server) GetRunTools(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, id uuid.UUID) {
-	apiGetRunToolsHandler(w, r, projectId, id, s.Store)
+func (s Server) GetRunToolSupervisors(w http.ResponseWriter, r *http.Request, runId uuid.UUID, toolId uuid.UUID) {
+	apiGetRunToolSupervisorsHandler(w, r, runId, toolId, s.Store)
 }
 
 func (s Server) GetProject(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
@@ -135,14 +143,6 @@ func (s Server) GetSupervisors(w http.ResponseWriter, r *http.Request) {
 
 func (s Server) CreateSupervisor(w http.ResponseWriter, r *http.Request) {
 	apiCreateSupervisorHandler(w, r, s.Store)
-}
-
-func (s Server) GetToolSupervisors(w http.ResponseWriter, r *http.Request, _ uuid.UUID, id uuid.UUID) {
-	apiGetToolSupervisorsHandler(w, r, id, s.Store)
-}
-
-func (s Server) AssignSupervisorToTool(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, id uuid.UUID) {
-	apiAssignSupervisorToToolHandler(w, r, projectId, id, s.Store)
 }
 
 func (s Server) GetReviewStatus(w http.ResponseWriter, r *http.Request, id uuid.UUID) {

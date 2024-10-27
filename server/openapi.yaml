@@ -92,65 +92,6 @@ paths:
       tags:
         - Runs
 
-  /api/projects/{projectId}/tools/{toolId}/supervisors:
-    get:
-      summary: Get supervisors assigned to a tool
-      operationId: GetToolSupervisors
-      parameters:
-        - name: toolId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: projectId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        "200":
-          description: List of supervisors assigned to the tool
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Supervisor"
-        "404":
-          description: Tool not found
-      tags:
-        - Tools
-        - Supervisors
-    post:
-      summary: Assign supervisor to tool
-      operationId: AssignSupervisorToTool
-      parameters:
-        - name: toolId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: projectId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SupervisorAssignment"
-      responses:
-        "200":
-          description: Supervisor assigned successfully
-      tags:
-        - Supervisors
-
   /api/reviews:
     post:
       summary: Create a review request
@@ -213,9 +154,9 @@ paths:
       tags:
         - Reviews
 
-  /api/projects/{projectId}/runs/{runId}/tools:
+  /api/runs/{runId}/tools:
     get:
-      summary: List all tools
+      summary: Get tools for a run
       operationId: GetRunTools
       parameters:
         - name: runId
@@ -224,7 +165,33 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: projectId
+      tags:
+        - Runs
+        - Tools
+      responses:
+        "200":
+          description: List of tools
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tool"
+        "404":
+          description: Run not found
+
+  /api/runs/{runId}/tools/{toolId}/supervisors:
+    get:
+      summary: Get the supervisors assigned to a tool
+      operationId: GetRunToolSupervisors
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: toolId
           in: path
           required: true
           schema:
@@ -238,14 +205,18 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Tool"
+                  $ref: "#/components/schemas/Supervisor"
+        "404":
+          description: Run or tool not found
       tags:
         - Tools
+        - Supervisors
     post:
-      summary: Create a new tool
-      operationId: CreateRunTool
+      summary: Assign a list of supervisors to a tool for a given run
+      description: Specify an array of supervisors in supervision order. The first supervisor will be called first, and so on. These supervisors will be called in order when this tool is invoked for the remainder of the run.
+      operationId: CreateRunToolSupervisors
       parameters:
-        - name: projectId
+        - name: toolId
           in: path
           required: true
           schema:
@@ -262,29 +233,23 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ToolCreate"
+              type: array
+              items:
+                type: string
+                format: uuid
       responses:
         "200":
-          description: Tool created successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Tool"
+          description: Supervisors assigned to tool successfully
       tags:
         - Tools
+        - Supervisors
 
-  /api/projects/{projectId}/tools/{toolId}:
+  /api/tools/{toolId}:
     get:
       summary: Get tool by ID
       operationId: GetTool
       parameters:
         - name: toolId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: projectId
           in: path
           required: true
           schema:
@@ -299,6 +264,39 @@ paths:
                 $ref: "#/components/schemas/Tool"
         "404":
           description: Tool not found
+      tags:
+        - Tools
+  /api/tools:
+    get:
+      summary: List all tools
+      operationId: GetTools
+      responses:
+        "200":
+          description: List of tools
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tool"
+      tags:
+        - Tools
+    post:
+      summary: Create a new tool
+      operationId: CreateTool
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Tool"
+      responses:
+        "200":
+          description: Tool created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tool"
       tags:
         - Tools
 
@@ -325,18 +323,12 @@ paths:
       tags:
         - Projects
 
-  /api/projects/{projectId}/runs/{runId}:
+  /api/runs/{runId}:
     get:
       summary: Get run by ID
       operationId: GetRun
       parameters:
         - name: runId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: projectId
           in: path
           required: true
           schema:
