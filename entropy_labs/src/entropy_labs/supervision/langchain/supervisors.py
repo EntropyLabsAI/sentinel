@@ -1,59 +1,30 @@
-from typing import Any, Callable, Dict, List, Optional, Set
-from entropy_labs.supervision.config import SupervisionDecisionType, SupervisionDecision
-from entropy_labs.utils.utils import prompt_user_input_or_api
-import random
-from entropy_labs.supervision.common import check_bash_command, check_python_code
+from typing import Callable, Dict, List, Optional, Set
+from entropy_labs.supervision.config import SupervisionDecisionType, SupervisionDecision, supervision_config, SupervisionContext
+from entropy_labs.supervision.langchain.utils import create_task_state_from_context
+from inspect_ai.tool import ToolCall
 
-# Supervisor functions
+def human_supervisor(backend_api_endpoint: Optional[str] = None, agent_id: str = "default_agent", timeout: int = 300, n: int = 1):
+    async def supervisor(func: Callable, supervision_context: SupervisionContext, **kwargs) -> SupervisionDecision:
+        """
+        Human supervisor that requests approval via backend API or CLI.
+        """
+        from entropy_labs.supervision.common import human_supervisor_wrapper
+        
+        context = supervision_config.context
+        
+        # TODO: Reuse Supervise Protocol
 
-def human_supervisor(backend_api_endpoint: Optional[str] = None):
-    """
-    Creates a human supervisor function that requests approval either via CLI or API.
-    
-    Returns:
-        Callable: A supervisor function that requests human approval.
-    """
-    def supervisor(func: Callable, *args, **kwargs) -> SupervisionDecision:
-        """Human supervisor that requests approval either via CLI or API."""
-        function_name = func.__name__
-        # Prepare the data to send to the backend or display in CLI
-        data = {
-            "function": function_name,
-            "args": args,
-            "kwargs": kwargs
-        }
-        # Use a utility function to handle CLI or API-based human approval
-        decision = prompt_user_input_or_api(data, backend_api_endpoint=backend_api_endpoint)
-        return decision
+        # Create TaskState from context - Right now we are using Inspect AI TaskState format to send to the backend, we need to transform langchain format to TaskState format
+        task_state = create_task_state_from_context(context)
+        id = 'tool_id'
+        tool_call = ToolCall(id=id,function=func.__name__, arguments=kwargs, type='function')
+        
+        supervisor_decision = await human_supervisor_wrapper(task_state=task_state, call=tool_call, backend_api_endpoint=backend_api_endpoint, agent_id=agent_id, timeout=timeout, use_inspect_ai=False, n=n)
+
+        return supervisor_decision
+
     supervisor.__name__ = human_supervisor.__name__
     return supervisor
-
-def llm_supervisor():
-    """
-    Creates an LLM supervisor function that evaluates the proposed action.
-    
-    Returns:
-        Callable: A supervisor function that uses an LLM to make decisions.
-    """
-    def supervisor(func: Callable, *args, **kwargs) -> SupervisionDecision:
-        """LLM supervisor that evaluates the proposed action."""
-        # Prepare the prompt for the LLM
-        prompt = f"Should the function '{func.__name__}' be executed with arguments {args} and {kwargs}? Respond with 'approve', 'reject', or 'escalate'."
-        # Send the prompt to the LLM (this is a placeholder for actual LLM integration)
-        decision_str = simulate_llm_response(prompt)
-        
-        return SupervisionDecision(decision=decision_str)
-    
-    supervisor.__name__ = llm_supervisor.__name__
-    return supervisor
-
-def simulate_llm_response(prompt: str) -> str:
-    """Simulate an LLM response (placeholder function)."""
-    # In an actual implementation, this function would send the prompt to an LLM model
-    # TODO: Implement actual LLM response
-    print(f"LLM Prompt: {prompt}")
-    # For simulation, we'll randomly choose a decision
-    return random.choice(["approve", "reject", "escalate"])
 
 def bash_supervisor(
     allowed_commands: List[str],
@@ -72,7 +43,8 @@ def bash_supervisor(
         Callable: A supervisor function that checks bash commands.
     """
     def supervisor(func: Callable, *args, **kwargs) -> SupervisionDecision:
-        """Supervisor that checks if the bash command is allowed."""
+        from entropy_labs.supervision.common import check_bash_command
+        
         command = args[0] if args else kwargs.get('command', '')
         is_approved, explanation = check_bash_command(
             command, allowed_commands, allow_sudo, command_specific_rules
@@ -112,7 +84,8 @@ def python_supervisor(
         Callable: A supervisor function that checks Python code.
     """
     def supervisor(func: Callable, *args, **kwargs) -> SupervisionDecision:
-        """Supervisor that checks if the Python code is allowed."""
+        from entropy_labs.supervision.common import check_python_code
+        
         code = args[0] if args else kwargs.get('code', '')
         is_approved, explanation = check_python_code(
             code, allowed_modules, allowed_functions, disallowed_builtins,

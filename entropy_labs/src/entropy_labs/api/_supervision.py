@@ -92,9 +92,14 @@ async def get_human_supervision_decision_api(
     """Get the supervision decision from the backend API."""
 
     # Generate tool call suggestions
-    last_messages, tool_options = await generate_tool_call_suggestions(
-        task_state=task_state, n=n, call=call
-    )
+    if use_inspect_ai:
+        last_messages, tool_options = await generate_tool_call_suggestions(
+            task_state=task_state, n=n, call=call)
+    else:
+        if n > 1:
+            logging.warning("n>1 is not supported for human approval outside of inspect_ai, using n=1 instead.")
+        last_messages, tool_options = await generate_tool_call_suggestions(
+            task_state=task_state, n=1, call=call)
     payload = prepare_payload(agent_id, task_state, last_messages, tool_options)
 
     if use_inspect_ai:

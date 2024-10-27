@@ -1,12 +1,12 @@
+import asyncio
 from typing import Any, Callable, List, Optional
 from functools import wraps
 import random
 
-from .config import supervision_config
+from .config import supervision_config, SupervisionDecisionType
 from ..mocking.policies import MockPolicy
 from ..utils.utils import create_random_value
 from .llm_sampling import sample_from_llm
-
 
 def supervise(
     mock_policy: Optional[MockPolicy] = None,
@@ -16,6 +16,9 @@ def supervise(
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
+            # Access context from supervision_config
+            supervision_context = supervision_config.context
+            
             print(f"\n--- Supervision ---")
             print(f"Function Name: {func.__name__}")
             print(f"Description: {func.__doc__}")
@@ -43,22 +46,29 @@ def supervise(
             supervisors = list(dict.fromkeys(supervisors))
             
             for supervisor in supervisors:
-                decision = supervisor(func, *args, **kwargs)  # Pass the function and its arguments
+                if asyncio.iscoroutinefunction(supervisor):
+                    decision = asyncio.run(supervisor(func, *args, supervision_context=supervision_context, **kwargs))
+                else:
+                    decision = supervisor(func, *args, supervision_context=supervision_context, **kwargs)
+                
                 print(f"Supervisor {supervisor.__name__} decision: {decision.decision}")
                 
-                if decision.decision == "approve":
+                if decision.decision == SupervisionDecisionType.APPROVE:
                     print(f"Approved by supervisor {supervisor.__name__}. Executing function.")
                     return func(*args, **kwargs)
-                elif decision.decision == "reject":
+                elif decision.decision == SupervisionDecisionType.REJECT:
                     print(f"Rejected by supervisor {supervisor.__name__}. Cancelling execution.")
                     return f"Execution of {func.__name__} was rejected by a supervisor. Explanation: {decision.explanation}"
-                elif decision.decision == "escalate":
+                elif decision.decision == SupervisionDecisionType.ESCALATE:
                     print(f"Escalated by supervisor {supervisor.__name__}. Moving to next supervisor.")
                     continue  # Move to the next supervisor
-                elif decision.decision == "modify":
+                elif decision.decision == SupervisionDecisionType.MODIFY:
                     print(f"Modified by supervisor {supervisor.__name__}. Executing modified function.")
-                    # TODO: Here we want to handle the modified data
+                    # TODO: Implement handling of modified data if needed
                     return decision.modified
+                elif decision.decision == SupervisionDecisionType.TERMINATE:
+                    print(f"Terminated by supervisor {supervisor.__name__}. Cancelling execution.")
+                    return f"Execution of {func.__name__} was terminated by a supervisor. Explanation: {decision.explanation}"
                 else:
                     print(f"Unknown decision: {decision.decision}. Cancelling execution.")
                     return f"Execution of {func.__name__} was cancelled due to an unknown supervision decision."
@@ -87,7 +97,7 @@ def handle_mocking(func, mock_policy, mock_responses, *args, **kwargs):
             raise ValueError("No return type specified for the function")
     elif mock_policy == MockPolicy.SAMPLE_PREVIOUS_CALLS:
         try:
-            return supervision_config.get_mock_response(func.__name__)
+            return supervision_config.get_mock_response(func.__name__) #TODO: Make sure this works
         except ValueError as e:
             print(f"Warning: {str(e)}. Falling back to actual function execution.")
             return func(*args, **kwargs)
