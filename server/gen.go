@@ -21,6 +21,15 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for Decision.
+const (
+	Approve   Decision = "approve"
+	Escalate  Decision = "escalate"
+	Modify    Decision = "modify"
+	Reject    Decision = "reject"
+	Terminate Decision = "terminate"
+)
+
 // Defines values for LLMMessageRole.
 const (
 	Assistant LLMMessageRole = "assistant"
@@ -34,15 +43,7 @@ const (
 	Completed Status = "completed"
 	Failed    Status = "failed"
 	Pending   Status = "pending"
-)
-
-// Defines values for SupervisionResultDecision.
-const (
-	Approve   SupervisionResultDecision = "approve"
-	Escalate  SupervisionResultDecision = "escalate"
-	Modify    SupervisionResultDecision = "modify"
-	Reject    SupervisionResultDecision = "reject"
-	Terminate SupervisionResultDecision = "terminate"
+	Timeout   Status = "timeout"
 )
 
 // Defines values for SupervisorType.
@@ -52,6 +53,26 @@ const (
 	Human SupervisorType = "human"
 	Llm   SupervisorType = "llm"
 )
+
+// Arguments defines model for Arguments.
+type Arguments struct {
+	Cmd  *string `json:"cmd,omitempty"`
+	Code *string `json:"code,omitempty"`
+}
+
+// AssistantMessage defines model for AssistantMessage.
+type AssistantMessage struct {
+	Content   string      `json:"content"`
+	Role      string      `json:"role"`
+	Source    *string     `json:"source,omitempty"`
+	ToolCalls *[]ToolCall `json:"tool_calls,omitempty"`
+}
+
+// Choice defines model for Choice.
+type Choice struct {
+	Message    AssistantMessage `json:"message"`
+	StopReason *string          `json:"stop_reason,omitempty"`
+}
 
 // CreateSupervisionResult defines model for CreateSupervisionResult.
 type CreateSupervisionResult struct {
@@ -64,6 +85,9 @@ type CreateSupervisionResult struct {
 	// ToolRequest A tool request is a request to use a tool. It must be approved by a supervisor.
 	ToolRequest ToolRequest `json:"tool_request"`
 }
+
+// Decision defines model for Decision.
+type Decision string
 
 // Execution defines model for Execution.
 type Execution struct {
@@ -96,6 +120,23 @@ type LLMMessage struct {
 // LLMMessageRole defines model for LLMMessage.Role.
 type LLMMessageRole string
 
+// Message defines model for Message.
+type Message struct {
+	Content    string      `json:"content"`
+	Function   *string     `json:"function,omitempty"`
+	Role       string      `json:"role"`
+	Source     *string     `json:"source,omitempty"`
+	ToolCallId *string     `json:"tool_call_id,omitempty"`
+	ToolCalls  *[]ToolCall `json:"tool_calls,omitempty"`
+}
+
+// Output defines model for Output.
+type Output struct {
+	Choices *[]Choice `json:"choices,omitempty"`
+	Model   *string   `json:"model,omitempty"`
+	Usage   *Usage    `json:"usage,omitempty"`
+}
+
 // Project defines model for Project.
 type Project struct {
 	CreatedAt time.Time          `json:"created_at"`
@@ -120,35 +161,34 @@ type Status string
 
 // SupervisionRequest defines model for SupervisionRequest.
 type SupervisionRequest struct {
-	ExecutionId  openapi_types.UUID     `json:"execution_id"`
-	Id           *openapi_types.UUID    `json:"id,omitempty"`
-	Messages     []LLMMessage           `json:"messages"`
-	RunId        openapi_types.UUID     `json:"run_id"`
-	Status       *SupervisionStatus     `json:"status,omitempty"`
-	TaskState    map[string]interface{} `json:"task_state"`
-	ToolRequests []ToolRequest          `json:"tool_requests"`
+	ExecutionId  openapi_types.UUID  `json:"execution_id"`
+	Id           *openapi_types.UUID `json:"id,omitempty"`
+	Messages     []LLMMessage        `json:"messages"`
+	RunId        openapi_types.UUID  `json:"run_id"`
+	Status       *SupervisionStatus  `json:"status,omitempty"`
+	SupervisorId *openapi_types.UUID `json:"supervisor_id,omitempty"`
+	TaskState    TaskState           `json:"task_state"`
+	ToolRequests []ToolRequest       `json:"tool_requests"`
 }
 
 // SupervisionResult defines model for SupervisionResult.
 type SupervisionResult struct {
-	CreatedAt            time.Time                 `json:"created_at"`
-	Decision             SupervisionResultDecision `json:"decision"`
-	Id                   openapi_types.UUID        `json:"id"`
-	Reasoning            string                    `json:"reasoning"`
-	SupervisionRequestId openapi_types.UUID        `json:"supervision_request_id"`
+	CreatedAt            time.Time          `json:"created_at"`
+	Decision             Decision           `json:"decision"`
+	Id                   openapi_types.UUID `json:"id"`
+	Reasoning            string             `json:"reasoning"`
+	SupervisionRequestId openapi_types.UUID `json:"supervision_request_id"`
 
 	// Toolrequest A tool request is a request to use a tool. It must be approved by a supervisor.
 	Toolrequest *ToolRequest `json:"toolrequest,omitempty"`
 }
 
-// SupervisionResultDecision defines model for SupervisionResult.Decision.
-type SupervisionResultDecision string
-
 // SupervisionStatus defines model for SupervisionStatus.
 type SupervisionStatus struct {
-	CreatedAt time.Time          `json:"created_at"`
-	Id        openapi_types.UUID `json:"id"`
-	Status    Status             `json:"status"`
+	CreatedAt            time.Time           `json:"created_at"`
+	Id                   int                 `json:"id"`
+	Status               Status              `json:"status"`
+	SupervisionRequestId *openapi_types.UUID `json:"supervision_request_id,omitempty"`
 }
 
 // Supervisor defines model for Supervisor.
@@ -163,6 +203,17 @@ type Supervisor struct {
 // SupervisorType defines model for SupervisorType.
 type SupervisorType string
 
+// TaskState defines model for TaskState.
+type TaskState struct {
+	Completed  bool                    `json:"completed"`
+	Messages   []Message               `json:"messages"`
+	Metadata   *map[string]interface{} `json:"metadata,omitempty"`
+	Output     Output                  `json:"output"`
+	Store      *map[string]interface{} `json:"store,omitempty"`
+	ToolChoice *ToolChoice             `json:"tool_choice,omitempty"`
+	Tools      []Tool                  `json:"tools"`
+}
+
 // Tool defines model for Tool.
 type Tool struct {
 	Attributes  *map[string]interface{} `json:"attributes,omitempty"`
@@ -170,6 +221,23 @@ type Tool struct {
 	Description string                  `json:"description"`
 	Id          openapi_types.UUID      `json:"id"`
 	Name        string                  `json:"name"`
+}
+
+// ToolCall defines model for ToolCall.
+type ToolCall struct {
+	Arguments  map[string]interface{} `json:"arguments"`
+	Function   string                 `json:"function"`
+	Id         string                 `json:"id"`
+	ParseError *string                `json:"parse_error,omitempty"`
+	Type       string                 `json:"type"`
+}
+
+// ToolChoice defines model for ToolChoice.
+type ToolChoice struct {
+	Arguments Arguments `json:"arguments"`
+	Function  string    `json:"function"`
+	Id        string    `json:"id"`
+	Type      string    `json:"type"`
 }
 
 // ToolRequest A tool request is a request to use a tool. It must be approved by a supervisor.
@@ -181,13 +249,22 @@ type ToolRequest struct {
 	ToolId               openapi_types.UUID     `json:"tool_id"`
 }
 
+// Usage defines model for Usage.
+type Usage struct {
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
+	TotalTokens  int `json:"total_tokens"`
+}
+
 // GetSupervisionRequestsParams defines parameters for GetSupervisionRequests.
 type GetSupervisionRequestsParams struct {
 	Type *SupervisorType `form:"type,omitempty" json:"type,omitempty"`
 }
 
 // CreateExecutionJSONBody defines parameters for CreateExecution.
-type CreateExecutionJSONBody = openapi_types.UUID
+type CreateExecutionJSONBody struct {
+	ToolId *openapi_types.UUID `json:"toolId,omitempty"`
+}
 
 // CreateRunToolSupervisorsJSONBody defines parameters for CreateRunToolSupervisors.
 type CreateRunToolSupervisorsJSONBody = []openapi_types.UUID
@@ -202,7 +279,7 @@ type CreateSupervisionRequestJSONRequestBody = SupervisionRequest
 type CreateSupervisionResultJSONRequestBody = CreateSupervisionResult
 
 // CreateExecutionJSONRequestBody defines body for CreateExecution for application/json ContentType.
-type CreateExecutionJSONRequestBody = CreateExecutionJSONBody
+type CreateExecutionJSONRequestBody CreateExecutionJSONBody
 
 // CreateRunToolSupervisorsJSONRequestBody defines body for CreateRunToolSupervisors for application/json ContentType.
 type CreateRunToolSupervisorsJSONRequestBody = CreateRunToolSupervisorsJSONBody
@@ -239,16 +316,16 @@ type ServerInterface interface {
 	// Create a supervisor request
 	// (POST /api/reviews)
 	CreateSupervisionRequest(w http.ResponseWriter, r *http.Request)
-	// Get supervisor request by ID
+	// Get supervision request by ID
 	// (GET /api/reviews/{reviewId})
 	GetSupervisionRequest(w http.ResponseWriter, r *http.Request, reviewId openapi_types.UUID)
-	// Get supervisor results
+	// Get supervision results
 	// (GET /api/reviews/{reviewId}/results)
 	GetSupervisionResults(w http.ResponseWriter, r *http.Request, reviewId openapi_types.UUID)
-	// Create a supervisor result
+	// Create a supervision result
 	// (POST /api/reviews/{reviewId}/results)
 	CreateSupervisionResult(w http.ResponseWriter, r *http.Request, reviewId openapi_types.UUID)
-	// Get supervisor status
+	// Get supervision status
 	// (GET /api/reviews/{reviewId}/status)
 	GetSupervisionStatus(w http.ResponseWriter, r *http.Request, reviewId openapi_types.UUID)
 	// Get tool requests for a supervisor
@@ -1028,40 +1105,46 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

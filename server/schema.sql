@@ -1,14 +1,16 @@
-DROP TABLE IF EXISTS reviewresult CASCADE;
+DROP TABLE IF EXISTS supervisionresult CASCADE;
 DROP TABLE IF EXISTS toolrequest CASCADE;
-DROP TABLE IF EXISTS reviewrequest_status CASCADE;
-DROP TABLE IF EXISTS reviewrequest CASCADE;
+DROP TABLE IF EXISTS supervisionrequest_status CASCADE;
+DROP TABLE IF EXISTS supervisionrequest CASCADE;
 DROP TABLE IF EXISTS run_tool_supervisor CASCADE;
-DROP TABLE IF EXISTS llm_message CASCADE;
-DROP TABLE IF EXISTS code_supervisor CASCADE;
+DROP TABLE IF EXISTS execution_status CASCADE;
 DROP TABLE IF EXISTS llm_supervisor CASCADE;
-DROP TABLE IF EXISTS supervisor CASCADE;
+DROP TABLE IF EXISTS code_supervisor CASCADE;
+DROP TABLE IF EXISTS execution CASCADE;
 DROP TABLE IF EXISTS run CASCADE;
 DROP TABLE IF EXISTS user_project CASCADE;
+DROP TABLE IF EXISTS llm_message CASCADE;
+DROP TABLE IF EXISTS supervisor CASCADE;
 DROP TABLE IF EXISTS project CASCADE;
 DROP TABLE IF EXISTS tool CASCADE;
 DROP TABLE IF EXISTS sentinel_user CASCADE;
@@ -52,6 +54,13 @@ CREATE TABLE user_project (
     FOREIGN KEY (project_id) REFERENCES project(id)
 );
 
+CREATE TABLE run (
+    id UUID PRIMARY KEY,
+    project_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE,
+    FOREIGN KEY (project_id) REFERENCES project(id)
+);
+
 CREATE TABLE execution (
     id UUID PRIMARY KEY,
     run_id UUID,
@@ -59,21 +68,6 @@ CREATE TABLE execution (
     tool_id UUID,
     FOREIGN KEY (run_id) REFERENCES run(id),
     FOREIGN KEY (tool_id) REFERENCES tool(id)
-);
-
-CREATE TABLE execution_status (
-    id UUID PRIMARY KEY,
-    execution_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE,
-    status TEXT CHECK (status IN ('pending', 'completed', 'failed')),
-    FOREIGN KEY (execution_id) REFERENCES execution(id)
-);
-
-CREATE TABLE run (
-    id UUID PRIMARY KEY,
-    project_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE,
-    FOREIGN KEY (project_id) REFERENCES project(id)
 );
 
 CREATE TABLE llm_supervisor (
@@ -88,52 +82,60 @@ CREATE TABLE code_supervisor (
     FOREIGN KEY (supervisor_id) REFERENCES supervisor(id)
 );
 
+CREATE TABLE execution_status (
+    id SERIAL PRIMARY KEY,
+    execution_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE,
+    status TEXT CHECK (status IN ('pending', 'completed', 'failed')),
+    FOREIGN KEY (execution_id) REFERENCES execution(id)
+);
+
 CREATE TABLE run_tool_supervisor (
     id SERIAL PRIMARY KEY,
     tool_id UUID,
     run_id UUID,
     supervisor_id UUID,
     created_at TIMESTAMP WITH TIME ZONE,
-    PRIMARY KEY (tool_id, run_id, supervisor_id),
     FOREIGN KEY (tool_id) REFERENCES tool(id),
     FOREIGN KEY (run_id) REFERENCES run(id),
     FOREIGN KEY (supervisor_id) REFERENCES supervisor(id)
 );
 
-CREATE TABLE supervisorrequest (
+CREATE TABLE supervisionrequest (
     id UUID PRIMARY KEY,
     execution_id UUID,
     supervisor_id UUID,
     task_state JSONB,
-    FOREIGN KEY (execution_id) REFERENCES run(id),
+    FOREIGN KEY (execution_id) REFERENCES execution(id),
     FOREIGN KEY (supervisor_id) REFERENCES supervisor(id)
 );
 
-CREATE TABLE reviewrequest_status (
-    id UUID PRIMARY KEY,
-    reviewrequest_id UUID,
+CREATE TABLE supervisionrequest_status (
+    id SERIAL PRIMARY KEY,
+    supervisionrequest_id UUID,
     created_at TIMESTAMP WITH TIME ZONE,
-    status TEXT CHECK (status IN ('timeout', 'pending', 'completed')),
-    FOREIGN KEY (reviewrequest_id) REFERENCES reviewrequest(id)
+    status TEXT CHECK (status IN ('timeout', 'pending', 'completed', 'failed', 'assigned')),
+    FOREIGN KEY (supervisionrequest_id) REFERENCES supervisionrequest(id)
 );
 
 CREATE TABLE toolrequest (
     id UUID PRIMARY KEY,
     tool_id UUID,
-    reviewrequest_id UUID,
+    supervisionrequest_id UUID,
     message_id UUID,
     arguments JSONB,
-    FOREIGN KEY (reviewrequest_id) REFERENCES reviewrequest(id),
+    FOREIGN KEY (supervisionrequest_id) REFERENCES supervisionrequest(id),
     FOREIGN KEY (tool_id) REFERENCES tool(id),
     FOREIGN KEY (message_id) REFERENCES llm_message(id)
 );
 
-CREATE TABLE reviewresult (
+CREATE TABLE supervisionresult (
     id UUID PRIMARY KEY,
-    reviewrequest_id UUID,
+    supervisionrequest_id UUID,
     created_at TIMESTAMP WITH TIME ZONE,
     decision TEXT CHECK (decision IN ('approve', 'reject', 'terminate', 'modify', 'escalate')),
     toolrequest_id UUID,
-    FOREIGN KEY (reviewrequest_id) REFERENCES reviewrequest(id),
+    reasoning TEXT,
+    FOREIGN KEY (supervisionrequest_id) REFERENCES supervisionrequest(id),
     FOREIGN KEY (toolrequest_id) REFERENCES toolrequest(id)
 );

@@ -184,15 +184,17 @@ func apiCreateToolHandler(w http.ResponseWriter, r *http.Request, store ToolStor
 		return
 	}
 
+	request.Id = toolId
+
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(toolId)
+	err = json.NewEncoder(w).Encode(request)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
-// apiCreateToolHandler handles the POST /api/tool endpoint
+// apiCreateRunToolSupervisorsHandler handles the POST /api/runs/{runId}/tools/{toolId}/supervisors endpoint
 func apiCreateRunToolSupervisorsHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, toolId uuid.UUID, store SupervisorStore) {
 	ctx := r.Context()
 
@@ -430,9 +432,9 @@ func apiCreateSupervisionRequestHandler(w http.ResponseWriter, r *http.Request, 
 	// }
 
 	response := SupervisionStatus{
-		Id:        reviewID,
-		Status:    Pending,
-		CreatedAt: t,
+		SupervisionRequestId: &reviewID,
+		Status:               Pending,
+		CreatedAt:            t,
 	}
 
 	// Respond immediately with 200 OK.
@@ -498,8 +500,19 @@ func apiCreateExecutionHandler(w http.ResponseWriter, r *http.Request, runId uui
 		return
 	}
 
+	execution, err := store.GetExecution(ctx, executionId)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if execution == nil {
+		http.Error(w, "Something went wrong, execution not found", http.StatusInternalServerError)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(executionId)
+	err = json.NewEncoder(w).Encode(execution)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -666,7 +679,7 @@ func apiGetReviewToolRequestsHandler(w http.ResponseWriter, r *http.Request, id 
 		return
 	}
 
-	results, err := store.GetReviewToolRequests(ctx, id)
+	results, err := store.GetSupervisionToolRequests(ctx, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
