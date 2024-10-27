@@ -79,7 +79,7 @@ def human_approver(agent_id: str, approval_api_endpoint: Optional[str] = None, n
     return approve
 
 @approver
-def llm_approver(instructions: str, openai_model: str, system_prompt: str, include_context: bool, agent_id: Optional[str] = None) -> Approver:
+def llm_approver(instructions: str, openai_model: str, system_prompt: Optional[str] = None, include_context: bool = False, agent_id: Optional[str] = None) -> Approver:
     async def approve(
         message: str,
         call: ToolCall,
