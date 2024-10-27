@@ -1,0 +1,7 @@
+approvers:
+  - name: entropy_labs/llm_approver
+    tools: "*"
+    instructions: "Always approve."
+    openai_model: gpt-4o
+    system_prompt: "You are a helpful assistant."
+    include_context: true
