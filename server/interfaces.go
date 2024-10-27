@@ -9,18 +9,25 @@ import (
 // Store defines the interface for all storage operations
 type Store interface {
 	ProjectStore
-	ReviewRequestStore
+	SupervisorRequestStore
 	ProjectToolStore
 	ToolStore
 	SupervisorStore
 	RunStore
-	ReviewResultsStore
-	ReviewStatusStore
+	SupervisorResultsStore
+	SupervisorStatusStore
+	ExecutionStore
 }
 
-type ReviewStatusStore interface {
-	CreateReviewStatus(ctx context.Context, requestID uuid.UUID, status ReviewStatus) error
-	CountReviewRequests(ctx context.Context, status ReviewStatusStatus) (int, error)
+type SupervisorStatusStore interface {
+	CreateSupervisionStatus(ctx context.Context, requestID uuid.UUID, status SupervisionStatus) error
+	CountSupervisionRequests(ctx context.Context, status Status) (int, error)
+}
+
+type ExecutionStore interface {
+	CreateExecution(ctx context.Context, runId uuid.UUID, toolId uuid.UUID) (uuid.UUID, error)
+	GetExecution(ctx context.Context, id uuid.UUID) (*Execution, error)
+	GetRunExecutions(ctx context.Context, runId uuid.UUID) ([]Execution, error)
 }
 
 type ProjectStore interface {
@@ -30,17 +37,17 @@ type ProjectStore interface {
 	GetProjectRuns(ctx context.Context, id uuid.UUID) ([]Run, error)
 }
 
-type ReviewRequestStore interface {
-	CreateReviewRequest(ctx context.Context, request ReviewRequest) (uuid.UUID, error)
-	GetReviewRequest(ctx context.Context, id uuid.UUID) (*ReviewRequest, error)
-	GetReviewRequests(ctx context.Context) ([]ReviewRequest, error)
-	UpdateReviewRequest(ctx context.Context, reviewRequest ReviewRequest) error
-	GetPendingReviewRequests(ctx context.Context) ([]ReviewRequest, error)
+type SupervisorRequestStore interface {
+	CreateSupervisionRequest(ctx context.Context, request SupervisionRequest) (uuid.UUID, error)
+	GetSupervisionRequest(ctx context.Context, id uuid.UUID) (*SupervisionRequest, error)
+	GetSupervisionRequests(ctx context.Context) ([]SupervisionRequest, error)
+	UpdateSupervisionRequest(ctx context.Context, supervisorRequest SupervisionRequest) error
+	GetPendingSupervisionRequests(ctx context.Context) ([]SupervisionRequest, error)
 }
 
-type ReviewResultsStore interface {
-	GetReviewResults(ctx context.Context, id uuid.UUID) ([]*ReviewResult, error)
-	CreateReviewResult(ctx context.Context, result ReviewResult) error
+type SupervisorResultsStore interface {
+	GetSupervisionResults(ctx context.Context, id uuid.UUID) ([]*SupervisionResult, error)
+	CreateSupervisionResult(ctx context.Context, result SupervisionResult) error
 }
 
 type ProjectToolStore interface {

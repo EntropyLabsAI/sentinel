@@ -52,6 +52,23 @@ CREATE TABLE user_project (
     FOREIGN KEY (project_id) REFERENCES project(id)
 );
 
+CREATE TABLE execution (
+    id UUID PRIMARY KEY,
+    run_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE,
+    tool_id UUID,
+    FOREIGN KEY (run_id) REFERENCES run(id),
+    FOREIGN KEY (tool_id) REFERENCES tool(id)
+);
+
+CREATE TABLE execution_status (
+    id UUID PRIMARY KEY,
+    execution_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE,
+    status TEXT CHECK (status IN ('pending', 'completed', 'failed')),
+    FOREIGN KEY (execution_id) REFERENCES execution(id)
+);
+
 CREATE TABLE run (
     id UUID PRIMARY KEY,
     project_id UUID,
@@ -83,11 +100,13 @@ CREATE TABLE run_tool_supervisor (
     FOREIGN KEY (supervisor_id) REFERENCES supervisor(id)
 );
 
-CREATE TABLE reviewrequest (
+CREATE TABLE supervisorrequest (
     id UUID PRIMARY KEY,
-    run_id UUID,
+    execution_id UUID,
+    supervisor_id UUID,
     task_state JSONB,
-    FOREIGN KEY (run_id) REFERENCES run(id)
+    FOREIGN KEY (execution_id) REFERENCES run(id),
+    FOREIGN KEY (supervisor_id) REFERENCES supervisor(id)
 );
 
 CREATE TABLE reviewrequest_status (

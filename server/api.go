@@ -16,7 +16,7 @@ type Server struct {
 }
 
 func InitAPI(store Store) {
-	humanReviewChan := make(chan ReviewRequest, 100)
+	humanReviewChan := make(chan SupervisionRequest, 100)
 
 	// Initialize the WebSocket hub
 	hub := NewHub(store, humanReviewChan)
@@ -69,20 +69,20 @@ func (s Server) GetOpenAPI(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "openapi.yaml")
 }
 
-func (s Server) CreateReviewRequest(w http.ResponseWriter, r *http.Request) {
-	apiCreateReviewRequestHandler(w, r, s.Store)
+func (s Server) CreateSupervisionRequest(w http.ResponseWriter, r *http.Request) {
+	apiCreateSupervisionRequestHandler(w, r, s.Store)
 }
 
-func (s Server) GetReviewRequest(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiGetReviewRequestHandler(w, r, id, s.Store)
+func (s Server) GetSupervisionRequest(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetSupervisionRequestHandler(w, r, id, s.Store)
 }
 
-func (s Server) GetReviewRequests(w http.ResponseWriter, r *http.Request, params GetReviewRequestsParams) {
-	apiGetReviewRequestsHandler(w, r, params, s.Store)
+func (s Server) GetSupervisionRequests(w http.ResponseWriter, r *http.Request, params GetSupervisionRequestsParams) {
+	apiGetSupervisionRequestsHandler(w, r, params, s.Store)
 }
 
-func (s Server) CreateReviewResult(w http.ResponseWriter, r *http.Request, reviewRequestId uuid.UUID) {
-	apiCreateReviewResultHandler(w, r, reviewRequestId, s.Store)
+func (s Server) CreateSupervisionResult(w http.ResponseWriter, r *http.Request, supervisorRequestId uuid.UUID) {
+	apiCreateSupervisionResultHandler(w, r, supervisorRequestId, s.Store)
 }
 
 func (s Server) CreateRun(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
@@ -129,8 +129,8 @@ func (s Server) GetProject(w http.ResponseWriter, r *http.Request, id uuid.UUID)
 	apiGetProjectByIdHandler(w, r, id, s.Store)
 }
 
-func (s Server) GetReviewResults(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiGetReviewResultsHandler(w, r, id, s.Store)
+func (s Server) GetSupervisionResults(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetSupervisionResultsHandler(w, r, id, s.Store)
 }
 
 func (s Server) GetReviewToolRequests(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
@@ -149,8 +149,8 @@ func (s Server) CreateSupervisor(w http.ResponseWriter, r *http.Request) {
 	apiCreateSupervisorHandler(w, r, s.Store)
 }
 
-func (s Server) GetReviewStatus(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiReviewStatusHandler(w, r, id, s.Store)
+func (s Server) GetSupervisionStatus(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiSupervisionStatusHandler(w, r, id, s.Store)
 }
 
 func (s Server) GetHubStats(w http.ResponseWriter, r *http.Request) {
@@ -163,6 +163,18 @@ func (s Server) CreateProject(w http.ResponseWriter, r *http.Request) {
 
 func (s Server) GetProjects(w http.ResponseWriter, r *http.Request) {
 	apiGetProjectsHandler(w, r, s.Store)
+}
+
+func (s Server) CreateExecution(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
+	apiCreateExecutionHandler(w, r, runId, s.Store)
+}
+
+func (s Server) GetExecution(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetExecutionHandler(w, r, id, s.Store)
+}
+
+func (s Server) GetRunExecutions(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
+	apiGetRunExecutionsHandler(w, r, runId, s.Store)
 }
 
 func enableCorsMiddleware(handler http.Handler) http.Handler {

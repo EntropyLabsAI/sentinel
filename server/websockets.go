@@ -13,7 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const MAX_REVIEWS_PER_CLIENT = 1
+const MAX_SUPERVISORS_PER_CLIENT = 1
 
 // Upgrade HTTP connection to WebSocket with proper settings
 var upgrader = websocket.Upgrader{
@@ -28,7 +28,7 @@ type Hub struct {
 	Clients      map[*Client]bool
 	ClientsMutex sync.RWMutex
 	// ReviewChan is a channel that receives new reviews, then assigns them to a connected client
-	ReviewChan chan ReviewRequest
+	ReviewChan chan SupervisionRequest
 	// Register and Unregister are used when a new client connects and disconnects
 	Register   chan *Client
 	Unregister chan *Client
@@ -41,7 +41,7 @@ type Hub struct {
 	Store                Store
 }
 
-func NewHub(store Store, humanReviewChan chan ReviewRequest) *Hub {
+func NewHub(store Store, humanReviewChan chan SupervisionRequest) *Hub {
 	return &Hub{
 		Clients:    make(map[*Client]bool),
 		ReviewChan: humanReviewChan,
@@ -65,7 +65,7 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	client := &Client{
 		Hub:  hub,
 		Conn: conn,
-		Send: make(chan ReviewRequest),
+		Send: make(chan SupervisionRequest),
 	}
 	hub.Register <- client
 
@@ -73,7 +73,7 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	go client.ReadPump()
 }
 
-// Run starts the hub and handles client connections/disconnections and review assignments
+// Run starts the hub and handles client connections/disconnections and supervisor assignments
 func (h *Hub) Run() {
 	for {
 		select {
@@ -81,9 +81,9 @@ func (h *Hub) Run() {
 			h.registerClient(client)
 		case client := <-h.Unregister:
 			h.unregisterClient(client)
-		case review := <-h.ReviewChan:
-			fmt.Printf("Received review from ReviewChan: %v\n", review.Id)
-			h.assignReview(review)
+		case supervisor := <-h.ReviewChan:
+			fmt.Printf("Received supervisor from ReviewChan: %v\n", supervisor.Id)
+			h.assignReview(supervisor)
 		}
 	}
 }
@@ -120,46 +120,46 @@ func (h *Hub) unregisterClient(client *Client) {
 	}
 }
 
-// assignReview assigns a review to a client if they have capacity, otherwise it queues the review
-func (h *Hub) assignReview(review ReviewRequest) {
-	if review.Id == nil {
-		log.Fatalf("can't assign review with nil ID")
+// assignReview assigns a supervisor to a client if they have capacity, otherwise it queues the supervisor
+func (h *Hub) assignReview(supervisor SupervisionRequest) {
+	if supervisor.Id == nil {
+		log.Fatalf("can't assign supervisor with nil ID")
 	}
 
 	h.ClientsMutex.RLock()
 	defer h.ClientsMutex.RUnlock()
 
-	// Attempt to assign the review to a client
-	if !h.assignReviewToClient(review) {
+	// Attempt to assign the supervisor to a client
+	if !h.assignReviewToClient(supervisor) {
 		// If no client is available, do nothing.
-		log.Printf("No available clients with capacity. Queued review.RequestId %s.", review.Id)
+		log.Printf("No available clients with capacity. Queued supervisor.RequestId %s.", supervisor.Id)
 	}
 }
 
-// assignReviewToClient attempts to assign a review to a client if they have capacity
-func (h *Hub) assignReviewToClient(review ReviewRequest) bool {
+// assignReviewToClient attempts to assign a supervisor to a client if they have capacity
+func (h *Hub) assignReviewToClient(supervisor SupervisionRequest) bool {
 	h.AssignedReviewsMutex.Lock()
 	defer h.AssignedReviewsMutex.Unlock()
 
-	// Iterate over all clients and assign the review if they have capacity
+	// Iterate over all clients and assign the supervisor if they have capacity
 	for client := range h.Clients {
 		assignedReviewsCount := len(h.AssignedReviews[client])
 
-		if assignedReviewsCount < MAX_REVIEWS_PER_CLIENT {
-			client.Send <- review
+		if assignedReviewsCount < MAX_SUPERVISORS_PER_CLIENT {
+			client.Send <- supervisor
 
-			h.AssignedReviews[client][review.Id.String()] = true
-			log.Printf("Assigned review.RequestId %s to client.", review.Id)
+			h.AssignedReviews[client][supervisor.Id.String()] = true
+			log.Printf("Assigned supervisor.RequestId %s to client.", supervisor.Id)
 
-			// Update the review status to assigned
-			err := h.Store.CreateReviewStatus(context.Background(), *review.Id, ReviewStatus{
+			// Update the supervisor status to assigned
+			err := h.Store.CreateSupervisionStatus(context.Background(), *supervisor.Id, SupervisionStatus{
 				Status: Assigned,
 			})
 			if err != nil {
-				fmt.Printf("Error creating review status: %v\n", err)
+				fmt.Printf("Error creating supervisor status: %v\n", err)
 			}
 
-			return true // Review assigned
+			return true // Supervisor assigned
 		}
 	}
 
@@ -172,15 +172,15 @@ func (h *Hub) requeueAssignedReviews(client *Client) {
 		for reviewID := range assignedReviews {
 			reviewID, err := uuid.Parse(reviewID)
 			if err != nil {
-				fmt.Printf("Error parsing review ID: %v\n", err)
+				fmt.Printf("Error parsing supervisor ID: %v\n", err)
 				continue
 			}
 
-			err = h.Store.CreateReviewStatus(context.Background(), reviewID, ReviewStatus{
+			err = h.Store.CreateSupervisionStatus(context.Background(), reviewID, SupervisionStatus{
 				Status: Pending,
 			})
 			if err != nil {
-				fmt.Printf("Error getting review from store: %v\n", err)
+				fmt.Printf("Error getting supervisor from store: %v\n", err)
 				continue
 			}
 		}
@@ -194,7 +194,7 @@ func (h *Hub) requeueAssignedReviews(client *Client) {
 type Client struct {
 	Hub  *Hub
 	Conn *websocket.Conn
-	Send chan ReviewRequest
+	Send chan SupervisionRequest
 }
 
 // WritePump handles the sending of reviews to the client
@@ -204,12 +204,12 @@ func (c *Client) WritePump() {
 		c.Hub.Unregister <- c
 	}()
 
-	for review := range c.Send {
-		if err := c.Conn.WriteJSON(review); err != nil {
-			log.Println("Error sending review to client:", err)
+	for supervisor := range c.Send {
+		if err := c.Conn.WriteJSON(supervisor); err != nil {
+			log.Println("Error sending supervisor to client:", err)
 			break
 		}
-		log.Printf("Sent review.RequestId %s to client.", review.Id)
+		log.Printf("Sent supervisor.RequestId %s to client.", supervisor.Id)
 	}
 }
 
@@ -227,7 +227,7 @@ func (c *Client) ReadPump() {
 			break
 		}
 
-		var response ReviewResult
+		var response SupervisionResult
 		if err := json.Unmarshal(message, &response); err != nil {
 			log.Println("Error unmarshaling reviewer response:", err)
 			continue
@@ -235,7 +235,7 @@ func (c *Client) ReadPump() {
 
 		// Handle the response
 		if chInterface, ok := reviewChannels.Load(response.Id); ok {
-			responseChan, ok := chInterface.(chan ReviewResult)
+			responseChan, ok := chInterface.(chan SupervisionResult)
 			if ok {
 				// Send the response non-blocking to prevent potential deadlocks
 				select {
@@ -251,7 +251,7 @@ func (c *Client) ReadPump() {
 			log.Printf("No response channel found for ID %s.", response.Id)
 		}
 
-		// Thread-safe removal of the review ID from assigned reviews
+		// Thread-safe removal of the supervisor ID from assigned reviews
 		c.Hub.AssignedReviewsMutex.Lock()
 		if _, exists := c.Hub.AssignedReviews[c]; exists {
 			delete(c.Hub.AssignedReviews[c], response.Id.String())
@@ -263,17 +263,17 @@ func (c *Client) ReadPump() {
 func (h *Hub) getStats() (HubStats, error) {
 	ctx := context.Background()
 
-	pendingCount, err := h.Store.CountReviewRequests(ctx, Pending)
+	pendingCount, err := h.Store.CountSupervisionRequests(ctx, Pending)
 	if err != nil {
 		return HubStats{}, fmt.Errorf("error counting pending reviews: %w", err)
 	}
 
-	completedCount, err := h.Store.CountReviewRequests(ctx, Completed)
+	completedCount, err := h.Store.CountSupervisionRequests(ctx, Completed)
 	if err != nil {
 		return HubStats{}, fmt.Errorf("error counting completed reviews: %w", err)
 	}
 
-	assignedCount, err := h.Store.CountReviewRequests(ctx, Assigned)
+	assignedCount, err := h.Store.CountSupervisionRequests(ctx, Assigned)
 	if err != nil {
 		return HubStats{}, fmt.Errorf("error counting assigned reviews: %w", err)
 	}
@@ -316,7 +316,7 @@ func (h *Hub) getStats() (HubStats, error) {
 			log.Printf("Error converting assignedCountStr to int: %v", err)
 			continue
 		}
-		if assignedCount < MAX_REVIEWS_PER_CLIENT {
+		if assignedCount < MAX_SUPERVISORS_PER_CLIENT {
 			stats.FreeClients += count
 		} else {
 			stats.BusyClients += count
