@@ -5,6 +5,9 @@ import json
 from pydantic import BaseModel, Field
 from entropy_labs.mocking.policies import MockPolicy
 from threading import Lock
+from inspect_ai.solver import TaskState
+from inspect_ai.tool import ToolCall
+from inspect_ai.model import ChatMessage, ChatMessageAssistant
 
 PREFERRED_LLM_MODEL = "gpt-4o"
 
@@ -29,10 +32,89 @@ class SupervisionContext:
     def __init__(self):
         self.langchain_events: List[dict] = []  # List to store all logged events
         self.lock = Lock()  # Ensure thread safety
+        self.metadata: Dict[str, Any] = {}
+        self.inspect_ai_state: Optional[TaskState] = None
 
     def add_event(self, event: dict):
         with self.lock:
             self.langchain_events.append(event)
+
+    def add_metadata(self, key: str, value: Any):
+        self.metadata[key] = value
+
+    def to_text(self) -> str:
+        """Converts the supervision context into a textual description."""
+        texts = []
+        with self.lock:
+            # Process LangChain events if any
+            if self.langchain_events:
+                texts.append("## LangChain Events:")
+                for event in self.langchain_events:
+                    event_description = self._describe_event(event)
+                    texts.append(event_description)
+
+            # Process inspect_ai_state if it exists
+            if self.inspect_ai_state:
+                inspect_ai_text = self._describe_inspect_ai_state()
+                texts.append(inspect_ai_text)
+
+        return "\n\n".join(texts)
+
+    def _describe_event(self, event: dict) -> str:
+        """Converts a single event into a textual description."""
+        event_type = event.get("event", "Unknown Event")
+        data = event.get("data", {})
+        description = f"### Event: {event_type}\nData:\n```json\n{json.dumps(data, indent=2)}\n```"
+        return description
+
+    def _describe_inspect_ai_state(self) -> str:
+        """Converts the inspect_ai_state into a textual description."""
+        state = self.inspect_ai_state
+        texts = []
+        
+        if state is None:
+            return ""
+
+        # Include meta information
+        meta_info = f"## Inspect AI State:\n**Model:** {state.model}\n**Sample ID:** {state.sample_id}\n**Epoch:** {state.epoch}"
+        texts.append(meta_info)
+
+        # Include messages
+        texts.append("### Messages:")
+        for message in state.messages:
+            message_text = self._describe_chat_message(message)
+            texts.append(message_text)
+
+        # Include output if available
+        if state.output:
+            texts.append("### Output:")
+            texts.append(f"```json\n{json.dumps(state.output.dict(), indent=2)}\n```")
+
+        return "\n\n".join(texts)
+
+    def _describe_chat_message(self, message: ChatMessage) -> str:
+        """Converts a chat message into a textual description."""
+        role = message.role.capitalize()
+        text_content = message.text.strip()
+        text = f"**{role}:**\n{text_content}"
+
+        if isinstance(message, ChatMessageAssistant) and message.tool_calls:
+            text += "\n\n**Tool Calls:**"
+            for tool_call in message.tool_calls:
+                tool_call_description = self._describe_tool_call(tool_call)
+                text += f"\n{tool_call_description}"
+
+        return text
+
+    def _describe_tool_call(self, tool_call: ToolCall) -> str:
+        """Converts a ToolCall into a textual description."""
+        description = (
+            f"- **Tool Call ID:** {tool_call.id}\n"
+            f"  - **Function:** {tool_call.function}\n"
+            f"  - **Arguments:** `{json.dumps(tool_call.arguments, indent=2)}`\n"
+            f"  - **Type:** {tool_call.type}"
+        )
+        return description
 
 class SupervisionConfig:
     def __init__(self):
