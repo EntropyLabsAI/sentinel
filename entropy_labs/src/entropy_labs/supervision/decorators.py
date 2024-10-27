@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any, Callable, List, Optional
 from functools import wraps
 import random
@@ -16,7 +17,7 @@ def supervise(
         @wraps(func)
         def wrapper(*args, **kwargs):
             # Access context from supervision_config
-            context = supervision_config.context
+            supervision_context = supervision_config.context
             
             print(f"\n--- Supervision ---")
             print(f"Function Name: {func.__name__}")
@@ -45,7 +46,11 @@ def supervise(
             supervisors = list(dict.fromkeys(supervisors))
             
             for supervisor in supervisors:
-                decision = supervisor(func, *args, context=context, **kwargs)  # Pass context
+                if asyncio.iscoroutinefunction(supervisor):
+                    decision = asyncio.run(supervisor(func, *args, supervision_context=supervision_context, **kwargs))
+                else:
+                    decision = supervisor(func, *args, supervision_context=supervision_context, **kwargs)
+                
                 print(f"Supervisor {supervisor.__name__} decision: {decision.decision}")
                 
                 if decision.decision == SupervisionDecisionType.APPROVE:
