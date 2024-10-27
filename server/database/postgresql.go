@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	sentinel "github.com/entropylabsai/sentinel/server"
 	"github.com/google/uuid"
@@ -151,11 +152,54 @@ func (s *PostgresqlStore) GetProjectRuns(ctx context.Context, id uuid.UUID) ([]s
 }
 
 // ReviewStore implementation
-func (s *PostgresqlStore) CreateReview(ctx context.Context, review sentinel.Review) (uuid.UUID, error) {
-	id := uuid.New()
+// Todo:
+// store messages
+// store tool requests
+// store review status
+// check result of review is stored somewhere
+// ensure that the review status is updated 3 times (timeout, pending, completed)
 
+// for _, toolRequest := range request.ToolRequests {
+// err := store.CreateToolRequest(ctx, reviewID, toolRequest)
+// if err != nil {
+// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+// 	return
+// }
+// }
+// for _, message := range request.Messages {
+// 	err := store.CreateMessage(ctx, reviewID, message)
+// 	if err != nil {
+// 		http.Error(w, err.Error(), http.StatusInternalServerError)
+// 		return
+// 	}
+// }
+
+func (s *PostgresqlStore) CreateReviewRequest(ctx context.Context, request sentinel.ReviewRequest) (uuid.UUID, error) {
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("error starting transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// Store the llm_messages first and keep track of the IDs
+	var messageIDs []uuid.UUID
+	for _, message := range request.Messages {
+		messageID := uuid.New()
+		query := `
+			INSERT INTO llm_message (id, role, content)
+			VALUES ($1, $2, $3)`
+
+		_, err = tx.ExecContext(ctx, query, messageID, message.Role, message.Content)
+		if err != nil {
+			return uuid.UUID{}, fmt.Errorf("error creating llm message: %w", err)
+		}
+		messageIDs = append(messageIDs, messageID)
+	}
+
+	// Store the review request
 	// Marshal the TaskState map to JSON if it's a map
-	taskStateJSON, err := json.Marshal(review.TaskState)
+	taskStateJSON, err := json.Marshal(request.TaskState)
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error marshalling task state: %w", err)
 	}
@@ -164,11 +208,56 @@ func (s *PostgresqlStore) CreateReview(ctx context.Context, review sentinel.Revi
 		INSERT INTO reviewrequest (id, run_id, task_state)
 		VALUES ($1, $2, $3)`
 
-	_, err = s.db.ExecContext(ctx, query, id, review.RunId, taskStateJSON)
+	requestID := uuid.New()
+	_, err = tx.ExecContext(ctx, query, requestID, request.RunId, taskStateJSON)
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error creating review: %w", err)
 	}
-	return id, nil
+
+	// Store the tool requests
+	for i, toolRequest := range request.ToolRequests {
+		toolRequestID := uuid.New()
+
+		query := `
+			INSERT INTO toolrequest (id, reviewrequest_id, tool_id, message_id, arguments)
+			VALUES ($1, $2, $3, $4, $5)`
+
+		_, err = tx.ExecContext(
+			ctx, query, toolRequestID, requestID, toolRequest.ToolId, messageIDs[i], toolRequest.Arguments,
+		)
+		if err != nil {
+			return uuid.UUID{}, fmt.Errorf("error creating tool request: %w", err)
+		}
+	}
+
+	status := sentinel.ReviewStatus{Status: sentinel.Pending, CreatedAt: time.Now()}
+
+	// Store a review status pending
+	err = s.createReviewStatus(ctx, requestID, status, tx)
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("error creating review status: %w", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("error committing transaction: %w", err)
+	}
+
+	return requestID, nil
+}
+
+func (s *PostgresqlStore) createReviewStatus(ctx context.Context, requestID uuid.UUID, status sentinel.ReviewStatus, tx *sql.Tx) error {
+	query := `
+		INSERT INTO reviewrequest_status (id, reviewrequest_id, status, created_at)
+		VALUES ($1, $2, $3, $4)`
+
+	id := uuid.New()
+	_, err := tx.ExecContext(ctx, query, id, requestID, status.Status, status.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("error creating review status: %w", err)
+	}
+
+	return nil
 }
 
 func (s *PostgresqlStore) GetReview(ctx context.Context, id uuid.UUID) (*sentinel.Review, error) {
@@ -182,12 +271,18 @@ func (s *PostgresqlStore) GetReview(ctx context.Context, id uuid.UUID) (*sentine
 
 	var review sentinel.Review
 	var status sentinel.ReviewStatus
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&review.Id, &review.RunId, &review.TaskState, &status.Status)
+	var taskStateJSON []byte // Add temporary variable for JSON data
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&review.Id, &review.RunId, &taskStateJSON, &status.Status)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error getting review: %w", err)
+	}
+
+	// Parse the JSON task state
+	if err := json.Unmarshal(taskStateJSON, &review.TaskState); err != nil {
+		return nil, fmt.Errorf("error parsing task state: %w", err)
 	}
 
 	if status.Status != "" {
@@ -264,9 +359,9 @@ func (s *PostgresqlStore) UpdateReview(ctx context.Context, review sentinel.Revi
 
 func (s *PostgresqlStore) GetReviews(ctx context.Context) ([]sentinel.Review, error) {
 	query := `
-		SELECT id, run_id, task_state, rs.id, rs.status, rs.created_at
-		FROM reviewrequest
-		LEFT JOIN reviewrequest_status rs ON reviewrequest.id = rs.reviewrequest_id
+		SELECT rr.id, rr.run_id, rr.task_state, rs.id, rs.status, rs.created_at
+		FROM reviewrequest rr
+		LEFT JOIN reviewrequest_status rs ON rr.id = rs.reviewrequest_id
 		ORDER BY rs.created_at DESC`
 
 	rows, err := s.db.QueryContext(ctx, query)
@@ -278,9 +373,18 @@ func (s *PostgresqlStore) GetReviews(ctx context.Context) ([]sentinel.Review, er
 	var reviews []sentinel.Review
 	for rows.Next() {
 		var review sentinel.Review
-		if err := rows.Scan(&review.Id, &review.RunId, &review.TaskState, &review.Status.Id, &review.Status.Status, &review.Status.CreatedAt); err != nil {
+		var status sentinel.ReviewStatus
+		var taskStateJSON []byte
+		if err := rows.Scan(&review.Id, &review.RunId, &taskStateJSON, &status.Id, &status.Status, &status.CreatedAt); err != nil {
 			return nil, fmt.Errorf("error scanning review: %w", err)
 		}
+
+		// Parse the JSON task state
+		if err := json.Unmarshal(taskStateJSON, &review.TaskState); err != nil {
+			return nil, fmt.Errorf("error parsing task state: %w", err)
+		}
+
+		review.Status = &status
 		reviews = append(reviews, review)
 	}
 
@@ -364,11 +468,11 @@ func (s *PostgresqlStore) GetTools(ctx context.Context) ([]sentinel.Tool, error)
 
 func (s *PostgresqlStore) GetSupervisorFromToolID(ctx context.Context, id uuid.UUID) (*sentinel.Supervisor, error) {
 	query := `
-		SELECT id, description, created_at, type
-		FROM supervisor
-		INNER JOIN tool_supervisor ON supervisor.id = tool_supervisor.supervisor_id
-		INNER JOIN tool ON tool_supervisor.tool_id = tool.id
-		WHERE tool.id = $1`
+		SELECT s.id, s.description, s.created_at, s.type
+		FROM supervisor s
+		INNER JOIN tool_supervisor ts ON s.id = ts.supervisor_id
+		INNER JOIN tool t ON ts.tool_id = t.id
+		WHERE t.id = $1`
 
 	var supervisor sentinel.Supervisor
 	err := s.db.QueryRowContext(ctx, query, id).Scan(&supervisor.Id, &supervisor.Description, &supervisor.CreatedAt, &supervisor.Type)
@@ -382,13 +486,36 @@ func (s *PostgresqlStore) GetSupervisorFromToolID(ctx context.Context, id uuid.U
 }
 
 func (s *PostgresqlStore) CreateSupervisor(ctx context.Context, supervisor sentinel.Supervisor) (uuid.UUID, error) {
-	id := uuid.New()
+	if supervisor.Code == nil {
+		return uuid.UUID{}, fmt.Errorf("can't create supervisor, code is required")
+	}
 
+	var id uuid.UUID
+
+	// Try and find a supervisor with the same code
 	query := `
-		INSERT INTO supervisor (id, description, created_at, type)
-		VALUES ($1, $2, $3, $4)`
+		SELECT id
+		FROM supervisor
+		WHERE code = $1`
 
-	_, err := s.db.ExecContext(ctx, query, id, supervisor.Description, supervisor.CreatedAt, supervisor.Type)
+	var existingSupervisorId uuid.UUID
+	err := s.db.QueryRowContext(ctx, query, supervisor.Code).Scan(&existingSupervisorId)
+	if err != nil && err != sql.ErrNoRows {
+		return uuid.UUID{}, fmt.Errorf("error checking if supervisor already exists: %w", err)
+	}
+
+	// If the supervisor already exists, just use the existing ID, else create a new one
+	if existingSupervisorId != uuid.Nil {
+		return existingSupervisorId, nil
+	}
+
+	id = uuid.New()
+
+	query = `
+		INSERT INTO supervisor (id, description, created_at, type, code)
+		VALUES ($1, $2, $3, $4, $5)`
+
+	_, err = s.db.ExecContext(ctx, query, id, supervisor.Description, supervisor.CreatedAt, supervisor.Type, supervisor.Code)
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error creating supervisor: %w", err)
 	}

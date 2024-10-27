@@ -407,7 +407,34 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request, store St
 		return
 	}
 
+	if len(request.ToolRequests) == 0 || len(request.Messages) == 0 {
+		http.Error(w, "No tool choices or messages provided", http.StatusBadRequest)
+		return
+	}
+
+	if len(request.ToolRequests) != len(request.Messages) {
+		http.Error(w, "Number of tool choices and messages must be the same", http.StatusBadRequest)
+		return
+	}
+
+	// We can't have n requests for different tools yet. They must be the same tool.
+	toolID := request.ToolRequests[0].ToolId
+	for _, toolRequest := range request.ToolRequests {
+		if toolRequest.ToolId != toolID {
+			http.Error(w, fmt.Sprintf("Agent submitted %d samples, some of which were not the same tool choice", len(request.ToolRequests)), http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Store the review in the database
+	reviewID, err := store.CreateReviewRequest(ctx, request)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	review := Review{
+		Id:        reviewID,
 		RunId:     request.RunId,
 		TaskState: request.TaskState,
 		Status: &ReviewStatus{
@@ -416,33 +443,15 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request, store St
 		},
 	}
 
-	// Store the review in the database
-	reviewID, err := store.CreateReview(ctx, review)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	review.Id = reviewID
-
-	if len(request.ToolRequests) == 0 {
-		http.Error(w, "No tool choices provided", http.StatusBadRequest)
-		return
-	}
-
-	toolChoiceID := request.ToolRequests[0].Id
-
-	for _, toolRequest := range request.ToolRequests {
-		if toolRequest.Id != toolChoiceID {
-			http.Error(w, fmt.Sprintf("Agent submitted %d samples, some of which were not the same tool choice", len(request.ToolRequests)), http.StatusBadRequest)
-			return
-		}
-	}
-
 	// Handle the review depending on the type of supervisor
-	supervisor, err := store.GetSupervisorFromToolID(ctx, toolChoiceID)
+	supervisor, err := store.GetSupervisorFromToolID(ctx, toolID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if supervisor == nil {
+		http.Error(w, fmt.Sprintf("Supervisor not found for tool %s", toolID), http.StatusNotFound)
 		return
 	}
 

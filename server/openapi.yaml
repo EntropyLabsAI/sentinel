@@ -584,6 +584,8 @@ components:
           format: date-time
         type:
           $ref: "#/components/schemas/SupervisorType"
+        code:
+          type: string
       required:
         - type
         - description
@@ -719,12 +721,12 @@ components:
         content:
           type: string
       required:
-        - id
         - role
         - content
 
     ToolRequest:
       type: object
+      description: A tool request is a request to use a tool. It must be approved by a supervisor.
       properties:
         id:
           type: string
@@ -742,8 +744,6 @@ components:
           type: object
           additionalProperties: true
       required:
-        - id
-        - review_request_id
         - tool_id
         - arguments
 
