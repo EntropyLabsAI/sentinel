@@ -1,7 +1,6 @@
 package sentinel
 
 import (
-	"container/list"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -14,7 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const MAX_REVIEWS_PER_CLIENT = 10
+const MAX_REVIEWS_PER_CLIENT = 1
 
 // Upgrade HTTP connection to WebSocket with proper settings
 var upgrader = websocket.Upgrader{
@@ -28,36 +27,50 @@ type Hub struct {
 	// Clients is a map of clients to their connection status
 	Clients      map[*Client]bool
 	ClientsMutex sync.RWMutex
-	// ReviewChan is a channel that receives new reviews from agents
-	ReviewChan chan Review
-	// Register is used when a new client connects
-	Register chan *Client
-	// Unregister is used when a client disconnects
+	// ReviewChan is a channel that receives new reviews, then assigns them to a connected client
+	ReviewChan chan ReviewRequest
+	// Register and Unregister are used when a new client connects and disconnects
+	Register   chan *Client
 	Unregister chan *Client
 	// AssignedReviews is a map of clients to the reviews they are currently processing
 	AssignedReviews      map[*Client]map[string]bool
 	AssignedReviewsMutex sync.RWMutex
-	// ReviewStore is used to store reviews that have been assigned to a client and are waiting to be completed
-	// This is used to ensure that reviews are not lost if a client disconnects unexpectedly
-	// ReviewStore *ReviewStoreType
-	// Queue is a list of reviews that are waiting to be assigned to a client
-	Queue *list.List
+
 	// CompletedReviewCount is used to count the number of reviews that have been completed
 	CompletedReviewCount int
 	Store                Store
 }
 
-func NewHub(store Store) *Hub {
+func NewHub(store Store, humanReviewChan chan ReviewRequest) *Hub {
 	return &Hub{
-		Clients:         make(map[*Client]bool),
-		ReviewChan:      make(chan Review, 100),
-		Register:        make(chan *Client),
-		Unregister:      make(chan *Client),
+		Clients:    make(map[*Client]bool),
+		ReviewChan: humanReviewChan,
+		Register:   make(chan *Client),
+		Unregister: make(chan *Client),
+
 		AssignedReviews: make(map[*Client]map[string]bool),
-		// ReviewStore:     NewReviewStore(),
-		Queue: list.New(),
+
 		Store: store,
 	}
+}
+
+// serveWs upgrades the HTTP connection to a WebSocket connection and registers the client with the hub
+func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println("upgrade error:", err)
+		return
+	}
+
+	client := &Client{
+		Hub:  hub,
+		Conn: conn,
+		Send: make(chan ReviewRequest),
+	}
+	hub.Register <- client
+
+	go client.WritePump()
+	go client.ReadPump()
 }
 
 // Run starts the hub and handles client connections/disconnections and review assignments
@@ -85,7 +98,6 @@ func (h *Hub) registerClient(client *Client) {
 	h.ClientsMutex.Unlock()
 
 	log.Println("Client registered.")
-	h.processQueue()
 }
 
 // unregisterClient removes a client from the hub and handles the cleanup of their assigned reviews
@@ -109,8 +121,8 @@ func (h *Hub) unregisterClient(client *Client) {
 }
 
 // assignReview assigns a review to a client if they have capacity, otherwise it queues the review
-func (h *Hub) assignReview(review Review) {
-	if review.Id == uuid.Nil {
+func (h *Hub) assignReview(review ReviewRequest) {
+	if review.Id == nil {
 		log.Fatalf("can't assign review with nil ID")
 	}
 
@@ -119,37 +131,13 @@ func (h *Hub) assignReview(review Review) {
 
 	// Attempt to assign the review to a client
 	if !h.assignReviewToClient(review) {
-		// If no client is available, queue the review
-		h.Queue.PushBack(review)
+		// If no client is available, do nothing.
 		log.Printf("No available clients with capacity. Queued review.RequestId %s.", review.Id)
 	}
 }
 
-// processQueue is a loop that continuously checks the queue for available reviews to assign to clients
-func (h *Hub) processQueue() {
-	h.ClientsMutex.RLock()
-	defer h.ClientsMutex.RUnlock()
-
-	var next *list.Element
-	for e := h.Queue.Front(); e != nil; e = next {
-		next = e.Next()
-		review := e.Value.(Review)
-
-		if review.Id == uuid.Nil {
-			log.Fatalf("can't process queue item with nil ID")
-		}
-
-		if h.assignReviewToClient(review) {
-			h.Queue.Remove(e)
-		} else {
-			// No clients with capacity available at this time
-			break
-		}
-	}
-}
-
 // assignReviewToClient attempts to assign a review to a client if they have capacity
-func (h *Hub) assignReviewToClient(review Review) bool {
+func (h *Hub) assignReviewToClient(review ReviewRequest) bool {
 	h.AssignedReviewsMutex.Lock()
 	defer h.AssignedReviewsMutex.Unlock()
 
@@ -162,6 +150,15 @@ func (h *Hub) assignReviewToClient(review Review) bool {
 
 			h.AssignedReviews[client][review.Id.String()] = true
 			log.Printf("Assigned review.RequestId %s to client.", review.Id)
+
+			// Update the review status to assigned
+			err := h.Store.CreateReviewStatus(context.Background(), *review.Id, ReviewStatus{
+				Status: Assigned,
+			})
+			if err != nil {
+				fmt.Printf("Error creating review status: %v\n", err)
+			}
+
 			return true // Review assigned
 		}
 	}
@@ -179,31 +176,17 @@ func (h *Hub) requeueAssignedReviews(client *Client) {
 				continue
 			}
 
-			review, err := h.Store.GetReview(context.Background(), reviewID)
+			err = h.Store.CreateReviewStatus(context.Background(), reviewID, ReviewStatus{
+				Status: Pending,
+			})
 			if err != nil {
 				fmt.Printf("Error getting review from store: %v\n", err)
 				continue
 			}
-
-			if review == nil {
-				fmt.Printf("Review details for ID %s not found in store. Skipping requeue.", reviewID)
-				continue
-			}
-
-			fmt.Printf("Review details for ID %s have been retrieved from the store\n", reviewID)
-
-			err = h.Store.DeleteReview(context.Background(), reviewID)
-			if err != nil {
-				fmt.Printf("Error deleting review from store: %v\n", err)
-				continue
-			}
-
-			fmt.Printf("Review details for ID %s have been deleted from the store\n", reviewID)
-			h.ReviewChan <- *review
-			fmt.Printf("Review details for ID %s have been sent to the ReviewChan\n", reviewID)
-
-			log.Printf("Re-queuing review.RequestId %s as client disconnected.", reviewID)
 		}
+
+		// Remove the client from the AssignedReviews map
+		delete(h.AssignedReviews, client)
 	}
 }
 
@@ -211,7 +194,7 @@ func (h *Hub) requeueAssignedReviews(client *Client) {
 type Client struct {
 	Hub  *Hub
 	Conn *websocket.Conn
-	Send chan Review
+	Send chan ReviewRequest
 }
 
 // WritePump handles the sending of reviews to the client
@@ -274,36 +257,37 @@ func (c *Client) ReadPump() {
 			delete(c.Hub.AssignedReviews[c], response.Id.String())
 		}
 		c.Hub.AssignedReviewsMutex.Unlock()
-
-		// Remove the review from the ReviewStore
-		err = c.Hub.Store.DeleteReview(context.Background(), response.Id)
-		if err != nil {
-			fmt.Printf("Error deleting review from store: %v\n", err)
-		}
-
-		c.Hub.CompletedReviewCount++
-
-		// Process the next review in the queue
-		c.Hub.processQueue()
 	}
 }
 
-func (h *Hub) getStats() HubStats {
+func (h *Hub) getStats() (HubStats, error) {
 	ctx := context.Background()
 
-	count, err := h.Store.CountReviews(ctx)
+	pendingCount, err := h.Store.CountReviewRequests(ctx, Pending)
 	if err != nil {
-		fmt.Printf("Error counting reviews in store: %v\n", err)
-		count = 0
+		return HubStats{}, fmt.Errorf("error counting pending reviews: %w", err)
+	}
+
+	completedCount, err := h.Store.CountReviewRequests(ctx, Completed)
+	if err != nil {
+		return HubStats{}, fmt.Errorf("error counting completed reviews: %w", err)
+	}
+
+	assignedCount, err := h.Store.CountReviewRequests(ctx, Assigned)
+	if err != nil {
+		return HubStats{}, fmt.Errorf("error counting assigned reviews: %w", err)
 	}
 
 	stats := HubStats{
 		ConnectedClients:   len(h.Clients),
-		QueuedReviews:      h.Queue.Len(),
-		StoredReviews:      count,
-		AssignedReviews:    make(map[string]int),
 		ReviewDistribution: make(map[string]int),
-		CompletedReviews:   h.CompletedReviewCount,
+		AssignedReviews:    make(map[string]int),
+		FreeClients:        0,
+		BusyClients:        0,
+
+		PendingReviewsCount:   pendingCount,
+		CompletedReviewsCount: completedCount,
+		AssignedReviewsCount:  assignedCount,
 	}
 
 	totalAssignedReviews := 0
@@ -339,5 +323,5 @@ func (h *Hub) getStats() HubStats {
 		}
 	}
 
-	return stats
+	return stats, nil
 }

@@ -39,9 +39,9 @@ const (
 
 // Defines values for ReviewStatusStatus.
 const (
+	Assigned  ReviewStatusStatus = "assigned"
 	Completed ReviewStatusStatus = "completed"
 	Pending   ReviewStatusStatus = "pending"
-	Timeout   ReviewStatusStatus = "timeout"
 )
 
 // Defines values for SupervisorType.
@@ -54,14 +54,14 @@ const (
 
 // HubStats defines model for HubStats.
 type HubStats struct {
-	AssignedReviews    map[string]int `json:"assigned_reviews"`
-	BusyClients        int            `json:"busy_clients"`
-	CompletedReviews   int            `json:"completed_reviews"`
-	ConnectedClients   int            `json:"connected_clients"`
-	FreeClients        int            `json:"free_clients"`
-	QueuedReviews      int            `json:"queued_reviews"`
-	ReviewDistribution map[string]int `json:"review_distribution"`
-	StoredReviews      int            `json:"stored_reviews"`
+	AssignedReviews       map[string]int `json:"assigned_reviews"`
+	AssignedReviewsCount  int            `json:"assigned_reviews_count"`
+	BusyClients           int            `json:"busy_clients"`
+	CompletedReviewsCount int            `json:"completed_reviews_count"`
+	ConnectedClients      int            `json:"connected_clients"`
+	FreeClients           int            `json:"free_clients"`
+	PendingReviewsCount   int            `json:"pending_reviews_count"`
+	ReviewDistribution    map[string]int `json:"review_distribution"`
 }
 
 // LLMMessage defines model for LLMMessage.
@@ -86,19 +86,12 @@ type ProjectCreate struct {
 	Name string `json:"name"`
 }
 
-// Review defines model for Review.
-type Review struct {
-	Id        openapi_types.UUID     `json:"id"`
-	RunId     openapi_types.UUID     `json:"run_id"`
-	Status    *ReviewStatus          `json:"status,omitempty"`
-	TaskState map[string]interface{} `json:"task_state"`
-}
-
 // ReviewRequest defines model for ReviewRequest.
 type ReviewRequest struct {
 	Id           *openapi_types.UUID    `json:"id,omitempty"`
 	Messages     []LLMMessage           `json:"messages"`
 	RunId        openapi_types.UUID     `json:"run_id"`
+	Status       *ReviewStatus          `json:"status,omitempty"`
 	TaskState    map[string]interface{} `json:"task_state"`
 	ToolRequests []ToolRequest          `json:"tool_requests"`
 }
@@ -177,8 +170,8 @@ type ToolRequest struct {
 	ToolId          openapi_types.UUID     `json:"tool_id"`
 }
 
-// GetReviewsParams defines parameters for GetReviews.
-type GetReviewsParams struct {
+// GetReviewRequestsParams defines parameters for GetReviewRequests.
+type GetReviewRequestsParams struct {
 	Type *SupervisorType `form:"type,omitempty" json:"type,omitempty"`
 }
 
@@ -191,8 +184,8 @@ type CreateRunToolJSONRequestBody = ToolCreate
 // AssignSupervisorToToolJSONRequestBody defines body for AssignSupervisorToTool for application/json ContentType.
 type AssignSupervisorToToolJSONRequestBody = SupervisorAssignment
 
-// CreateReviewJSONRequestBody defines body for CreateReview for application/json ContentType.
-type CreateReviewJSONRequestBody = ReviewRequest
+// CreateReviewRequestJSONRequestBody defines body for CreateReviewRequest for application/json ContentType.
+type CreateReviewRequestJSONRequestBody = ReviewRequest
 
 // CreateSupervisorJSONRequestBody defines body for CreateSupervisor for application/json ContentType.
 type CreateSupervisorJSONRequestBody = Supervisor
@@ -235,15 +228,15 @@ type ServerInterface interface {
 	// Assign supervisor to tool
 	// (POST /api/projects/{projectId}/tools/{toolId}/supervisors)
 	AssignSupervisorToTool(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID, toolId openapi_types.UUID)
-	// List all reviews
+	// List all review requests
 	// (GET /api/reviews)
-	GetReviews(w http.ResponseWriter, r *http.Request, params GetReviewsParams)
+	GetReviewRequests(w http.ResponseWriter, r *http.Request, params GetReviewRequestsParams)
 	// Create a review request
 	// (POST /api/reviews)
-	CreateReview(w http.ResponseWriter, r *http.Request)
-	// Get review by ID
+	CreateReviewRequest(w http.ResponseWriter, r *http.Request)
+	// Get review request by ID
 	// (GET /api/reviews/{reviewId})
-	GetReview(w http.ResponseWriter, r *http.Request, reviewId openapi_types.UUID)
+	GetReviewRequest(w http.ResponseWriter, r *http.Request, reviewId openapi_types.UUID)
 	// Get review results
 	// (GET /api/reviews/{reviewId}/results)
 	GetReviewResults(w http.ResponseWriter, r *http.Request, reviewId openapi_types.UUID)
@@ -597,13 +590,13 @@ func (siw *ServerInterfaceWrapper) AssignSupervisorToTool(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
-// GetReviews operation middleware
-func (siw *ServerInterfaceWrapper) GetReviews(w http.ResponseWriter, r *http.Request) {
+// GetReviewRequests operation middleware
+func (siw *ServerInterfaceWrapper) GetReviewRequests(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params GetReviewsParams
+	var params GetReviewRequestsParams
 
 	// ------------- Optional query parameter "type" -------------
 
@@ -614,7 +607,7 @@ func (siw *ServerInterfaceWrapper) GetReviews(w http.ResponseWriter, r *http.Req
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetReviews(w, r, params)
+		siw.Handler.GetReviewRequests(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -624,11 +617,11 @@ func (siw *ServerInterfaceWrapper) GetReviews(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
-// CreateReview operation middleware
-func (siw *ServerInterfaceWrapper) CreateReview(w http.ResponseWriter, r *http.Request) {
+// CreateReviewRequest operation middleware
+func (siw *ServerInterfaceWrapper) CreateReviewRequest(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateReview(w, r)
+		siw.Handler.CreateReviewRequest(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -638,8 +631,8 @@ func (siw *ServerInterfaceWrapper) CreateReview(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
-// GetReview operation middleware
-func (siw *ServerInterfaceWrapper) GetReview(w http.ResponseWriter, r *http.Request) {
+// GetReviewRequest operation middleware
+func (siw *ServerInterfaceWrapper) GetReviewRequest(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -653,7 +646,7 @@ func (siw *ServerInterfaceWrapper) GetReview(w http.ResponseWriter, r *http.Requ
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetReview(w, r, reviewId)
+		siw.Handler.GetReviewRequest(w, r, reviewId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -937,9 +930,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("GET "+options.BaseURL+"/api/projects/{projectId}/tools/{toolId}", wrapper.GetTool)
 	m.HandleFunc("GET "+options.BaseURL+"/api/projects/{projectId}/tools/{toolId}/supervisors", wrapper.GetToolSupervisors)
 	m.HandleFunc("POST "+options.BaseURL+"/api/projects/{projectId}/tools/{toolId}/supervisors", wrapper.AssignSupervisorToTool)
-	m.HandleFunc("GET "+options.BaseURL+"/api/reviews", wrapper.GetReviews)
-	m.HandleFunc("POST "+options.BaseURL+"/api/reviews", wrapper.CreateReview)
-	m.HandleFunc("GET "+options.BaseURL+"/api/reviews/{reviewId}", wrapper.GetReview)
+	m.HandleFunc("GET "+options.BaseURL+"/api/reviews", wrapper.GetReviewRequests)
+	m.HandleFunc("POST "+options.BaseURL+"/api/reviews", wrapper.CreateReviewRequest)
+	m.HandleFunc("GET "+options.BaseURL+"/api/reviews/{reviewId}", wrapper.GetReviewRequest)
 	m.HandleFunc("GET "+options.BaseURL+"/api/reviews/{reviewId}/results", wrapper.GetReviewResults)
 	m.HandleFunc("GET "+options.BaseURL+"/api/reviews/{reviewId}/status", wrapper.GetReviewStatus)
 	m.HandleFunc("GET "+options.BaseURL+"/api/reviews/{reviewId}/toolrequests", wrapper.GetReviewToolRequests)
@@ -954,36 +947,36 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"H4sIAAAAAAAC/+xaTW/bOBP+KwTf96iN0t2efOt+oA3gYIMkt0Vg0NbYYVciFX6kaxj57wuSkkVJtEQ5",
+	"idtme0osDcmZ55kZzlDc4RUvSs6AKYlnOyxX91AQ++8nvbxRxD0uBS9BKAr2F5GSbhhkCwGPFL64Z1lG",
+	"FeWM5FctWbUtAc8wZQo2IPBTUj/hy8+wUuZBd7rFimumwoOXWm4Xq5zW+vYljD05qLjpVpwxWBnhwTnX",
+	"AmBYogSWUbaJWdOJLDIqlaBLbUB7FoB2ygdNBWR49lfApAQ/aNAeXQmWiovWg5aFHZj7DOGwFYfBPwTQ",
+	"QfLvAn4yn19egpRkA32XXHGmoIW40YttzDiamcdrLgqi8AxrTTOc9MUEz+3EwHRhgJRbqaDACdYSRKWp",
+	"VKSlXD26w4GdKtkrFTLmSnD7b98SAcQASFRL64wo+EnRAkKqR1rISAEBhDrK27FWNPGVGTDiNyvVNyVu",
+	"PSsVmv3aesQ1PGiQAaAijS6cy7ghCgr7z/8FrPEM/y9tsl9apb7Uc7Mm2IgQZGu9RLNF5MpSEaVHl3NW",
+	"3jhZsyCRfy/MUDicFZTQEABMcZ4vhMMr3t5bzvMa5J7BXcd21re07K7rQT7EqtT5C3l/BisqqyxaBy8p",
+	"S8EfwSYqu3KCFYiCMqdxwTO63uIEg1yR3Dy7Oz6sBBDJmfkRyj5VoqzgifUdA6loPD+av1As9zVoBbYH",
+	"oG/LYe5u9n59sszVhFJNcLWf+HuOt5uMp2i7TjXtaJ671uyk5pYur8Y5S8gwb4JR4250CeKRSi5C22oG",
+	"Qa8+Lk7lStCyLniOBcc9GI6JxqZbI93FyE7RVmgCTB+skxVVudEGTO6ljiKvPXxYjdsKhzoiLFcJznNT",
+	"s9zrghijSJ4HU5tJGoHCXrliDuTkvecrOsT0ssZfOASyQedQUfMMjMbsnVAvxdng1U6ttfEHZDYYVG0J",
+	"iEpE9j8UR1oCIlbkDF0oVGip0BJQtalmaLlFBDW+euYyjg+S2Oii7pYmYTStqltEb9HHbsJHhXE9MPGA",
+	"6HNkRlG25pZyqkz3gW+AKcogRx+uLnCCH0G4yga/Ozs/OzdK8RIYKSme4V/Ozs/eGeiJurdAp6SkafX+",
+	"bEsKG+EbsPwb4Ilh4SLDM/wR1J8lMLeIAFlyJh1zP5+f992lkkUuvVpzpS4KIrZuLqTuAXWETI24kQYN",
+	"s8qdGWP1q7YmOaTbVS0TVs5r9khZ5nRlB6efpYurSoHY+rfuxPq1bzdk8ZxKhfga7W1oI2Ffkzxv3jcg",
+	"7E26M/s7lwHDXcap1XEeBVL9yrPtJKsjjK2S21PbcU1IPj0T8iik+8hWr1C1jSCpVyuQcq3zfNtB2emO",
+	"CGLwpUY6DHTX5dJd9d9F9hThfja0BClAgTBT7zA1qppwq7eSGd7PiLtIJh4qY+nj7uuinoEiNLft5/vz",
+	"9/34r+UYV2jNNcsCKaACwuwNF79P5yMVmsXkhGsj9v0QE5WBTHsxIftYpJ5DlZkArblAJBA/FuCxJGU0",
+	"fhvRYbHvY32t2eRcJDQbQ3U0AtKd0GwkPcWCb2d6FvDJ2yN1LNUZmZHY6aW4qeSmpj6UIxTfWpkfPEef",
+	"YU5JoY6AA9WbqpCv6XVMRKREq8Xp0mIy6A0TGXr5UtNrok9cZzpv6LNvnk/O6sqR2nWGwWC3HpTuzJ+R",
+	"XB7tMm6u/2Q2H6RzLJ9boaGEbg9Cuhn9CJbT5jxEjjF+44n+ID8uxXvH1BMSvUcKqj8OIMXtgYWqNo3j",
+	"/ObQzCScMfyT26HNxB0ue6e8/E2liJffZoLn8vEbTpv1ZrKG04GNwq3ouYJ1rTb9bdrrhOLdnDlYA/qf",
+	"vw/liQcNYuu5gPuwMRW56iPJaZrd1lf9KW2vHYj235kPVG9dMa9MrzAfreRaGr6O13ZQOG191L5yEOiT",
+	"HIRTKqU26kHQO66f7tw/Y81uh4yIdqia9tvtTvvcB/EfbVWd2GC32qKl37hGkJMKe1UjKlU5we+GpEn5",
+	"yt5XiUhX1zXkDoyXIK+GdRJtzZWJYdZu6jsQbyayRhOb3F+2eiY1+/sjk5jx7vZE8ON9x31roTV88yzc",
+	"79XA2ZNWU8U7c59DpurNW+9nAWaTXm8o60vS9leeFyn8U+aEkfo7f7jW+AhqPr/8wxN9nUqjvchXqji6",
+	"SrhlgtXe/BL5+PXp6kk0JM3nl7a6OxRR+yvtr2jqfo2AcZ/0EsnqZdes+/27xp5Peuk7WtwBQ/tw4Tto",
+	"zA9V8rJlSLifGq7kPdVeu/k8dUR1Vz7Yx04975Q+ZsNNrEdQumt+jFT0LVLGtzN/3m+28IhmY6ym90Tj",
+	"Dp96NX2HqqenfwMAAP//O70Zy+MzAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

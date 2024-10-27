@@ -154,7 +154,7 @@ paths:
   /api/reviews:
     post:
       summary: Create a review request
-      operationId: CreateReview
+      operationId: CreateReviewRequest
       requestBody:
         required: true
         content:
@@ -171,8 +171,8 @@ paths:
       tags:
         - Reviews
     get:
-      summary: List all reviews
-      operationId: GetReviews
+      summary: List all review requests
+      operationId: GetReviewRequests
       parameters:
         - name: type
           in: query
@@ -180,13 +180,13 @@ paths:
             $ref: "#/components/schemas/SupervisorType"
       responses:
         "200":
-          description: List of reviews
+          description: List of review requests
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Review"
+                  $ref: "#/components/schemas/ReviewRequest"
       tags:
         - Reviews
 
@@ -413,8 +413,8 @@ paths:
 
   /api/reviews/{reviewId}:
     get:
-      summary: Get review by ID
-      operationId: GetReview
+      summary: Get review request by ID
+      operationId: GetReviewRequest
       parameters:
         - name: reviewId
           in: path
@@ -428,7 +428,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Review"
+                $ref: "#/components/schemas/ReviewRequest"
         "404":
           description: Review not found
       tags:
@@ -641,6 +641,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/LLMMessage"
+        status:
+          $ref: "#/components/schemas/ReviewStatus"
       required:
         - run_id
         - task_state
@@ -674,7 +676,7 @@ components:
           format: uuid
         status:
           type: string
-          enum: [timeout, pending, completed]
+          enum: [pending, completed, assigned]
         created_at:
           type: string
           format: date-time
@@ -770,10 +772,6 @@ components:
       properties:
         connected_clients:
           type: integer
-        queued_reviews:
-          type: integer
-        stored_reviews:
-          type: integer
         free_clients:
           type: integer
         busy_clients:
@@ -786,7 +784,11 @@ components:
           type: object
           additionalProperties:
             type: integer
-        completed_reviews:
+        completed_reviews_count:
+          type: integer
+        pending_reviews_count:
+          type: integer
+        assigned_reviews_count:
           type: integer
       required:
         - connected_clients
@@ -796,7 +798,9 @@ components:
         - busy_clients
         - assigned_reviews
         - review_distribution
-        - completed_reviews
+        - completed_reviews_count
+        - pending_reviews_count
+        - assigned_reviews_count
 
     LLMExplanationRequest:
       type: object

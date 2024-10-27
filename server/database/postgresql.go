@@ -250,6 +250,16 @@ func (s *PostgresqlStore) CreateReviewRequest(ctx context.Context, request senti
 	return requestID, nil
 }
 
+func (s *PostgresqlStore) CreateReviewStatus(ctx context.Context, requestID uuid.UUID, status sentinel.ReviewStatus) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("error starting transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	return s.createReviewStatus(ctx, requestID, status, tx)
+}
+
 func (s *PostgresqlStore) createReviewStatus(ctx context.Context, requestID uuid.UUID, status sentinel.ReviewStatus, tx *sql.Tx) error {
 	query := `
 		INSERT INTO reviewrequest_status (id, reviewrequest_id, status, created_at)
@@ -264,19 +274,21 @@ func (s *PostgresqlStore) createReviewStatus(ctx context.Context, requestID uuid
 	return nil
 }
 
-func (s *PostgresqlStore) GetReview(ctx context.Context, id uuid.UUID) (*sentinel.Review, error) {
+func (s *PostgresqlStore) GetReviewRequest(ctx context.Context, id uuid.UUID) (*sentinel.ReviewRequest, error) {
 	query := `
-		SELECT r.id, r.run_id, r.task_state, rs.status
-		FROM reviewrequest r
-		LEFT JOIN reviewrequest_status rs ON r.id = rs.reviewrequest_id
-		WHERE r.id = $1
+		SELECT rr.id, rr.run_id, rr.task_state, rs.id, rs.status, rs.created_at
+		FROM reviewrequest rr
+		INNER JOIN reviewrequest_status rs ON rr.id = rs.reviewrequest_id
+		WHERE rr.id = $1
 		ORDER BY rs.created_at DESC
 		LIMIT 1`
 
-	var review sentinel.Review
+	var reviewRequest sentinel.ReviewRequest
 	var status sentinel.ReviewStatus
 	var taskStateJSON []byte // Add temporary variable for JSON data
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&review.Id, &review.RunId, &taskStateJSON, &status.Status)
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
+		&reviewRequest.Id, &reviewRequest.RunId, &taskStateJSON, &status.Id, &status.Status, &status.CreatedAt,
+	)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -285,14 +297,67 @@ func (s *PostgresqlStore) GetReview(ctx context.Context, id uuid.UUID) (*sentine
 	}
 
 	// Parse the JSON task state
-	if err := json.Unmarshal(taskStateJSON, &review.TaskState); err != nil {
+	if err := json.Unmarshal(taskStateJSON, &reviewRequest.TaskState); err != nil {
 		return nil, fmt.Errorf("error parsing task state: %w", err)
 	}
 
-	if status.Status != "" {
-		review.Status = &status
+	reviewRequest.Status = &status
+
+	// Get the tool requests
+	toolRequests, err := s.GetReviewToolRequests(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("error getting tool requests: %w", err)
 	}
-	return &review, nil
+	reviewRequest.ToolRequests = toolRequests
+
+	// Get the messages
+	messages, err := s.GetReviewMessages(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("error getting messages: %w", err)
+	}
+	reviewRequest.Messages = messages
+
+	return &reviewRequest, nil
+}
+
+func (s *PostgresqlStore) GetReviewMessages(ctx context.Context, id uuid.UUID) ([]sentinel.LLMMessage, error) {
+	query := `
+		SELECT id, role, content
+		FROM llm_message
+		WHERE reviewrequest_id = $1`
+
+	rows, err := s.db.QueryContext(ctx, query, id)
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("no messages found for review request %s, there should be at least one", id)
+	} else if err != nil {
+		return nil, fmt.Errorf("error getting messages: %w", err)
+	}
+	defer rows.Close()
+
+	var messages []sentinel.LLMMessage
+	for rows.Next() {
+		var message sentinel.LLMMessage
+		if err := rows.Scan(&message.Id, &message.Role, &message.Content); err != nil {
+			return nil, fmt.Errorf("error scanning message: %w", err)
+		}
+		messages = append(messages, message)
+	}
+
+	return messages, nil
+}
+
+func (s *PostgresqlStore) CreateReviewResult(ctx context.Context, result sentinel.ReviewResult) error {
+	query := `
+		INSERT INTO reviewresult (id, reviewrequest_id, created_at, decision, reasoning, toolrequest_id)
+		VALUES ($1, $2, $3, $4, $5, $6)`
+
+	_, err := s.db.ExecContext(
+		ctx, query, result.Id, result.ReviewRequestId, result.CreatedAt, result.Decision, result.Reasoning, result.Toolrequest.Id,
+	)
+	if err != nil {
+		return fmt.Errorf("error creating review result: %w", err)
+	}
+	return nil
 }
 
 func (s *PostgresqlStore) GetReviewResults(ctx context.Context, id uuid.UUID) ([]*sentinel.ReviewResult, error) {
@@ -328,7 +393,7 @@ func (s *PostgresqlStore) GetReviewResults(ctx context.Context, id uuid.UUID) ([
 
 }
 
-func (s *PostgresqlStore) UpdateReview(ctx context.Context, review sentinel.Review) error {
+func (s *PostgresqlStore) UpdateReviewRequest(ctx context.Context, reviewRequest sentinel.ReviewRequest) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("error starting transaction: %w", err)
@@ -343,9 +408,9 @@ func (s *PostgresqlStore) UpdateReview(ctx context.Context, review sentinel.Revi
 		SET task_state = $1
 		WHERE id = $2`
 
-	_, err = tx.ExecContext(ctx, query1, review.TaskState, review.Id)
+	_, err = tx.ExecContext(ctx, query1, reviewRequest.TaskState, reviewRequest.Id)
 	if err != nil {
-		return fmt.Errorf("error updating review: %w", err)
+		return fmt.Errorf("error updating review request: %w", err)
 	}
 
 	// Insert new status
@@ -353,7 +418,7 @@ func (s *PostgresqlStore) UpdateReview(ctx context.Context, review sentinel.Revi
 		INSERT INTO reviewrequest_status (id, reviewrequest_id, created_at, status)
 		VALUES ($1, $2, CURRENT_TIMESTAMP, $3)`
 
-	_, err = tx.ExecContext(ctx, query2, review.Id, review.Id, review.Status.Status)
+	_, err = tx.ExecContext(ctx, query2, reviewRequest.Id, reviewRequest.Id, reviewRequest.Status.Status)
 	if err != nil {
 		return fmt.Errorf("error updating review status: %w", err)
 	}
@@ -361,7 +426,7 @@ func (s *PostgresqlStore) UpdateReview(ctx context.Context, review sentinel.Revi
 	return tx.Commit()
 }
 
-func (s *PostgresqlStore) GetReviews(ctx context.Context) ([]sentinel.Review, error) {
+func (s *PostgresqlStore) GetReviewRequests(ctx context.Context) ([]sentinel.ReviewRequest, error) {
 	query := `
 		SELECT rr.id, rr.run_id, rr.task_state, rs.id, rs.status, rs.created_at
 		FROM reviewrequest rr
@@ -374,35 +439,36 @@ func (s *PostgresqlStore) GetReviews(ctx context.Context) ([]sentinel.Review, er
 	}
 	defer rows.Close()
 
-	var reviews []sentinel.Review
+	var reviewRequests []sentinel.ReviewRequest
 	for rows.Next() {
-		var review sentinel.Review
+		var reviewRequest sentinel.ReviewRequest
 		var status sentinel.ReviewStatus
 		var taskStateJSON []byte
-		if err := rows.Scan(&review.Id, &review.RunId, &taskStateJSON, &status.Id, &status.Status, &status.CreatedAt); err != nil {
-			return nil, fmt.Errorf("error scanning review: %w", err)
+		if err := rows.Scan(&reviewRequest.Id, &reviewRequest.RunId, &taskStateJSON, &status.Id, &status.Status, &status.CreatedAt); err != nil {
+			return nil, fmt.Errorf("error scanning review request: %w", err)
 		}
 
 		// Parse the JSON task state
-		if err := json.Unmarshal(taskStateJSON, &review.TaskState); err != nil {
+		if err := json.Unmarshal(taskStateJSON, &reviewRequest.TaskState); err != nil {
 			return nil, fmt.Errorf("error parsing task state: %w", err)
 		}
 
-		review.Status = &status
-		reviews = append(reviews, review)
+		reviewRequest.Status = &status
+		reviewRequests = append(reviewRequests, reviewRequest)
 	}
 
-	return reviews, nil
+	return reviewRequests, nil
 }
 
-func (s *PostgresqlStore) DeleteReview(ctx context.Context, id uuid.UUID) error {
-	fmt.Printf("Stub: DeleteReview called with ID: %s\n", id)
-	return nil
-}
+func (s *PostgresqlStore) CountReviewRequests(ctx context.Context, status sentinel.ReviewStatusStatus) (int, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM reviewrequest_status
+		WHERE status = $1`
 
-func (s *PostgresqlStore) CountReviews(ctx context.Context) (int, error) {
-	fmt.Println("Stub: CountReviews called")
-	return 0, nil
+	var count int
+	err := s.db.QueryRowContext(ctx, query, status).Scan(&count)
+	return count, err
 }
 
 // ProjectToolStore implementation
@@ -468,6 +534,47 @@ func (s *PostgresqlStore) GetTools(ctx context.Context) ([]sentinel.Tool, error)
 	}
 
 	return tools, nil
+}
+
+func (s *PostgresqlStore) GetPendingReviewRequests(ctx context.Context) ([]sentinel.ReviewRequest, error) {
+	query := `
+        SELECT DISTINCT ON (rr.id) 
+            rr.id, rr.run_id, rr.task_state, 
+            rs.status, rs.created_at
+        FROM reviewrequest rr
+        JOIN reviewrequest_status rs ON rr.id = rs.reviewrequest_id
+        WHERE rs.status = $1
+        AND NOT EXISTS (
+            SELECT 1 
+            FROM reviewrequest_status newer
+            WHERE newer.reviewrequest_id = rr.id 
+            AND newer.created_at > rs.created_at
+        )
+        ORDER BY rr.id, rs.created_at DESC`
+
+	rows, err := s.db.QueryContext(ctx, query, sentinel.Pending)
+	if err != nil {
+		return nil, fmt.Errorf("error getting pending reviews: %w", err)
+	}
+	defer rows.Close()
+
+	var reviewRequests []sentinel.ReviewRequest
+	for rows.Next() {
+		var reviewRequest sentinel.ReviewRequest
+		var status sentinel.ReviewStatus
+		var taskStateJSON []byte
+		if err := rows.Scan(&reviewRequest.Id, &reviewRequest.RunId, &taskStateJSON, &status.Status, &status.CreatedAt); err != nil {
+			return nil, fmt.Errorf("error scanning review: %w", err)
+		}
+
+		if err := json.Unmarshal(taskStateJSON, &reviewRequest.TaskState); err != nil {
+			return nil, fmt.Errorf("error parsing task state: %w", err)
+		}
+
+		reviewRequests = append(reviewRequests, reviewRequest)
+	}
+
+	return reviewRequests, nil
 }
 
 func (s *PostgresqlStore) GetSupervisorFromToolID(ctx context.Context, id uuid.UUID) (*sentinel.Supervisor, error) {
@@ -637,7 +744,9 @@ func (s *PostgresqlStore) GetReviewToolRequests(ctx context.Context, id uuid.UUI
 		WHERE reviewrequest_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, query, id)
-	if err != nil {
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("no tool requests found for review request %s, there should be at least one", id)
+	} else if err != nil {
 		return nil, fmt.Errorf("error getting review tool requests: %w", err)
 	}
 	defer rows.Close()

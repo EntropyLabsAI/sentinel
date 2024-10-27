@@ -11,33 +11,8 @@ import (
 	"github.com/google/uuid"
 )
 
-var completedHumanReviews = &sync.Map{}
-var completedLLMReviews = &sync.Map{}
-
 // reviewChannels maps a reviews ID to the channel configured to receive the reviewer's response
 var reviewChannels = &sync.Map{}
-
-// Timeout duration for waiting for the reviewer to respond
-const reviewTimeout = 1440 * time.Minute
-
-// serveWs upgrades the HTTP connection to a WebSocket connection and registers the client with the hub
-func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println("upgrade error:", err)
-		return
-	}
-
-	client := &Client{
-		Hub:  hub,
-		Conn: conn,
-		Send: make(chan Review),
-	}
-	hub.Register <- client
-
-	go client.WritePump()
-	go client.ReadPump()
-}
 
 // apiRegisterProjectHandler handles the POST /api/project/register endpoint
 func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request, store ProjectStore) {
@@ -393,8 +368,8 @@ func apiGetRunToolsHandler(w http.ResponseWriter, r *http.Request, projectId uui
 	}
 }
 
-// apiReviewHandler receives review requests via the HTTP API
-func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request, store Store) {
+// apiCreateReviewRequestHandler receives review requests via the HTTP API
+func apiCreateReviewRequestHandler(w http.ResponseWriter, r *http.Request, store Store) {
 	ctx := r.Context()
 
 	t := time.Now()
@@ -433,48 +408,48 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request, store St
 		return
 	}
 
-	review := Review{
-		Id:        reviewID,
-		RunId:     request.RunId,
-		TaskState: request.TaskState,
-		Status: &ReviewStatus{
-			Status:    Pending,
-			CreatedAt: t,
-		},
-	}
+	// review := Review{
+	// 	Id:        reviewID,
+	// 	RunId:     request.RunId,
+	// 	TaskState: request.TaskState,
+	// 	Status: &ReviewStatus{
+	// 		Status:    Pending,
+	// 		CreatedAt: t,
+	// 	},
+	// }
 
-	// Handle the review depending on the type of supervisor
-	supervisor, err := store.GetSupervisorFromToolID(ctx, toolID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	// // Handle the review depending on the type of supervisor
+	// supervisor, err := store.GetSupervisorFromToolID(ctx, toolID)
+	// if err != nil {
+	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+	// 	return
+	// }
 
-	if supervisor == nil {
-		http.Error(w, fmt.Sprintf("Supervisor not found for tool %s", toolID), http.StatusNotFound)
-		return
-	}
+	// if supervisor == nil {
+	// 	http.Error(w, fmt.Sprintf("Supervisor not found for tool %s", toolID), http.StatusNotFound)
+	// 	return
+	// }
 
-	switch supervisor.Type {
-	case Human:
-		if err := processHumanReview(ctx, hub, review, store); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	case Llm:
-		err := processLLMReview(ctx, request, store)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+	// switch supervisor.Type {
+	// case Human:
+	// 	if err := processHumanReview(ctx, hub, review, store); err != nil {
+	// 		http.Error(w, err.Error(), http.StatusInternalServerError)
+	// 		return
+	// 	}
+	// case Llm:
+	// 	err := processLLMReview(ctx, request, store)
+	// 	if err != nil {
+	// 		http.Error(w, err.Error(), http.StatusInternalServerError)
+	// 		return
+	// 	}
 
-	default:
-		http.Error(w, "Invalid supervisor type", http.StatusBadRequest)
-		return
-	}
+	// default:
+	// 	http.Error(w, "Invalid supervisor type", http.StatusBadRequest)
+	// 	return
+	// }
 
 	response := ReviewStatus{
-		Id:        review.Id,
+		Id:        reviewID,
 		Status:    Pending,
 		CreatedAt: t,
 	}
@@ -489,11 +464,11 @@ func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request, store St
 	}
 }
 
-// apiGetReviewHandler handles the GET /api/review/{id} endpoint
-func apiGetReviewHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
+// apiGetReviewRequestHandler handles the GET /api/review/{id} endpoint
+func apiGetReviewRequestHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
 	ctx := r.Context()
 
-	review, err := store.GetReview(ctx, id)
+	review, err := store.GetReviewRequest(ctx, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -513,11 +488,11 @@ func apiGetReviewHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, s
 	}
 }
 
-// apiGetReviewsHandler handles the GET /api/reviews endpoint
-func apiGetReviewsHandler(w http.ResponseWriter, r *http.Request, _ GetReviewsParams, store Store) {
+// apiGetReviewRequestsHandler handles the GET /api/review endpoint
+func apiGetReviewRequestsHandler(w http.ResponseWriter, r *http.Request, _ GetReviewRequestsParams, store Store) {
 	ctx := r.Context()
 
-	reviews, err := store.GetReviews(ctx)
+	reviews, err := store.GetReviewRequests(ctx)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -537,7 +512,7 @@ func apiGetReviewResultsHandler(w http.ResponseWriter, r *http.Request, id uuid.
 	ctx := r.Context()
 
 	// First check if review exists
-	review, err := store.GetReview(ctx, id)
+	review, err := store.GetReviewRequest(ctx, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -567,7 +542,7 @@ func apiGetReviewResultsHandler(w http.ResponseWriter, r *http.Request, id uuid.
 func apiReviewStatusHandler(w http.ResponseWriter, r *http.Request, reviewID uuid.UUID, store Store) {
 	ctx := r.Context()
 	// Use the reviewID directly
-	review, err := store.GetReview(ctx, reviewID)
+	review, err := store.GetReviewRequest(ctx, reviewID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -592,7 +567,7 @@ func apiGetReviewToolRequestsHandler(w http.ResponseWriter, r *http.Request, id 
 	ctx := r.Context()
 
 	// First check if review exists
-	review, err := store.GetReview(ctx, id)
+	review, err := store.GetReviewRequest(ctx, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -619,11 +594,15 @@ func apiGetReviewToolRequestsHandler(w http.ResponseWriter, r *http.Request, id 
 }
 
 func apiStatsHandler(hub *Hub, w http.ResponseWriter, _ *http.Request) {
-	stats := hub.getStats()
+	stats, err := hub.getStats()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	err := json.NewEncoder(w).Encode(stats)
+	err = json.NewEncoder(w).Encode(stats)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
