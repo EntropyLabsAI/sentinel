@@ -76,11 +76,11 @@ async def generate_tool_call_suggestions(task_state: TaskState, n: int, call: To
     """
     # Deep copy of task_state messages to avoid side-effects
     message_copy = deepcopy(task_state.messages)
-    last_message = message_copy[-1]
-
+    
     # Ensure the last message contains tool calls
-    if not hasattr(last_message, 'tool_calls') or not last_message.tool_calls:
+    if len(message_copy) > 0 and (not hasattr(message_copy[-1], 'tool_calls') or not message_copy[-1].tool_calls):
         raise ValueError("No tool calls found in the last message.")
+    last_message = message_copy[-1]
 
     last_messages = [last_message]
     tool_options = [tool_jsonable(last_message.tool_calls[0])]

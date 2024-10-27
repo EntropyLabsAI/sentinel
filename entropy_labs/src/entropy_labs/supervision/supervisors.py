@@ -135,5 +135,4 @@ Keyword Arguments: {kwargs}
                 explanation=f"Error during LLM supervision: {str(e)}",
                 modified=None
             )
-
     return supervisor
