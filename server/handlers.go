@@ -519,6 +519,52 @@ func apiGetReviewResultsHandler(w http.ResponseWriter, r *http.Request, id uuid.
 	}
 }
 
+// apiCreateReviewResultHandler handles the POST /api/review/{id}/results endpoint
+func apiCreateReviewResultHandler(w http.ResponseWriter, r *http.Request, reviewRequestId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	var request CreateReviewResult
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	supervisors, err := store.GetRunToolSupervisors(ctx, request.RunId, request.ToolId)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if len(supervisors) == 0 {
+		http.Error(w, fmt.Sprintf("No supervisors found for run %s and tool %s", request.RunId, request.ToolId), http.StatusBadRequest)
+		return
+	}
+
+	// Check if the supervisor is associated with the tool for the run
+	found := false
+	for _, supervisor := range supervisors {
+		if supervisor.Id.String() == request.SupervisorId.String() {
+			fmt.Printf("Supervisor %s found for run %s and tool %s", supervisor.Id, request.RunId, request.ToolId)
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		http.Error(w, fmt.Sprintf("Supervisor %s not associated with tool %s for run %s", request.SupervisorId, request.ToolId, request.RunId), http.StatusBadRequest)
+		return
+	}
+
+	err = store.CreateReviewResult(ctx, request.ReviewResult)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 // apiReviewStatusHandler checks the status of a review request
 func apiReviewStatusHandler(w http.ResponseWriter, r *http.Request, reviewID uuid.UUID, store Store) {
 	ctx := r.Context()

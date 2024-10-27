@@ -450,6 +450,27 @@ paths:
           description: Review not found
       tags:
         - Reviews
+    post:
+      summary: Create a review result
+      operationId: CreateReviewResult
+      parameters:
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReviewResult"
+      responses:
+        "200":
+          description: Review result created successfully
+      tags:
+        - Reviews
 
   /api/reviews/{reviewId}/toolrequests:
     get:
@@ -807,3 +828,26 @@ components:
       properties:
         explanation:
           type: string
+
+    CreateReviewResult:
+      type: object
+      properties:
+        run_id:
+          type: string
+          format: uuid
+        tool_id:
+          type: string
+          format: uuid
+        supervisor_id:
+          type: string
+          format: uuid
+        review_result:
+          $ref: "#/components/schemas/ReviewResult"
+        tool_request:
+          $ref: "#/components/schemas/ToolRequest"
+      required:
+        - run_id
+        - tool_id
+        - supervisor_id
+        - review_result
+        - tool_request
