@@ -3,6 +3,9 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useGetProjects, Project } from "@/types";
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import Executions from "./executions";
+import Page from "./page";
 
 export default function ProjectList() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -15,36 +18,25 @@ export default function ProjectList() {
     }
   }, [data]);
 
-  if (isLoading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error.message}</div>;
+  if (isLoading) return <Page title="Projects">Loading...</Page>;
+  if (error) return <Page title="Projects">Error: {error.message}</Page>;
 
   return (
-    data?.data && (
-      <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-6">Projects</h1>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((project) => (
-            <Card key={project.id} className="flex flex-col">
-              <CardHeader>
-                <CardTitle>{project.name}</CardTitle>
-                <CardDescription>Project ID: {project.id}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-grow">
-                <h3 className="font-semibold mb-2">Tools:</h3>
-                <ScrollArea className="h-[100px]">
-                  <div className="flex flex-wrap gap-2">
-                    {project.tools.map((tool, index) => (
-                      <Badge key={index} variant="secondary">
-                        {tool.name}
-                      </Badge>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    )
+    <Page title="Projects">
+      {projects.length === 0 && <div>No projects found. To register a project, check out the <Link to="/api" className="text-blue-500">docs</Link>.</div>}
+      {projects.map((project) => (
+        <Link to={`/projects/${project.id}`} key={project.id}>
+          <Card key={project.id} className="flex flex-col">
+            <CardHeader>
+              <CardTitle>{project.name}</CardTitle>
+              <CardDescription>Project ID: {project.id}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-grow">
+              {project.created_at}
+            </CardContent>
+          </Card>
+        </Link>
+      ))}
+    </Page>
   )
 }

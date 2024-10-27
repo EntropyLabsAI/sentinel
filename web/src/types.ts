@@ -23,59 +23,13 @@ import type {
   AxiosRequestConfig,
   AxiosResponse
 } from 'axios'
-export type GetLLMPrompt200 = {
-  prompt?: string;
+export type CreateExecutionBody = {
+  toolId?: string;
 };
 
-export interface Project {
-  id: string;
-  name: string;
-  tools: Tool[];
-}
-
-export interface RegisterProjectResponse {
-  id: string;
-}
-
-export interface RegisterProjectRequest {
-  name: string;
-  tools: Tool[];
-}
-
-export interface LLMPromptResponse {
-  message: string;
-  status: string;
-}
-
-export interface LLMPrompt {
-  prompt: string;
-}
-
-export type HubStatsReviewDistribution = {[key: string]: number};
-
-export type HubStatsAssignedReviews = {[key: string]: number};
-
-export interface HubStats {
-  assigned_reviews: HubStatsAssignedReviews;
-  busy_clients: number;
-  completed_reviews: number;
-  connected_clients: number;
-  free_clients: number;
-  queued_reviews: number;
-  review_distribution: HubStatsReviewDistribution;
-  stored_reviews: number;
-}
-
-export type Status = typeof Status[keyof typeof Status];
-
-
-// eslint-disable-next-line @typescript-eslint/no-redeclare
-export const Status = {
-  queued: 'queued',
-  processing: 'processing',
-  completed: 'completed',
-  timeout: 'timeout',
-} as const;
+export type GetSupervisionRequestsParams = {
+type?: SupervisorType;
+};
 
 export type Decision = typeof Decision[keyof typeof Decision];
 
@@ -84,813 +38,182 @@ export type Decision = typeof Decision[keyof typeof Decision];
 export const Decision = {
   approve: 'approve',
   reject: 'reject',
-  escalate: 'escalate',
   terminate: 'terminate',
   modify: 'modify',
+  escalate: 'escalate',
 } as const;
 
-export interface Usage {
-  input_tokens: number;
-  output_tokens: number;
-  total_tokens: number;
-}
+export type Status = typeof Status[keyof typeof Status];
 
-export type ToolCallArguments = { [key: string]: unknown };
 
-export interface ToolCall {
-  arguments: ToolCallArguments;
-  function: string;
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const Status = {
+  pending: 'pending',
+  completed: 'completed',
+  failed: 'failed',
+  assigned: 'assigned',
+  timeout: 'timeout',
+} as const;
+
+export interface Execution {
+  created_at?: string;
   id: string;
-  parse_error?: string;
-  type: string;
+  run_id?: string;
+  status?: Status;
+  tool_id?: string;
 }
 
-export interface AssistantMessage {
+export interface LLMExplanationResponse {
+  explanation?: string;
+}
+
+export interface LLMExplanationRequest {
+  text: string;
+}
+
+export type HubStatsReviewDistribution = {[key: string]: number};
+
+export type HubStatsAssignedReviews = {[key: string]: number};
+
+export interface HubStats {
+  assigned_reviews: HubStatsAssignedReviews;
+  assigned_reviews_count: number;
+  busy_clients: number;
+  completed_reviews_count: number;
+  connected_clients: number;
+  free_clients: number;
+  pending_reviews_count: number;
+  review_distribution: HubStatsReviewDistribution;
+}
+
+export type SupervisorType = typeof SupervisorType[keyof typeof SupervisorType];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const SupervisorType = {
+  code: 'code',
+  llm: 'llm',
+  human: 'human',
+  all: 'all',
+} as const;
+
+export type ToolCreateAttributes = { [key: string]: unknown };
+
+export interface ToolCreate {
+  attributes?: ToolCreateAttributes;
+  description: string;
+  name: string;
+}
+
+export type ToolRequestArguments = { [key: string]: unknown };
+
+/**
+ * A tool request is a request to use a tool. It must be approved by a supervisor.
+ */
+export interface ToolRequest {
+  arguments: ToolRequestArguments;
+  id?: string;
+  message_id?: string;
+  supervision_request_id?: string;
+  tool_id: string;
+}
+
+export type LLMMessageRole = typeof LLMMessageRole[keyof typeof LLMMessageRole];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const LLMMessageRole = {
+  system: 'system',
+  user: 'user',
+  assistant: 'assistant',
+} as const;
+
+export interface LLMMessage {
   content: string;
-  role: string;
-  source?: string;
-  tool_calls?: ToolCall[];
+  id?: string;
+  role: LLMMessageRole;
 }
 
-export interface Choice {
-  message: AssistantMessage;
-  stop_reason?: string;
-}
-
-export interface Output {
-  choices?: Choice[];
-  model?: string;
-  usage?: Usage;
-}
-
-export interface Arguments {
-  cmd?: string;
-  code?: string;
-}
-
-export interface ToolChoice {
-  arguments: Arguments;
-  function: string;
+export interface SupervisionResult {
+  created_at: string;
+  decision: Decision;
   id: string;
-  type: string;
+  reasoning: string;
+  supervision_request_id: string;
+  toolrequest?: ToolRequest;
+}
+
+export interface CreateSupervisionResult {
+  execution_id: string;
+  run_id: string;
+  supervision_result: SupervisionResult;
+  supervisor_id: string;
+  tool_id: string;
+  tool_request: ToolRequest;
+}
+
+export interface SupervisionStatus {
+  created_at: string;
+  id: number;
+  status: Status;
+  supervision_request_id?: string;
+}
+
+export type SupervisionRequestTaskState = { [key: string]: unknown };
+
+export interface SupervisionRequest {
+  execution_id: string;
+  id?: string;
+  messages: LLMMessage[];
+  run_id: string;
+  status?: SupervisionStatus;
+  supervisor_id?: string;
+  task_state: SupervisionRequestTaskState;
+  tool_requests: ToolRequest[];
 }
 
 export type ToolAttributes = { [key: string]: unknown };
 
 export interface Tool {
   attributes?: ToolAttributes;
-  description?: string;
+  created_at?: string;
+  description: string;
+  id: string;
   name: string;
 }
 
-export interface Message {
-  content: string;
-  function?: string;
-  role: string;
-  source?: string;
-  tool_call_id?: string;
-  tool_calls?: ToolCall[];
+export interface SupervisorAssignment {
+  supervisor_id: string;
 }
 
-export type TaskStateStore = { [key: string]: unknown };
-
-export type TaskStateMetadata = { [key: string]: unknown };
-
-export interface TaskState {
-  completed: boolean;
-  messages: Message[];
-  metadata?: TaskStateMetadata;
-  output: Output;
-  store?: TaskStateStore;
-  tool_choice?: ToolChoice;
-  tools: Tool[];
+export interface Supervisor {
+  code?: string;
+  created_at: string;
+  description: string;
+  id?: string;
+  type: SupervisorType;
 }
 
-export interface ErrorResponse {
-  status: string;
-}
-
-export interface ReviewResult {
-  decision: Decision;
+export interface Run {
+  created_at: string;
   id: string;
-  reasoning: string;
-  tool_choice: ToolChoice;
+  project_id: string;
 }
 
-export interface ReviewStatusResponse {
+export interface ProjectCreate {
+  name: string;
+}
+
+export interface Project {
+  created_at: string;
   id: string;
-  status: Status;
+  name: string;
 }
 
-export interface ReviewRequest {
-  agent_id: string;
-  last_messages: Message[];
-  task_state: TaskState;
-  tool_choices: ToolChoice[];
-}
-
-export interface Review {
+export interface User {
   id: string;
-  request: ReviewRequest;
 }
 
-export interface LLMExplanation {
-  explanation: string;
-  score: number;
-}
-
-export interface CodeSnippet {
-  text: string;
-}
-
-
-
-
-
-/**
- * @summary Register a new project
- */
-export const registerProject = (
-    registerProjectRequest: RegisterProjectRequest, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<RegisterProjectResponse>> => {
-    
-    return axios.post(
-      `/api/project`,
-      registerProjectRequest,options
-    );
-  }
-
-
-
-export const getRegisterProjectMutationOptions = <TError = AxiosError<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerProject>>, TError,{data: RegisterProjectRequest}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof registerProject>>, TError,{data: RegisterProjectRequest}, TContext> => {
-const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerProject>>, {data: RegisterProjectRequest}> = (props) => {
-          const {data} = props ?? {};
-
-          return  registerProject(data,axiosOptions)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type RegisterProjectMutationResult = NonNullable<Awaited<ReturnType<typeof registerProject>>>
-    export type RegisterProjectMutationBody = RegisterProjectRequest
-    export type RegisterProjectMutationError = AxiosError<unknown>
-
-    /**
- * @summary Register a new project
- */
-export const useRegisterProject = <TError = AxiosError<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerProject>>, TError,{data: RegisterProjectRequest}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationResult<
-        Awaited<ReturnType<typeof registerProject>>,
-        TError,
-        {data: RegisterProjectRequest},
-        TContext
-      > => {
-
-      const mutationOptions = getRegisterProjectMutationOptions(options);
-
-      return useMutation(mutationOptions);
-    }
-    
-/**
- * @summary Get all projects
- */
-export const getProjects = (
-     options?: AxiosRequestConfig
- ): Promise<AxiosResponse<Project[]>> => {
-    
-    return axios.get(
-      `/api/project`,options
-    );
-  }
-
-
-export const getGetProjectsQueryKey = () => {
-    return [`/api/project`] as const;
-    }
-
-    
-export const getGetProjectsQueryOptions = <TData = Awaited<ReturnType<typeof getProjects>>, TError = AxiosError<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProjects>>, TError, TData>, axios?: AxiosRequestConfig}
-) => {
-
-const {query: queryOptions, axios: axiosOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetProjectsQueryKey();
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProjects>>> = ({ signal }) => getProjects({ signal, ...axiosOptions });
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProjects>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetProjectsQueryResult = NonNullable<Awaited<ReturnType<typeof getProjects>>>
-export type GetProjectsQueryError = AxiosError<unknown>
-
-/**
- * @summary Get all projects
- */
-export const useGetProjects = <TData = Awaited<ReturnType<typeof getProjects>>, TError = AxiosError<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProjects>>, TError, TData>, axios?: AxiosRequestConfig}
-
-  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
-
-  const queryOptions = getGetProjectsQueryOptions(options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
-
-/**
- * @summary Get a project by ID
- */
-export const getProjectById = (
-    id: string, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<void>> => {
-    
-    return axios.get(
-      `/api/project/${id}`,options
-    );
-  }
-
-
-export const getGetProjectByIdQueryKey = (id: string,) => {
-    return [`/api/project/${id}`] as const;
-    }
-
-    
-export const getGetProjectByIdQueryOptions = <TData = Awaited<ReturnType<typeof getProjectById>>, TError = AxiosError<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProjectById>>, TError, TData>, axios?: AxiosRequestConfig}
-) => {
-
-const {query: queryOptions, axios: axiosOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetProjectByIdQueryKey(id);
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProjectById>>> = ({ signal }) => getProjectById(id, { signal, ...axiosOptions });
-
-      
-
-      
-
-   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProjectById>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetProjectByIdQueryResult = NonNullable<Awaited<ReturnType<typeof getProjectById>>>
-export type GetProjectByIdQueryError = AxiosError<unknown>
-
-/**
- * @summary Get a project by ID
- */
-export const useGetProjectById = <TData = Awaited<ReturnType<typeof getProjectById>>, TError = AxiosError<unknown>>(
- id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProjectById>>, TError, TData>, axios?: AxiosRequestConfig}
-
-  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
-
-  const queryOptions = getGetProjectByIdQueryOptions(id,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
-
-/**
- * @summary Submit a review to a human supervisor
- */
-export const submitReviewHuman = (
-    reviewRequest: ReviewRequest, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<ReviewStatusResponse>> => {
-    
-    return axios.post(
-      `/api/review/human`,
-      reviewRequest,options
-    );
-  }
-
-
-
-export const getSubmitReviewHumanMutationOptions = <TError = AxiosError<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitReviewHuman>>, TError,{data: ReviewRequest}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof submitReviewHuman>>, TError,{data: ReviewRequest}, TContext> => {
-const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitReviewHuman>>, {data: ReviewRequest}> = (props) => {
-          const {data} = props ?? {};
-
-          return  submitReviewHuman(data,axiosOptions)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type SubmitReviewHumanMutationResult = NonNullable<Awaited<ReturnType<typeof submitReviewHuman>>>
-    export type SubmitReviewHumanMutationBody = ReviewRequest
-    export type SubmitReviewHumanMutationError = AxiosError<unknown>
-
-    /**
- * @summary Submit a review to a human supervisor
- */
-export const useSubmitReviewHuman = <TError = AxiosError<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitReviewHuman>>, TError,{data: ReviewRequest}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationResult<
-        Awaited<ReturnType<typeof submitReviewHuman>>,
-        TError,
-        {data: ReviewRequest},
-        TContext
-      > => {
-
-      const mutationOptions = getSubmitReviewHumanMutationOptions(options);
-
-      return useMutation(mutationOptions);
-    }
-    
-/**
- * @summary Get all LLM review results
- */
-export const getLLMReviews = (
-     options?: AxiosRequestConfig
- ): Promise<AxiosResponse<Review[]>> => {
-    
-    return axios.get(
-      `/api/review/llm`,options
-    );
-  }
-
-
-export const getGetLLMReviewsQueryKey = () => {
-    return [`/api/review/llm`] as const;
-    }
-
-    
-export const getGetLLMReviewsQueryOptions = <TData = Awaited<ReturnType<typeof getLLMReviews>>, TError = AxiosError<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLLMReviews>>, TError, TData>, axios?: AxiosRequestConfig}
-) => {
-
-const {query: queryOptions, axios: axiosOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetLLMReviewsQueryKey();
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLLMReviews>>> = ({ signal }) => getLLMReviews({ signal, ...axiosOptions });
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLLMReviews>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetLLMReviewsQueryResult = NonNullable<Awaited<ReturnType<typeof getLLMReviews>>>
-export type GetLLMReviewsQueryError = AxiosError<unknown>
-
-/**
- * @summary Get all LLM review results
- */
-export const useGetLLMReviews = <TData = Awaited<ReturnType<typeof getLLMReviews>>, TError = AxiosError<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLLMReviews>>, TError, TData>, axios?: AxiosRequestConfig}
-
-  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
-
-  const queryOptions = getGetLLMReviewsQueryOptions(options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
-
-/**
- * @summary Submit a review to an LLM supervisor
- */
-export const submitReviewLLM = (
-    reviewRequest: ReviewRequest, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<ReviewStatusResponse>> => {
-    
-    return axios.post(
-      `/api/review/llm`,
-      reviewRequest,options
-    );
-  }
-
-
-
-export const getSubmitReviewLLMMutationOptions = <TError = AxiosError<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitReviewLLM>>, TError,{data: ReviewRequest}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof submitReviewLLM>>, TError,{data: ReviewRequest}, TContext> => {
-const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitReviewLLM>>, {data: ReviewRequest}> = (props) => {
-          const {data} = props ?? {};
-
-          return  submitReviewLLM(data,axiosOptions)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type SubmitReviewLLMMutationResult = NonNullable<Awaited<ReturnType<typeof submitReviewLLM>>>
-    export type SubmitReviewLLMMutationBody = ReviewRequest
-    export type SubmitReviewLLMMutationError = AxiosError<ErrorResponse>
-
-    /**
- * @summary Submit a review to an LLM supervisor
- */
-export const useSubmitReviewLLM = <TError = AxiosError<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitReviewLLM>>, TError,{data: ReviewRequest}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationResult<
-        Awaited<ReturnType<typeof submitReviewLLM>>,
-        TError,
-        {data: ReviewRequest},
-        TContext
-      > => {
-
-      const mutationOptions = getSubmitReviewLLMMutationOptions(options);
-
-      return useMutation(mutationOptions);
-    }
-    
-/**
- * @summary Get review status
- */
-export const getReviewStatus = (
-    id: string, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<ReviewResult>> => {
-    
-    return axios.get(
-      `/api/review/status/${id}`,options
-    );
-  }
-
-
-export const getGetReviewStatusQueryKey = (id: string,) => {
-    return [`/api/review/status/${id}`] as const;
-    }
-
-    
-export const getGetReviewStatusQueryOptions = <TData = Awaited<ReturnType<typeof getReviewStatus>>, TError = AxiosError<ErrorResponse>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReviewStatus>>, TError, TData>, axios?: AxiosRequestConfig}
-) => {
-
-const {query: queryOptions, axios: axiosOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetReviewStatusQueryKey(id);
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getReviewStatus>>> = ({ signal }) => getReviewStatus(id, { signal, ...axiosOptions });
-
-      
-
-      
-
-   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getReviewStatus>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetReviewStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getReviewStatus>>>
-export type GetReviewStatusQueryError = AxiosError<ErrorResponse>
-
-/**
- * @summary Get review status
- */
-export const useGetReviewStatus = <TData = Awaited<ReturnType<typeof getReviewStatus>>, TError = AxiosError<ErrorResponse>>(
- id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReviewStatus>>, TError, TData>, axios?: AxiosRequestConfig}
-
-  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
-
-  const queryOptions = getGetReviewStatusQueryOptions(id,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
-
-/**
- * @summary Submit a new prompt for LLM reviews
- */
-export const setLLMPrompt = (
-    lLMPrompt: LLMPrompt, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<LLMPromptResponse>> => {
-    
-    return axios.post(
-      `/api/review/llm/prompt`,
-      lLMPrompt,options
-    );
-  }
-
-
-
-export const getSetLLMPromptMutationOptions = <TError = AxiosError<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setLLMPrompt>>, TError,{data: LLMPrompt}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof setLLMPrompt>>, TError,{data: LLMPrompt}, TContext> => {
-const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setLLMPrompt>>, {data: LLMPrompt}> = (props) => {
-          const {data} = props ?? {};
-
-          return  setLLMPrompt(data,axiosOptions)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type SetLLMPromptMutationResult = NonNullable<Awaited<ReturnType<typeof setLLMPrompt>>>
-    export type SetLLMPromptMutationBody = LLMPrompt
-    export type SetLLMPromptMutationError = AxiosError<ErrorResponse>
-
-    /**
- * @summary Submit a new prompt for LLM reviews
- */
-export const useSetLLMPrompt = <TError = AxiosError<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setLLMPrompt>>, TError,{data: LLMPrompt}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationResult<
-        Awaited<ReturnType<typeof setLLMPrompt>>,
-        TError,
-        {data: LLMPrompt},
-        TContext
-      > => {
-
-      const mutationOptions = getSetLLMPromptMutationOptions(options);
-
-      return useMutation(mutationOptions);
-    }
-    
-/**
- * @summary Get the current LLM review prompt
- */
-export const getLLMPrompt = (
-     options?: AxiosRequestConfig
- ): Promise<AxiosResponse<GetLLMPrompt200>> => {
-    
-    return axios.get(
-      `/api/review/llm/prompt`,options
-    );
-  }
-
-
-export const getGetLLMPromptQueryKey = () => {
-    return [`/api/review/llm/prompt`] as const;
-    }
-
-    
-export const getGetLLMPromptQueryOptions = <TData = Awaited<ReturnType<typeof getLLMPrompt>>, TError = AxiosError<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLLMPrompt>>, TError, TData>, axios?: AxiosRequestConfig}
-) => {
-
-const {query: queryOptions, axios: axiosOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetLLMPromptQueryKey();
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLLMPrompt>>> = ({ signal }) => getLLMPrompt({ signal, ...axiosOptions });
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLLMPrompt>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetLLMPromptQueryResult = NonNullable<Awaited<ReturnType<typeof getLLMPrompt>>>
-export type GetLLMPromptQueryError = AxiosError<unknown>
-
-/**
- * @summary Get the current LLM review prompt
- */
-export const useGetLLMPrompt = <TData = Awaited<ReturnType<typeof getLLMPrompt>>, TError = AxiosError<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLLMPrompt>>, TError, TData>, axios?: AxiosRequestConfig}
-
-  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
-
-  const queryOptions = getGetLLMPromptQueryOptions(options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
-
-/**
- * @summary Get hub statistics
- */
-export const getHubStats = (
-     options?: AxiosRequestConfig
- ): Promise<AxiosResponse<HubStats>> => {
-    
-    return axios.get(
-      `/api/hub/stats`,options
-    );
-  }
-
-
-export const getGetHubStatsQueryKey = () => {
-    return [`/api/hub/stats`] as const;
-    }
-
-    
-export const getGetHubStatsQueryOptions = <TData = Awaited<ReturnType<typeof getHubStats>>, TError = AxiosError<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getHubStats>>, TError, TData>, axios?: AxiosRequestConfig}
-) => {
-
-const {query: queryOptions, axios: axiosOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetHubStatsQueryKey();
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getHubStats>>> = ({ signal }) => getHubStats({ signal, ...axiosOptions });
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getHubStats>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetHubStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getHubStats>>>
-export type GetHubStatsQueryError = AxiosError<unknown>
-
-/**
- * @summary Get hub statistics
- */
-export const useGetHubStats = <TData = Awaited<ReturnType<typeof getHubStats>>, TError = AxiosError<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getHubStats>>, TError, TData>, axios?: AxiosRequestConfig}
-
-  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
-
-  const queryOptions = getGetHubStatsQueryOptions(options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
-
-/**
- * @summary Get an explanation and danger score for a code snippet
- */
-export const getLLMExplanation = (
-    codeSnippet: CodeSnippet, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<LLMExplanation>> => {
-    
-    return axios.post(
-      `/api/explain`,
-      codeSnippet,options
-    );
-  }
-
-
-
-export const getGetLLMExplanationMutationOptions = <TError = AxiosError<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof getLLMExplanation>>, TError,{data: CodeSnippet}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof getLLMExplanation>>, TError,{data: CodeSnippet}, TContext> => {
-const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof getLLMExplanation>>, {data: CodeSnippet}> = (props) => {
-          const {data} = props ?? {};
-
-          return  getLLMExplanation(data,axiosOptions)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type GetLLMExplanationMutationResult = NonNullable<Awaited<ReturnType<typeof getLLMExplanation>>>
-    export type GetLLMExplanationMutationBody = CodeSnippet
-    export type GetLLMExplanationMutationError = AxiosError<ErrorResponse>
-
-    /**
- * @summary Get an explanation and danger score for a code snippet
- */
-export const useGetLLMExplanation = <TError = AxiosError<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof getLLMExplanation>>, TError,{data: CodeSnippet}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationResult<
-        Awaited<ReturnType<typeof getLLMExplanation>>,
-        TError,
-        {data: CodeSnippet},
-        TContext
-      > => {
-
-      const mutationOptions = getGetLLMExplanationMutationOptions(options);
-
-      return useMutation(mutationOptions);
-    }
-    
-/**
- * @summary Get the API documentation
- */
-export const getSwaggerDocs = (
-     options?: AxiosRequestConfig
- ): Promise<AxiosResponse<void>> => {
-    
-    return axios.get(
-      `/api/docs`,options
-    );
-  }
-
-
-export const getGetSwaggerDocsQueryKey = () => {
-    return [`/api/docs`] as const;
-    }
-
-    
-export const getGetSwaggerDocsQueryOptions = <TData = Awaited<ReturnType<typeof getSwaggerDocs>>, TError = AxiosError<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSwaggerDocs>>, TError, TData>, axios?: AxiosRequestConfig}
-) => {
-
-const {query: queryOptions, axios: axiosOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetSwaggerDocsQueryKey();
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSwaggerDocs>>> = ({ signal }) => getSwaggerDocs({ signal, ...axiosOptions });
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSwaggerDocs>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetSwaggerDocsQueryResult = NonNullable<Awaited<ReturnType<typeof getSwaggerDocs>>>
-export type GetSwaggerDocsQueryError = AxiosError<unknown>
-
-/**
- * @summary Get the API documentation
- */
-export const useGetSwaggerDocs = <TData = Awaited<ReturnType<typeof getSwaggerDocs>>, TError = AxiosError<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSwaggerDocs>>, TError, TData>, axios?: AxiosRequestConfig}
-
-  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
-
-  const queryOptions = getGetSwaggerDocsQueryOptions(options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
 
 
 
@@ -943,6 +266,1459 @@ export const useGetOpenAPI = <TData = Awaited<ReturnType<typeof getOpenAPI>>, TE
   ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
 
   const queryOptions = getGetOpenAPIQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Create a new project
+ */
+export const createProject = (
+    projectCreate: ProjectCreate, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<Project>> => {
+    
+    return axios.post(
+      `/api/projects`,
+      projectCreate,options
+    );
+  }
+
+
+
+export const getCreateProjectMutationOptions = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProject>>, TError,{data: ProjectCreate}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof createProject>>, TError,{data: ProjectCreate}, TContext> => {
+const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createProject>>, {data: ProjectCreate}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createProject(data,axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateProjectMutationResult = NonNullable<Awaited<ReturnType<typeof createProject>>>
+    export type CreateProjectMutationBody = ProjectCreate
+    export type CreateProjectMutationError = AxiosError<unknown>
+
+    /**
+ * @summary Create a new project
+ */
+export const useCreateProject = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProject>>, TError,{data: ProjectCreate}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationResult<
+        Awaited<ReturnType<typeof createProject>>,
+        TError,
+        {data: ProjectCreate},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateProjectMutationOptions(options);
+
+      return useMutation(mutationOptions);
+    }
+    
+/**
+ * @summary List all projects
+ */
+export const getProjects = (
+     options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<Project[]>> => {
+    
+    return axios.get(
+      `/api/projects`,options
+    );
+  }
+
+
+export const getGetProjectsQueryKey = () => {
+    return [`/api/projects`] as const;
+    }
+
+    
+export const getGetProjectsQueryOptions = <TData = Awaited<ReturnType<typeof getProjects>>, TError = AxiosError<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProjects>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProjectsQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProjects>>> = ({ signal }) => getProjects({ signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProjects>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProjectsQueryResult = NonNullable<Awaited<ReturnType<typeof getProjects>>>
+export type GetProjectsQueryError = AxiosError<unknown>
+
+/**
+ * @summary List all projects
+ */
+export const useGetProjects = <TData = Awaited<ReturnType<typeof getProjects>>, TError = AxiosError<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProjects>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetProjectsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Get runs for a project
+ */
+export const getProjectRuns = (
+    projectId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<Run[]>> => {
+    
+    return axios.get(
+      `/api/projects/${projectId}/runs`,options
+    );
+  }
+
+
+export const getGetProjectRunsQueryKey = (projectId: string,) => {
+    return [`/api/projects/${projectId}/runs`] as const;
+    }
+
+    
+export const getGetProjectRunsQueryOptions = <TData = Awaited<ReturnType<typeof getProjectRuns>>, TError = AxiosError<void>>(projectId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProjectRuns>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProjectRunsQueryKey(projectId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProjectRuns>>> = ({ signal }) => getProjectRuns(projectId, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(projectId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProjectRuns>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProjectRunsQueryResult = NonNullable<Awaited<ReturnType<typeof getProjectRuns>>>
+export type GetProjectRunsQueryError = AxiosError<void>
+
+/**
+ * @summary Get runs for a project
+ */
+export const useGetProjectRuns = <TData = Awaited<ReturnType<typeof getProjectRuns>>, TError = AxiosError<void>>(
+ projectId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProjectRuns>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetProjectRunsQueryOptions(projectId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Create a new run for a project
+ */
+export const createRun = (
+    projectId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<Run>> => {
+    
+    return axios.post(
+      `/api/projects/${projectId}/runs`,undefined,options
+    );
+  }
+
+
+
+export const getCreateRunMutationOptions = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRun>>, TError,{projectId: string}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof createRun>>, TError,{projectId: string}, TContext> => {
+const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRun>>, {projectId: string}> = (props) => {
+          const {projectId} = props ?? {};
+
+          return  createRun(projectId,axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRunMutationResult = NonNullable<Awaited<ReturnType<typeof createRun>>>
+    
+    export type CreateRunMutationError = AxiosError<unknown>
+
+    /**
+ * @summary Create a new run for a project
+ */
+export const useCreateRun = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRun>>, TError,{projectId: string}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationResult<
+        Awaited<ReturnType<typeof createRun>>,
+        TError,
+        {projectId: string},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateRunMutationOptions(options);
+
+      return useMutation(mutationOptions);
+    }
+    
+/**
+ * @summary Create a supervisor request
+ */
+export const createSupervisionRequest = (
+    supervisionRequest: SupervisionRequest, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<SupervisionStatus>> => {
+    
+    return axios.post(
+      `/api/reviews`,
+      supervisionRequest,options
+    );
+  }
+
+
+
+export const getCreateSupervisionRequestMutationOptions = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSupervisionRequest>>, TError,{data: SupervisionRequest}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof createSupervisionRequest>>, TError,{data: SupervisionRequest}, TContext> => {
+const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSupervisionRequest>>, {data: SupervisionRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSupervisionRequest(data,axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSupervisionRequestMutationResult = NonNullable<Awaited<ReturnType<typeof createSupervisionRequest>>>
+    export type CreateSupervisionRequestMutationBody = SupervisionRequest
+    export type CreateSupervisionRequestMutationError = AxiosError<unknown>
+
+    /**
+ * @summary Create a supervisor request
+ */
+export const useCreateSupervisionRequest = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSupervisionRequest>>, TError,{data: SupervisionRequest}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationResult<
+        Awaited<ReturnType<typeof createSupervisionRequest>>,
+        TError,
+        {data: SupervisionRequest},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateSupervisionRequestMutationOptions(options);
+
+      return useMutation(mutationOptions);
+    }
+    
+/**
+ * @summary List all supervisor requests
+ */
+export const getSupervisionRequests = (
+    params?: GetSupervisionRequestsParams, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<SupervisionRequest[]>> => {
+    
+    return axios.get(
+      `/api/reviews`,{
+    ...options,
+        params: {...params, ...options?.params},}
+    );
+  }
+
+
+export const getGetSupervisionRequestsQueryKey = (params?: GetSupervisionRequestsParams,) => {
+    return [`/api/reviews`, ...(params ? [params]: [])] as const;
+    }
+
+    
+export const getGetSupervisionRequestsQueryOptions = <TData = Awaited<ReturnType<typeof getSupervisionRequests>>, TError = AxiosError<unknown>>(params?: GetSupervisionRequestsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSupervisionRequests>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSupervisionRequestsQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSupervisionRequests>>> = ({ signal }) => getSupervisionRequests(params, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSupervisionRequests>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSupervisionRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof getSupervisionRequests>>>
+export type GetSupervisionRequestsQueryError = AxiosError<unknown>
+
+/**
+ * @summary List all supervisor requests
+ */
+export const useGetSupervisionRequests = <TData = Awaited<ReturnType<typeof getSupervisionRequests>>, TError = AxiosError<unknown>>(
+ params?: GetSupervisionRequestsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSupervisionRequests>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetSupervisionRequestsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Get supervision status
+ */
+export const getSupervisionStatus = (
+    reviewId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<SupervisionStatus>> => {
+    
+    return axios.get(
+      `/api/reviews/${reviewId}/status`,options
+    );
+  }
+
+
+export const getGetSupervisionStatusQueryKey = (reviewId: string,) => {
+    return [`/api/reviews/${reviewId}/status`] as const;
+    }
+
+    
+export const getGetSupervisionStatusQueryOptions = <TData = Awaited<ReturnType<typeof getSupervisionStatus>>, TError = AxiosError<void>>(reviewId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSupervisionStatus>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSupervisionStatusQueryKey(reviewId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSupervisionStatus>>> = ({ signal }) => getSupervisionStatus(reviewId, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(reviewId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSupervisionStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSupervisionStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getSupervisionStatus>>>
+export type GetSupervisionStatusQueryError = AxiosError<void>
+
+/**
+ * @summary Get supervision status
+ */
+export const useGetSupervisionStatus = <TData = Awaited<ReturnType<typeof getSupervisionStatus>>, TError = AxiosError<void>>(
+ reviewId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSupervisionStatus>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetSupervisionStatusQueryOptions(reviewId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Get tools for a run
+ */
+export const getRunTools = (
+    runId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<Tool[]>> => {
+    
+    return axios.get(
+      `/api/runs/${runId}/tools`,options
+    );
+  }
+
+
+export const getGetRunToolsQueryKey = (runId: string,) => {
+    return [`/api/runs/${runId}/tools`] as const;
+    }
+
+    
+export const getGetRunToolsQueryOptions = <TData = Awaited<ReturnType<typeof getRunTools>>, TError = AxiosError<void>>(runId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunTools>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRunToolsQueryKey(runId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRunTools>>> = ({ signal }) => getRunTools(runId, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(runId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRunTools>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRunToolsQueryResult = NonNullable<Awaited<ReturnType<typeof getRunTools>>>
+export type GetRunToolsQueryError = AxiosError<void>
+
+/**
+ * @summary Get tools for a run
+ */
+export const useGetRunTools = <TData = Awaited<ReturnType<typeof getRunTools>>, TError = AxiosError<void>>(
+ runId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunTools>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetRunToolsQueryOptions(runId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Get the supervisors assigned to a tool
+ */
+export const getRunToolSupervisors = (
+    runId: string,
+    toolId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<Supervisor[]>> => {
+    
+    return axios.get(
+      `/api/runs/${runId}/tools/${toolId}/supervisors`,options
+    );
+  }
+
+
+export const getGetRunToolSupervisorsQueryKey = (runId: string,
+    toolId: string,) => {
+    return [`/api/runs/${runId}/tools/${toolId}/supervisors`] as const;
+    }
+
+    
+export const getGetRunToolSupervisorsQueryOptions = <TData = Awaited<ReturnType<typeof getRunToolSupervisors>>, TError = AxiosError<void>>(runId: string,
+    toolId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunToolSupervisors>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRunToolSupervisorsQueryKey(runId,toolId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRunToolSupervisors>>> = ({ signal }) => getRunToolSupervisors(runId,toolId, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(runId && toolId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRunToolSupervisors>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRunToolSupervisorsQueryResult = NonNullable<Awaited<ReturnType<typeof getRunToolSupervisors>>>
+export type GetRunToolSupervisorsQueryError = AxiosError<void>
+
+/**
+ * @summary Get the supervisors assigned to a tool
+ */
+export const useGetRunToolSupervisors = <TData = Awaited<ReturnType<typeof getRunToolSupervisors>>, TError = AxiosError<void>>(
+ runId: string,
+    toolId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunToolSupervisors>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetRunToolSupervisorsQueryOptions(runId,toolId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * Specify an array of supervisors in supervision order. The first supervisor will be called first, and so on. These supervisors will be called in order when this tool is invoked for the remainder of the run.
+ * @summary Assign a list of supervisors to a tool for a given run
+ */
+export const createRunToolSupervisors = (
+    toolId: string,
+    createRunToolSupervisorsBody: string[],
+    runId?: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<void>> => {
+    
+    return axios.post(
+      `/api/runs/${runId}/tools/${toolId}/supervisors`,
+      createRunToolSupervisorsBody,options
+    );
+  }
+
+
+
+export const getCreateRunToolSupervisorsMutationOptions = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRunToolSupervisors>>, TError,{toolId: string;data: string[];runId?: string}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof createRunToolSupervisors>>, TError,{toolId: string;data: string[];runId?: string}, TContext> => {
+const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRunToolSupervisors>>, {toolId: string;data: string[];runId?: string}> = (props) => {
+          const {toolId,data,runId} = props ?? {};
+
+          return  createRunToolSupervisors(toolId,data,runId,axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRunToolSupervisorsMutationResult = NonNullable<Awaited<ReturnType<typeof createRunToolSupervisors>>>
+    export type CreateRunToolSupervisorsMutationBody = string[]
+    export type CreateRunToolSupervisorsMutationError = AxiosError<unknown>
+
+    /**
+ * @summary Assign a list of supervisors to a tool for a given run
+ */
+export const useCreateRunToolSupervisors = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRunToolSupervisors>>, TError,{toolId: string;data: string[];runId?: string}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationResult<
+        Awaited<ReturnType<typeof createRunToolSupervisors>>,
+        TError,
+        {toolId: string;data: string[];runId?: string},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateRunToolSupervisorsMutationOptions(options);
+
+      return useMutation(mutationOptions);
+    }
+    
+/**
+ * @summary Get executions for a run
+ */
+export const getRunExecutions = (
+    runId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<Execution[]>> => {
+    
+    return axios.get(
+      `/api/runs/${runId}/executions`,options
+    );
+  }
+
+
+export const getGetRunExecutionsQueryKey = (runId: string,) => {
+    return [`/api/runs/${runId}/executions`] as const;
+    }
+
+    
+export const getGetRunExecutionsQueryOptions = <TData = Awaited<ReturnType<typeof getRunExecutions>>, TError = AxiosError<unknown>>(runId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunExecutions>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRunExecutionsQueryKey(runId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRunExecutions>>> = ({ signal }) => getRunExecutions(runId, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(runId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRunExecutions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRunExecutionsQueryResult = NonNullable<Awaited<ReturnType<typeof getRunExecutions>>>
+export type GetRunExecutionsQueryError = AxiosError<unknown>
+
+/**
+ * @summary Get executions for a run
+ */
+export const useGetRunExecutions = <TData = Awaited<ReturnType<typeof getRunExecutions>>, TError = AxiosError<unknown>>(
+ runId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunExecutions>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetRunExecutionsQueryOptions(runId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Create an execution
+ */
+export const createExecution = (
+    runId: string,
+    createExecutionBody: CreateExecutionBody, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<Execution>> => {
+    
+    return axios.post(
+      `/api/runs/${runId}/executions`,
+      createExecutionBody,options
+    );
+  }
+
+
+
+export const getCreateExecutionMutationOptions = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createExecution>>, TError,{runId: string;data: CreateExecutionBody}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof createExecution>>, TError,{runId: string;data: CreateExecutionBody}, TContext> => {
+const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createExecution>>, {runId: string;data: CreateExecutionBody}> = (props) => {
+          const {runId,data} = props ?? {};
+
+          return  createExecution(runId,data,axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateExecutionMutationResult = NonNullable<Awaited<ReturnType<typeof createExecution>>>
+    export type CreateExecutionMutationBody = CreateExecutionBody
+    export type CreateExecutionMutationError = AxiosError<unknown>
+
+    /**
+ * @summary Create an execution
+ */
+export const useCreateExecution = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createExecution>>, TError,{runId: string;data: CreateExecutionBody}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationResult<
+        Awaited<ReturnType<typeof createExecution>>,
+        TError,
+        {runId: string;data: CreateExecutionBody},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateExecutionMutationOptions(options);
+
+      return useMutation(mutationOptions);
+    }
+    
+/**
+ * @summary Get tool by ID
+ */
+export const getTool = (
+    toolId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<Tool>> => {
+    
+    return axios.get(
+      `/api/tools/${toolId}`,options
+    );
+  }
+
+
+export const getGetToolQueryKey = (toolId: string,) => {
+    return [`/api/tools/${toolId}`] as const;
+    }
+
+    
+export const getGetToolQueryOptions = <TData = Awaited<ReturnType<typeof getTool>>, TError = AxiosError<void>>(toolId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTool>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetToolQueryKey(toolId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTool>>> = ({ signal }) => getTool(toolId, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(toolId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTool>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetToolQueryResult = NonNullable<Awaited<ReturnType<typeof getTool>>>
+export type GetToolQueryError = AxiosError<void>
+
+/**
+ * @summary Get tool by ID
+ */
+export const useGetTool = <TData = Awaited<ReturnType<typeof getTool>>, TError = AxiosError<void>>(
+ toolId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTool>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetToolQueryOptions(toolId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary List all tools
+ */
+export const getTools = (
+     options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<Tool[]>> => {
+    
+    return axios.get(
+      `/api/tools`,options
+    );
+  }
+
+
+export const getGetToolsQueryKey = () => {
+    return [`/api/tools`] as const;
+    }
+
+    
+export const getGetToolsQueryOptions = <TData = Awaited<ReturnType<typeof getTools>>, TError = AxiosError<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTools>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetToolsQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTools>>> = ({ signal }) => getTools({ signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTools>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetToolsQueryResult = NonNullable<Awaited<ReturnType<typeof getTools>>>
+export type GetToolsQueryError = AxiosError<unknown>
+
+/**
+ * @summary List all tools
+ */
+export const useGetTools = <TData = Awaited<ReturnType<typeof getTools>>, TError = AxiosError<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTools>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetToolsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Create a new tool
+ */
+export const createTool = (
+    tool: Tool, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<Tool>> => {
+    
+    return axios.post(
+      `/api/tools`,
+      tool,options
+    );
+  }
+
+
+
+export const getCreateToolMutationOptions = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTool>>, TError,{data: Tool}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof createTool>>, TError,{data: Tool}, TContext> => {
+const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTool>>, {data: Tool}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createTool(data,axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateToolMutationResult = NonNullable<Awaited<ReturnType<typeof createTool>>>
+    export type CreateToolMutationBody = Tool
+    export type CreateToolMutationError = AxiosError<unknown>
+
+    /**
+ * @summary Create a new tool
+ */
+export const useCreateTool = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTool>>, TError,{data: Tool}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationResult<
+        Awaited<ReturnType<typeof createTool>>,
+        TError,
+        {data: Tool},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateToolMutationOptions(options);
+
+      return useMutation(mutationOptions);
+    }
+    
+/**
+ * @summary Get project by ID
+ */
+export const getProject = (
+    projectId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<Project>> => {
+    
+    return axios.get(
+      `/api/projects/${projectId}`,options
+    );
+  }
+
+
+export const getGetProjectQueryKey = (projectId: string,) => {
+    return [`/api/projects/${projectId}`] as const;
+    }
+
+    
+export const getGetProjectQueryOptions = <TData = Awaited<ReturnType<typeof getProject>>, TError = AxiosError<void>>(projectId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProject>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProjectQueryKey(projectId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProject>>> = ({ signal }) => getProject(projectId, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(projectId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProject>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProjectQueryResult = NonNullable<Awaited<ReturnType<typeof getProject>>>
+export type GetProjectQueryError = AxiosError<void>
+
+/**
+ * @summary Get project by ID
+ */
+export const useGetProject = <TData = Awaited<ReturnType<typeof getProject>>, TError = AxiosError<void>>(
+ projectId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProject>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetProjectQueryOptions(projectId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Get run by ID
+ */
+export const getRun = (
+    runId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<Run>> => {
+    
+    return axios.get(
+      `/api/runs/${runId}`,options
+    );
+  }
+
+
+export const getGetRunQueryKey = (runId: string,) => {
+    return [`/api/runs/${runId}`] as const;
+    }
+
+    
+export const getGetRunQueryOptions = <TData = Awaited<ReturnType<typeof getRun>>, TError = AxiosError<void>>(runId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRun>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRunQueryKey(runId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRun>>> = ({ signal }) => getRun(runId, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(runId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRun>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRunQueryResult = NonNullable<Awaited<ReturnType<typeof getRun>>>
+export type GetRunQueryError = AxiosError<void>
+
+/**
+ * @summary Get run by ID
+ */
+export const useGetRun = <TData = Awaited<ReturnType<typeof getRun>>, TError = AxiosError<void>>(
+ runId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRun>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetRunQueryOptions(runId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary List all supervisors
+ */
+export const getSupervisors = (
+     options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<Supervisor[]>> => {
+    
+    return axios.get(
+      `/api/supervisors`,options
+    );
+  }
+
+
+export const getGetSupervisorsQueryKey = () => {
+    return [`/api/supervisors`] as const;
+    }
+
+    
+export const getGetSupervisorsQueryOptions = <TData = Awaited<ReturnType<typeof getSupervisors>>, TError = AxiosError<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSupervisors>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSupervisorsQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSupervisors>>> = ({ signal }) => getSupervisors({ signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSupervisors>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSupervisorsQueryResult = NonNullable<Awaited<ReturnType<typeof getSupervisors>>>
+export type GetSupervisorsQueryError = AxiosError<unknown>
+
+/**
+ * @summary List all supervisors
+ */
+export const useGetSupervisors = <TData = Awaited<ReturnType<typeof getSupervisors>>, TError = AxiosError<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSupervisors>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetSupervisorsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Create a new supervisor
+ */
+export const createSupervisor = (
+    supervisor: Supervisor, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<Supervisor>> => {
+    
+    return axios.post(
+      `/api/supervisors`,
+      supervisor,options
+    );
+  }
+
+
+
+export const getCreateSupervisorMutationOptions = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSupervisor>>, TError,{data: Supervisor}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof createSupervisor>>, TError,{data: Supervisor}, TContext> => {
+const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSupervisor>>, {data: Supervisor}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSupervisor(data,axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSupervisorMutationResult = NonNullable<Awaited<ReturnType<typeof createSupervisor>>>
+    export type CreateSupervisorMutationBody = Supervisor
+    export type CreateSupervisorMutationError = AxiosError<unknown>
+
+    /**
+ * @summary Create a new supervisor
+ */
+export const useCreateSupervisor = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSupervisor>>, TError,{data: Supervisor}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationResult<
+        Awaited<ReturnType<typeof createSupervisor>>,
+        TError,
+        {data: Supervisor},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateSupervisorMutationOptions(options);
+
+      return useMutation(mutationOptions);
+    }
+    
+/**
+ * @summary Get supervisor by ID
+ */
+export const getSupervisor = (
+    supervisorId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<Supervisor>> => {
+    
+    return axios.get(
+      `/api/supervisors/${supervisorId}`,options
+    );
+  }
+
+
+export const getGetSupervisorQueryKey = (supervisorId: string,) => {
+    return [`/api/supervisors/${supervisorId}`] as const;
+    }
+
+    
+export const getGetSupervisorQueryOptions = <TData = Awaited<ReturnType<typeof getSupervisor>>, TError = AxiosError<void>>(supervisorId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSupervisor>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSupervisorQueryKey(supervisorId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSupervisor>>> = ({ signal }) => getSupervisor(supervisorId, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(supervisorId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSupervisor>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSupervisorQueryResult = NonNullable<Awaited<ReturnType<typeof getSupervisor>>>
+export type GetSupervisorQueryError = AxiosError<void>
+
+/**
+ * @summary Get supervisor by ID
+ */
+export const useGetSupervisor = <TData = Awaited<ReturnType<typeof getSupervisor>>, TError = AxiosError<void>>(
+ supervisorId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSupervisor>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetSupervisorQueryOptions(supervisorId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Get supervision request by ID
+ */
+export const getSupervisionRequest = (
+    reviewId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<SupervisionRequest>> => {
+    
+    return axios.get(
+      `/api/reviews/${reviewId}`,options
+    );
+  }
+
+
+export const getGetSupervisionRequestQueryKey = (reviewId: string,) => {
+    return [`/api/reviews/${reviewId}`] as const;
+    }
+
+    
+export const getGetSupervisionRequestQueryOptions = <TData = Awaited<ReturnType<typeof getSupervisionRequest>>, TError = AxiosError<void>>(reviewId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSupervisionRequest>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSupervisionRequestQueryKey(reviewId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSupervisionRequest>>> = ({ signal }) => getSupervisionRequest(reviewId, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(reviewId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSupervisionRequest>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSupervisionRequestQueryResult = NonNullable<Awaited<ReturnType<typeof getSupervisionRequest>>>
+export type GetSupervisionRequestQueryError = AxiosError<void>
+
+/**
+ * @summary Get supervision request by ID
+ */
+export const useGetSupervisionRequest = <TData = Awaited<ReturnType<typeof getSupervisionRequest>>, TError = AxiosError<void>>(
+ reviewId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSupervisionRequest>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetSupervisionRequestQueryOptions(reviewId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Get supervision results
+ */
+export const getSupervisionResults = (
+    reviewId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<SupervisionResult[]>> => {
+    
+    return axios.get(
+      `/api/reviews/${reviewId}/results`,options
+    );
+  }
+
+
+export const getGetSupervisionResultsQueryKey = (reviewId: string,) => {
+    return [`/api/reviews/${reviewId}/results`] as const;
+    }
+
+    
+export const getGetSupervisionResultsQueryOptions = <TData = Awaited<ReturnType<typeof getSupervisionResults>>, TError = AxiosError<void>>(reviewId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSupervisionResults>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSupervisionResultsQueryKey(reviewId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSupervisionResults>>> = ({ signal }) => getSupervisionResults(reviewId, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(reviewId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSupervisionResults>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSupervisionResultsQueryResult = NonNullable<Awaited<ReturnType<typeof getSupervisionResults>>>
+export type GetSupervisionResultsQueryError = AxiosError<void>
+
+/**
+ * @summary Get supervision results
+ */
+export const useGetSupervisionResults = <TData = Awaited<ReturnType<typeof getSupervisionResults>>, TError = AxiosError<void>>(
+ reviewId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSupervisionResults>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetSupervisionResultsQueryOptions(reviewId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Create a supervision result
+ */
+export const createSupervisionResult = (
+    reviewId: string,
+    createSupervisionResult: CreateSupervisionResult, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<void>> => {
+    
+    return axios.post(
+      `/api/reviews/${reviewId}/results`,
+      createSupervisionResult,options
+    );
+  }
+
+
+
+export const getCreateSupervisionResultMutationOptions = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSupervisionResult>>, TError,{reviewId: string;data: CreateSupervisionResult}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof createSupervisionResult>>, TError,{reviewId: string;data: CreateSupervisionResult}, TContext> => {
+const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSupervisionResult>>, {reviewId: string;data: CreateSupervisionResult}> = (props) => {
+          const {reviewId,data} = props ?? {};
+
+          return  createSupervisionResult(reviewId,data,axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSupervisionResultMutationResult = NonNullable<Awaited<ReturnType<typeof createSupervisionResult>>>
+    export type CreateSupervisionResultMutationBody = CreateSupervisionResult
+    export type CreateSupervisionResultMutationError = AxiosError<unknown>
+
+    /**
+ * @summary Create a supervision result
+ */
+export const useCreateSupervisionResult = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSupervisionResult>>, TError,{reviewId: string;data: CreateSupervisionResult}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationResult<
+        Awaited<ReturnType<typeof createSupervisionResult>>,
+        TError,
+        {reviewId: string;data: CreateSupervisionResult},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateSupervisionResultMutationOptions(options);
+
+      return useMutation(mutationOptions);
+    }
+    
+/**
+ * @summary Get tool requests for a supervisor
+ */
+export const getReviewToolRequests = (
+    reviewId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<ToolRequest[]>> => {
+    
+    return axios.get(
+      `/api/reviews/${reviewId}/toolrequests`,options
+    );
+  }
+
+
+export const getGetReviewToolRequestsQueryKey = (reviewId: string,) => {
+    return [`/api/reviews/${reviewId}/toolrequests`] as const;
+    }
+
+    
+export const getGetReviewToolRequestsQueryOptions = <TData = Awaited<ReturnType<typeof getReviewToolRequests>>, TError = AxiosError<void>>(reviewId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReviewToolRequests>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetReviewToolRequestsQueryKey(reviewId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getReviewToolRequests>>> = ({ signal }) => getReviewToolRequests(reviewId, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(reviewId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getReviewToolRequests>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetReviewToolRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof getReviewToolRequests>>>
+export type GetReviewToolRequestsQueryError = AxiosError<void>
+
+/**
+ * @summary Get tool requests for a supervisor
+ */
+export const useGetReviewToolRequests = <TData = Awaited<ReturnType<typeof getReviewToolRequests>>, TError = AxiosError<void>>(
+ reviewId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReviewToolRequests>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetReviewToolRequestsQueryOptions(reviewId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Get hub stats
+ */
+export const getHubStats = (
+     options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<HubStats>> => {
+    
+    return axios.get(
+      `/api/stats`,options
+    );
+  }
+
+
+export const getGetHubStatsQueryKey = () => {
+    return [`/api/stats`] as const;
+    }
+
+    
+export const getGetHubStatsQueryOptions = <TData = Awaited<ReturnType<typeof getHubStats>>, TError = AxiosError<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getHubStats>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetHubStatsQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getHubStats>>> = ({ signal }) => getHubStats({ signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getHubStats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetHubStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getHubStats>>>
+export type GetHubStatsQueryError = AxiosError<unknown>
+
+/**
+ * @summary Get hub stats
+ */
+export const useGetHubStats = <TData = Awaited<ReturnType<typeof getHubStats>>, TError = AxiosError<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getHubStats>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetHubStatsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

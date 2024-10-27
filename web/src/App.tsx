@@ -7,6 +7,10 @@ import LLMReviews from '@/components/llm_reviews';
 import Sidebar from './components/sidebar';
 import Home from './components/home';
 import ProjectList from './components/project_list';
+import Runs from './components/runs';
+import Executions from './components/executions';
+import Tools from './components/tools';
+import ToolDetails from './components/tool';
 
 // The API base URL is set via an environment variable in the docker-compose.yml file
 // @ts-ignore
@@ -48,6 +52,10 @@ const App: React.FC = () => {
                 <LLMReviews
                   API_BASE_URL={API_BASE_URL}
                 />} />
+              <Route path="/projects/:projectId" element={<Runs />} />
+              <Route path="/projects/:projectId/runs/:runId" element={<Executions />} />
+              <Route path="/tools" element={<Tools />} />
+              <Route path="/tools/:toolId" element={<ToolDetails />} />
             </Routes>
           </Sidebar>
         </Router>

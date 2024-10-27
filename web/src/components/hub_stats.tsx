@@ -10,7 +10,7 @@ const HubStatsAccordion: React.FC<{ API_BASE_URL: string }> = ({ API_BASE_URL })
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/hub/stats`);
+        const response = await fetch(`${API_BASE_URL}/api/stats`);
         const data: HubStatsType = await response.json();
         setHubStats(data);
       } catch (error) {
@@ -52,9 +52,9 @@ const HubStats: React.FC<{ stats: HubStatsType }> = ({ stats }) => {
   return (
     <div className="bg-gray-100 p-4 rounded-lg">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-        <StatItem label="Reviews waiting to be assigned (server-side)" value={stats.queued_reviews} />
-        <StatItem label="Reviews in progress (client-side)" value={stats.stored_reviews} />
-        <StatItem label="Completed Reviews" value={stats.completed_reviews} />
+        <StatItem label="Reviews waiting to be assigned (server-side)" value={stats.pending_reviews_count} />
+        <StatItem label="Reviews in progress (client-side)" value={stats.assigned_reviews_count} />
+        <StatItem label="Completed Reviews" value={stats.completed_reviews_count} />
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <StatItem label="Connected Clients" value={stats.connected_clients} />

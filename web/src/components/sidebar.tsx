@@ -35,7 +35,7 @@ import {
 import { Card, Button } from "@radix-ui/themes"
 import { CardHeader, CardTitle, CardDescription, CardContent } from "./ui/card"
 import { useEffect, useState } from "react"
-
+import { PickaxeIcon } from "lucide-react"
 const data = {
   versions: ["0.1.2"],
   navMain: [
@@ -54,6 +54,12 @@ const data = {
           url: "/supervisor",
           isActive: false,
           icon: <InspectIcon />
+        },
+        {
+          title: "Tools",
+          url: "/tools",
+          isActive: false,
+          icon: <PickaxeIcon />
         },
         {
           title: "Datasets",
