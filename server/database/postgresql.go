@@ -351,12 +351,31 @@ func (s *PostgresqlStore) CreateReviewResult(ctx context.Context, result sentine
 		INSERT INTO reviewresult (id, reviewrequest_id, created_at, decision, reasoning, toolrequest_id)
 		VALUES ($1, $2, $3, $4, $5, $6)`
 
-	_, err := s.db.ExecContext(
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("error starting transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	_, err = tx.ExecContext(
 		ctx, query, result.Id, result.ReviewRequestId, result.CreatedAt, result.Decision, result.Reasoning, result.Toolrequest.Id,
 	)
 	if err != nil {
 		return fmt.Errorf("error creating review result: %w", err)
 	}
+
+	// Log the reviewrequest_status entry for the review request
+	rs := sentinel.ReviewStatus{Status: sentinel.Completed, CreatedAt: time.Now()}
+	err = s.createReviewStatus(ctx, result.ReviewRequestId, rs, tx)
+	if err != nil {
+		return fmt.Errorf("error creating review status: %w", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("error committing transaction: %w", err)
+	}
+
 	return nil
 }
 
@@ -810,14 +829,14 @@ func (s *PostgresqlStore) GetRunTools(ctx context.Context, runId uuid.UUID) ([]s
 	return tools, nil
 }
 
-// GetRunToolSupervisors returns the supervisors assigned to a tool for a run, ordered by the time the supervisor was assigned to the tool
+// GetRunToolSupervisors returns an ordered list of supervisors assigned to a tool for a run. The list is ordered by ID of the run_tool_supervisor record, most recent first.
 func (s *PostgresqlStore) GetRunToolSupervisors(ctx context.Context, runId uuid.UUID, toolId uuid.UUID) ([]sentinel.Supervisor, error) {
 	query := `
 		SELECT supervisor.id, supervisor.description, supervisor.created_at, supervisor.type, rts.created_at
 		FROM run_tool_supervisor rts
 		INNER JOIN supervisor ON rts.supervisor_id = supervisor.id
 		WHERE rts.run_id = $1 AND rts.tool_id = $2
-		ORDER BY rts.created_at DESC`
+		ORDER BY rts.id DESC`
 
 	rows, err := s.db.QueryContext(ctx, query, runId, toolId)
 	if err != nil {

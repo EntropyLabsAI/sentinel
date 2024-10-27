@@ -81,6 +81,10 @@ func (s Server) GetReviewRequests(w http.ResponseWriter, r *http.Request, params
 	apiGetReviewRequestsHandler(w, r, params, s.Store)
 }
 
+func (s Server) CreateReviewResult(w http.ResponseWriter, r *http.Request, reviewRequestId uuid.UUID) {
+	apiCreateReviewResultHandler(w, r, reviewRequestId, s.Store)
+}
+
 func (s Server) CreateRun(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	apiCreateRunHandler(w, r, id, s.Store)
 }

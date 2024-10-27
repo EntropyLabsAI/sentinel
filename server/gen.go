@@ -52,6 +52,17 @@ const (
 	Llm   SupervisorType = "llm"
 )
 
+// CreateReviewResult defines model for CreateReviewResult.
+type CreateReviewResult struct {
+	ReviewResult ReviewResult       `json:"review_result"`
+	RunId        openapi_types.UUID `json:"run_id"`
+	SupervisorId openapi_types.UUID `json:"supervisor_id"`
+	ToolId       openapi_types.UUID `json:"tool_id"`
+
+	// ToolRequest A tool request is a request to use a tool. It must be approved by a supervisor.
+	ToolRequest ToolRequest `json:"tool_request"`
+}
+
 // HubStats defines model for HubStats.
 type HubStats struct {
 	AssignedReviews       map[string]int `json:"assigned_reviews"`
@@ -172,6 +183,9 @@ type CreateProjectJSONRequestBody = ProjectCreate
 // CreateReviewRequestJSONRequestBody defines body for CreateReviewRequest for application/json ContentType.
 type CreateReviewRequestJSONRequestBody = ReviewRequest
 
+// CreateReviewResultJSONRequestBody defines body for CreateReviewResult for application/json ContentType.
+type CreateReviewResultJSONRequestBody = CreateReviewResult
+
 // CreateRunToolSupervisorsJSONRequestBody defines body for CreateRunToolSupervisors for application/json ContentType.
 type CreateRunToolSupervisorsJSONRequestBody = CreateRunToolSupervisorsJSONBody
 
@@ -213,6 +227,9 @@ type ServerInterface interface {
 	// Get review results
 	// (GET /api/reviews/{reviewId}/results)
 	GetReviewResults(w http.ResponseWriter, r *http.Request, reviewId openapi_types.UUID)
+	// Create a review result
+	// (POST /api/reviews/{reviewId}/results)
+	CreateReviewResult(w http.ResponseWriter, r *http.Request, reviewId openapi_types.UUID)
 	// Get review status
 	// (GET /api/reviews/{reviewId}/status)
 	GetReviewStatus(w http.ResponseWriter, r *http.Request, reviewId openapi_types.UUID)
@@ -462,6 +479,31 @@ func (siw *ServerInterfaceWrapper) GetReviewResults(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetReviewResults(w, r, reviewId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateReviewResult operation middleware
+func (siw *ServerInterfaceWrapper) CreateReviewResult(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "reviewId" -------------
+	var reviewId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "reviewId", r.PathValue("reviewId"), &reviewId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "reviewId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateReviewResult(w, r, reviewId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -889,6 +931,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("POST "+options.BaseURL+"/api/reviews", wrapper.CreateReviewRequest)
 	m.HandleFunc("GET "+options.BaseURL+"/api/reviews/{reviewId}", wrapper.GetReviewRequest)
 	m.HandleFunc("GET "+options.BaseURL+"/api/reviews/{reviewId}/results", wrapper.GetReviewResults)
+	m.HandleFunc("POST "+options.BaseURL+"/api/reviews/{reviewId}/results", wrapper.CreateReviewResult)
 	m.HandleFunc("GET "+options.BaseURL+"/api/reviews/{reviewId}/status", wrapper.GetReviewStatus)
 	m.HandleFunc("GET "+options.BaseURL+"/api/reviews/{reviewId}/toolrequests", wrapper.GetReviewToolRequests)
 	m.HandleFunc("GET "+options.BaseURL+"/api/runs/{runId}", wrapper.GetRun)
@@ -909,37 +952,39 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"9F8AAAD//1iIH92yNQAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

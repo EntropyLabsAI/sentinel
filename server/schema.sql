@@ -72,7 +72,6 @@ CREATE TABLE code_supervisor (
 );
 
 CREATE TABLE run_tool_supervisor (
-    -- Auto incrementing ID
     id SERIAL PRIMARY KEY,
     tool_id UUID,
     run_id UUID,
