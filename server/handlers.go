@@ -194,28 +194,28 @@ func apiGetToolSupervisorsHandler(w http.ResponseWriter, r *http.Request, id uui
 }
 
 // apiAssignSupervisorToToolHandler handles the POST /api/tools/{id}/supervisors endpoint
-func apiAssignSupervisorToToolHandler(w http.ResponseWriter, r *http.Request, _ uuid.UUID, id uuid.UUID, store Store) {
+func apiAssignSupervisorToToolHandler(w http.ResponseWriter, r *http.Request, _ uuid.UUID, toolId uuid.UUID, store Store) {
 	ctx := r.Context()
 
 	// Decode the request body
-	var request struct {
-		SupervisorId uuid.UUID `json:"supervisorId"`
-	}
+	var request SupervisorAssignment
 
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Invalid request body: %v", err), http.StatusBadRequest)
 		return
 	}
+
+	fmt.Printf("request: %+v\n", request)
 
 	if request.SupervisorId == uuid.Nil {
 		http.Error(w, "Supervisor ID is required", http.StatusBadRequest)
 		return
 	}
 
-	log.Printf("received new supervisor assignment request for tool ID: %s and supervisor ID: %s", id, request.SupervisorId)
+	log.Printf("received new supervisor assignment request for tool ID: %s and supervisor ID: %s", toolId, request.SupervisorId)
 
-	err = store.AssignSupervisorToTool(ctx, request.SupervisorId, id)
+	err = store.AssignSupervisorToTool(ctx, request.SupervisorId, toolId)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
