@@ -2,11 +2,10 @@ DROP TABLE IF EXISTS reviewresult CASCADE;
 DROP TABLE IF EXISTS toolrequest CASCADE;
 DROP TABLE IF EXISTS reviewrequest_status CASCADE;
 DROP TABLE IF EXISTS reviewrequest CASCADE;
-DROP TABLE IF EXISTS run_tool CASCADE;
+DROP TABLE IF EXISTS run_tool_supervisor CASCADE;
 DROP TABLE IF EXISTS llm_message CASCADE;
 DROP TABLE IF EXISTS code_supervisor CASCADE;
 DROP TABLE IF EXISTS llm_supervisor CASCADE;
-DROP TABLE IF EXISTS tool_supervisor CASCADE;
 DROP TABLE IF EXISTS supervisor CASCADE;
 DROP TABLE IF EXISTS run CASCADE;
 DROP TABLE IF EXISTS user_project CASCADE;
@@ -60,14 +59,6 @@ CREATE TABLE run (
     FOREIGN KEY (project_id) REFERENCES project(id)
 );
 
-CREATE TABLE tool_supervisor (
-    tool_id UUID,
-    supervisor_id UUID,
-    PRIMARY KEY (tool_id, supervisor_id),
-    FOREIGN KEY (tool_id) REFERENCES tool(id),
-    FOREIGN KEY (supervisor_id) REFERENCES supervisor(id)
-);
-
 CREATE TABLE llm_supervisor (
     supervisor_id UUID PRIMARY KEY,
     prompt TEXT,
@@ -80,12 +71,17 @@ CREATE TABLE code_supervisor (
     FOREIGN KEY (supervisor_id) REFERENCES supervisor(id)
 );
 
-CREATE TABLE run_tool (
+CREATE TABLE run_tool_supervisor (
+    -- Auto incrementing ID
+    id SERIAL PRIMARY KEY,
     tool_id UUID,
     run_id UUID,
-    PRIMARY KEY (tool_id, run_id),
+    supervisor_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE,
+    PRIMARY KEY (tool_id, run_id, supervisor_id),
     FOREIGN KEY (tool_id) REFERENCES tool(id),
-    FOREIGN KEY (run_id) REFERENCES run(id)
+    FOREIGN KEY (run_id) REFERENCES run(id),
+    FOREIGN KEY (supervisor_id) REFERENCES supervisor(id)
 );
 
 CREATE TABLE reviewrequest (

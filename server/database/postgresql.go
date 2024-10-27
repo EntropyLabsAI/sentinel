@@ -648,71 +648,6 @@ func (s *PostgresqlStore) CreateRun(ctx context.Context, run sentinel.Run) (uuid
 	return id, nil
 }
 
-func (s *PostgresqlStore) CreateRunTool(ctx context.Context, runId uuid.UUID, tool sentinel.Tool) (uuid.UUID, error) {
-	var id uuid.UUID
-
-	if tool.Name == "" || tool.Description == "" || tool.Attributes == nil {
-		return uuid.UUID{}, fmt.Errorf("can't create run tool, tool name, description, and attributes are required. Values: %+v", tool)
-	}
-
-	attributes, err := json.Marshal(tool.Attributes)
-	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("error marshalling tool attributes: %w", err)
-	}
-
-	// Check if there is a tool already with the same name, description, and attributes
-	query := `
-		SELECT id
-		FROM tool
-		WHERE name = $1 AND description = $2 AND attributes = $3`
-
-	var existingToolId uuid.UUID
-	err = s.db.QueryRowContext(ctx, query, tool.Name, tool.Description, attributes).Scan(&existingToolId)
-	if err != nil && err != sql.ErrNoRows {
-		return uuid.UUID{}, fmt.Errorf("error checking if tool already exists: %w", err)
-	}
-
-	// Start a transaction
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("error starting transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	// If the tool already exists, just use the existing ID, else create a new one
-	if existingToolId != uuid.Nil {
-		id = existingToolId
-	} else {
-		id = uuid.New()
-
-		query = `
-		INSERT INTO tool (id, name, description, attributes)
-		VALUES ($1, $2, $3, $4)`
-
-		_, err = tx.ExecContext(ctx, query, id, tool.Name, tool.Description, attributes)
-		if err != nil {
-			return uuid.UUID{}, fmt.Errorf("error creating tool: %w", err)
-		}
-	}
-
-	// Insert a connection between the run and the tool into run_tool
-	query = `
-		INSERT INTO run_tool (run_id, tool_id)
-		VALUES ($1, $2)`
-
-	_, err = tx.ExecContext(ctx, query, runId, id)
-	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("error creating run tool: %w", err)
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("error committing transaction: %w", err)
-	}
-
-	return id, nil
-}
-
 func (s *PostgresqlStore) CreateTool(ctx context.Context, tool sentinel.Tool) (uuid.UUID, error) {
 	id := uuid.New()
 
@@ -769,14 +704,14 @@ func (s *PostgresqlStore) GetReviewToolRequests(ctx context.Context, id uuid.UUI
 	return toolRequests, nil
 }
 
-func (s *PostgresqlStore) GetRun(ctx context.Context, projectId uuid.UUID, id uuid.UUID) (*sentinel.Run, error) {
+func (s *PostgresqlStore) GetRun(ctx context.Context, id uuid.UUID) (*sentinel.Run, error) {
 	query := `
 		SELECT id, project_id, created_at
 		FROM run
-		WHERE id = $1 AND project_id = $2`
+		WHERE id = $1`
 
 	var run sentinel.Run
-	err := s.db.QueryRowContext(ctx, query, id, projectId).Scan(&run.Id, &run.ProjectId, &run.CreatedAt)
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&run.Id, &run.ProjectId, &run.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -787,58 +722,77 @@ func (s *PostgresqlStore) GetRun(ctx context.Context, projectId uuid.UUID, id uu
 	return &run, nil
 }
 
-func (s *PostgresqlStore) AssignSupervisorToTool(ctx context.Context, supervisorID uuid.UUID, toolID uuid.UUID) error {
-	// Check if the supervisor exists
-	supervisor, err := s.GetSupervisor(ctx, supervisorID)
+func (s *PostgresqlStore) AssignSupervisorsToTool(ctx context.Context, runId uuid.UUID, toolID uuid.UUID, supervisorIds []uuid.UUID) error {
+	// Start a transaction
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("error getting supervisor: %w", err)
+		return fmt.Errorf("error starting transaction: %w", err)
 	}
-	if supervisor == nil {
-		return fmt.Errorf("supervisor %s not found", supervisorID)
-	}
+	defer func() { _ = tx.Rollback() }()
 
-	// Check if the tool exists
-	tool, err := s.GetTool(ctx, toolID)
-	if err != nil {
-		return fmt.Errorf("error getting tool: %w", err)
-	}
-	if tool == nil {
-		return fmt.Errorf("tool %s not found", toolID)
-	}
+	for _, supervisorID := range supervisorIds {
+		// Check if the supervisor exists
+		supervisor, err := s.GetSupervisor(ctx, supervisorID)
+		if err != nil {
+			return fmt.Errorf("error getting supervisor: %w", err)
+		}
+		if supervisor == nil {
+			return fmt.Errorf("supervisor %s not found", supervisorID)
+		}
 
-	// Check if the supervisor is already assigned to the tool
-	query := `
+		// Check if the tool exists
+		tool, err := s.GetTool(ctx, toolID)
+		if err != nil {
+			return fmt.Errorf("error getting tool: %w", err)
+		}
+		if tool == nil {
+			return fmt.Errorf("tool %s not found", toolID)
+		}
+
+		// Check if the supervisor is already assigned to the tool
+		query := `
 		SELECT 1
-		FROM tool_supervisor
-		WHERE tool_id = $1 AND supervisor_id = $2`
+		FROM run_tool_supervisor
+		WHERE run_id = $1 AND tool_id = $2 AND supervisor_id = $3`
 
-	var exists bool
-	err = s.db.QueryRowContext(ctx, query, toolID, supervisorID).Scan(&exists)
-	if err != nil && err != sql.ErrNoRows {
-		return fmt.Errorf("error checking if supervisor is already assigned to tool: %w", err)
+		var exists bool
+		err = tx.QueryRowContext(ctx, query, runId, toolID, supervisorID).Scan(&exists)
+		if err != nil && err != sql.ErrNoRows {
+			return fmt.Errorf("error checking if supervisor is already assigned to tool: %w", err)
+		}
+
+		if exists {
+			return fmt.Errorf("supervisor %s is already assigned to tool %s", supervisorID, toolID)
+		}
+
+		t := time.Now()
+		query = `
+		INSERT INTO run_tool_supervisor (run_id, tool_id, supervisor_id, created_at)
+		VALUES ($1, $2, $3, $4)`
+
+		// If the supervisor is not assigned to the tool, assign them
+		_, err = tx.ExecContext(ctx, query, runId, toolID, supervisorID, t)
+		if err != nil {
+			return fmt.Errorf("error assigning supervisor to tool: %w", err)
+		}
 	}
 
-	if exists {
-		return fmt.Errorf("supervisor %s is already assigned to tool %s", supervisorID, toolID)
-	}
-
-	// If the supervisor is not assigned to the tool, assign them
-	_, err = s.db.ExecContext(ctx, query, toolID, supervisorID)
+	err = tx.Commit()
 	if err != nil {
-		return fmt.Errorf("error assigning supervisor to tool: %w", err)
+		return fmt.Errorf("error committing transaction: %w", err)
 	}
 
 	return nil
 }
 
-func (s *PostgresqlStore) GetRunTools(ctx context.Context, id uuid.UUID) ([]sentinel.Tool, error) {
+func (s *PostgresqlStore) GetRunTools(ctx context.Context, runId uuid.UUID) ([]sentinel.Tool, error) {
 	query := `
 		SELECT tool.id, tool.name, tool.description, tool.attributes
-		FROM tool
-		INNER JOIN run_tool ON tool.id = run_tool.tool_id
-		WHERE run_tool.run_id = $1`
+		FROM run_tool_supervisor
+		INNER JOIN tool ON run_tool_supervisor.tool_id = tool.id
+		WHERE run_tool_supervisor.run_id = $1`
 
-	rows, err := s.db.QueryContext(ctx, query, id)
+	rows, err := s.db.QueryContext(ctx, query, runId)
 	if err != nil {
 		return nil, fmt.Errorf("error getting run tools: %w", err)
 	}
@@ -853,8 +807,34 @@ func (s *PostgresqlStore) GetRunTools(ctx context.Context, id uuid.UUID) ([]sent
 		tools = append(tools, tool)
 	}
 
-	// If no rows were found, tools will be empty slice
 	return tools, nil
+}
+
+// GetRunToolSupervisors returns the supervisors assigned to a tool for a run, ordered by the time the supervisor was assigned to the tool
+func (s *PostgresqlStore) GetRunToolSupervisors(ctx context.Context, runId uuid.UUID, toolId uuid.UUID) ([]sentinel.Supervisor, error) {
+	query := `
+		SELECT supervisor.id, supervisor.description, supervisor.created_at, supervisor.type, rts.created_at
+		FROM run_tool_supervisor rts
+		INNER JOIN supervisor ON rts.supervisor_id = supervisor.id
+		WHERE rts.run_id = $1 AND rts.tool_id = $2
+		ORDER BY rts.created_at DESC`
+
+	rows, err := s.db.QueryContext(ctx, query, runId, toolId)
+	if err != nil {
+		return nil, fmt.Errorf("error getting run tools: %w", err)
+	}
+	defer rows.Close()
+
+	var supervisors []sentinel.Supervisor
+	for rows.Next() {
+		var supervisor sentinel.Supervisor
+		if err := rows.Scan(&supervisor.Id, &supervisor.Description, &supervisor.CreatedAt, &supervisor.Type); err != nil {
+			return nil, fmt.Errorf("error scanning supervisor: %w", err)
+		}
+		supervisors = append(supervisors, supervisor)
+	}
+
+	return supervisors, nil
 }
 
 func (s *PostgresqlStore) GetSupervisor(ctx context.Context, id uuid.UUID) (*sentinel.Supervisor, error) {

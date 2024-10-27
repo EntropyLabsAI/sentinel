@@ -49,10 +49,10 @@ type ProjectToolStore interface {
 }
 
 type ToolStore interface {
+	CreateTool(ctx context.Context, tool Tool) (uuid.UUID, error)
 	GetTool(ctx context.Context, id uuid.UUID) (*Tool, error)
 	GetTools(ctx context.Context) ([]Tool, error)
 	GetRunTools(ctx context.Context, id uuid.UUID) ([]Tool, error)
-	CreateRunTool(ctx context.Context, runId uuid.UUID, tool Tool) (uuid.UUID, error)
 	GetReviewToolRequests(ctx context.Context, id uuid.UUID) ([]ToolRequest, error)
 }
 
@@ -61,12 +61,13 @@ type SupervisorStore interface {
 	GetSupervisor(ctx context.Context, id uuid.UUID) (*Supervisor, error)
 	GetSupervisors(ctx context.Context) ([]Supervisor, error)
 	CreateSupervisor(ctx context.Context, supervisor Supervisor) (uuid.UUID, error)
-	AssignSupervisorToTool(ctx context.Context, supervisorID uuid.UUID, toolID uuid.UUID) error
+	GetRunToolSupervisors(ctx context.Context, runId uuid.UUID, toolId uuid.UUID) ([]Supervisor, error)
+	AssignSupervisorsToTool(ctx context.Context, runId uuid.UUID, toolID uuid.UUID, supervisorIds []uuid.UUID) error
 }
 
 type RunStore interface {
 	CreateRun(ctx context.Context, run Run) (uuid.UUID, error)
-	GetRun(ctx context.Context, projectId uuid.UUID, id uuid.UUID) (*Run, error)
+	GetRun(ctx context.Context, id uuid.UUID) (*Run, error)
 	GetRuns(ctx context.Context, projectId uuid.UUID) ([]Run, error)
 	GetProjectRuns(ctx context.Context, id uuid.UUID) ([]Run, error)
 }
