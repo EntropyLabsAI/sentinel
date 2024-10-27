@@ -1,4 +1,4 @@
-from typing import Callable, Protocol
+from typing import Callable, Optional, Protocol
 from .config import (
     SupervisionDecision,
     SupervisionDecisionType,
@@ -48,9 +48,15 @@ DEFAULT_SYSTEM_PROMPT = (
 def llm_supervisor(
     instructions: str,
     openai_model: str = PREFERRED_LLM_MODEL,
-    system_prompt: str = DEFAULT_SYSTEM_PROMPT,
+    system_prompt: Optional[str] = None,
     include_context: bool = False
 ) -> Supervisor:
+    """
+    Create a supervisor function that uses an LLM to make a supervision decision.
+    """
+    if system_prompt is None:
+        system_prompt = DEFAULT_SYSTEM_PROMPT
+
     def supervisor(
         func: Callable,
         supervision_context: SupervisionContext,
