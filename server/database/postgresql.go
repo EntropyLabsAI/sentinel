@@ -175,7 +175,6 @@ func (s *PostgresqlStore) GetProjectRuns(ctx context.Context, id uuid.UUID) ([]s
 // }
 
 func (s *PostgresqlStore) CreateReviewRequest(ctx context.Context, request sentinel.ReviewRequest) (uuid.UUID, error) {
-
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error starting transaction: %w", err)
@@ -198,7 +197,6 @@ func (s *PostgresqlStore) CreateReviewRequest(ctx context.Context, request senti
 	}
 
 	// Store the review request
-	// Marshal the TaskState map to JSON if it's a map
 	taskStateJSON, err := json.Marshal(request.TaskState)
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error marshalling task state: %w", err)
@@ -218,12 +216,18 @@ func (s *PostgresqlStore) CreateReviewRequest(ctx context.Context, request senti
 	for i, toolRequest := range request.ToolRequests {
 		toolRequestID := uuid.New()
 
+		// Marshal the Arguments map to JSON
+		argumentsJSON, err := json.Marshal(toolRequest.Arguments)
+		if err != nil {
+			return uuid.UUID{}, fmt.Errorf("error marshalling tool request arguments: %w", err)
+		}
+
 		query := `
 			INSERT INTO toolrequest (id, reviewrequest_id, tool_id, message_id, arguments)
 			VALUES ($1, $2, $3, $4, $5)`
 
 		_, err = tx.ExecContext(
-			ctx, query, toolRequestID, requestID, toolRequest.ToolId, messageIDs[i], toolRequest.Arguments,
+			ctx, query, toolRequestID, requestID, toolRequest.ToolId, messageIDs[i], argumentsJSON,
 		)
 		if err != nil {
 			return uuid.UUID{}, fmt.Errorf("error creating tool request: %w", err)
@@ -641,13 +645,19 @@ func (s *PostgresqlStore) GetReviewToolRequests(ctx context.Context, id uuid.UUI
 	var toolRequests []sentinel.ToolRequest
 	for rows.Next() {
 		var toolRequest sentinel.ToolRequest
-		if err := rows.Scan(&toolRequest.Id, &toolRequest.ReviewRequestId, &toolRequest.ToolId, &toolRequest.MessageId, &toolRequest.Arguments); err != nil {
+		var argumentsJSON []byte
+		if err := rows.Scan(&toolRequest.Id, &toolRequest.ReviewRequestId, &toolRequest.ToolId, &toolRequest.MessageId, &argumentsJSON); err != nil {
 			return nil, fmt.Errorf("error scanning tool request: %w", err)
 		}
+
+		// Parse the JSON arguments
+		if err := json.Unmarshal(argumentsJSON, &toolRequest.Arguments); err != nil {
+			return nil, fmt.Errorf("error parsing tool request arguments: %w", err)
+		}
+
 		toolRequests = append(toolRequests, toolRequest)
 	}
 	return toolRequests, nil
-
 }
 
 func (s *PostgresqlStore) GetRun(ctx context.Context, projectId uuid.UUID, id uuid.UUID) (*sentinel.Run, error) {
@@ -669,11 +679,42 @@ func (s *PostgresqlStore) GetRun(ctx context.Context, projectId uuid.UUID, id uu
 }
 
 func (s *PostgresqlStore) AssignSupervisorToTool(ctx context.Context, supervisorID uuid.UUID, toolID uuid.UUID) error {
-	query := `
-		INSERT INTO tool_supervisor (tool_id, supervisor_id)
-		VALUES ($1, $2)`
+	// Check if the supervisor exists
+	supervisor, err := s.GetSupervisor(ctx, supervisorID)
+	if err != nil {
+		return fmt.Errorf("error getting supervisor: %w", err)
+	}
+	if supervisor == nil {
+		return fmt.Errorf("supervisor %s not found", supervisorID)
+	}
 
-	_, err := s.db.ExecContext(ctx, query, toolID, supervisorID)
+	// Check if the tool exists
+	tool, err := s.GetTool(ctx, toolID)
+	if err != nil {
+		return fmt.Errorf("error getting tool: %w", err)
+	}
+	if tool == nil {
+		return fmt.Errorf("tool %s not found", toolID)
+	}
+
+	// Check if the supervisor is already assigned to the tool
+	query := `
+		SELECT 1
+		FROM tool_supervisor
+		WHERE tool_id = $1 AND supervisor_id = $2`
+
+	var exists bool
+	err = s.db.QueryRowContext(ctx, query, toolID, supervisorID).Scan(&exists)
+	if err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("error checking if supervisor is already assigned to tool: %w", err)
+	}
+
+	if exists {
+		return fmt.Errorf("supervisor %s is already assigned to tool %s", supervisorID, toolID)
+	}
+
+	// If the supervisor is not assigned to the tool, assign them
+	_, err = s.db.ExecContext(ctx, query, toolID, supervisorID)
 	if err != nil {
 		return fmt.Errorf("error assigning supervisor to tool: %w", err)
 	}
