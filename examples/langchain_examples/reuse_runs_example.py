@@ -2,7 +2,6 @@ from entropy_labs.supervision.config import (
     set_global_mock_policy,
     setup_sample_from_previous_calls
 )
-from entropy_labs.supervision.supervisors import divide_supervisor
 from entropy_labs.supervision.langchain.supervisors import human_supervisor
 from entropy_labs.supervision.langchain.logging import EntropyLabsCallbackHandler
 from entropy_labs.supervision.decorators import supervise
@@ -36,7 +35,7 @@ class UploadResponse(BaseModel):
 
 @tool
 @supervise(
-    supervision_functions=[human_supervisor()]
+    supervision_functions=[human_supervisor(backend_api_endpoint="http://localhost:8080")]
 )
 def upload_api(input_data: str) -> UploadResponse:
     """Upload the input data to the API and receive a response."""
