@@ -8,12 +8,13 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
-const MAX_SUPERVISORS_PER_CLIENT = 1
+const MAX_SUPERVISORS_PER_CLIENT = 5
 
 // Upgrade HTTP connection to WebSocket with proper settings
 var upgrader = websocket.Upgrader{
@@ -81,9 +82,9 @@ func (h *Hub) Run() {
 			h.registerClient(client)
 		case client := <-h.Unregister:
 			h.unregisterClient(client)
-		case supervisor := <-h.ReviewChan:
-			fmt.Printf("Received supervisor from ReviewChan: %v\n", supervisor.Id)
-			h.assignReview(supervisor)
+		case supervisionRequest := <-h.ReviewChan:
+			fmt.Printf("Received request for supervision from ReviewChan: %v\n", supervisionRequest.Id)
+			h.assignReview(supervisionRequest)
 		}
 	}
 }
@@ -121,8 +122,8 @@ func (h *Hub) unregisterClient(client *Client) {
 }
 
 // assignReview assigns a supervisor to a client if they have capacity, otherwise it queues the supervisor
-func (h *Hub) assignReview(supervisor SupervisionRequest) {
-	if supervisor.Id == nil {
+func (h *Hub) assignReview(supervisionRequest SupervisionRequest) {
+	if supervisionRequest.Id == nil {
 		log.Fatalf("can't assign supervisor with nil ID")
 	}
 
@@ -130,14 +131,14 @@ func (h *Hub) assignReview(supervisor SupervisionRequest) {
 	defer h.ClientsMutex.RUnlock()
 
 	// Attempt to assign the supervisor to a client
-	if !h.assignReviewToClient(supervisor) {
+	if !h.assignReviewToClient(supervisionRequest) {
 		// If no client is available, do nothing.
-		log.Printf("No available clients with capacity. Queued supervisor.RequestId %s.", supervisor.Id)
+		log.Printf("No available clients with capacity. SupervisionRequest.RequestId %s.", supervisionRequest.Id)
 	}
 }
 
 // assignReviewToClient attempts to assign a supervisor to a client if they have capacity
-func (h *Hub) assignReviewToClient(supervisor SupervisionRequest) bool {
+func (h *Hub) assignReviewToClient(supervisionRequest SupervisionRequest) bool {
 	h.AssignedReviewsMutex.Lock()
 	defer h.AssignedReviewsMutex.Unlock()
 
@@ -146,15 +147,18 @@ func (h *Hub) assignReviewToClient(supervisor SupervisionRequest) bool {
 		assignedReviewsCount := len(h.AssignedReviews[client])
 
 		if assignedReviewsCount < MAX_SUPERVISORS_PER_CLIENT {
-			client.Send <- supervisor
+			client.Send <- supervisionRequest
 
-			h.AssignedReviews[client][supervisor.Id.String()] = true
-			log.Printf("Assigned supervisor.RequestId %s to client.", supervisor.Id)
+			h.AssignedReviews[client][supervisionRequest.Id.String()] = true
+			log.Printf("Assigned supervisor.RequestId %s to client.", supervisionRequest.Id)
 
+			status := SupervisionStatus{
+				Status:               Assigned,
+				CreatedAt:            time.Now(),
+				SupervisionRequestId: supervisionRequest.Id,
+			}
 			// Update the supervisor status to assigned
-			err := h.Store.CreateSupervisionStatus(context.Background(), *supervisor.Id, SupervisionStatus{
-				Status: Assigned,
-			})
+			err := h.Store.CreateSupervisionStatus(context.Background(), *supervisionRequest.Id, status)
 			if err != nil {
 				fmt.Printf("Error creating supervisor status: %v\n", err)
 			}
@@ -176,9 +180,13 @@ func (h *Hub) requeueAssignedReviews(client *Client) {
 				continue
 			}
 
-			err = h.Store.CreateSupervisionStatus(context.Background(), reviewID, SupervisionStatus{
-				Status: Pending,
-			})
+			status := SupervisionStatus{
+				Status:               Pending,
+				CreatedAt:            time.Now(),
+				SupervisionRequestId: &reviewID,
+			}
+
+			err = h.Store.CreateSupervisionStatus(context.Background(), reviewID, status)
 			if err != nil {
 				fmt.Printf("Error getting supervisor from store: %v\n", err)
 				continue

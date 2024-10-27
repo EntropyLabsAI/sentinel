@@ -133,7 +133,7 @@ paths:
 
   /api/reviews/{reviewId}/status:
     get:
-      summary: Get supervisor status
+      summary: Get supervision status
       operationId: GetSupervisionStatus
       parameters:
         - name: reviewId
@@ -144,13 +144,13 @@ paths:
             format: uuid
       responses:
         "200":
-          description: Supervisor status
+          description: Supervision status
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/SupervisionStatus"
         "404":
-          description: Supervisor not found
+          description: Supervision request not found
       tags:
         - Reviews
 
@@ -282,8 +282,11 @@ paths:
         content:
           application/json:
             schema:
-              type: string
-              format: uuid
+              type: object
+              properties:
+                toolId:
+                  type: string
+                  format: uuid
       responses:
         "200":
           description: Execution created successfully
@@ -456,7 +459,7 @@ paths:
 
   /api/reviews/{reviewId}:
     get:
-      summary: Get supervisor request by ID
+      summary: Get supervision request by ID
       operationId: GetSupervisionRequest
       parameters:
         - name: reviewId
@@ -467,19 +470,19 @@ paths:
             format: uuid
       responses:
         "200":
-          description: Supervisor details
+          description: Supervision request details
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/SupervisionRequest"
         "404":
-          description: Supervisor not found
+          description: Supervision request not found
       tags:
         - Reviews
 
   /api/reviews/{reviewId}/results:
     get:
-      summary: Get supervisor results
+      summary: Get supervision results
       operationId: GetSupervisionResults
       parameters:
         - name: reviewId
@@ -490,7 +493,7 @@ paths:
             format: uuid
       responses:
         "200":
-          description: Supervisor results
+          description: Supervision results
           content:
             application/json:
               schema:
@@ -498,11 +501,11 @@ paths:
                 items:
                   $ref: "#/components/schemas/SupervisionResult"
         "404":
-          description: Supervisor not found
+          description: Supervision request not found
       tags:
         - Reviews
     post:
-      summary: Create a supervisor result
+      summary: Create a supervision result
       operationId: CreateSupervisionResult
       parameters:
         - name: reviewId
@@ -519,7 +522,7 @@ paths:
               $ref: "#/components/schemas/CreateSupervisionResult"
       responses:
         "200":
-          description: Supervisor result created successfully
+          description: Supervision result created successfully
       tags:
         - Reviews
 
@@ -544,7 +547,7 @@ paths:
                 items:
                   $ref: "#/components/schemas/ToolRequest"
         "404":
-          description: Supervisor not found
+          description: Supervision request not found
       tags:
         - Reviews
         - Tools
@@ -691,15 +694,17 @@ components:
         id:
           type: string
           format: uuid
-        execution_id:
-          type: string
-          format: uuid
         run_id:
           type: string
           format: uuid
+        execution_id:
+          type: string
+          format: uuid
+        supervisor_id:
+          type: string
+          format: uuid
         task_state:
-          type: object
-          additionalProperties: true
+          $ref: "#/components/schemas/TaskState"
         tool_requests:
           type: array
           items:
@@ -721,6 +726,8 @@ components:
       type: object
       properties:
         id:
+          type: integer
+        supervision_request_id:
           type: string
           format: uuid
         status:
@@ -746,8 +753,7 @@ components:
           type: string
           format: date-time
         decision:
-          type: string
-          enum: [approve, reject, terminate, modify, escalate]
+          $ref: "#/components/schemas/Decision"
         toolrequest:
           $ref: "#/components/schemas/ToolRequest"
         reasoning:
@@ -913,4 +919,157 @@ components:
 
     Status:
       type: string
-      enum: [pending, completed, failed, assigned]
+      enum: [pending, completed, failed, assigned, timeout]
+
+    Decision:
+      type: string
+      enum: [approve, reject, terminate, modify, escalate]
+
+    # TaskState schema and its dependencies
+    TaskState:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/Tool"
+        tool_choice:
+          $ref: "#/components/schemas/ToolChoice"
+        store:
+          type: object
+          additionalProperties: true
+        output:
+          $ref: "#/components/schemas/Output"
+        completed:
+          type: boolean
+        metadata:
+          type: object
+          additionalProperties: true
+      required:
+        - messages
+        - tools
+        - output
+        - completed
+
+    Message:
+      type: object
+      properties:
+        content:
+          type: string
+        role:
+          type: string
+        source:
+          type: string
+        tool_calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolCall"
+        tool_call_id:
+          type: string
+        function:
+          type: string
+      required:
+        - content
+        - role
+
+    ToolChoice:
+      type: object
+      properties:
+        id:
+          type: string
+        function:
+          type: string
+        arguments:
+          $ref: "#/components/schemas/Arguments"
+        type:
+          type: string
+      required:
+        - id
+        - function
+        - arguments
+        - type
+
+    Arguments:
+      type: object
+      properties:
+        cmd:
+          type: string
+        code:
+          type: string
+
+    Output:
+      type: object
+      properties:
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            $ref: "#/components/schemas/Choice"
+        usage:
+          $ref: "#/components/schemas/Usage"
+
+    Choice:
+      type: object
+      properties:
+        message:
+          $ref: "#/components/schemas/AssistantMessage"
+        stop_reason:
+          type: string
+      required:
+        - message
+
+    AssistantMessage:
+      type: object
+      properties:
+        content:
+          type: string
+        source:
+          type: string
+        role:
+          type: string
+        tool_calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolCall"
+      required:
+        - content
+        - role
+
+    ToolCall:
+      type: object
+      properties:
+        id:
+          type: string
+        function:
+          type: string
+        arguments:
+          type: object
+          additionalProperties: true
+        type:
+          type: string
+        parse_error:
+          type: string
+      required:
+        - id
+        - function
+        - arguments
+        - type
+
+    Usage:
+      type: object
+      properties:
+        input_tokens:
+          type: integer
+        output_tokens:
+          type: integer
+        total_tokens:
+          type: integer
+      required:
+        - input_tokens
+        - output_tokens
+        - total_tokens

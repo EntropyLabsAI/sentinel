@@ -77,15 +77,51 @@ func (s *PostgresqlStore) GetProject(ctx context.Context, id uuid.UUID) (*sentin
 }
 
 func (s *PostgresqlStore) CreateExecution(ctx context.Context, runId uuid.UUID, toolId uuid.UUID) (uuid.UUID, error) {
-	status := sentinel.Pending
-	query := `
-		INSERT INTO execution (id, run_id, tool_id,status)
-		VALUES ($1, $2, $3, $4)`
+
+	// First check if both the run and tool exist
+	run, err := s.GetRun(ctx, runId)
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("error getting run: %w", err)
+	}
+	if run == nil {
+		return uuid.UUID{}, fmt.Errorf("run not found: %s", runId)
+	}
+
+	tool, err := s.GetTool(ctx, toolId)
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("error getting tool: %w", err)
+	}
+	if tool == nil {
+		return uuid.UUID{}, fmt.Errorf("tool not found: %s", toolId)
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("error starting transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
 
 	id := uuid.New()
-	_, err := s.db.ExecContext(ctx, query, id, runId, toolId, status)
+	status := sentinel.Pending
+	query := `
+		INSERT INTO execution (id, run_id, tool_id, created_at)
+		VALUES ($1, $2, $3, $4)`
+
+	_, err = tx.ExecContext(ctx, query, id, runId, toolId, time.Now())
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error creating execution: %w", err)
+	}
+
+	query = `
+		INSERT INTO execution_status (execution_id, status, created_at)
+		VALUES ($1, $2, $3)`
+	_, err = tx.ExecContext(ctx, query, id, status, time.Now())
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("error creating execution status: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return uuid.UUID{}, fmt.Errorf("error committing transaction: %w", err)
 	}
 
 	return id, nil
@@ -93,12 +129,12 @@ func (s *PostgresqlStore) CreateExecution(ctx context.Context, runId uuid.UUID, 
 
 func (s *PostgresqlStore) GetExecution(ctx context.Context, id uuid.UUID) (*sentinel.Execution, error) {
 	query := `
-		SELECT id, run_id, tool_id, status
+		SELECT id, run_id, tool_id, created_at
 		FROM execution
 		WHERE id = $1`
 
 	var execution sentinel.Execution
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&execution.Id, &execution.RunId, &execution.ToolId, &execution.Status)
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&execution.Id, &execution.RunId, &execution.ToolId, &execution.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("error getting execution: %w", err)
 	}
@@ -108,8 +144,8 @@ func (s *PostgresqlStore) GetExecution(ctx context.Context, id uuid.UUID) (*sent
 
 func (s *PostgresqlStore) GetRunExecutions(ctx context.Context, runId uuid.UUID) ([]sentinel.Execution, error) {
 	query := `
-		SELECT id, run_id, tool_id, status
-		FROM execution
+		SELECT e.id, e.run_id, e.tool_id, e.created_at
+		FROM execution e
 		WHERE run_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, query, runId)
@@ -121,13 +157,39 @@ func (s *PostgresqlStore) GetRunExecutions(ctx context.Context, runId uuid.UUID)
 	var executions []sentinel.Execution
 	for rows.Next() {
 		var execution sentinel.Execution
-		if err := rows.Scan(&execution.Id, &execution.RunId, &execution.ToolId, &execution.Status); err != nil {
+		if err := rows.Scan(&execution.Id, &execution.RunId, &execution.ToolId, &execution.CreatedAt); err != nil {
 			return nil, fmt.Errorf("error scanning execution: %w", err)
 		}
 		executions = append(executions, execution)
 	}
 
+	// For each execution, get the status. There will be a list of statuses, we want the latest one
+	for i, execution := range executions {
+		status, err := s.GetExecutionStatus(ctx, execution.Id)
+		if err != nil {
+			return nil, fmt.Errorf("error getting execution status: %w", err)
+		}
+		executions[i].Status = &status
+	}
+
 	return executions, nil
+}
+
+func (s *PostgresqlStore) GetExecutionStatus(ctx context.Context, id uuid.UUID) (sentinel.Status, error) {
+	query := `
+		SELECT status
+		FROM execution_status
+		WHERE execution_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1`
+
+	var status sentinel.Status
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&status)
+	if err != nil {
+		return sentinel.Status(""), fmt.Errorf("error getting execution status: %w", err)
+	}
+
+	return status, nil
 }
 
 func (s *PostgresqlStore) GetProjects(ctx context.Context) ([]sentinel.Project, error) {
@@ -205,30 +267,19 @@ func (s *PostgresqlStore) GetProjectRuns(ctx context.Context, id uuid.UUID) ([]s
 	return runs, nil
 }
 
-// ReviewStore implementation
-// Todo:
-// store messages
-// store tool requests
-// store supervisor status
-// check result of supervisor is stored somewhere
-// ensure that the supervisor status is updated 3 times (timeout, pending, completed)
-
-// for _, toolRequest := range request.ToolRequests {
-// err := store.CreateToolRequest(ctx, reviewID, toolRequest)
-// if err != nil {
-// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-// 	return
-// }
-// }
-// for _, message := range request.Messages {
-// 	err := store.CreateMessage(ctx, reviewID, message)
-// 	if err != nil {
-// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-// 		return
-// 	}
-// }
-
 func (s *PostgresqlStore) CreateSupervisionRequest(ctx context.Context, request sentinel.SupervisionRequest) (uuid.UUID, error) {
+	if request.SupervisorId == nil {
+		return uuid.UUID{}, fmt.Errorf("can't create supervision request without a supervisor ID")
+	}
+
+	execution, err := s.GetExecution(ctx, request.ExecutionId)
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("error getting execution: %w", err)
+	}
+	if execution == nil {
+		return uuid.UUID{}, fmt.Errorf("execution not found: %s", request.ExecutionId)
+	}
+
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error starting transaction: %w", err)
@@ -257,13 +308,15 @@ func (s *PostgresqlStore) CreateSupervisionRequest(ctx context.Context, request 
 	}
 
 	query := `
-		INSERT INTO reviewrequest (id, run_id, task_state)
-		VALUES ($1, $2, $3)`
+		INSERT INTO supervisionrequest (id, execution_id, task_state, supervisor_id)
+		VALUES ($1, $2, $3, $4)`
 
 	requestID := uuid.New()
-	_, err = tx.ExecContext(ctx, query, requestID, request.RunId, taskStateJSON)
+	_, err = tx.ExecContext(
+		ctx, query, requestID, request.ExecutionId, taskStateJSON, request.SupervisorId,
+	)
 	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("error creating supervisor: %w", err)
+		return uuid.UUID{}, fmt.Errorf("error creating supervision request: %w", err)
 	}
 
 	// Store the tool requests
@@ -277,7 +330,7 @@ func (s *PostgresqlStore) CreateSupervisionRequest(ctx context.Context, request 
 		}
 
 		query := `
-			INSERT INTO toolrequest (id, reviewrequest_id, tool_id, message_id, arguments)
+			INSERT INTO toolrequest (id, supervisionrequest_id, tool_id, message_id, arguments)
 			VALUES ($1, $2, $3, $4, $5)`
 
 		_, err = tx.ExecContext(
@@ -311,16 +364,25 @@ func (s *PostgresqlStore) CreateSupervisionStatus(ctx context.Context, requestID
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	return s.createSupervisionStatus(ctx, requestID, status, tx)
+	err = s.createSupervisionStatus(ctx, requestID, status, tx)
+	if err != nil {
+		return fmt.Errorf("error creating supervisor status: %w", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("error committing transaction: %w", err)
+	}
+
+	return nil
 }
 
 func (s *PostgresqlStore) createSupervisionStatus(ctx context.Context, requestID uuid.UUID, status sentinel.SupervisionStatus, tx *sql.Tx) error {
 	query := `
-		INSERT INTO reviewrequest_status (id, reviewrequest_id, status, created_at)
-		VALUES ($1, $2, $3, $4)`
+		INSERT INTO supervisionrequest_status (supervisionrequest_id, status, created_at)
+		VALUES ($1, $2, $3)`
 
-	id := uuid.New()
-	_, err := tx.ExecContext(ctx, query, id, requestID, status.Status, status.CreatedAt)
+	_, err := tx.ExecContext(ctx, query, requestID, status.Status, status.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("error creating supervisor status: %w", err)
 	}
@@ -330,18 +392,26 @@ func (s *PostgresqlStore) createSupervisionStatus(ctx context.Context, requestID
 
 func (s *PostgresqlStore) GetSupervisionRequest(ctx context.Context, id uuid.UUID) (*sentinel.SupervisionRequest, error) {
 	query := `
-		SELECT rr.id, rr.run_id, rr.task_state, rs.id, rs.status, rs.created_at
-		FROM reviewrequest rr
-		INNER JOIN reviewrequest_status rs ON rr.id = rs.reviewrequest_id
-		WHERE rr.id = $1
-		ORDER BY rs.created_at DESC
+		SELECT sr.id, sr.execution_id, e.run_id, sr.supervisor_id, sr.task_state, ss.id, ss.status, ss.created_at
+		FROM supervisionrequest sr
+		INNER JOIN execution e ON sr.execution_id = e.id
+		INNER JOIN supervisionrequest_status ss ON sr.id = ss.supervisionrequest_id
+		WHERE sr.id = $1
+		ORDER BY ss.created_at DESC
 		LIMIT 1`
 
 	var supervisorRequest sentinel.SupervisionRequest
 	var status sentinel.SupervisionStatus
 	var taskStateJSON []byte // Add temporary variable for JSON data
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
-		&supervisorRequest.Id, &supervisorRequest.RunId, &taskStateJSON, &status.Id, &status.Status, &status.CreatedAt,
+		&supervisorRequest.Id,
+		&supervisorRequest.ExecutionId,
+		&supervisorRequest.RunId,
+		&supervisorRequest.SupervisorId,
+		&taskStateJSON,
+		&status.Id,
+		&status.Status,
+		&status.CreatedAt,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -358,14 +428,14 @@ func (s *PostgresqlStore) GetSupervisionRequest(ctx context.Context, id uuid.UUI
 	supervisorRequest.Status = &status
 
 	// Get the tool requests
-	toolRequests, err := s.GetReviewToolRequests(ctx, id)
+	toolRequests, err := s.GetSupervisionToolRequests(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("error getting tool requests: %w", err)
 	}
 	supervisorRequest.ToolRequests = toolRequests
 
 	// Get the messages
-	messages, err := s.GetReviewMessages(ctx, id)
+	messages, err := s.GetSupervisionMessages(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("error getting messages: %w", err)
 	}
@@ -374,11 +444,12 @@ func (s *PostgresqlStore) GetSupervisionRequest(ctx context.Context, id uuid.UUI
 	return &supervisorRequest, nil
 }
 
-func (s *PostgresqlStore) GetReviewMessages(ctx context.Context, id uuid.UUID) ([]sentinel.LLMMessage, error) {
+func (s *PostgresqlStore) GetSupervisionMessages(ctx context.Context, id uuid.UUID) ([]sentinel.LLMMessage, error) {
 	query := `
-		SELECT id, role, content
-		FROM llm_message
-		WHERE reviewrequest_id = $1`
+		SELECT m.id, m.role, m.content
+		FROM llm_message m
+		INNER JOIN toolrequest tr ON m.id = tr.message_id
+		WHERE tr.supervisionrequest_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, query, id)
 	if err == sql.ErrNoRows {
@@ -402,7 +473,7 @@ func (s *PostgresqlStore) GetReviewMessages(ctx context.Context, id uuid.UUID) (
 
 func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result sentinel.SupervisionResult) error {
 	query := `
-		INSERT INTO reviewresult (id, reviewrequest_id, created_at, decision, reasoning, toolrequest_id)
+		INSERT INTO supervisionresult (id, supervisionrequest_id, created_at, decision, reasoning, toolrequest_id)
 		VALUES ($1, $2, $3, $4, $5, $6)`
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -418,7 +489,7 @@ func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result se
 		return fmt.Errorf("error creating supervisor result: %w", err)
 	}
 
-	// Log the reviewrequest_status entry for the supervisor request
+	// Log the supervisionrequest_status entry for the supervision request
 	rs := sentinel.SupervisionStatus{Status: sentinel.Completed, CreatedAt: time.Now()}
 	err = s.createSupervisionStatus(ctx, result.SupervisionRequestId, rs, tx)
 	if err != nil {
@@ -435,11 +506,11 @@ func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result se
 
 func (s *PostgresqlStore) GetSupervisionResults(ctx context.Context, id uuid.UUID) ([]*sentinel.SupervisionResult, error) {
 	query := `
-		SELECT rr.id, rr.reviewrequest_id, rr.created_at, rr.decision, rr.reasoning, 
-		rr.toolrequest_id, tr.tool_id, tr.message_id, tr.arguments
-		FROM reviewresult rr
-		LEFT JOIN toolrequest tr ON rr.toolrequest_id = tr.id
-		WHERE rr.reviewrequest_id = $1`
+		SELECT sr.id, sr.supervisionrequest_id, sr.created_at, sr.decision, sr.reasoning, 
+		sr.toolrequest_id, tr.tool_id, tr.message_id, tr.arguments
+		FROM supervisionresult sr
+		LEFT JOIN toolrequest tr ON sr.toolrequest_id = tr.id
+		WHERE sr.supervisionrequest_id = $1`
 
 	var tr sentinel.ToolRequest
 
@@ -477,7 +548,7 @@ func (s *PostgresqlStore) UpdateSupervisionRequest(ctx context.Context, supervis
 
 	// Update supervisor request
 	query1 := `
-		UPDATE reviewrequest 
+		UPDATE supervisionrequest 
 		SET task_state = $1
 		WHERE id = $2`
 
@@ -488,7 +559,7 @@ func (s *PostgresqlStore) UpdateSupervisionRequest(ctx context.Context, supervis
 
 	// Insert new status
 	query2 := `
-		INSERT INTO reviewrequest_status (id, reviewrequest_id, created_at, status)
+		INSERT INTO supervisionrequest_status (id, supervisionrequest_id, created_at, status)
 		VALUES ($1, $2, CURRENT_TIMESTAMP, $3)`
 
 	_, err = tx.ExecContext(ctx, query2, supervisorRequest.Id, supervisorRequest.Id, supervisorRequest.Status.Status)
@@ -500,34 +571,30 @@ func (s *PostgresqlStore) UpdateSupervisionRequest(ctx context.Context, supervis
 }
 
 func (s *PostgresqlStore) GetSupervisionRequests(ctx context.Context) ([]sentinel.SupervisionRequest, error) {
-	query := `
-		SELECT rr.id, rr.run_id, rr.task_state, rs.id, rs.status, rs.created_at
-		FROM reviewrequest rr
-		LEFT JOIN reviewrequest_status rs ON rr.id = rs.reviewrequest_id
-		ORDER BY rs.created_at DESC`
-
+	// Get a list of all supervision request IDs then pass them to GetSupervisionRequest
+	query := `SELECT id FROM supervisionrequest`
 	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("error getting reviews: %w", err)
+		return nil, fmt.Errorf("error getting supervision requests: %w", err)
 	}
 	defer rows.Close()
 
-	var supervisorRequests []sentinel.SupervisionRequest
+	var ids []uuid.UUID
 	for rows.Next() {
-		var supervisorRequest sentinel.SupervisionRequest
-		var status sentinel.SupervisionStatus
-		var taskStateJSON []byte
-		if err := rows.Scan(&supervisorRequest.Id, &supervisorRequest.RunId, &taskStateJSON, &status.Id, &status.Status, &status.CreatedAt); err != nil {
-			return nil, fmt.Errorf("error scanning supervisor request: %w", err)
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("error scanning supervision request ID: %w", err)
 		}
+		ids = append(ids, id)
+	}
 
-		// Parse the JSON task state
-		if err := json.Unmarshal(taskStateJSON, &supervisorRequest.TaskState); err != nil {
-			return nil, fmt.Errorf("error parsing task state: %w", err)
+	var supervisorRequests []sentinel.SupervisionRequest
+	for _, id := range ids {
+		supervisorRequest, err := s.GetSupervisionRequest(ctx, id)
+		if err != nil {
+			return nil, fmt.Errorf("error getting supervision request: %w", err)
 		}
-
-		supervisorRequest.Status = &status
-		supervisorRequests = append(supervisorRequests, supervisorRequest)
+		supervisorRequests = append(supervisorRequests, *supervisorRequest)
 	}
 
 	return supervisorRequests, nil
@@ -535,9 +602,19 @@ func (s *PostgresqlStore) GetSupervisionRequests(ctx context.Context) ([]sentine
 
 func (s *PostgresqlStore) CountSupervisionRequests(ctx context.Context, status sentinel.Status) (int, error) {
 	query := `
-		SELECT COUNT(*)
-		FROM reviewrequest_status
-		WHERE status = $1`
+        SELECT COUNT(*)
+        FROM (
+            SELECT DISTINCT ON (sr.id) sr.id
+            FROM supervisionrequest sr
+            JOIN supervisionrequest_status ss ON sr.id = ss.supervisionrequest_id
+            WHERE NOT EXISTS (
+                SELECT 1 
+                FROM supervisionrequest_status newer
+                WHERE newer.supervisionrequest_id = sr.id 
+                AND newer.created_at > ss.created_at
+            )
+            AND ss.status = $1
+        ) as latest_requests`
 
 	var count int
 	err := s.db.QueryRowContext(ctx, query, status).Scan(&count)
@@ -611,23 +688,24 @@ func (s *PostgresqlStore) GetTools(ctx context.Context) ([]sentinel.Tool, error)
 
 func (s *PostgresqlStore) GetPendingSupervisionRequests(ctx context.Context) ([]sentinel.SupervisionRequest, error) {
 	query := `
-        SELECT DISTINCT ON (rr.id) 
-            rr.id, rr.run_id, rr.task_state, 
-            rs.status, rs.created_at
-        FROM reviewrequest rr
-        JOIN reviewrequest_status rs ON rr.id = rs.reviewrequest_id
-        WHERE rs.status = $1
+        SELECT DISTINCT ON (sr.id) 
+            sr.id, sr.execution_id, e.run_id, sr.task_state, 
+            ss.status, ss.created_at, sr.supervisor_id
+        FROM supervisionrequest sr
+				INNER JOIN execution e ON sr.execution_id = e.id
+        JOIN supervisionrequest_status ss ON sr.id = ss.supervisionrequest_id
+        WHERE ss.status = $1
         AND NOT EXISTS (
             SELECT 1 
-            FROM reviewrequest_status newer
-            WHERE newer.reviewrequest_id = rr.id 
-            AND newer.created_at > rs.created_at
+            FROM supervisionrequest_status newer
+            WHERE newer.supervisionrequest_id = sr.id 
+            AND newer.created_at > ss.created_at
         )
-        ORDER BY rr.id, rs.created_at DESC`
+        ORDER BY sr.id, ss.created_at DESC`
 
 	rows, err := s.db.QueryContext(ctx, query, sentinel.Pending)
 	if err != nil {
-		return nil, fmt.Errorf("error getting pending reviews: %w", err)
+		return nil, fmt.Errorf("error getting pending supervision requests: %w", err)
 	}
 	defer rows.Close()
 
@@ -636,7 +714,15 @@ func (s *PostgresqlStore) GetPendingSupervisionRequests(ctx context.Context) ([]
 		var supervisorRequest sentinel.SupervisionRequest
 		var status sentinel.SupervisionStatus
 		var taskStateJSON []byte
-		if err := rows.Scan(&supervisorRequest.Id, &supervisorRequest.RunId, &taskStateJSON, &status.Status, &status.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&supervisorRequest.Id,
+			&supervisorRequest.ExecutionId,
+			&supervisorRequest.RunId,
+			&taskStateJSON,
+			&status.Status,
+			&status.CreatedAt,
+			&supervisorRequest.SupervisorId,
+		); err != nil {
 			return nil, fmt.Errorf("error scanning supervisor: %w", err)
 		}
 
@@ -708,13 +794,22 @@ func (s *PostgresqlStore) CreateSupervisor(ctx context.Context, supervisor senti
 }
 
 func (s *PostgresqlStore) CreateRun(ctx context.Context, run sentinel.Run) (uuid.UUID, error) {
+	// First check if the project exists
+	p, err := s.GetProject(ctx, run.ProjectId)
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("error getting project: %w", err)
+	}
+	if p == nil {
+		return uuid.UUID{}, fmt.Errorf("project not found: %s", run.ProjectId)
+	}
+
 	id := uuid.New()
 
 	query := `
 		INSERT INTO run (id, project_id, created_at)
 		VALUES ($1, $2, $3)`
 
-	_, err := s.db.ExecContext(ctx, query, id, run.ProjectId, run.CreatedAt)
+	_, err = s.db.ExecContext(ctx, query, id, run.ProjectId, run.CreatedAt)
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error creating run: %w", err)
 	}
@@ -745,11 +840,11 @@ func (s *PostgresqlStore) CreateTool(ctx context.Context, tool sentinel.Tool) (u
 	return id, nil
 }
 
-func (s *PostgresqlStore) GetReviewToolRequests(ctx context.Context, id uuid.UUID) ([]sentinel.ToolRequest, error) {
+func (s *PostgresqlStore) GetSupervisionToolRequests(ctx context.Context, id uuid.UUID) ([]sentinel.ToolRequest, error) {
 	query := `
-		SELECT id, reviewrequest_id, tool_id, message_id, arguments
+		SELECT id, supervisionrequest_id, tool_id, message_id, arguments
 		FROM toolrequest
-		WHERE reviewrequest_id = $1`
+		WHERE supervisionrequest_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, query, id)
 	if err == sql.ErrNoRows {
@@ -898,10 +993,17 @@ func (s *PostgresqlStore) GetRunToolSupervisors(ctx context.Context, runId uuid.
 	}
 	defer rows.Close()
 
+	// TODO this is returning the created_at of the run_tool_supervisor record, not the supervisor
 	var supervisors []sentinel.Supervisor
 	for rows.Next() {
 		var supervisor sentinel.Supervisor
-		if err := rows.Scan(&supervisor.Id, &supervisor.Description, &supervisor.CreatedAt, &supervisor.Type); err != nil {
+		if err := rows.Scan(
+			&supervisor.Id,
+			&supervisor.Description,
+			&supervisor.CreatedAt,
+			&supervisor.Type,
+			&supervisor.CreatedAt,
+		); err != nil {
 			return nil, fmt.Errorf("error scanning supervisor: %w", err)
 		}
 		supervisors = append(supervisors, supervisor)

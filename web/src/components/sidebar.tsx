@@ -250,20 +250,19 @@ export default function SidebarComponent({ isSocketConnected, children }: Sideba
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="/supervisor">
+                <BreadcrumbLink>
                   <Link to="/">
                     home
                   </Link>
                 </BreadcrumbLink>
               </BreadcrumbItem>
               {currentPath.length > 0 && (
-
-                currentPath.map((path) => (
+                currentPath.map((path, index) => (
                   <>
                     <BreadcrumbSeparator className="hidden md:block" />
                     <BreadcrumbItem key={path}>
                       <BreadcrumbLink>
-                        <Link to={`/${path}`}>
+                        <Link to={`/${currentPath.slice(0, index + 1).join('/')}`}>
                           {path}
                         </Link>
                       </BreadcrumbLink>

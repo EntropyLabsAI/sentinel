@@ -42,7 +42,8 @@ var reviewTool = openai.Tool{
 }
 
 // callLLMForReview calls the LLM to evaluate a tool choice and returns the reasoning and decision.
-func callLLMForReview(ctx context.Context, toolChoice ToolRequest, toolStore ToolStore) (string, SupervisionResultDecision, error) {
+func callLLMForReview(ctx context.Context, toolChoice ToolRequest, toolStore ToolStore) (string, Decision, error) {
+
 	// Check if Arguments.Cmd or Arguments.Code is populated
 	// If both are populated, return an error
 	args := toolChoice.Arguments
@@ -112,7 +113,7 @@ func callLLMForReview(ctx context.Context, toolChoice ToolRequest, toolStore Too
 		return "", "", fmt.Errorf("error parsing tool call arguments: %v", err)
 	}
 
-	var decision SupervisionResultDecision
+	var decision Decision
 	switch strings.ToLower(result.Decision) {
 	case "approve":
 		decision = Approve

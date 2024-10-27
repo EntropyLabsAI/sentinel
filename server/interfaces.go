@@ -60,7 +60,7 @@ type ToolStore interface {
 	GetTool(ctx context.Context, id uuid.UUID) (*Tool, error)
 	GetTools(ctx context.Context) ([]Tool, error)
 	GetRunTools(ctx context.Context, id uuid.UUID) ([]Tool, error)
-	GetReviewToolRequests(ctx context.Context, id uuid.UUID) ([]ToolRequest, error)
+	GetSupervisionToolRequests(ctx context.Context, id uuid.UUID) ([]ToolRequest, error)
 }
 
 type SupervisorStore interface {
