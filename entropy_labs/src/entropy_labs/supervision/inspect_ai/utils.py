@@ -7,11 +7,8 @@ from pydantic_core import to_jsonable_python
 from typing import Any
 from copy import deepcopy
 from inspect_ai.model import get_model, Model
-from typing import List, Dict,  Any, Tuple
-from entropy_labs.supervision.common import SupervisionDecision
-from inspect_ai.approval import Approval
+from typing import List, Any, Tuple
 from inspect_ai.tool import ToolCall
-from typing import Literal
 import logging
 
 def tool_jsonable(tool_call: ToolCall | None = None) -> dict[str, Any] | None:
@@ -114,31 +111,3 @@ async def generate_tool_call_suggestions(task_state: TaskState, n: int, call: To
             tool_options.append(tool_jsonable(generated_message.tool_calls[0]))
 
     return last_messages, tool_options
-
-
-def transform_entropy_labs_approval_to_inspect_ai_approval(approval_decision: SupervisionDecision) -> Approval:
-    """
-    Transform an EntropyLabs SupervisionDecision to an InspectAI Approval
-    """
-    # Map the decision types
-    decision_mapping: dict[str, Literal['approve', 'modify', 'reject', 'terminate', 'escalate']] = {
-        "approve": "approve",
-        "reject": "reject",
-        "escalate": "escalate",
-        "terminate": "terminate",
-        "modify": "modify"
-    }
-
-    inspect_ai_decision = decision_mapping[approval_decision.decision]
-
-    # Handle the 'modified' field
-    modified = None
-    if inspect_ai_decision == "modify" and approval_decision.modified is not None:
-        # Create ToolCall instance directly from the modified data
-        modified = ToolCall(**approval_decision.modified)
-
-    return Approval(
-        decision=inspect_ai_decision,
-        modified=modified,
-        explanation=approval_decision.explanation
-    )
