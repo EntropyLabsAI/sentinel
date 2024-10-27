@@ -25,7 +25,7 @@ type ProjectStore interface {
 }
 
 type ReviewStore interface {
-	CreateReview(ctx context.Context, review Review) (uuid.UUID, error)
+	CreateReviewRequest(ctx context.Context, request ReviewRequest) (uuid.UUID, error)
 	GetReview(ctx context.Context, id uuid.UUID) (*Review, error)
 	UpdateReview(ctx context.Context, review Review) error
 	DeleteReview(ctx context.Context, id uuid.UUID) error
