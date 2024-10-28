@@ -6,6 +6,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Page from "./page";
 import { ToolsList } from "@/components/tools_list";
+import ExecutionCard from "./execution_card";
 
 export default function Run() {
   const { runId } = useParams();
@@ -46,29 +47,14 @@ export default function Run() {
         <div className="mb-4">
           {executions.length === 0 && <div>No executions found for this run.</div>}
           {executions.map((execution) => (
-            <Card key={execution.id}>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  Execution {execution.id.slice(0, 8)}
-                  <Badge>{execution.status}</Badge>
-                </CardTitle>
-                <CardDescription>
-                  {execution.created_at}
-                  <div>Run ID: {execution.run_id?.slice(0, 8)}</div>
-                  <div>
-                    <Link to={`/tools/${execution.tool_id}`}>Tool ID: {execution.tool_id?.slice(0, 8)}
-                    </Link>
-                  </div>
-                </CardDescription>
-                <CardContent>
-                </CardContent>
-              </CardHeader>
-            </Card>
+            <>
+              <ExecutionCard key={execution.id} execution={execution} />
+            </>
           ))}
         </div>
       </Page>
       <Page title="Tools used in this run">
-        <ToolsList tools={tools} variant="card" />
+        <ToolsList tools={tools} runId={runId} variant="card" />
       </Page>
     </>
   );

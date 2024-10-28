@@ -31,6 +31,13 @@ export type GetSupervisionRequestsParams = {
 type?: SupervisorType;
 };
 
+export interface ExecutionSupervisions {
+  execution_id: string;
+  requests: SupervisionRequest[];
+  results: SupervisionResult[];
+  statuses: SupervisionStatus[];
+}
+
 export interface Usage {
   input_tokens: number;
   output_tokens: number;
@@ -926,6 +933,65 @@ export const useCreateRunToolSupervisors = <TError = AxiosError<unknown>,
       return useMutation(mutationOptions);
     }
     
+/**
+ * @summary Get supervision info for an execution
+ */
+export const getExecutionSupervisions = (
+    executionId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<ExecutionSupervisions>> => {
+    
+    return axios.get(
+      `/api/executions/${executionId}/supervisions`,options
+    );
+  }
+
+
+export const getGetExecutionSupervisionsQueryKey = (executionId: string,) => {
+    return [`/api/executions/${executionId}/supervisions`] as const;
+    }
+
+    
+export const getGetExecutionSupervisionsQueryOptions = <TData = Awaited<ReturnType<typeof getExecutionSupervisions>>, TError = AxiosError<unknown>>(executionId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getExecutionSupervisions>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetExecutionSupervisionsQueryKey(executionId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getExecutionSupervisions>>> = ({ signal }) => getExecutionSupervisions(executionId, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(executionId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getExecutionSupervisions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetExecutionSupervisionsQueryResult = NonNullable<Awaited<ReturnType<typeof getExecutionSupervisions>>>
+export type GetExecutionSupervisionsQueryError = AxiosError<unknown>
+
+/**
+ * @summary Get supervision info for an execution
+ */
+export const useGetExecutionSupervisions = <TData = Awaited<ReturnType<typeof getExecutionSupervisions>>, TError = AxiosError<unknown>>(
+ executionId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getExecutionSupervisions>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetExecutionSupervisionsQueryOptions(executionId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
 /**
  * @summary Get executions for a run
  */
