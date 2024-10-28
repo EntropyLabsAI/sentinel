@@ -40,7 +40,7 @@ func (p *Processor) Start(ctx context.Context) {
 }
 
 func (p *Processor) processPendingSupervisionRequests(ctx context.Context) error {
-	supervisorRequests, err := p.store.GetPendingSupervisionRequests(ctx)
+	supervisorRequests, err := p.store.GetSupervisionRequestsForStatus(ctx, Pending)
 	if err != nil {
 		return fmt.Errorf("error getting pending reviews: %w", err)
 	}

@@ -669,7 +669,10 @@ components:
           $ref: "#/components/schemas/SupervisorType"
         code:
           type: string
+        name:
+          type: string
       required:
+        - name
         - type
         - description
         - created_at
@@ -700,7 +703,6 @@ components:
           type: string
           format: date-time
       required:
-        - id
         - name
         - description
 
