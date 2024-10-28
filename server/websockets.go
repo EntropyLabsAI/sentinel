@@ -212,12 +212,19 @@ func (c *Client) WritePump() {
 		c.Hub.Unregister <- c
 	}()
 
-	for supervisor := range c.Send {
-		if err := c.Conn.WriteJSON(supervisor); err != nil {
-			log.Println("Error sending supervisor to client:", err)
+	for supervisionRequest := range c.Send {
+		if err := c.Conn.WriteJSON(supervisionRequest); err != nil {
+			log.Println("Error sending supervisionRequest to client:", err)
 			break
 		}
-		log.Printf("Sent supervisor.RequestId %s to client.", supervisor.Id)
+		log.Printf("Sent supervisionRequest.RequestId %s to client.", supervisionRequest.Id)
+
+		// Log the supervisionrequest_status entry for the supervision request
+		rs := SupervisionStatus{Status: Assigned, CreatedAt: time.Now()}
+		err := c.Hub.Store.CreateSupervisionStatus(context.Background(), *supervisionRequest.Id, rs)
+		if err != nil {
+			fmt.Printf("Error creating supervisionrequest_status entry for supervisionRequest.RequestId %s: %v\n", *supervisionRequest.Id, err)
+		}
 	}
 }
 
@@ -242,21 +249,9 @@ func (c *Client) ReadPump() {
 		}
 
 		// Handle the response
-		if chInterface, ok := reviewChannels.Load(response.Id); ok {
-			responseChan, ok := chInterface.(chan SupervisionResult)
-			if ok {
-				// Send the response non-blocking to prevent potential deadlocks
-				select {
-				case responseChan <- response:
-					log.Printf("ReviewerResponse for ID %s sent to response channel.", response.Id)
-				default:
-					log.Printf("Response channel for ID %s is blocked. Skipping.", response.Id)
-				}
-			} else {
-				log.Printf("Response channel for ID %s has an unexpected type.", response.Id)
-			}
-		} else {
-			log.Printf("No response channel found for ID %s.", response.Id)
+		err = c.Hub.Store.CreateSupervisionResult(context.Background(), response)
+		if err != nil {
+			fmt.Printf("Error creating supervisionresult entry for supervisionResult.RequestId %s: %v\n", response.Id, err)
 		}
 
 		// Thread-safe removal of the supervisor ID from assigned reviews

@@ -648,11 +648,16 @@ func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*sentinel.
 		return nil, fmt.Errorf("error getting tool: %w", err)
 	}
 
-	// Parse the JSON attributes
-	if err := json.Unmarshal(attributesJSON, &tool.Attributes); err != nil {
-		return nil, fmt.Errorf("error parsing tool attributes: %w", err)
-	}
+	// Initialize the attributes map
+	t := make(map[string]interface{})
 
+	// Parse the JSON attributes
+	if len(attributesJSON) > 0 {
+		if err := json.Unmarshal(attributesJSON, &t); err != nil {
+			return nil, fmt.Errorf("error parsing tool attributes: %w", err)
+		}
+	}
+	tool.Attributes = &t
 	return &tool, nil
 }
 
@@ -675,10 +680,16 @@ func (s *PostgresqlStore) GetTools(ctx context.Context) ([]sentinel.Tool, error)
 			return nil, fmt.Errorf("error scanning tool: %w", err)
 		}
 
-		// Parse the JSON attributes
-		if err := json.Unmarshal(attributesJSON, &tool.Attributes); err != nil {
-			return nil, fmt.Errorf("error parsing tool attributes: %w", err)
+		// Initialize the attributes map
+		t := make(map[string]interface{})
+
+		// Parse the JSON attributes if they exist
+		if len(attributesJSON) > 0 {
+			if err := json.Unmarshal(attributesJSON, &t); err != nil {
+				return nil, fmt.Errorf("error parsing tool attributes: %w", err)
+			}
 		}
+		tool.Attributes = &t
 
 		tools = append(tools, tool)
 	}
@@ -969,9 +980,22 @@ func (s *PostgresqlStore) GetRunTools(ctx context.Context, runId uuid.UUID) ([]s
 	var tools []sentinel.Tool
 	for rows.Next() {
 		var tool sentinel.Tool
-		if err := rows.Scan(&tool.Id, &tool.Name, &tool.Description, &tool.Attributes); err != nil {
+		var attributesJSON []byte
+		if err := rows.Scan(&tool.Id, &tool.Name, &tool.Description, &attributesJSON); err != nil {
 			return nil, fmt.Errorf("error scanning tool: %w", err)
 		}
+
+		// Initialize the attributes map
+		t := make(map[string]interface{})
+
+		// Parse the JSON attributes if they exist
+		if len(attributesJSON) > 0 {
+			if err := json.Unmarshal(attributesJSON, &t); err != nil {
+				return nil, fmt.Errorf("error parsing tool attributes: %w", err)
+			}
+		}
+		tool.Attributes = &t
+
 		tools = append(tools, tool)
 	}
 
