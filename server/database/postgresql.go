@@ -1076,3 +1076,106 @@ func (s *PostgresqlStore) GetSupervisors(ctx context.Context) ([]sentinel.Superv
 
 	return supervisors, nil
 }
+
+func (s *PostgresqlStore) GetSupervisionRequestsForExecution(ctx context.Context, executionId uuid.UUID) ([]sentinel.SupervisionRequest, error) {
+	query := `
+        SELECT sr.id, sr.execution_id, sr.supervisor_id, sr.task_state
+        FROM supervisionrequest sr
+        WHERE sr.execution_id = $1`
+
+	rows, err := s.db.QueryContext(ctx, query, executionId)
+	if err != nil {
+		return nil, fmt.Errorf("error getting supervision requests: %w", err)
+	}
+	defer rows.Close()
+
+	var requests []sentinel.SupervisionRequest
+	for rows.Next() {
+		var request sentinel.SupervisionRequest
+		var taskStateJSON []byte
+
+		err := rows.Scan(
+			&request.Id,
+			&request.ExecutionId,
+			&request.SupervisorId,
+			&taskStateJSON,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning supervision request: %w", err)
+		}
+
+		// Parse the task state JSON
+		if err := json.Unmarshal(taskStateJSON, &request.TaskState); err != nil {
+			return nil, fmt.Errorf("error parsing task state: %w", err)
+		}
+
+		requests = append(requests, request)
+	}
+
+	return requests, nil
+}
+
+func (s *PostgresqlStore) GetSupervisionResultsForExecution(ctx context.Context, executionId uuid.UUID) ([]sentinel.SupervisionResult, error) {
+	query := `
+        SELECT sr.id, sr.supervisionrequest_id, sr.created_at, sr.decision, sr.reasoning
+        FROM supervisionresult sr
+        INNER JOIN supervisionrequest sreq ON sr.supervisionrequest_id = sreq.id
+        WHERE sreq.execution_id = $1`
+
+	rows, err := s.db.QueryContext(ctx, query, executionId)
+	if err != nil {
+		return nil, fmt.Errorf("error getting supervision results: %w", err)
+	}
+	defer rows.Close()
+
+	var results []sentinel.SupervisionResult
+	for rows.Next() {
+		var result sentinel.SupervisionResult
+		err := rows.Scan(
+			&result.Id,
+			&result.SupervisionRequestId,
+			&result.CreatedAt,
+			&result.Decision,
+			&result.Reasoning,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning supervision result: %w", err)
+		}
+
+		results = append(results, result)
+	}
+
+	return results, nil
+}
+
+func (s *PostgresqlStore) GetSupervisionStatusesForExecution(ctx context.Context, executionId uuid.UUID) ([]sentinel.SupervisionStatus, error) {
+	query := `
+        SELECT ss.id, ss.supervisionrequest_id, ss.status, ss.created_at
+        FROM supervisionrequest_status ss
+        INNER JOIN supervisionrequest sr ON ss.supervisionrequest_id = sr.id
+        WHERE sr.execution_id = $1`
+
+	rows, err := s.db.QueryContext(ctx, query, executionId)
+	if err != nil {
+		return nil, fmt.Errorf("error getting supervision statuses: %w", err)
+	}
+	defer rows.Close()
+
+	var statuses []sentinel.SupervisionStatus
+	for rows.Next() {
+		var status sentinel.SupervisionStatus
+		err := rows.Scan(
+			&status.Id,
+			&status.SupervisionRequestId,
+			&status.Status,
+			&status.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning supervision status: %w", err)
+		}
+
+		statuses = append(statuses, status)
+	}
+
+	return statuses, nil
+}
