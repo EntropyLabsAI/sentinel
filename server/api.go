@@ -177,6 +177,10 @@ func (s Server) GetRunExecutions(w http.ResponseWriter, r *http.Request, runId u
 	apiGetRunExecutionsHandler(w, r, runId, s.Store)
 }
 
+func (s Server) GetExecutionSupervisions(w http.ResponseWriter, r *http.Request, executionId uuid.UUID) {
+	apiGetExecutionSupervisionsHandler(w, r, executionId, s.Store)
+}
+
 func enableCorsMiddleware(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Set CORS headers

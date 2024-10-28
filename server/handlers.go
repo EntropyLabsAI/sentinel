@@ -594,7 +594,7 @@ func apiGetSupervisionRequestHandler(w http.ResponseWriter, r *http.Request, id 
 	}
 }
 
-// apiGetSupervisorRequestsHandler handles the GET /api/supervisor endpoint
+// apiGetSupervisionRequestsHandler handles the GET /api/supervisor endpoint
 func apiGetSupervisionRequestsHandler(w http.ResponseWriter, r *http.Request, _ GetSupervisionRequestsParams, store Store) {
 	ctx := r.Context()
 
@@ -826,6 +826,60 @@ func apiLLMExplanationHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(map[string]string{"explanation": explanation, "score": score})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// apiGetExecutionSupervisionsHandler handles the GET /api/executions/{executionId}/supervisions endpoint
+func apiGetExecutionSupervisionsHandler(w http.ResponseWriter, r *http.Request, executionId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	// First check if execution exists
+	execution, err := store.GetExecution(ctx, executionId)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if execution == nil {
+		http.Error(w, "Execution not found", http.StatusNotFound)
+		return
+	}
+
+	// Get all supervision requests for this execution
+	requests, err := store.GetSupervisionRequestsForExecution(ctx, executionId)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Get all supervision results
+	results, err := store.GetSupervisionResultsForExecution(ctx, executionId)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Get all supervision statuses
+	statuses, err := store.GetSupervisionStatusesForExecution(ctx, executionId)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Combine the data into ExecutionSupervisions response
+	response := &ExecutionSupervisions{
+		ExecutionId: executionId,
+		Requests:    requests,
+		Results:     results,
+		Statuses:    statuses,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

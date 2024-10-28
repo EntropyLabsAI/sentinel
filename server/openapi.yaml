@@ -244,6 +244,27 @@ paths:
         - Tools
         - Supervisors
 
+  /api/executions/{executionId}/supervisions:
+    get:
+      summary: Get supervision info for an execution
+      operationId: GetExecutionSupervisions
+      parameters:
+        - name: executionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Supervision info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecutionSupervisions"
+      tags:
+        - Executions
+
   /api/runs/{runId}/executions:
     get:
       summary: Get executions for a run
@@ -925,7 +946,6 @@ components:
       type: string
       enum: [approve, reject, terminate, modify, escalate]
 
-    # TaskState schema and its dependencies
     TaskState:
       type: object
       properties:
@@ -1073,3 +1093,27 @@ components:
         - input_tokens
         - output_tokens
         - total_tokens
+
+    ExecutionSupervisions:
+      type: object
+      properties:
+        execution_id:
+          type: string
+          format: uuid
+        requests:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupervisionRequest"
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupervisionResult"
+        statuses:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupervisionStatus"
+      required:
+        - execution_id
+        - requests
+        - results
+        - statuses

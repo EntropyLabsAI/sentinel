@@ -28,6 +28,9 @@ type ExecutionStore interface {
 	CreateExecution(ctx context.Context, runId uuid.UUID, toolId uuid.UUID) (uuid.UUID, error)
 	GetExecution(ctx context.Context, id uuid.UUID) (*Execution, error)
 	GetRunExecutions(ctx context.Context, runId uuid.UUID) ([]Execution, error)
+	GetSupervisionRequestsForExecution(ctx context.Context, executionId uuid.UUID) ([]SupervisionRequest, error)
+	GetSupervisionResultsForExecution(ctx context.Context, executionId uuid.UUID) ([]SupervisionResult, error)
+	GetSupervisionStatusesForExecution(ctx context.Context, executionId uuid.UUID) ([]SupervisionStatus, error)
 }
 
 type ProjectStore interface {
