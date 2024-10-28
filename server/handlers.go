@@ -180,7 +180,7 @@ func apiCreateToolHandler(w http.ResponseWriter, r *http.Request, store ToolStor
 		return
 	}
 
-	request.Id = toolId
+	request.Id = &toolId
 
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(request)

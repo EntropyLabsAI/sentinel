@@ -698,14 +698,17 @@ func (s *PostgresqlStore) GetTools(ctx context.Context) ([]sentinel.Tool, error)
 }
 
 func (s *PostgresqlStore) GetSupervisionRequestsForStatus(ctx context.Context, status sentinel.Status) ([]sentinel.SupervisionRequest, error) {
+	// Get all supervision requests for a given status (that need to be processed server side)
 	query := `
         SELECT DISTINCT ON (sr.id) 
             sr.id, sr.execution_id, e.run_id, sr.task_state, 
             ss.status, ss.created_at, sr.supervisor_id
         FROM supervisionrequest sr
 				INNER JOIN execution e ON sr.execution_id = e.id
+				INNER JOIN supervisor s ON sr.supervisor_id = s.id
         JOIN supervisionrequest_status ss ON sr.id = ss.supervisionrequest_id
         WHERE ss.status = $1
+				AND s.type != $2
         AND NOT EXISTS (
             SELECT 1 
             FROM supervisionrequest_status newer
@@ -714,7 +717,7 @@ func (s *PostgresqlStore) GetSupervisionRequestsForStatus(ctx context.Context, s
         )
         ORDER BY sr.id, ss.created_at DESC`
 
-	rows, err := s.db.QueryContext(ctx, query, status)
+	rows, err := s.db.QueryContext(ctx, query, status, sentinel.ClientSupervisor)
 	if err != nil {
 		return nil, fmt.Errorf("error getting pending supervision requests: %w", err)
 	}
