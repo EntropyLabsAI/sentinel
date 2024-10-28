@@ -171,15 +171,16 @@ export interface HubStats {
   review_distribution: HubStatsReviewDistribution;
 }
 
+/**
+ * The type of supervisor. ClientSupervisor means that the supervision is done client side and the server is merely informed. Other supervisor types are handled serverside, e.g. HumanSupervisor means that a human will review the request via the Sentinel UI.
+ */
 export type SupervisorType = typeof SupervisorType[keyof typeof SupervisorType];
 
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const SupervisorType = {
-  code: 'code',
-  llm: 'llm',
-  human: 'human',
-  all: 'all',
+  client_supervisor: 'client_supervisor',
+  human_supervisor: 'human_supervisor',
 } as const;
 
 export type ToolCreateAttributes = { [key: string]: unknown };
@@ -252,7 +253,7 @@ export interface Tool {
   attributes?: ToolAttributes;
   created_at?: string;
   description: string;
-  id: string;
+  id?: string;
   name: string;
 }
 
@@ -265,6 +266,7 @@ export interface Supervisor {
   created_at: string;
   description: string;
   id?: string;
+  name: string;
   type: SupervisorType;
 }
 
@@ -880,9 +882,9 @@ export const useGetRunToolSupervisors = <TData = Awaited<ReturnType<typeof getRu
  * @summary Assign a list of supervisors to a tool for a given run
  */
 export const createRunToolSupervisors = (
+    runId: string,
     toolId: string,
-    createRunToolSupervisorsBody: string[],
-    runId?: string, options?: AxiosRequestConfig
+    createRunToolSupervisorsBody: string[], options?: AxiosRequestConfig
  ): Promise<AxiosResponse<void>> => {
     
     return axios.post(
@@ -894,17 +896,17 @@ export const createRunToolSupervisors = (
 
 
 export const getCreateRunToolSupervisorsMutationOptions = <TError = AxiosError<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRunToolSupervisors>>, TError,{toolId: string;data: string[];runId?: string}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof createRunToolSupervisors>>, TError,{toolId: string;data: string[];runId?: string}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRunToolSupervisors>>, TError,{runId: string;toolId: string;data: string[]}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof createRunToolSupervisors>>, TError,{runId: string;toolId: string;data: string[]}, TContext> => {
 const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
 
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRunToolSupervisors>>, {toolId: string;data: string[];runId?: string}> = (props) => {
-          const {toolId,data,runId} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRunToolSupervisors>>, {runId: string;toolId: string;data: string[]}> = (props) => {
+          const {runId,toolId,data} = props ?? {};
 
-          return  createRunToolSupervisors(toolId,data,runId,axiosOptions)
+          return  createRunToolSupervisors(runId,toolId,data,axiosOptions)
         }
 
         
@@ -920,11 +922,11 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
  * @summary Assign a list of supervisors to a tool for a given run
  */
 export const useCreateRunToolSupervisors = <TError = AxiosError<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRunToolSupervisors>>, TError,{toolId: string;data: string[];runId?: string}, TContext>, axios?: AxiosRequestConfig}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRunToolSupervisors>>, TError,{runId: string;toolId: string;data: string[]}, TContext>, axios?: AxiosRequestConfig}
 ): UseMutationResult<
         Awaited<ReturnType<typeof createRunToolSupervisors>>,
         TError,
-        {toolId: string;data: string[];runId?: string},
+        {runId: string;toolId: string;data: string[]},
         TContext
       > => {
 
@@ -1863,3 +1865,58 @@ export const useGetHubStats = <TData = Awaited<ReturnType<typeof getHubStats>>, 
 
 
 
+/**
+ * @summary Get LLM explanation
+ */
+export const getLLMExplanation = (
+    lLMExplanationRequest: LLMExplanationRequest, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<LLMExplanationResponse>> => {
+    
+    return axios.post(
+      `/api/llm/explanation`,
+      lLMExplanationRequest,options
+    );
+  }
+
+
+
+export const getGetLLMExplanationMutationOptions = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof getLLMExplanation>>, TError,{data: LLMExplanationRequest}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof getLLMExplanation>>, TError,{data: LLMExplanationRequest}, TContext> => {
+const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof getLLMExplanation>>, {data: LLMExplanationRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  getLLMExplanation(data,axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GetLLMExplanationMutationResult = NonNullable<Awaited<ReturnType<typeof getLLMExplanation>>>
+    export type GetLLMExplanationMutationBody = LLMExplanationRequest
+    export type GetLLMExplanationMutationError = AxiosError<unknown>
+
+    /**
+ * @summary Get LLM explanation
+ */
+export const useGetLLMExplanation = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof getLLMExplanation>>, TError,{data: LLMExplanationRequest}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationResult<
+        Awaited<ReturnType<typeof getLLMExplanation>>,
+        TError,
+        {data: LLMExplanationRequest},
+        TContext
+      > => {
+
+      const mutationOptions = getGetLLMExplanationMutationOptions(options);
+
+      return useMutation(mutationOptions);
+    }
+    

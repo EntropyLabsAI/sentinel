@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type Processor struct {
@@ -67,12 +65,10 @@ func (p *Processor) processReview(ctx context.Context, supervisionRequest Superv
 	}
 
 	switch supervisor.Type {
-	case Human:
+	case HumanSupervisor:
 		return p.processHumanReview(ctx, supervisionRequest)
-	case Llm:
-		return p.processLLMReview(ctx, supervisionRequest)
-	case Code:
-		return p.processCodeReview(ctx, supervisionRequest)
+	case ClientSupervisor:
+		return nil
 	default:
 		return fmt.Errorf("unknown supervisor type: %s", supervisor.Type)
 	}
@@ -89,56 +85,4 @@ func (p *Processor) processHumanReview(ctx context.Context, supervisionRequest S
 	default:
 		return fmt.Errorf("supervisor channel is full")
 	}
-}
-
-func (p *Processor) processCodeReview(_ context.Context, supervisionRequest SupervisionRequest) error {
-	// Implement automated code supervisor processing
-	log.Printf("Code supervisor processing not implemented yet for supervisor %s", supervisionRequest.Id)
-	return nil
-}
-
-func (p *Processor) processLLMReview(ctx context.Context, supervisionRequest SupervisionRequest) error {
-	id := uuid.New().String()
-
-	if supervisionRequest.Id == nil || *supervisionRequest.Id == uuid.Nil {
-		return fmt.Errorf("can't process LLM supervisor, supervisor request ID is required")
-	}
-
-	log.Printf("received new LLM supervisor request, ID: %s", *supervisionRequest.Id)
-
-	// TODO allow LLM reviewer to handle multiple tool choice options
-	if len(supervisionRequest.ToolRequests) != 1 {
-		return fmt.Errorf("invalid number of tool choices provided for LLM supervisor")
-	}
-
-	toolChoice := supervisionRequest.ToolRequests[0]
-
-	// Call the LLM to evaluate the tool_choice
-	llmReasoning, decision, err := callLLMForReview(ctx, toolChoice, p.store)
-	if err != nil {
-		return fmt.Errorf("error calling LLM for supervisor: %w", err)
-	}
-
-	resultID, err := uuid.Parse(id)
-	if err != nil {
-		return fmt.Errorf("error parsing UUID: %w", err)
-	}
-
-	// Prepare the response
-	response := SupervisionResult{
-		Id:                   resultID,
-		Decision:             decision,
-		SupervisionRequestId: *supervisionRequest.Id,
-		CreatedAt:            time.Now(),
-		Toolrequest:          &toolChoice,
-		Reasoning:            llmReasoning,
-	}
-
-	// Update the database with the new supervisor result and then add a reviewrequest_status entry
-	err = p.store.CreateSupervisionResult(ctx, response)
-	if err != nil {
-		return fmt.Errorf("error creating supervisor result: %w", err)
-	}
-
-	return nil
 }

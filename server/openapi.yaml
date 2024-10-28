@@ -223,7 +223,7 @@ paths:
             format: uuid
         - name: runId
           in: path
-          required: false
+          required: true
           schema:
             type: string
             format: uuid
@@ -582,23 +582,23 @@ paths:
       tags:
         - Hub
 
-    /api/llm/explanation:
-      post:
-        summary: Get LLM explanation
-        operationId: GetLLMExplanation
-        requestBody:
-          required: true
+  /api/llm/explanation:
+    post:
+      summary: Get LLM explanation
+      operationId: GetLLMExplanation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LLMExplanationRequest"
+      responses:
+        "200":
+          description: LLM explanation
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/LLMExplanationRequest"
-        responses:
-          "200":
-            description: LLM explanation
-            content:
-              application/json:
-                schema:
-                  $ref: "#/components/schemas/LLMExplanationResponse"
+                $ref: "#/components/schemas/LLMExplanationResponse"
       tags:
         - LLM
 
@@ -671,6 +671,7 @@ components:
           type: string
         name:
           type: string
+
       required:
         - name
         - type
@@ -837,7 +838,8 @@ components:
 
     SupervisorType:
       type: string
-      enum: [code, llm, human, all]
+      description: The type of supervisor. ClientSupervisor means that the supervision is done client side and the server is merely informed. Other supervisor types are handled serverside, e.g. HumanSupervisor means that a human will review the request via the Sentinel UI.
+      enum: [client_supervisor, human_supervisor]
 
     HubStats:
       type: object
