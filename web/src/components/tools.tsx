@@ -1,7 +1,7 @@
 import { Tool, useGetTools } from "@/types";
 import React, { useEffect, useState } from "react";
 import Page from "./page";
-import { CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
+import { CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { Card } from "@radix-ui/themes";
 import { Link } from "react-router-dom";
 
@@ -21,16 +21,20 @@ export default function Tools() {
   return (
     <Page title="Tools">
       {tools.map((tool) => (
-        <Card className="bg-gray-50" key={tool.id}>
-          <CardHeader>
-            <CardTitle>{tool.name}</CardTitle>
-            <CardDescription>{tool.description}</CardDescription>
+        <Link to={`/tools/${tool.id}`} key={tool.id}>
+          <Card key={tool.id} className="flex flex-col">
+            <CardHeader>
+              <CardTitle>{tool.name}</CardTitle>
+              <CardDescription>{tool.description}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-grow">
+              {tool.created_at}
+            </CardContent>
             <CardFooter>
-              <Link to={`/tools/${tool.id}`}>View</Link>
+              <Link to={`/tools/${tool.id}`}>View Tool</Link>
             </CardFooter>
-
-          </CardHeader>
-        </Card>
+          </Card>
+        </Link>
       ))}
     </Page>
   )

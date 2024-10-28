@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useGetProjects, Project } from "@/types";
@@ -6,6 +6,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Executions from "./executions";
 import Page from "./page";
+import { Button } from "./ui/button";
 
 export default function ProjectList() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -34,6 +35,12 @@ export default function ProjectList() {
             <CardContent className="flex-grow">
               {project.created_at}
             </CardContent>
+            <CardFooter>
+
+              <Link to={`/projects/${project.id}`}>
+                <Button variant="outline">View Project</Button>
+              </Link>
+            </CardFooter>
           </Card>
         </Link>
       ))}
