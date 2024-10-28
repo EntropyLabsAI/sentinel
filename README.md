@@ -1,4 +1,9 @@
 # Sentinel 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Report Card](https://goreportcard.com/badge/github.com/EntropyLabsAI/sentinel/server)](https://goreportcard.com/report/github.com/EntropyLabsAI/sentinel/server)
+[![GitHub stars](https://img.shields.io/github/stars/EntropyLabsAI/sentinel?style=social)](https://github.com/EntropyLabsAI/sentinel/stargazers)
+[![Discord](https://img.shields.io/discord/1266644264832202843?color=7289da&label=Discord&logo=discord&logoColor=ffffff)](https://discord.gg/entropy-labs)
+
 Sentinel is an agent control plane built by [Entropy Labs](http://entropy-labs.ai/) that allows you to efficiently oversee thousands of agents running in parallel.
 
 🎉 New: [Inspect](https://inspect.ai-safety-institute.org.uk/) has now made approvals a native feature! Check out the Inspect example [here](examples/inspect_example/README.md).
