@@ -45,7 +45,7 @@ type SupervisorRequestStore interface {
 	GetSupervisionRequest(ctx context.Context, id uuid.UUID) (*SupervisionRequest, error)
 	GetSupervisionRequests(ctx context.Context) ([]SupervisionRequest, error)
 	UpdateSupervisionRequest(ctx context.Context, supervisorRequest SupervisionRequest) error
-	GetPendingSupervisionRequests(ctx context.Context) ([]SupervisionRequest, error)
+	GetSupervisionRequestsForStatus(ctx context.Context, status Status) ([]SupervisionRequest, error)
 }
 
 type SupervisorResultsStore interface {
