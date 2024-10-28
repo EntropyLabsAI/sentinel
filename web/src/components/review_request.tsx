@@ -45,7 +45,7 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
       {/* Action Buttons */}
       <div className="w-full flex-shrink-0">
         <h2 className="text-2xl mb-4">
-          Agent #<code>{updatedReviewRequest.request.agent_id.slice(0, 8)}</code> is requesting approval
+          Agent #<code>{updatedReviewRequest.request.agent_id}</code> is requesting approval
         </h2>
         <div className="my-4 flex flex-wrap gap-2">
           <Button
