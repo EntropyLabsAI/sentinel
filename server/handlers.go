@@ -5,14 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
 )
-
-// reviewChannels maps a reviews ID to the channel configured to receive the reviewer's response
-var reviewChannels = &sync.Map{}
 
 // apiRegisterProjectHandler handles the POST /api/project/register endpoint
 func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request, store ProjectStore) {
@@ -375,7 +371,18 @@ func apiCreateSupervisionRequestHandler(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	// We can't have n requests for different tools yet. They must be the same tool.
+	execution, err := store.GetExecution(ctx, request.RunId)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if execution == nil {
+		http.Error(w, "Execution not found", http.StatusNotFound)
+		return
+	}
+
+	// We don't support n requests for different tools yet. They must be the same tool.
 	toolID := request.ToolRequests[0].ToolId
 	for _, toolRequest := range request.ToolRequests {
 		if toolRequest.ToolId != toolID {
@@ -384,52 +391,96 @@ func apiCreateSupervisionRequestHandler(w http.ResponseWriter, r *http.Request, 
 		}
 	}
 
+	// Check the tool exists
+	tool, err := store.GetTool(ctx, toolID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if tool == nil {
+		http.Error(w, "Tool not found", http.StatusNotFound)
+		return
+	}
+
+	// Get the supervisors that are supposed to be supervising this tool for this run
+	supervisors, err := store.GetRunToolSupervisors(ctx, request.RunId, toolID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// If no supervisor ID is provided and there are no supervisors registered for this tool/run combination, shortcircuit. No supervision is required.
+	if request.SupervisorId == nil && len(supervisors) == 0 {
+		if len(request.ToolRequests) != 1 {
+			http.Error(w, fmt.Sprintf("Agent submitted %d samples, but no supervisor ID was provided and no supervisors were registered for tool %s for run %s. If you want to choose between multiple tools, you must have a supervisor registered before the run is started and provide a supervisor ID.", len(request.ToolRequests), toolID, request.RunId), http.StatusBadRequest)
+			return
+		}
+		// Store the supervisor in the database
+		reviewID, err := store.CreateSupervisionRequest(ctx, request)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Supervision is not required for this tool/run combination. Shortcircuit.
+		result := SupervisionResult{
+			SupervisionRequestId: reviewID,
+			CreatedAt:            t,
+			Decision:             Approve,
+			Reasoning:            "No supervisors registered for this tool/run combination. No supervision is required.",
+			Toolrequest:          &request.ToolRequests[0],
+		}
+
+		err = store.CreateSupervisionResult(ctx, result)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error creating supervisionresult entry for supervisionRequest.RequestId %s: %v", reviewID, err), http.StatusInternalServerError)
+			return
+		}
+
+		response := SupervisionStatus{
+			SupervisionRequestId: &reviewID,
+			Status:               Completed,
+			CreatedAt:            t,
+		}
+
+		w.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(w).Encode(response)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// However, if the supervisor ID is not provided but one or more supervisors exists for this tool/run combination, that's an error.
+	if request.SupervisorId == nil && len(supervisors) > 0 {
+		http.Error(w, fmt.Sprintf("No supervisor ID provided but there are %d supervisors registered for tool %s for run %s. Did you mean to send a supervisor ID?", len(supervisors), toolID, request.RunId), http.StatusBadRequest)
+		return
+	}
+
+	// If a supervisor ID is provided, check if it exists in the list of supervisors for this tool/run combination
+	exists := false
+	for _, supervisor := range supervisors {
+		if supervisor.Id.String() == request.SupervisorId.String() {
+			exists = true
+			break
+		}
+	}
+
+	if !exists {
+		http.Error(w, fmt.Sprintf("Trying to do supervision with supervisor %s that is not associated with tool %s for run %s. All supervisors must be registered to a tool for a run before the run is started.", request.SupervisorId, toolID, request.RunId), http.StatusBadRequest)
+		return
+	}
+
 	// Store the supervisor in the database
 	reviewID, err := store.CreateSupervisionRequest(ctx, request)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	// supervisor := Supervisor{
-	// 	Id:        reviewID,
-	// 	RunId:     request.RunId,
-	// 	TaskState: request.TaskState,
-	// 	Status: &SupervisorStatus{
-	// 		Status:    Pending,
-	// 		CreatedAt: t,
-	// 	},
-	// }
-
-	// // Handle the supervisor depending on the type of supervisor
-	// supervisor, err := store.GetSupervisorFromToolID(ctx, toolID)
-	// if err != nil {
-	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 	return
-	// }
-
-	// if supervisor == nil {
-	// 	http.Error(w, fmt.Sprintf("Supervisor not found for tool %s", toolID), http.StatusNotFound)
-	// 	return
-	// }
-
-	// switch supervisor.Type {
-	// case Human:
-	// 	if err := processHumanReview(ctx, hub, supervisor, store); err != nil {
-	// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 		return
-	// 	}
-	// case Llm:
-	// 	err := processLLMReview(ctx, request, store)
-	// 	if err != nil {
-	// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 		return
-	// 	}
-
-	// default:
-	// 	http.Error(w, "Invalid supervisor type", http.StatusBadRequest)
-	// 	return
-	// }
 
 	response := SupervisionStatus{
 		SupervisionRequestId: &reviewID,
