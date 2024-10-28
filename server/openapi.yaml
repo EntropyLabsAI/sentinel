@@ -209,7 +209,6 @@ paths:
         "404":
           description: Run or tool not found
       tags:
-        - Tools
         - Supervisors
     post:
       summary: Assign a list of supervisors to a tool for a given run
@@ -241,7 +240,6 @@ paths:
         "200":
           description: Supervisors assigned to tool successfully
       tags:
-        - Tools
         - Supervisors
 
   /api/executions/{executionId}/supervisions:
@@ -286,7 +284,6 @@ paths:
                 items:
                   $ref: "#/components/schemas/Execution"
       tags:
-        - Runs
         - Executions
     post:
       summary: Create an execution
@@ -316,7 +313,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/Execution"
       tags:
-        - Runs
         - Executions
 
   /api/tools/{toolId}:
@@ -570,7 +566,6 @@ paths:
         "404":
           description: Supervision request not found
       tags:
-        - Reviews
         - Tools
 
   /api/stats:
