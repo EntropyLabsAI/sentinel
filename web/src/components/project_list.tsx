@@ -22,6 +22,7 @@ export default function ProjectList() {
     data?.data && (
       <div className="container mx-auto p-4">
         <h1 className="text-2xl font-bold mb-6">Projects</h1>
+        <p className="text-semibold">Here you will be able to view and manage, configure and export projects, runs and agent information. This feature will be available soon.</p>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {projects.map((project) => (
             <Card key={project.id} className="flex flex-col">

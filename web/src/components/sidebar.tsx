@@ -1,5 +1,5 @@
 import * as React from "react"
-import { BookIcon, Check, ChevronsUpDown, GalleryVerticalEnd, Search, GithubIcon, InspectIcon, FileIcon, RailSymbol, Building2Icon, LucideBuilding, CogIcon } from "lucide-react"
+import { BookIcon, Check, ChevronsUpDown, GalleryVerticalEnd, Search, GithubIcon, InspectIcon, FileIcon, RailSymbol, Building2Icon, LucideBuilding, CogIcon, HistoryIcon, BarChartIcon } from "lucide-react"
 import { Link, useLocation } from 'react-router-dom'
 
 import {
@@ -44,46 +44,60 @@ const data = {
       url: "#",
       items: [
         {
-          title: "Projects",
-          url: "/projects",
-          isActive: true,
-          icon: <Building2Icon />
-        },
-        {
           title: "Supervisors",
           url: "/supervisor",
           isActive: false,
+          disabled: false,
           icon: <InspectIcon />
         },
         {
-          title: "Datasets",
-          url: "/datasets",
-          isActive: false,
-          icon: <FileIcon />
+          title: "Projects",
+          url: "/projects",
+          isActive: true,
+          disabled: true,
+          icon: <Building2Icon />
         },
         {
-          title: "Agents",
+          title: "Agent Runs",
           url: "/agents",
           isActive: false,
+          disabled: true,
           icon: <RailSymbol />
         },
         {
-          title: "Documentation",
-          url: "https://docs.entropy-labs.ai",
+          title: "Execution History",
+          url: "/execution_history",
           isActive: false,
-          icon: <BookIcon />
+          disabled: true,
+          icon: <HistoryIcon />
+        },
+        {
+          title: "Stats",
+          url: "/stats",
+          isActive: false,
+          disabled: true,
+          icon: <BarChartIcon />
         },
         {
           title: "API Spec",
           url: "/api",
           isActive: false,
+          disabled: false,
           icon: <CogIcon />
         },
         {
           title: "GitHub",
           url: "https://github.com/EntropyLabsAI/sentinel",
           isActive: false,
+          disabled: false,
           icon: <GithubIcon />
+        },
+        {
+          title: "Documentation",
+          url: "https://docs.entropy-labs.ai",
+          isActive: false,
+          disabled: false,
+          icon: <BookIcon />
         },
       ],
     }
@@ -196,8 +210,10 @@ export default function SidebarComponent({ isSocketConnected, children }: Sideba
                       <SidebarMenuButton
                         asChild
                         isActive={currentPath[currentPath.length - 1] === subItem.url}
+                        disabled={subItem.disabled}
+                        className={subItem.disabled ? "opacity-50 cursor-not-allowed" : ""}
                       >
-                        <Link to={subItem.url}>
+                        <Link to={subItem.url} onClick={e => subItem.disabled && e.preventDefault()}>
                           {subItem.icon}
                           {subItem.title}
                         </Link>
