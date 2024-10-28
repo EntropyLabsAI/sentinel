@@ -8,7 +8,7 @@ import Sidebar from './components/sidebar';
 import Home from './components/home';
 import ProjectList from './components/project_list';
 import Runs from './components/runs';
-import Executions from './components/executions';
+import Executions from './components/run';
 import Tools from './components/tools';
 import ToolDetails from './components/tool';
 

@@ -2,6 +2,7 @@ import { Tool, useGetTool } from "@/types";
 import React, { useEffect, useState } from "react";
 import Page from "./page";
 import { useParams } from "react-router-dom";
+import { ToolCard } from "./tool_card";
 
 export default function ToolDetails() {
   const { toolId } = useParams();
@@ -20,11 +21,11 @@ export default function ToolDetails() {
   if (isLoading) return <Page title="Tool">Loading...</Page>;
   if (error) return <Page title="Tool">Error: {error.message}</Page>;
 
+  if (!tool) return <Page title="Tool">Tool not found</Page>;
+
   return (
-    <Page title={tool?.name || "Tool"}>
-      <h1>{tool?.name}</h1>
-      <p>{tool?.description}</p>
-      <pre>{JSON.stringify(tool?.attributes, null, 2)}</pre>
+    <Page title={`Tool ${tool?.name || "Tool"}`}>
+      <ToolCard tool={tool} />
     </Page>
   )
 }
