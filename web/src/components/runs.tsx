@@ -31,7 +31,7 @@ export default function Runs() {
         <Link to={`/projects/${projectId}/runs/${run.id}`} key={run.id}>
           <Card key={run.id}>
             <CardHeader>
-              <CardTitle>{run.id}</CardTitle>
+              <CardTitle>Run {run.id}</CardTitle>
               <CardDescription>{run.created_at}</CardDescription>
             </CardHeader>
           </Card>
