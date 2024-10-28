@@ -31,6 +31,75 @@ export type GetSupervisionRequestsParams = {
 type?: SupervisorType;
 };
 
+export interface Usage {
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+}
+
+export type ToolCallArguments = { [key: string]: unknown };
+
+export interface ToolCall {
+  arguments: ToolCallArguments;
+  function: string;
+  id: string;
+  parse_error?: string;
+  type: string;
+}
+
+export interface AssistantMessage {
+  content: string;
+  role: string;
+  source?: string;
+  tool_calls?: ToolCall[];
+}
+
+export interface Choice {
+  message: AssistantMessage;
+  stop_reason?: string;
+}
+
+export interface Output {
+  choices?: Choice[];
+  model?: string;
+  usage?: Usage;
+}
+
+export interface Arguments {
+  cmd?: string;
+  code?: string;
+}
+
+export interface ToolChoice {
+  arguments: Arguments;
+  function: string;
+  id: string;
+  type: string;
+}
+
+export interface Message {
+  content: string;
+  function?: string;
+  role: string;
+  source?: string;
+  tool_call_id?: string;
+  tool_calls?: ToolCall[];
+}
+
+export type TaskStateStore = { [key: string]: unknown };
+
+export type TaskStateMetadata = { [key: string]: unknown };
+
+export interface TaskState {
+  completed: boolean;
+  messages: Message[];
+  metadata?: TaskStateMetadata;
+  output: Output;
+  store?: TaskStateStore;
+  tool_choice?: ToolChoice;
+  tools: Tool[];
+}
+
 export type Decision = typeof Decision[keyof typeof Decision];
 
 
@@ -61,6 +130,15 @@ export interface Execution {
   run_id?: string;
   status?: Status;
   tool_id?: string;
+}
+
+export interface CreateSupervisionResult {
+  execution_id: string;
+  run_id: string;
+  supervision_result: SupervisionResult;
+  supervisor_id: string;
+  tool_id: string;
+  tool_request: ToolRequest;
 }
 
 export interface LLMExplanationResponse {
@@ -143,23 +221,12 @@ export interface SupervisionResult {
   toolrequest?: ToolRequest;
 }
 
-export interface CreateSupervisionResult {
-  execution_id: string;
-  run_id: string;
-  supervision_result: SupervisionResult;
-  supervisor_id: string;
-  tool_id: string;
-  tool_request: ToolRequest;
-}
-
 export interface SupervisionStatus {
   created_at: string;
   id: number;
   status: Status;
   supervision_request_id?: string;
 }
-
-export type SupervisionRequestTaskState = { [key: string]: unknown };
 
 export interface SupervisionRequest {
   execution_id: string;
@@ -168,7 +235,7 @@ export interface SupervisionRequest {
   run_id: string;
   status?: SupervisionStatus;
   supervisor_id?: string;
-  task_state: SupervisionRequestTaskState;
+  task_state: TaskState;
   tool_requests: ToolRequest[];
 }
 
