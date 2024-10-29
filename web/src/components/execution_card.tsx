@@ -3,17 +3,18 @@ import { Badge } from "./ui/badge";
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "./ui/card";
+import { UUIDDisplay } from './uuid_display';
 
 function SupervisionPairCard({ request, result }: { request: SupervisionRequest, result?: SupervisionResult }) {
   return (
     <Card className="mt-4">
       <CardHeader>
         <CardTitle className="flex items-center justify-between text-base">
-          Supervision Request {request.id}
+          Supervision Request <UUIDDisplay uuid={request.id} />
           <Badge>{result?.decision || 'Pending'}</Badge>
         </CardTitle>
         <CardDescription>
-          Supervisor: {request.supervisor_id || 'Unassigned'}
+          Supervisor: <UUIDDisplay uuid={request.supervisor_id || ''} />
           {request.status && (
             <div>Status: {request.status.status}</div>
           )}
@@ -35,7 +36,7 @@ function SupervisionPairCard({ request, result }: { request: SupervisionRequest,
               <div>Decision: {result.decision}</div>
               <div>Reasoning: {result.reasoning}</div>
               {result.toolrequest && (
-                <div>Tool Request ID: {result.toolrequest.id}</div>
+                <div>Tool Request ID: <UUIDDisplay uuid={result.toolrequest.id} /></div>
               )}
             </div>
           </div>
@@ -45,7 +46,7 @@ function SupervisionPairCard({ request, result }: { request: SupervisionRequest,
             <div className="font-semibold">Tool Requests:</div>
             {request.tool_requests?.map((toolRequest, idx) => (
               <div key={idx} className="ml-2">
-                Tool {toolRequest.tool_id}: {JSON.stringify(toolRequest.arguments)}
+                Tool <UUIDDisplay uuid={toolRequest.tool_id} />: {JSON.stringify(toolRequest.arguments)}
               </div>
             ))}
           </div>
@@ -78,23 +79,16 @@ function SupervisionDetails({ executionId }: { executionId: string }) {
     return <p>Agent hasn't made a requests yet.</p>;
   }
 
-  console.log(supervisions)
-
   const results: SupervisionResult[] = supervisions.results || [];  // Add default empty array
   const statuses: SupervisionStatus[] = supervisions.statuses;
   const requests: SupervisionRequest[] = supervisions.requests;
 
   type row = { request: SupervisionRequest, result?: SupervisionResult }
-  // Create a data structure with one entry for each request, then add the result if it exists
 
-
-  console.log('results', results)
   const rows: row[] = requests.map(request => ({
     request,
     result: results?.find(result => result.supervision_request_id === request.id)
   }));
-
-  console.log('rows', rows)
 
   return (
     <div>
@@ -127,14 +121,16 @@ export default function ExecutionCard({ execution }: { execution: Execution }) {
     <Card key={execution.id}>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          Execution {execution.id}
+          Execution <UUIDDisplay uuid={execution.id} />
           <Badge>{execution.status}</Badge>
         </CardTitle>
         <CardDescription>
           {execution.created_at}
-          <div>Run ID: {execution.run_id?.slice(0, 8)}</div>
+          <div>Run ID: <UUIDDisplay uuid={execution.run_id || ''} /></div>
           <div>
-            <Link to={`/tools/${execution.tool_id}`}>Tool ID: {execution.tool_id?.slice(0, 8)}</Link>
+            <Link to={`/tools/${execution.tool_id}`}>
+              Tool ID: <UUIDDisplay uuid={execution.tool_id || ''} />
+            </Link>
           </div>
         </CardDescription>
       </CardHeader>

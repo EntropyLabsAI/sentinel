@@ -7,6 +7,7 @@ import { Link, useParams } from "react-router-dom";
 import Page from "./page";
 import { ToolsList } from "@/components/tools_list";
 import ExecutionCard from "./execution_card";
+import { UUIDDisplay } from "@/components/uuid_display";
 
 export default function Run() {
   const { runId } = useParams();
@@ -37,7 +38,16 @@ export default function Run() {
 
   return (
     <>
-      <Page title={`Run Details`} subtitle={`${executions.length} execution${executions.length === 1 ? "" : "s"} for run ${runId} across ${tools.length} tool${tools.length === 1 ? "" : "s"}`}>
+      <Page
+        title="Run details"
+        subtitle={
+          <span>
+            {executions.length} execution{executions.length === 1 ? "" : "s"} for run{' '}
+            <UUIDDisplay uuid={runId} />{' '}
+            across {tools.length} tool{tools.length === 1 ? "" : "s"}
+          </span>
+        }
+      >
         <div className="mb-4">
         </div>
       </Page>

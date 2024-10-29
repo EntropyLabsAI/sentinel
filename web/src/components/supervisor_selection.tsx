@@ -45,8 +45,6 @@ const SupervisorSelection: React.FC<SupervisorSelectionProps> = ({ API_BASE_URL,
 
   return (
     <Page title="Supervisors" subtitle={`${supervisors.length} supervisors registered against runs in ${projectData?.data.name}`}>
-      {/* Introductory Section */}
-      {/* Supervisor Selection Grid */}
       {supervisors.map((supervisor) => {
         return (
           <div>
