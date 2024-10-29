@@ -36,7 +36,7 @@ CREATE TABLE supervisor (
     id UUID PRIMARY KEY,
     description TEXT,
     created_at TIMESTAMP WITH TIME ZONE,
-    type TEXT CHECK (type in ('code', 'llm', 'human')),
+    type TEXT CHECK (type in ('human_supervisor', 'client_supervisor')),
     code TEXT
 );
 

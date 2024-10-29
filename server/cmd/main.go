@@ -5,7 +5,7 @@ import (
 	"os"
 
 	sentinel "github.com/entropylabsai/sentinel/server"
-	"github.com/entropylabsai/sentinel/server/database"
+	database "github.com/entropylabsai/sentinel/server/db"
 )
 
 func main() {
