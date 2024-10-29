@@ -14,12 +14,8 @@ export default function Run() {
   const [executions, setExecutions] = useState<Execution[]>([]);
   const [tools, setTools] = useState<Tool[]>([]);
 
-  if (!runId) {
-    return <Page title="Executions">No run selected</Page>;
-  }
-
-  const { data, isLoading, error } = useGetRunExecutions(runId);
-  const { data: toolsData, isLoading: toolsLoading } = useGetRunTools(runId);
+  const { data, isLoading, error } = useGetRunExecutions(runId || '');
+  const { data: toolsData, isLoading: toolsLoading } = useGetRunTools(runId || '');
 
   useEffect(() => {
     if (data?.data) {
@@ -32,6 +28,10 @@ export default function Run() {
       setTools(toolsData.data);
     }
   }, [toolsData]);
+
+  if (!runId) {
+    return <Page title="Executions">No run selected</Page>;
+  }
 
   if (isLoading || toolsLoading) return <Page title="Executions">Loading...</Page>;
   if (error) return <Page title="Executions">Error: {error.message}</Page>;
