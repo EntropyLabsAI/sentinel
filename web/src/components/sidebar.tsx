@@ -145,7 +145,6 @@ export default function SidebarComponent({ children }: SidebarProps) {
     ],
   }
 
-
   return (
     <SidebarProvider>
       <Sidebar>
@@ -273,11 +272,11 @@ export default function SidebarComponent({ children }: SidebarProps) {
                   <>
                     <BreadcrumbSeparator className="hidden md:block" />
                     <BreadcrumbItem key={path}>
-                      <BreadcrumbLink>
-                        <Link to={`/${currentPath.slice(0, index + 1).join('/')}`}>
+                      <Link to={`/${currentPath.slice(0, index + 1).join('/')}`}>
+                        <BreadcrumbLink>
                           {path}
-                        </Link>
-                      </BreadcrumbLink>
+                        </BreadcrumbLink>
+                      </Link>
                     </BreadcrumbItem>
                   </>
                 ))
