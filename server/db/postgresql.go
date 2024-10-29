@@ -272,6 +272,14 @@ func (s *PostgresqlStore) CreateSupervisionRequest(ctx context.Context, request 
 		return uuid.UUID{}, fmt.Errorf("can't create supervision request without a supervisor ID")
 	}
 
+	run, err := s.GetRun(ctx, request.RunId)
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("error getting run: %w", err)
+	}
+	if run == nil {
+		return uuid.UUID{}, fmt.Errorf("run not found: %s", request.RunId)
+	}
+
 	execution, err := s.GetExecution(ctx, request.ExecutionId)
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error getting execution: %w", err)
