@@ -372,9 +372,9 @@ func apiCreateSupervisionRequestHandler(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	execution, err := store.GetExecution(ctx, request.RunId)
+	execution, err := store.GetExecution(ctx, request.ExecutionId)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Error getting execution when creating supervision request: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -845,7 +845,7 @@ func apiGetExecutionSupervisionsHandler(w http.ResponseWriter, r *http.Request, 
 	}
 
 	if execution == nil {
-		http.Error(w, "Execution not found", http.StatusNotFound)
+		http.Error(w, fmt.Sprintf("Execution not found for ID %s", executionId), http.StatusNotFound)
 		return
 	}
 
