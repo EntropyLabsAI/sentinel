@@ -13,6 +13,13 @@ paths:
           description: OpenAPI schema
       tags:
         - API
+  /api/swagger-ui:
+    get:
+      summary: Get the Swagger UI
+      operationId: GetSwaggerDocs
+      responses:
+        "200":
+          description: Swagger UI
 
   /api/projects:
     post:

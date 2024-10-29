@@ -2,7 +2,6 @@ package sentinel
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -55,7 +54,8 @@ func InitAPI(store Store) {
 	}
 
 	log.Printf("Server started on port %s", port)
-	err := http.ListenAndServe(fmt.Sprintf(":%s", port), mux)
+	// err := http.ListenAndServe(fmt.Sprintf(":%s", port), mux)
+	err := http.ListenAndServe("0.0.0.0:8080", mux)
 	if err != nil {
 		log.Fatal("Error listening and serving: ", err)
 	}
