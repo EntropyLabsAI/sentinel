@@ -3,13 +3,16 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useGetProjects, Project } from "@/types";
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Executions from "./run";
 import Page from "./page";
 import { Button } from "./ui/button";
+import { useProject } from "@/contexts/project_context";
 
 export default function ProjectList() {
   const [projects, setProjects] = useState<Project[]>([]);
+  const { setSelectedProject } = useProject();
+  const navigate = useNavigate();
 
   const { data, isLoading, error } = useGetProjects();
 
@@ -19,6 +22,12 @@ export default function ProjectList() {
     }
   }, [data]);
 
+  const handleProjectSelect = (project: Project, e: React.MouseEvent) => {
+    e.preventDefault();
+    setSelectedProject(project.id);
+    navigate(`/projects/${project.id}`);
+  };
+
   if (isLoading) return <Page title="Projects">Loading...</Page>;
   if (error) return <Page title="Projects">Error: {error.message}</Page>;
 
@@ -27,8 +36,12 @@ export default function ProjectList() {
       {projects.length === 0 && <div>No projects found. To register a project, check out the <Link to="/api" className="text-blue-500">docs</Link>.</div>}
 
       {projects.map((project) => (
-        <Link to={`/projects/${project.id}`} key={project.id}>
-          <Card key={project.id} className="flex flex-col">
+        <Link
+          to={`/projects/${project.id}`}
+          key={project.id}
+          onClick={(e) => handleProjectSelect(project, e)}
+        >
+          <Card className="flex flex-col">
             <CardHeader>
               <CardTitle>{project.name}</CardTitle>
               <CardDescription>Project ID: {project.id}</CardDescription>
@@ -37,10 +50,7 @@ export default function ProjectList() {
               {project.created_at}
             </CardContent>
             <CardFooter>
-
-              <Link to={`/projects/${project.id}`}>
-                <Button variant="outline">View Project</Button>
-              </Link>
+              <Button variant="outline">View Project</Button>
             </CardFooter>
           </Card>
         </Link>

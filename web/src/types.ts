@@ -23,6 +23,20 @@ import type {
   AxiosRequestConfig,
   AxiosResponse
 } from 'axios'
+export type GetSupervisorsParams = {
+/**
+ * Project context for the supervisors query
+ */
+projectId: string;
+};
+
+export type GetToolsParams = {
+/**
+ * Project context for the tools query
+ */
+projectId: string;
+};
+
 export type CreateExecutionBody = {
   toolId?: string;
 };
@@ -1169,33 +1183,35 @@ export const useGetTool = <TData = Awaited<ReturnType<typeof getTool>>, TError =
 
 
 /**
- * @summary List all tools
+ * @summary List all tools available for a project
  */
 export const getTools = (
-     options?: AxiosRequestConfig
+    params: GetToolsParams, options?: AxiosRequestConfig
  ): Promise<AxiosResponse<Tool[]>> => {
     
     return axios.get(
-      `/api/tools`,options
+      `/api/tools`,{
+    ...options,
+        params: {...params, ...options?.params},}
     );
   }
 
 
-export const getGetToolsQueryKey = () => {
-    return [`/api/tools`] as const;
+export const getGetToolsQueryKey = (params: GetToolsParams,) => {
+    return [`/api/tools`, ...(params ? [params]: [])] as const;
     }
 
     
-export const getGetToolsQueryOptions = <TData = Awaited<ReturnType<typeof getTools>>, TError = AxiosError<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTools>>, TError, TData>, axios?: AxiosRequestConfig}
+export const getGetToolsQueryOptions = <TData = Awaited<ReturnType<typeof getTools>>, TError = AxiosError<unknown>>(params: GetToolsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTools>>, TError, TData>, axios?: AxiosRequestConfig}
 ) => {
 
 const {query: queryOptions, axios: axiosOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetToolsQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetToolsQueryKey(params);
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTools>>> = ({ signal }) => getTools({ signal, ...axiosOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTools>>> = ({ signal }) => getTools(params, { signal, ...axiosOptions });
 
       
 
@@ -1208,14 +1224,14 @@ export type GetToolsQueryResult = NonNullable<Awaited<ReturnType<typeof getTools
 export type GetToolsQueryError = AxiosError<unknown>
 
 /**
- * @summary List all tools
+ * @summary List all tools available for a project
  */
 export const useGetTools = <TData = Awaited<ReturnType<typeof getTools>>, TError = AxiosError<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTools>>, TError, TData>, axios?: AxiosRequestConfig}
+ params: GetToolsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTools>>, TError, TData>, axios?: AxiosRequestConfig}
 
   ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
 
-  const queryOptions = getGetToolsQueryOptions(options)
+  const queryOptions = getGetToolsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -1401,33 +1417,35 @@ export const useGetRun = <TData = Awaited<ReturnType<typeof getRun>>, TError = A
 
 
 /**
- * @summary List all supervisors
+ * @summary List all supervisors available for a project
  */
 export const getSupervisors = (
-     options?: AxiosRequestConfig
+    params: GetSupervisorsParams, options?: AxiosRequestConfig
  ): Promise<AxiosResponse<Supervisor[]>> => {
     
     return axios.get(
-      `/api/supervisors`,options
+      `/api/supervisors`,{
+    ...options,
+        params: {...params, ...options?.params},}
     );
   }
 
 
-export const getGetSupervisorsQueryKey = () => {
-    return [`/api/supervisors`] as const;
+export const getGetSupervisorsQueryKey = (params: GetSupervisorsParams,) => {
+    return [`/api/supervisors`, ...(params ? [params]: [])] as const;
     }
 
     
-export const getGetSupervisorsQueryOptions = <TData = Awaited<ReturnType<typeof getSupervisors>>, TError = AxiosError<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSupervisors>>, TError, TData>, axios?: AxiosRequestConfig}
+export const getGetSupervisorsQueryOptions = <TData = Awaited<ReturnType<typeof getSupervisors>>, TError = AxiosError<unknown>>(params: GetSupervisorsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSupervisors>>, TError, TData>, axios?: AxiosRequestConfig}
 ) => {
 
 const {query: queryOptions, axios: axiosOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetSupervisorsQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetSupervisorsQueryKey(params);
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSupervisors>>> = ({ signal }) => getSupervisors({ signal, ...axiosOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSupervisors>>> = ({ signal }) => getSupervisors(params, { signal, ...axiosOptions });
 
       
 
@@ -1440,14 +1458,14 @@ export type GetSupervisorsQueryResult = NonNullable<Awaited<ReturnType<typeof ge
 export type GetSupervisorsQueryError = AxiosError<unknown>
 
 /**
- * @summary List all supervisors
+ * @summary List all supervisors available for a project
  */
 export const useGetSupervisors = <TData = Awaited<ReturnType<typeof getSupervisors>>, TError = AxiosError<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSupervisors>>, TError, TData>, axios?: AxiosRequestConfig}
+ params: GetSupervisorsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSupervisors>>, TError, TData>, axios?: AxiosRequestConfig}
 
   ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
 
-  const queryOptions = getGetSupervisorsQueryOptions(options)
+  const queryOptions = getGetSupervisorsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
