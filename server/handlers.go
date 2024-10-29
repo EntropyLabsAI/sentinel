@@ -259,10 +259,10 @@ func apiCreateSupervisorHandler(w http.ResponseWriter, r *http.Request, store Su
 	}
 }
 
-func apiGetSupervisorsHandler(w http.ResponseWriter, r *http.Request, store SupervisorStore) {
+func apiGetSupervisorsHandler(w http.ResponseWriter, r *http.Request, params GetSupervisorsParams, store SupervisorStore) {
 	ctx := r.Context()
 
-	supervisors, err := store.GetSupervisors(ctx)
+	supervisors, err := store.GetSupervisors(ctx, params.ProjectId)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -299,10 +299,11 @@ func apiGetToolHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, sto
 	}
 }
 
-func apiGetToolsHandler(w http.ResponseWriter, r *http.Request, store ToolStore) {
+// Get the tools for a project
+func apiGetToolsHandler(w http.ResponseWriter, r *http.Request, params GetToolsParams, store ToolStore) {
 	ctx := r.Context()
 
-	tools, err := store.GetTools(ctx)
+	tools, err := store.GetProjectTools(ctx, params.ProjectId)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

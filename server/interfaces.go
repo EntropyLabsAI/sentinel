@@ -9,14 +9,14 @@ import (
 // Store defines the interface for all storage operations
 type Store interface {
 	ProjectStore
-	SupervisorRequestStore
-	ProjectToolStore
-	ToolStore
-	SupervisorStore
 	RunStore
+	ExecutionStore
+	ToolStore
+
+	SupervisorStore
+	SupervisorRequestStore
 	SupervisorResultsStore
 	SupervisorStatusStore
-	ExecutionStore
 }
 
 type SupervisorStatusStore interface {
@@ -53,23 +53,18 @@ type SupervisorResultsStore interface {
 	CreateSupervisionResult(ctx context.Context, result SupervisionResult) error
 }
 
-type ProjectToolStore interface {
-	GetProjectTools(ctx context.Context, id uuid.UUID) ([]Tool, error)
-	CreateProjectTool(ctx context.Context, id uuid.UUID, tool Tool) error
-}
-
 type ToolStore interface {
 	CreateTool(ctx context.Context, tool Tool) (uuid.UUID, error)
 	GetTool(ctx context.Context, id uuid.UUID) (*Tool, error)
-	GetTools(ctx context.Context) ([]Tool, error)
 	GetRunTools(ctx context.Context, id uuid.UUID) ([]Tool, error)
+	GetProjectTools(ctx context.Context, id uuid.UUID) ([]Tool, error)
 	GetSupervisionToolRequests(ctx context.Context, id uuid.UUID) ([]ToolRequest, error)
 }
 
 type SupervisorStore interface {
 	GetSupervisorFromToolID(ctx context.Context, id uuid.UUID) (*Supervisor, error)
 	GetSupervisor(ctx context.Context, id uuid.UUID) (*Supervisor, error)
-	GetSupervisors(ctx context.Context) ([]Supervisor, error)
+	GetSupervisors(ctx context.Context, projectId uuid.UUID) ([]Supervisor, error)
 	CreateSupervisor(ctx context.Context, supervisor Supervisor) (uuid.UUID, error)
 	GetRunToolSupervisors(ctx context.Context, runId uuid.UUID, toolId uuid.UUID) ([]Supervisor, error)
 	AssignSupervisorsToTool(ctx context.Context, runId uuid.UUID, toolID uuid.UUID, supervisorIds []uuid.UUID) error
