@@ -9,6 +9,7 @@ import Page from "./page";
 import { Button } from "./ui/button";
 import { useProject } from "@/contexts/project_context";
 import { UUIDDisplay } from "./uuid_display";
+import { CreatedAgo } from "./created_ago";
 
 export default function ProjectList() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -40,10 +41,12 @@ export default function ProjectList() {
         <Card className="flex flex-col">
           <CardHeader>
             <CardTitle>{project.name}</CardTitle>
-            <CardDescription>Project ID: <UUIDDisplay uuid={project.id} /></CardDescription>
+            <CardDescription>
+              <span>Project <UUIDDisplay uuid={project.id} /></span>
+              <div><CreatedAgo datetime={project.created_at} /></div>
+            </CardDescription>
           </CardHeader>
           <CardContent className="flex-grow">
-            {project.created_at}
           </CardContent>
           <CardFooter className="flex justify-end">
             <Link

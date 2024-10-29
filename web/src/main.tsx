@@ -5,6 +5,7 @@ import App from './App'
 import './index.css'
 import axios from 'axios';
 import { ProjectProvider } from '@/contexts/project_context';
+import { ConfigProvider } from './contexts/config_context';
 
 axios.defaults.baseURL = 'http://localhost:8080';
 
@@ -15,9 +16,11 @@ if (rootElement) {
   ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
-        <ProjectProvider>
-          <App />
-        </ProjectProvider>
+        <ConfigProvider>
+          <ProjectProvider>
+            <App />
+          </ProjectProvider>
+        </ConfigProvider>
       </QueryClientProvider>
     </React.StrictMode>,
   );

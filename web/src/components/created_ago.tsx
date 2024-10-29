@@ -15,7 +15,7 @@ export const CreatedAgo: React.FC<CreatedAgoProps> = ({ datetime, className = ''
       className={`text-sm text-gray-500 ${className}`}
       title={new Date(datetime).toLocaleString()}
     >
-      {formattedDate}
+      Created {formattedDate}
     </time>
   );
 };

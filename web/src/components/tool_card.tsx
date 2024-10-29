@@ -18,8 +18,8 @@ export function ToolCard({ tool, runId }: ToolCardProps) {
       <CardHeader>
         <CardTitle>{tool.name}</CardTitle>
         <CardDescription>
-          {tool.description}
-          <div>Tool ID: <UUIDDisplay uuid={tool.id} /></div>
+          <div>Tool <UUIDDisplay uuid={tool.id} /></div>
+          <div>{tool.description}</div>
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-grow flex flex-col gap-4">

@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { UserIcon, BrainCircuitIcon } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Link } from 'react-router-dom';
 import { Supervisor, useGetProject } from '@/types';
@@ -7,13 +6,12 @@ import { useGetSupervisors } from '@/types';
 import { useProject } from '@/contexts/project_context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import Page from './page';
+import { UUIDDisplay } from './uuid_display';
+import { CreatedAgo } from './created_ago';
+import { Button } from './ui/button';
+import { ArrowRightIcon } from 'lucide-react';
 
-interface SupervisorSelectionProps {
-  API_BASE_URL: string;
-  WEBSOCKET_BASE_URL: string;
-}
-
-const SupervisorSelection: React.FC<SupervisorSelectionProps> = ({ API_BASE_URL, WEBSOCKET_BASE_URL }) => {
+const SupervisorSelection: React.FC = () => {
   const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
   const { selectedProject } = useProject();
   const { data, isLoading, error } = useGetSupervisors(
@@ -35,33 +33,37 @@ const SupervisorSelection: React.FC<SupervisorSelectionProps> = ({ API_BASE_URL,
   if (isLoading) return <Page title="Supervisors">Loading supervisors...</Page>;
   if (error) return <Page title="Supervisors">Error loading supervisors: {error.message}</Page>;
 
-  if (!API_BASE_URL || !WEBSOCKET_BASE_URL) {
-    return (
-      <div className="text-center text-red-500">
-        No API or WebSocket base URL set: API is: {API_BASE_URL || 'Not Set'} and WebSocket is: {WEBSOCKET_BASE_URL || 'Not Set'}
-      </div>
-    );
-  }
-
   return (
     <Page title="Supervisors" subtitle={`${supervisors.length} supervisors registered against runs in ${projectData?.data.name}`}>
-      {supervisors.map((supervisor) => {
-        return (
-          <div>
-            <Link to={`/supervisor/${supervisor.id}`}>
+      <div className="py-12">
+
+        {supervisors.map((supervisor) => {
+          return (
+            <div>
               <Card key={supervisor.id}>
-                <CardHeader>
-                  <CardTitle>{supervisor.name}</CardTitle>
-                  <CardDescription>{supervisor.description}</CardDescription>
+                <CardHeader className="">
+                  <CardTitle className="flex flex-row justify-between gap-2">
+                    <p>
+                      {supervisor.name || <span>Supervisor <UUIDDisplay uuid={supervisor.id} /></span>}
+                    </p>
+                    <Badge variant="outline">{supervisor.type}</Badge>
+                  </CardTitle>
+
+                  <CardDescription className="">
+                    <CreatedAgo datetime={supervisor.created_at} />
+                  </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex flex-row justify-between gap-2">
                   <p>{supervisor.description}</p>
+                  <Link to={`/supervisors/${supervisor.id}`} key={supervisor.id}>
+                    <Button variant="ghost"><ArrowRightIcon className="" /></Button>
+                  </Link>
                 </CardContent>
               </Card>
-            </Link>
-          </div>
-        )
-      })}
+            </div>
+          )
+        })}
+      </div>
       <div className="mb-12 space-y-12 col-span-3">
         <p className="text-lg text-gray-700">
           Supervisors are used to review agent actions. To get started, ensure that your agent is running and making requests to the Sentinel API when it wants to take an action. Requests will be paused until a supervisor approves the action.
