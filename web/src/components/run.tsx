@@ -37,15 +37,13 @@ export default function Run() {
 
   return (
     <>
-      <Page title={`Run ${runId}`}>
+      <Page title={`Run Details`} subtitle={`${executions.length} execution${executions.length === 1 ? "" : "s"} for run ${runId} across ${tools.length} tool${tools.length === 1 ? "" : "s"}`}>
         <div className="mb-4">
-          There {executions.length === 1 ? "is" : "are"} {executions.length} execution{executions.length === 1 ? "" : "s"} for this run.
         </div>
       </Page>
 
-      <Page title={`Executions for run`}>
+      <Page title={`Executions for run`} subtitle={`${executions.length} execution${executions.length === 1 ? "" : "s"} for this run `}>
         <div className="mb-4">
-          {executions.length === 0 && <div>No executions found for this run.</div>}
           {executions.map((execution) => (
             <>
               <ExecutionCard key={execution.id} execution={execution} />
@@ -53,7 +51,7 @@ export default function Run() {
           ))}
         </div>
       </Page>
-      <Page title="Tools used in this run">
+      <Page title="Tools used in this run" subtitle={`${tools.length} tool${tools.length === 1 ? "" : "s"} used in this run`}>
         <ToolsList tools={tools} runId={runId} variant="card" />
       </Page>
     </>
