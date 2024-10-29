@@ -135,6 +135,9 @@ func (s *PostgresqlStore) GetExecution(ctx context.Context, id uuid.UUID) (*sent
 
 	var execution sentinel.Execution
 	err := s.db.QueryRowContext(ctx, query, id).Scan(&execution.Id, &execution.RunId, &execution.ToolId, &execution.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("execution not found in GetExecution: %s", id)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("error getting execution: %w", err)
 	}
@@ -285,7 +288,7 @@ func (s *PostgresqlStore) CreateSupervisionRequest(ctx context.Context, request 
 		return uuid.UUID{}, fmt.Errorf("error getting execution: %w", err)
 	}
 	if execution == nil {
-		return uuid.UUID{}, fmt.Errorf("execution not found: %s", request.ExecutionId)
+		return uuid.UUID{}, fmt.Errorf("execution not found for supervision request: %s", request.ExecutionId)
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -301,7 +304,6 @@ func (s *PostgresqlStore) CreateSupervisionRequest(ctx context.Context, request 
 		query := `
 			INSERT INTO llm_message (id, role, content)
 			VALUES ($1, $2, $3)`
-
 		_, err = tx.ExecContext(ctx, query, messageID, message.Role, message.Content)
 		if err != nil {
 			return uuid.UUID{}, fmt.Errorf("error creating llm message: %w", err)
@@ -318,7 +320,6 @@ func (s *PostgresqlStore) CreateSupervisionRequest(ctx context.Context, request 
 	query := `
 		INSERT INTO supervisionrequest (id, execution_id, task_state, supervisor_id)
 		VALUES ($1, $2, $3, $4)`
-
 	requestID := uuid.New()
 	_, err = tx.ExecContext(
 		ctx, query, requestID, request.ExecutionId, taskStateJSON, request.SupervisorId,
