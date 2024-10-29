@@ -1,4 +1,5 @@
 from typing import Any, Callable, Dict, List, Optional, Literal
+from entropy_labs.sentinel_api_client.sentinel_api_client.types import UNSET
 from enum import Enum
 import random
 import json
@@ -6,8 +7,20 @@ from pydantic import BaseModel, Field
 from entropy_labs.mocking.policies import MockPolicy
 from threading import Lock
 from inspect_ai.solver import TaskState
-from inspect_ai.tool import ToolCall
-from inspect_ai.model import ChatMessage, ChatMessageAssistant
+from inspect_ai.tool import ToolCall, Tool
+from inspect_ai.model import ChatMessage, ChatMessageAssistant, ChatMessageTool, ModelOutput
+from uuid import UUID, uuid4
+from inspect_ai._util.content import Content, ContentText
+from entropy_labs.supervision.langchain.utils import extract_messages_from_events
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.task_state import TaskState as APITaskState
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.message import Message
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_call import ToolCall as ApiToolCall
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_call_arguments import ToolCallArguments
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool import Tool as ApiTool
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.output import Output as ApiOutput
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.message import Message
+import json
+
 
 PREFERRED_LLM_MODEL = "gpt-4o"
 
@@ -34,6 +47,12 @@ class SupervisionContext:
         self.lock = Lock()  # Ensure thread safety
         self.metadata: Dict[str, Any] = {}
         self.inspect_ai_state: Optional[TaskState] = None
+
+        # Registries
+        self.supervised_functions_registry: Dict[Callable, Dict[str, Any]] = {}
+        self.registered_supervisors: Dict[str, UUID] = {}
+        self.tool_ids: Dict[str, UUID] = {}
+        self.supervisor_ids: Dict[str, UUID] = {}
 
     def add_event(self, event: dict):
         with self.lock:
@@ -116,6 +135,64 @@ class SupervisionContext:
         )
         return description
 
+    # Methods to manage the registries
+    def add_supervised_function(self, func: Callable, supervision_functions: List[Callable]):
+        with self.lock:
+            self.supervised_functions_registry[func] = {
+                'supervision_functions': supervision_functions or [],
+            }
+            print(f"Registered function '{func.__name__}'")
+
+    def get_supervised_function_entry(self, func: Callable) -> Optional[Dict[str, Any]]:
+        with self.lock:
+            return self.supervised_functions_registry.get(func)
+
+    def update_tool_id(self, func: Callable, tool_id: UUID):
+        with self.lock:
+            if func in self.supervised_functions_registry:
+                self.supervised_functions_registry[func]['tool_id'] = tool_id
+                print(f"Updated tool ID for '{func.__name__}' to {tool_id}")
+
+    def add_supervisor_id(self, supervisor_name: str, supervisor_id: UUID):
+        with self.lock:
+            self.registered_supervisors[supervisor_name] = supervisor_id
+            print(f"Registered supervisor '{supervisor_name}' with ID: {supervisor_id}")
+
+    def get_supervisor_id(self, supervisor_name: str) -> Optional[UUID]:
+        with self.lock:
+            return self.registered_supervisors.get(supervisor_name)
+
+    def to_task_state(self) -> APITaskState:
+        """Converts the supervision context into the API client's TaskState model."""
+        if self.inspect_ai_state:
+            return convert_task_state(self.inspect_ai_state)
+        else:
+            messages = extract_messages_from_events(self.langchain_events)
+
+            # Create your custom TaskState object
+            # TODO: Initialize direct API TaskState ?
+            task_state = TaskState(
+                model='model_name',  # TODO: Update with actual model name
+                sample_id=str(uuid4()),
+                epoch=1,
+                input=messages[0].content if messages else "",
+                messages=messages,
+                completed=False,
+                metadata={}
+            )
+            return convert_task_state(task_state)
+        
+    def get_messages(self) -> List[Message]:
+        """Get the messages from the supervision context."""
+        if self.langchain_events:
+            return extract_messages_from_events(self.langchain_events)
+        else:
+            return self.inspect_ai_state.messages
+        
+    def get_api_messages(self) -> List[Message]:
+        """Get the messages from the supervision context in the API client's Message model."""
+        return [convert_message(msg) for msg in self.get_messages()]
+        
 class SupervisionConfig:
     def __init__(self):
         self.global_supervision_functions: List[Callable] = []
@@ -126,6 +203,9 @@ class SupervisionConfig:
         self.function_supervisors: Dict[str, List[Callable]] = {}  # Function-specific supervision chains
         self.llm = None
         self.context = SupervisionContext()
+        self.run_id: Optional[UUID] = None
+        self.client = None # Sentinel API client
+        self.local_supervisors_by_id: Dict[UUID, Callable] = {}
 
     def set_global_supervision_functions(self, functions: List[Callable]):
         self.global_supervision_functions = functions
@@ -164,6 +244,9 @@ class SupervisionConfig:
     def set_mock_policy(self, mock_policy: MockPolicy):
         self.global_mock_policy = mock_policy
 
+    def set_run_id(self, run_id: UUID):
+        self.run_id = run_id
+
     def load_previous_execution_log(self, log_file_path: str, log_format='langchain'):
         """Load and process a previous execution log."""
         with open(log_file_path, 'r') as f:
@@ -195,6 +278,14 @@ class SupervisionConfig:
         else:
             raise ValueError(f"No mock responses available for function: {function_name}")
 
+    def add_local_supervisor(self, supervisor_id: UUID, supervisor_func: Callable):
+        """Add a supervisor function to the config."""
+        self.local_supervisors_by_id[supervisor_id] = supervisor_func
+
+    def get_supervisor_by_id(self, supervisor_id: UUID) -> Optional[Callable]:
+        """Retrieve a supervisor function by its ID."""
+        return self.local_supervisors_by_id.get(supervisor_id)
+
 # Global instance of SupervisionConfig
 # TODO: Update this
 supervision_config = SupervisionConfig()
@@ -213,3 +304,93 @@ def setup_sample_from_previous_calls(log_file_path: str):
     """Set up the SAMPLE_FROM_PREVIOUS_CALLS mock policy."""
     supervision_config.load_previous_execution_log(log_file_path)
     set_global_mock_policy(MockPolicy.SAMPLE_PREVIOUS_CALLS, override_local_policy=True)
+
+def convert_task_state(task_state: TaskState) -> APITaskState:
+    """
+    Converts Inspect AI TaskState object into the Sentinel API client's TaskState model.
+    They should be identical when serialized.
+    """
+    from entropy_labs.sentinel_api_client.sentinel_api_client.types import UNSET
+    from entropy_labs.sentinel_api_client.sentinel_api_client.models.task_state import TaskState as APITaskState
+
+    # Convert messages
+    messages = [convert_message(msg) for msg in task_state.messages]
+
+    # Convert tools - we can't do this because Inspect AI doesn't have tool names    
+    tools: list[ApiTool] = []
+
+    # Convert output
+    output = convert_output(task_state.output)
+
+    # Convert tool_choice
+    tool_choice = UNSET
+
+    return APITaskState(
+        messages=messages,
+        tools=tools,
+        output=output,
+        completed=False,
+        tool_choice=tool_choice,
+    )
+
+def convert_message(msg: ChatMessage) -> Message:
+    """
+    Converts a ChatMessage to a Message in the API model.
+    """
+
+    # Convert content to a string
+    if isinstance(msg.content, str):
+        content_str = msg.content
+    elif isinstance(msg.content, list):
+        content_str = "\n".join([convert_content(content) for content in msg.content])
+    else:
+        content_str = ""
+        
+    if isinstance(msg, ChatMessageTool):
+        tool_call_id = msg.tool_call_id
+        function = msg.function
+    else:
+        tool_call_id = UNSET
+        function = UNSET
+
+    if isinstance(msg, ChatMessageAssistant):
+        tool_calls = [convert_tool_call(tool_call) for tool_call in msg.tool_calls]
+    else:
+        tool_calls = UNSET
+
+    return Message(
+        source=msg.source,
+        role=msg.role,
+        content=content_str,
+        tool_calls=tool_calls,
+        tool_call_id=tool_call_id,
+        function=function
+    )
+
+
+def convert_content(content: Content) -> str:
+    # Convert Content to a string representation
+    if isinstance(content, ContentText):
+        return content.text
+    elif hasattr(content, 'data_url'):
+        return content.data_url  # For images or other content types
+    else:
+        return str(content)
+
+def convert_tool_call(tool_call: ToolCall) -> ApiToolCall:
+    return ApiToolCall(
+        id=tool_call.id,
+        function=tool_call.function,
+        arguments=ToolCallArguments.from_dict(tool_call.arguments),
+        type=tool_call.type
+    )
+
+
+def convert_output(output: ModelOutput) -> ApiOutput:
+    from entropy_labs.sentinel_api_client.sentinel_api_client.models.output import Output as ApiOutput
+
+    return ApiOutput(
+        model=output.model if output.model else UNSET,
+        choices=UNSET, #TODO: Implement if needed
+        usage=UNSET
+    )

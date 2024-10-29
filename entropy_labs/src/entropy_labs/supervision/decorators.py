@@ -1,84 +1,133 @@
 import asyncio
 from typing import Any, Callable, List, Optional
 from functools import wraps
-import random
 
-from .config import supervision_config, SupervisionDecisionType
+from .config import supervision_config, SupervisionDecisionType, SupervisionDecision
 from ..mocking.policies import MockPolicy
 from ..utils.utils import create_random_value
 from .llm_sampling import sample_from_llm
+from entropy_labs.api.sentinel_api_client_helper import create_execution, get_supervisors_for_tool, send_supervision_request, send_review_result
+import random
+from uuid import UUID
 
 def supervise(
     mock_policy: Optional[MockPolicy] = None,
     mock_responses: Optional[List[Any]] = None,
-    supervision_functions: Optional[List[Callable]] = None  # List of supervision functions
+    supervision_functions: Optional[List[Callable]] = None
 ):
     def decorator(func):
+        # Add the function and supervision functions to the registry within the context
+        supervision_config.context.add_supervised_function(func, supervision_functions)
+
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # Access context from supervision_config
             supervision_context = supervision_config.context
-            
+            run_id = supervision_config.run_id
+            client = supervision_config.client  # Get the Sentinel API client
+
             print(f"\n--- Supervision ---")
             print(f"Function Name: {func.__name__}")
             print(f"Description: {func.__doc__}")
             print(f"Arguments: {args}, {kwargs}")
+
+            # Retrieve the tool_id from the registry
+            entry = supervision_context.get_supervised_function_entry(func)
+            if entry:
+                tool_id = entry['tool_id']
+            else:
+                raise Exception(f"Tool ID for function {func.__name__} not found in the registry.")
             
+            execution_id = create_execution(tool_id, run_id, client)
+            supervisors_list = get_supervisors_for_tool(tool_id, run_id, client)
+
             # Determine effective mock policy
             effective_mock_policy = (
                 supervision_config.global_mock_policy
                 if supervision_config.override_local_policy
                 else (mock_policy or supervision_config.global_mock_policy)
             )
-            
             # Handle mocking
             if effective_mock_policy != MockPolicy.NO_MOCK:
                 mock_result = handle_mocking(func, effective_mock_policy, mock_responses, *args, **kwargs)
                 print(f"Mocking function execution. Mock result: {mock_result}")
                 return mock_result
-            
             # Supervision logic
-            supervisors = supervision_config.get_supervision_functions(func.__name__, supervision_functions)
-            if not supervisors:
+            if not supervisors_list:
                 print(f"No supervisors found for function {func.__name__}. Executing function.")
                 return func(*args, **kwargs)
-            # Remove duplicates while preserving order
-            supervisors = list(dict.fromkeys(supervisors))
-            
-            for supervisor in supervisors:
-                if asyncio.iscoroutinefunction(supervisor):
-                    decision = asyncio.run(supervisor(func, *args, supervision_context=supervision_context, **kwargs))
-                else:
-                    decision = supervisor(func, *args, supervision_context=supervision_context, **kwargs)
+
+            for supervisor in supervisors_list:
+                # We send supervision request to the API
+                review_id = send_supervision_request(supervisor, func, supervision_context, execution_id, tool_id, *args, **kwargs)
+
+                decision = None
+                supervisor_func = supervision_config.get_supervisor_by_id(supervisor.id)
+                if supervisor_func is None:
+                    print(f"No local supervisor function found for ID {supervisor.id}. Skipping.")
+                    return None  # Continue to next supervisor
+
+                # Execute supervisor function
+                decision = call_supervisor_function(supervisor_func, func, supervision_context, review_id=review_id, *args, **kwargs)
+                # Handle the decision
+                function_result = handle_supervision_decision(decision, func, *args, **kwargs)
                 
-                print(f"Supervisor {supervisor.__name__} decision: {decision.decision}")
-                
-                if decision.decision == SupervisionDecisionType.APPROVE:
-                    print(f"Approved by supervisor {supervisor.__name__}. Executing function.")
-                    return func(*args, **kwargs)
-                elif decision.decision == SupervisionDecisionType.REJECT:
-                    print(f"Rejected by supervisor {supervisor.__name__}. Cancelling execution.")
-                    return f"Execution of {func.__name__} was rejected by a supervisor. Explanation: {decision.explanation}"
-                elif decision.decision == SupervisionDecisionType.ESCALATE:
-                    print(f"Escalated by supervisor {supervisor.__name__}. Moving to next supervisor.")
-                    continue  # Move to the next supervisor
-                elif decision.decision == SupervisionDecisionType.MODIFY:
-                    print(f"Modified by supervisor {supervisor.__name__}. Executing modified function.")
-                    # TODO: Implement handling of modified data if needed
-                    return decision.modified
-                elif decision.decision == SupervisionDecisionType.TERMINATE:
-                    print(f"Terminated by supervisor {supervisor.__name__}. Cancelling execution.")
-                    return f"Execution of {func.__name__} was terminated by a supervisor. Explanation: {decision.explanation}"
-                else:
-                    print(f"Unknown decision: {decision.decision}. Cancelling execution.")
-                    return f"Execution of {func.__name__} was cancelled due to an unknown supervision decision."
-            
+                if decision is not None:
+                    # We send the decision to the API
+                    send_review_result(
+                            review_id=review_id,
+                            execution_id=execution_id,
+                            run_id=run_id,
+                            tool_id=tool_id,
+                            supervisor_id=supervisor.id,
+                            decision=decision,
+                            client=client,
+                            *args,
+                            **kwargs
+                    )
+                    return function_result  # Execution concluded
+
             # If all supervisors escalated without approval
             print(f"All supervisors escalated without approval. Cancelling {func.__name__} execution.")
             return f"Execution of {func.__name__} was cancelled after all supervision levels."
 
         return wrapper
     return decorator
+
+
+def call_supervisor_function(supervisor_func, func, supervision_context, review_id: UUID, *args, **kwargs):
+    if asyncio.iscoroutinefunction(supervisor_func):
+        decision = asyncio.run(supervisor_func(
+            func, supervision_context=supervision_context, review_id=review_id, *args, **kwargs
+        ))
+    else:
+        decision = supervisor_func(
+            func, supervision_context=supervision_context, *args, **kwargs
+        )
+    return decision
+
+def handle_supervision_decision(decision: SupervisionDecision, func: Callable, *args, **kwargs):
+    print(f"Supervisor decision: {decision.decision}")
+    if decision.decision == SupervisionDecisionType.APPROVE:
+        print(f"Approved. Executing function.")
+        return func(*args, **kwargs)
+    elif decision.decision == SupervisionDecisionType.REJECT:
+        print(f"Rejected. Cancelling execution.")
+        return f"Execution of {func.__name__} was rejected. Explanation: {decision.explanation}"
+    elif decision.decision == SupervisionDecisionType.ESCALATE:
+        print(f"Escalated. Moving to next supervisor.")
+        return None  # Continue to next supervisor
+    elif decision.decision == SupervisionDecisionType.MODIFY:
+        print(f"Modified. Executing modified function.")
+        # Assuming modified data is in decision.modified
+        modified_args = decision.modified.get('args', args)
+        modified_kwargs = decision.modified.get('kwargs', kwargs)
+        return func(*modified_args, **modified_kwargs)
+    elif decision.decision == SupervisionDecisionType.TERMINATE:
+        print(f"Terminated. Cancelling execution.")
+        return f"Execution of {func.__name__} was terminated. Explanation: {decision.explanation}"
+    else:
+        print(f"Unknown decision: {decision.decision}. Cancelling execution.")
+        return f"Execution of {func.__name__} was cancelled due to an unknown supervision decision."
 
 def handle_mocking(func, mock_policy, mock_responses, *args, **kwargs):
     """Handle different mock policies."""
@@ -97,7 +146,7 @@ def handle_mocking(func, mock_policy, mock_responses, *args, **kwargs):
             raise ValueError("No return type specified for the function")
     elif mock_policy == MockPolicy.SAMPLE_PREVIOUS_CALLS:
         try:
-            return supervision_config.get_mock_response(func.__name__) #TODO: Make sure this works
+            return supervision_config.get_mock_response(func.__name__)  # TODO: Make sure this works
         except ValueError as e:
             print(f"Warning: {str(e)}. Falling back to actual function execution.")
             return func(*args, **kwargs)

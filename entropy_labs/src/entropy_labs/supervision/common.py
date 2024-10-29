@@ -5,10 +5,12 @@ from inspect_ai.solver import TaskState
 from inspect_ai.tool import ToolCall
 from inspect_ai.approval import Approval
 from entropy_labs.supervision.config import SupervisionDecision, SupervisionDecisionType
-from entropy_labs.api._supervision import get_human_supervision_decision_api
+from entropy_labs.api.sentinel_api_client_helper import get_human_supervision_decision_api
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
+from entropy_labs.sentinel_api_client.sentinel_api_client.client import Client
+from uuid import UUID
 
 def prompt_user_cli_approval(
     task_state: TaskState,
@@ -231,7 +233,7 @@ def check_python_code(
 
     return True, "Python code is approved."
 
-async def human_supervisor_wrapper(task_state: TaskState, call: ToolCall, backend_api_endpoint: Optional[str] = None, agent_id: str = "default_agent", timeout: int = 300, use_inspect_ai: bool = False, n: int = 1) -> SupervisionDecision:
+async def human_supervisor_wrapper(task_state: TaskState, call: ToolCall, timeout: int = 300, use_inspect_ai: bool = False, n: int = 1, backend_api_endpoint: Optional[str] = None, review_id: Optional[UUID] = None, client: Optional[Client] = None) -> SupervisionDecision:
     """
     Wrapper for human supervisor that handles both CLI and backend API approval.
     """
@@ -240,7 +242,7 @@ async def human_supervisor_wrapper(task_state: TaskState, call: ToolCall, backen
         supervisor_decision = prompt_user_cli_approval(task_state=task_state, tool_call=call, use_inspect_ai=use_inspect_ai, n=n)
     else:
         # Use backend API for supervision
-        supervisor_decision = await get_human_supervision_decision_api(backend_api_endpoint=backend_api_endpoint, agent_id=agent_id, task_state=task_state, call=call, timeout=timeout, use_inspect_ai=use_inspect_ai, n=n)
+        supervisor_decision = await get_human_supervision_decision_api(review_id=review_id, client=client, timeout=timeout, use_inspect_ai=use_inspect_ai)
     return supervisor_decision
 
 
