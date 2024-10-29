@@ -1,7 +1,6 @@
 import React from 'react';
 import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
-import { UUID } from 'crypto';
 
 interface UUIDDisplayProps {
   uuid: string | undefined;

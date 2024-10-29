@@ -50,6 +50,8 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
     onToolChoiceChange(updatedToolChoice);
   }
 
+  console.log("ToolChoiceDisplay", toolChoice, lastMessage, isSelected, onSelect, index);
+
   return (
     <Card className={isSelected ? "border-2 border-blue-500" : ""}>
       <CardHeader className="py-2">

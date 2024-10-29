@@ -698,56 +698,60 @@ func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UU
 }
 
 func (s *PostgresqlStore) GetSupervisionRequestsForStatus(ctx context.Context, status sentinel.Status) ([]sentinel.SupervisionRequest, error) {
-	// Get all supervision requests for a given status (that need to be processed server side)
+	// Get IDs of supervision requests with the given status (excluding client supervisors)
 	query := `
-        SELECT DISTINCT ON (sr.id) 
-            sr.id, sr.execution_id, e.run_id, sr.task_state, 
-            ss.status, ss.created_at, sr.supervisor_id
-        FROM supervisionrequest sr
-				INNER JOIN execution e ON sr.execution_id = e.id
-				INNER JOIN supervisor s ON sr.supervisor_id = s.id
-        JOIN supervisionrequest_status ss ON sr.id = ss.supervisionrequest_id
-        WHERE ss.status = $1
-				AND s.type != $2
-        AND NOT EXISTS (
-            SELECT 1 
-            FROM supervisionrequest_status newer
-            WHERE newer.supervisionrequest_id = sr.id 
-            AND newer.created_at > ss.created_at
-        )
-        ORDER BY sr.id, ss.created_at DESC`
-
-	rows, err := s.db.QueryContext(ctx, query, status, sentinel.ClientSupervisor)
+		SELECT sr.id
+		FROM supervisionrequest sr
+		JOIN supervisor s ON s.id = sr.supervisor_id
+		JOIN (
+				SELECT supervisionrequest_id, MAX(id) as latest_status_id
+				FROM supervisionrequest_status
+				GROUP BY supervisionrequest_id
+		) latest ON sr.id = latest.supervisionrequest_id
+		JOIN supervisionrequest_status srs ON srs.id = latest.latest_status_id
+		WHERE s.type != $1 AND srs.status = $2
+	`
+	rows, err := s.db.QueryContext(ctx, query, sentinel.ClientSupervisor, status)
 	if err != nil {
-		return nil, fmt.Errorf("error getting pending supervision requests: %w", err)
+		return nil, fmt.Errorf("error getting supervision request IDs: %w", err)
 	}
 	defer rows.Close()
 
-	var supervisorRequests []sentinel.SupervisionRequest
+	var requestIds []uuid.UUID
 	for rows.Next() {
-		var supervisorRequest sentinel.SupervisionRequest
-		var status sentinel.SupervisionStatus
-		var taskStateJSON []byte
-		if err := rows.Scan(
-			&supervisorRequest.Id,
-			&supervisorRequest.ExecutionId,
-			&supervisorRequest.RunId,
-			&taskStateJSON,
-			&status.Status,
-			&status.CreatedAt,
-			&supervisorRequest.SupervisorId,
-		); err != nil {
-			return nil, fmt.Errorf("error scanning supervisor: %w", err)
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("error scanning supervision request ID: %w", err)
 		}
-
-		if err := json.Unmarshal(taskStateJSON, &supervisorRequest.TaskState); err != nil {
-			return nil, fmt.Errorf("error parsing task state: %w", err)
-		}
-
-		supervisorRequests = append(supervisorRequests, supervisorRequest)
+		requestIds = append(requestIds, id)
 	}
 
-	return supervisorRequests, nil
+	fmt.Printf("Found %d requests for status %s\n", len(requestIds), status)
+
+	// If there are no requests, return an empty list
+	if len(requestIds) == 0 {
+		return nil, nil
+	}
+
+	// Get full details for each supervision request
+	requests := make([]sentinel.SupervisionRequest, 0, len(requestIds))
+	for _, id := range requestIds {
+		request, err := s.GetSupervisionRequest(ctx, id)
+		if err != nil {
+			return nil, fmt.Errorf("error getting supervision request %s: %w", id, err)
+		}
+		if request != nil {
+			requests = append(requests, *request)
+		}
+	}
+
+	if len(requests) != len(requestIds) {
+		return nil, fmt.Errorf("number of requests (%d) does not match number of request IDs (%d) for status %s", len(requests), len(requestIds), status)
+	}
+
+	fmt.Printf("Found %d requests for status %s\n", len(requests), status)
+
+	return requests, nil
 }
 
 func (s *PostgresqlStore) GetSupervisorFromToolID(ctx context.Context, id uuid.UUID) (*sentinel.Supervisor, error) {
@@ -1084,38 +1088,41 @@ func (s *PostgresqlStore) GetSupervisors(ctx context.Context, projectId uuid.UUI
 }
 
 func (s *PostgresqlStore) GetSupervisionRequestsForExecution(ctx context.Context, executionId uuid.UUID) ([]sentinel.SupervisionRequest, error) {
+	// First get all supervision request IDs for this execution
 	query := `
-        SELECT sr.id, sr.execution_id, sr.supervisor_id, sr.task_state
-        FROM supervisionrequest sr
-        WHERE sr.execution_id = $1`
+        SELECT id 
+        FROM supervisionrequest 
+        WHERE execution_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, query, executionId)
 	if err != nil {
-		return nil, fmt.Errorf("error getting supervision requests: %w", err)
+		return nil, fmt.Errorf("error getting supervision request IDs: %w", err)
 	}
 	defer rows.Close()
 
-	var requests []sentinel.SupervisionRequest
+	var requestIds []uuid.UUID
 	for rows.Next() {
-		var request sentinel.SupervisionRequest
-		var taskStateJSON []byte
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("error scanning supervision request ID: %w", err)
+		}
+		requestIds = append(requestIds, id)
+	}
 
-		err := rows.Scan(
-			&request.Id,
-			&request.ExecutionId,
-			&request.SupervisorId,
-			&taskStateJSON,
-		)
+	// Now get each supervision request using the existing method
+	var requests []sentinel.SupervisionRequest
+	for _, id := range requestIds {
+		request, err := s.GetSupervisionRequest(ctx, id)
 		if err != nil {
-			return nil, fmt.Errorf("error scanning supervision request: %w", err)
+			return nil, fmt.Errorf("error getting supervision request %s: %w", id, err)
 		}
-
-		// Parse the task state JSON
-		if err := json.Unmarshal(taskStateJSON, &request.TaskState); err != nil {
-			return nil, fmt.Errorf("error parsing task state: %w", err)
+		if request != nil {
+			requests = append(requests, *request)
 		}
+	}
 
-		requests = append(requests, request)
+	if len(requests) != len(requestIds) {
+		return nil, fmt.Errorf("some supervision requests were not found for execution %s", executionId)
 	}
 
 	return requests, nil

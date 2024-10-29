@@ -3,6 +3,7 @@ import { SupervisionResult, ToolRequest, Decision, SupervisionRequest } from '@/
 import ReviewRequestDisplay from '@/components/review_request';
 import { HubStatsAccordion } from './hub_stats';
 import { useConfig } from '@/contexts/config_context';
+import { UUIDDisplay } from './uuid_display';
 
 interface ReviewSectionProps {
 }
@@ -106,6 +107,10 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({
     (req) => req.id === selectedRequestId
   );
 
+  useEffect(() => {
+    console.log(selectedReviewRequest)
+  }, [selectedReviewRequest])
+
   return (
     <div>
       <div className="container mx-auto px-4 py-8 flex">
@@ -125,8 +130,8 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({
                     }`}
                   onClick={() => selectReviewRequest(req.id || '')}
                 >
-                  <div className="font-semibold">Agent #{req.run_id}</div>
-                  <div className="text-sm">Request ID: {req.id?.slice(0, 8)}</div>
+                  <div className="font-semibold">Agent <UUIDDisplay className="hover:bg-gray-300" uuid={req.run_id} /></div>
+                  <div className="text-sm">Request <UUIDDisplay className="hover:bg-gray-300" uuid={req.id} /></div>
                   {req.tool_requests && (
                     <div className="text-xs italic mt-1">Tool: {req.tool_requests[0].id}</div>
                   )}
