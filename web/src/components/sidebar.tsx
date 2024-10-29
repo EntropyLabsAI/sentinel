@@ -1,5 +1,5 @@
 import * as React from "react"
-import { BookIcon, Check, ChevronsUpDown, GalleryVerticalEnd, Search, GithubIcon, InspectIcon, FileIcon, RailSymbol, Building2Icon, LucideBuilding, CogIcon, HistoryIcon, BarChartIcon } from "lucide-react"
+import { BookIcon, Check, ChevronsUpDown, PickaxeIcon, GithubIcon, InspectIcon, FileIcon, RailSymbol, Building2Icon, LucideBuilding, CogIcon, HistoryIcon, BarChartIcon } from "lucide-react"
 import { Link, useLocation } from 'react-router-dom'
 
 import {
@@ -93,6 +93,13 @@ export default function SidebarComponent({ isSocketConnected, children }: Sideba
             isActive: false,
             disabled: false,
             icon: <RailSymbol />
+          },
+          {
+            title: "Tools",
+            url: `/tools`,
+            isActive: false,
+            disabled: false,
+            icon: <PickaxeIcon />
           },
           {
             title: "Execution History",
