@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	sentinel "github.com/entropylabsai/sentinel/server"
@@ -63,16 +63,13 @@ func (s *PostgresqlStore) GetProject(ctx context.Context, id uuid.UUID) (*sentin
 
 	var project sentinel.Project
 	err := s.db.QueryRowContext(ctx, query, id).Scan(&project.Id, &project.Name, &project.CreatedAt)
-	if err == sql.ErrNoRows {
-		log.Printf("no rows found for project ID: %s\n", id)
-		return nil, fmt.Errorf("no rows found for project ID: %s", id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
 	}
 	if err != nil {
-		log.Printf("error getting project: %v\n", err)
 		return nil, fmt.Errorf("error getting project: %w", err)
 	}
 
-	log.Printf("found project: %s\n", project.Name) // Add this line to see what we got
 	return &project, nil
 }
 
@@ -135,8 +132,8 @@ func (s *PostgresqlStore) GetExecution(ctx context.Context, id uuid.UUID) (*sent
 
 	var execution sentinel.Execution
 	err := s.db.QueryRowContext(ctx, query, id).Scan(&execution.Id, &execution.RunId, &execution.ToolId, &execution.CreatedAt)
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("execution not found in GetExecution: %s", id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error getting execution: %w", err)
@@ -422,7 +419,7 @@ func (s *PostgresqlStore) GetSupervisionRequest(ctx context.Context, id uuid.UUI
 		&status.Status,
 		&status.CreatedAt,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -445,7 +442,9 @@ func (s *PostgresqlStore) GetSupervisionRequest(ctx context.Context, id uuid.UUI
 
 	// Get the messages
 	messages, err := s.GetSupervisionMessages(ctx, id)
-	if err != nil {
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
 		return nil, fmt.Errorf("error getting messages: %w", err)
 	}
 	supervisorRequest.Messages = messages
@@ -461,8 +460,8 @@ func (s *PostgresqlStore) GetSupervisionMessages(ctx context.Context, id uuid.UU
 		WHERE tr.supervisionrequest_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, query, id)
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("no messages found for supervisor request %s, there should be at least one", id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return []sentinel.LLMMessage{}, nil
 	} else if err != nil {
 		return nil, fmt.Errorf("error getting messages: %w", err)
 	}
@@ -639,7 +638,7 @@ func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*sentinel.
 	var tool sentinel.Tool
 	var attributesJSON []byte
 	err := s.db.QueryRowContext(ctx, query, id).Scan(&tool.Id, &tool.Name, &attributesJSON, &tool.Description)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -761,7 +760,7 @@ func (s *PostgresqlStore) GetSupervisorFromToolID(ctx context.Context, id uuid.U
 
 	var supervisor sentinel.Supervisor
 	err := s.db.QueryRowContext(ctx, query, id).Scan(&supervisor.Id, &supervisor.Description, &supervisor.CreatedAt, &supervisor.Type)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -895,7 +894,7 @@ func (s *PostgresqlStore) GetRun(ctx context.Context, id uuid.UUID) (*sentinel.R
 
 	var run sentinel.Run
 	err := s.db.QueryRowContext(ctx, query, id).Scan(&run.Id, &run.ProjectId, &run.CreatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -1048,7 +1047,7 @@ func (s *PostgresqlStore) GetSupervisor(ctx context.Context, id uuid.UUID) (*sen
 
 	var supervisor sentinel.Supervisor
 	err := s.db.QueryRowContext(ctx, query, id).Scan(&supervisor.Id, &supervisor.Description, &supervisor.CreatedAt, &supervisor.Type)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
