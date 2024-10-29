@@ -24,7 +24,7 @@ export default function ToolDetails() {
   if (!tool) return <Page title="Tool">Tool not found</Page>;
 
   return (
-    <Page title={`Tool ${tool?.name || "Tool"}`}>
+    <Page title={`Tool details`} subtitle={`Details for tool ${tool?.name || "Tool"}`}>
       <ToolCard tool={tool} />
     </Page>
   )

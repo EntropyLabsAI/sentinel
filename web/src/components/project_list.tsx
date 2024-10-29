@@ -8,6 +8,7 @@ import Executions from "./run";
 import Page from "./page";
 import { Button } from "./ui/button";
 import { useProject } from "@/contexts/project_context";
+import { UUIDDisplay } from "./uuid_display";
 
 export default function ProjectList() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -36,24 +37,24 @@ export default function ProjectList() {
       {projects.length === 0 && <div>No projects found. To register a project, check out the <Link to="/api" className="text-blue-500">docs</Link>.</div>}
 
       {projects.map((project) => (
-        <Link
-          to={`/projects/${project.id}`}
-          key={project.id}
-          onClick={(e) => handleProjectSelect(project, e)}
-        >
-          <Card className="flex flex-col">
-            <CardHeader>
-              <CardTitle>{project.name}</CardTitle>
-              <CardDescription>Project ID: {project.id}</CardDescription>
-            </CardHeader>
-            <CardContent className="flex-grow">
-              {project.created_at}
-            </CardContent>
-            <CardFooter>
+        <Card className="flex flex-col">
+          <CardHeader>
+            <CardTitle>{project.name}</CardTitle>
+            <CardDescription>Project ID: <UUIDDisplay uuid={project.id} /></CardDescription>
+          </CardHeader>
+          <CardContent className="flex-grow">
+            {project.created_at}
+          </CardContent>
+          <CardFooter className="flex justify-end">
+            <Link
+              to={`/projects/${project.id}`}
+              key={project.id}
+              onClick={(e) => handleProjectSelect(project, e)}
+            >
               <Button variant="outline">View Project</Button>
-            </CardFooter>
-          </Card>
-        </Link>
+            </Link>
+          </CardFooter>
+        </Card>
       ))}
     </Page>
   )

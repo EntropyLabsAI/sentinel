@@ -40,6 +40,7 @@
     "swagger-ui-react": "^5.17.14",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
+    "timeago.js": "^4.0.2",
     "typescript": "^5.3.3",
     "vite": "^4.5.0"
   },

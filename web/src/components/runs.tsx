@@ -4,6 +4,10 @@ import React, { useEffect, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import Page from "./page";
 import { useProject } from "@/contexts/project_context";
+import { UUIDDisplay } from "./uuid_display";
+import { Button } from "./ui/button";
+import { ArrowRightIcon } from "lucide-react";
+import { CreatedAgo } from "./created_ago";
 
 export default function Runs() {
   const [runs, setRuns] = useState<Run[]>([]);
@@ -31,18 +35,21 @@ export default function Runs() {
   if (runsError) return <Page title="Runs">Error: {runsError.message}</Page>;
 
   return (
-    <Page title={`Runs for project ${projectData?.data?.name}`} subtitle={`${runs.length} runs found for project ${projectData?.data?.id}`}>
+    <Page title={`Runs for project ${projectData?.data?.name}`} subtitle={<span>{runs.length} runs found for project <UUIDDisplay uuid={projectData?.data?.id} /></span>}>
       <div className="flex flex-col space-y-4">
         {runs.length === 0 && <p className="text-sm text-gray-500">No runs found for this project. When you run an agent, it will appear here.</p>}
         {runs.map((run) => (
-          <Link to={`/projects/${projectId}/runs/${run.id}`} key={run.id}>
-            <Card key={run.id}>
-              <CardHeader>
-                <CardTitle>Run {run.id}</CardTitle>
-                <CardDescription>{run.created_at}</CardDescription>
-              </CardHeader>
-            </Card>
-          </Link>
+          <Card key={run.id}>
+            <CardHeader>
+              <CardTitle>Run <UUIDDisplay uuid={run.id} /></CardTitle>
+              <CardDescription className="flex flex-row justify-between gap-2">
+                <CreatedAgo datetime={run.created_at} />
+                <Link to={`/projects/${projectId}/runs/${run.id}`} key={run.id}>
+                  <Button variant="ghost"><ArrowRightIcon className="" /></Button>
+                </Link>
+              </CardDescription>
+            </CardHeader>
+          </Card>
         ))}
       </div>
     </Page>

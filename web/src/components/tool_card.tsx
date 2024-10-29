@@ -5,6 +5,7 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import React, { useEffect, useState } from "react";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
+import { UUIDDisplay } from "./uuid_display";
 
 type ToolCardProps = {
   tool: Tool;
@@ -18,14 +19,13 @@ export function ToolCard({ tool, runId }: ToolCardProps) {
         <CardTitle>{tool.name}</CardTitle>
         <CardDescription>
           {tool.description}
-          <div>Tool ID: {tool.id}</div>
+          <div>Tool ID: <UUIDDisplay uuid={tool.id} /></div>
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-grow flex flex-col gap-4">
-
         {tool.created_at}
         {tool.attributes && <pre className="text-xs mt-1 bg-muted p-2 rounded">{JSON.stringify(tool.attributes, null, 2)}</pre>}
-        {runId && <RunToolSupervisors runId={runId} toolId={tool.id} />}
+        {runId && tool.id && <RunToolSupervisors runId={runId} toolId={tool.id} />}
       </CardContent>
 
       <CardFooter className="flex justify-end">
@@ -58,16 +58,19 @@ function RunToolSupervisors({ runId, toolId }: { runId: string, toolId: string }
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-sm font-semibold">Supervisors</p>
+      <p className="text-sm font-semibold">Supervisors configured for this tool</p>
       {supervisors.map((supervisor) => (
         <Card key={supervisor.id}>
-          <CardHeader>
+          <CardHeader className="flex flex-col gap-2">
             <CardTitle className="flex flex-row justify-between">
-              {supervisor.id}
+              {supervisor.name || <span>Supervisor <UUIDDisplay uuid={supervisor.id} /></span>}
               <Badge variant="secondary" className="text-xs">{supervisor.type}</Badge>
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="flex flex-row justify-between gap-2">
               {supervisor.description}
+              <Link to={`/supervisors/${supervisor.id}`} key={supervisor.id}>
+                <Button variant="ghost"><ArrowRightIcon className="" /></Button>
+              </Link>
             </CardDescription>
 
 

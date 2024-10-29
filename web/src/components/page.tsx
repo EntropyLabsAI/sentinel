@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function Page({ children, title, subtitle }: { children: React.ReactNode, title: string, subtitle?: string }) {
+export default function Page({ children, title, subtitle }: { children: React.ReactNode, title: string, subtitle?: React.ReactNode }) {
 
   return (
     <div className="container mx-auto p-4 flex flex-col gap-6">
