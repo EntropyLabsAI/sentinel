@@ -6,6 +6,7 @@ import { Card } from "@radix-ui/themes";
 import { Link } from "react-router-dom";
 import { ToolsList } from "@/components/tools_list";
 import { useProject } from '@/contexts/project_context';
+import { UUIDDisplay } from "./uuid_display";
 
 export default function Tools() {
   const [tools, setTools] = useState<Tool[]>([]);
@@ -19,8 +20,10 @@ export default function Tools() {
   useEffect(() => {
     if (data?.data) {
       setTools(data.data);
+    } else {
+      setTools([]);
     }
-  }, [data]);
+  }, [data, selectedProject]);
 
 
   if (!selectedProject) {
@@ -31,7 +34,7 @@ export default function Tools() {
   if (error) return <Page title="Tools">Error: {error.message}</Page>;
 
   return (
-    <Page title={`Tools for project ${projectData?.data?.name}`} subtitle={`${tools.length} tools found for project ${projectData?.data?.id}`}>
+    <Page title={`Tools for project`} subtitle={<span>{tools.length} tools{tools.length === 1 ? '' : 's'} found for project <UUIDDisplay uuid={projectData?.data?.id} /></span>}>
       {tools.length > 0 && <ToolsList tools={tools} variant="card" />}
       {tools.length === 0 && <p className="text-sm text-gray-500">No tools found for this project. When your agent registers a tool, it will appear here.</p>}
 

@@ -2,21 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { SupervisionResult, ToolRequest, Decision, SupervisionRequest } from '@/types';
 import ReviewRequestDisplay from '@/components/review_request';
 import { HubStatsAccordion } from './hub_stats';
+import { useConfig } from '@/contexts/config_context';
 
 interface ReviewSectionProps {
-  API_BASE_URL: string;
-  WEBSOCKET_BASE_URL: string;
-  setIsSocketConnected: (isConnected: boolean) => void;
 }
 
 const HumanReviews: React.FC<ReviewSectionProps> = ({
-  API_BASE_URL,
-  WEBSOCKET_BASE_URL,
-  setIsSocketConnected,
 }) => {
   const [humanReviewDataList, setHumanReviewDataList] = useState<SupervisionRequest[]>([]);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [socket, setSocket] = useState<WebSocket | null>(null);
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
+
+  const { API_BASE_URL, WEBSOCKET_BASE_URL } = useConfig();
 
   // Initialize WebSocket connection
   useEffect(() => {
@@ -25,7 +23,6 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({
 
     ws.onopen = () => {
       console.log('WebSocket connection opened');
-      setIsSocketConnected(true);
     };
 
     ws.onmessage = (event) => {

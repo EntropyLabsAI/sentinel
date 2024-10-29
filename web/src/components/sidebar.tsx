@@ -36,18 +36,15 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "./ui/
 import { useEffect, useState } from "react"
 import { useProject } from '@/contexts/project_context';
 import { useGetProjects } from '@/types'; // Assuming you have this hook from Orval
+import { useConfig } from "@/contexts/config_context"
 
 interface SidebarProps {
-  isSocketConnected: boolean;
   children: React.ReactNode;
 }
 
-export default function SidebarComponent({ isSocketConnected, children }: SidebarProps) {
-  // @ts-ignore
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-  // @ts-ignore
-  const WEBSOCKET_BASE_URL = import.meta.env.VITE_WEBSOCKET_BASE_URL;
+export default function SidebarComponent({ children }: SidebarProps) {
 
+  const { API_BASE_URL, WEBSOCKET_BASE_URL } = useConfig();
 
   const location = useLocation();
   const [currentPath, setCurrentPath] = useState<string[]>([])
@@ -75,7 +72,7 @@ export default function SidebarComponent({ isSocketConnected, children }: Sideba
         items: [
           {
             title: "Supervisors",
-            url: "/supervisor",
+            url: "/supervisors",
             isActive: false,
             disabled: false,
             icon: <InspectIcon />
@@ -172,7 +169,7 @@ export default function SidebarComponent({ isSocketConnected, children }: Sideba
                   className="w-[--radix-dropdown-menu-trigger-width]"
                   align="start"
                 >
-                  {projects?.data.map((project) => (
+                  {projects && projects.data.map((project) => (
                     <DropdownMenuItem
                       key={project.id}
                       onSelect={() => setSelectedProject(project.id)}
@@ -243,10 +240,6 @@ export default function SidebarComponent({ isSocketConnected, children }: Sideba
                   <p className="text-xs font-mono">[API] {API_BASE_URL}</p>
                   <div className="flex items-center gap-1">
                     <p className="text-xs font-mono">[WS] {WEBSOCKET_BASE_URL}</p>
-                    <span
-                      className={`ml-2 h-3 w-3 rounded-full ${isSocketConnected ? 'bg-green-500' : 'bg-red-500'
-                        }`}
-                    ></span>
                   </div>
                 </CardContent>
               </form>

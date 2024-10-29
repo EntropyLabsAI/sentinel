@@ -21,15 +21,21 @@ export default function Runs() {
 
   useEffect(() => {
     if (projectId && projectId !== selectedProject) {
-      setSelectedProject(selectedProject);
+      setSelectedProject(projectId);
+    } else if (selectedProject && !projectId) {
+      // If we have a selected project but no URL parameter,
+      // navigate to the correct URL
+      navigate(`/projects/${selectedProject}/runs`);
     }
-  }, [selectedProject]);
+  }, [projectId, selectedProject]);
 
   useEffect(() => {
     if (runsData?.data) {
       setRuns(runsData.data);
+    } else {
+      setRuns([]);
     }
-  }, [runsData]);
+  }, [runsData, selectedProject]);
 
   if (runsLoading) return <Page title="Runs">Loading...</Page>;
   if (runsError) return <Page title="Runs">Error: {runsError.message}</Page>;
