@@ -1051,9 +1051,9 @@ func (s *PostgresqlStore) GetSupervisor(ctx context.Context, id uuid.UUID) (*sen
 
 func (s *PostgresqlStore) GetSupervisors(ctx context.Context, projectId uuid.UUID) ([]sentinel.Supervisor, error) {
 	query := `
-		SELECT id, description, created_at, type
-		FROM supervisor
-		INNER JOIN run_tool_supervisor rts ON supervisor.id = rts.supervisor_id
+		SELECT s.id, s.description, s.created_at, s.type
+		FROM supervisor s
+		INNER JOIN run_tool_supervisor rts ON s.id = rts.supervisor_id
 		INNER JOIN run r ON rts.run_id = r.id
 		WHERE r.project_id = $1`
 
