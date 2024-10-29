@@ -23,11 +23,11 @@ function SupervisionPairCard({ request, result }: { request: SupervisionRequest,
       <CardContent className="space-y-2">
         <div>
           <div className="font-semibold">Messages:</div>
-          {request.messages?.map((msg, idx) => (  // Add optional chaining
+          {(request.messages ?? []).map((msg, idx) => (
             <div key={idx} className="ml-2">
               {msg.role}: {msg.content}
             </div>
-          )) || 'No messages'}
+          ))}
         </div>
         {result && (
           <div>
@@ -78,15 +78,15 @@ function SupervisionDetails({ executionId }: { executionId: string }) {
     return <p>Agent hasn't made a requests yet.</p>;
   }
 
-  const results: SupervisionResult[] = supervisions.results || [];  // Add default empty array
-  const statuses: SupervisionStatus[] = supervisions.statuses;
-  const requests: SupervisionRequest[] = supervisions.requests;
+  const results: SupervisionResult[] = supervisions?.results ?? [];
+  const statuses: SupervisionStatus[] = supervisions?.statuses ?? [];
+  const requests: SupervisionRequest[] = supervisions?.requests ?? [];
 
   type row = { request: SupervisionRequest, result?: SupervisionResult }
 
   const rows: row[] = requests.map(request => ({
     request,
-    result: results?.find(result => result.supervision_request_id === request.id)
+    result: results.find(result => result.supervision_request_id === request.id)
   }));
 
   return (
