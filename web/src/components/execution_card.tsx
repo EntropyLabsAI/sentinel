@@ -60,6 +60,11 @@ function SupervisionDetails({ executionId }: { executionId: string }) {
   const [supervisions, setSupervisions] = useState<ExecutionSupervisions>();
   const { data, isLoading, error } = useGetExecutionSupervisions(executionId);
 
+  useEffect(() => {
+    if (data) {
+      setSupervisions(data.data);
+    }
+  }, [data]);
 
   if (isLoading) {
     return <p>Loading supervisions...</p>;
@@ -68,12 +73,6 @@ function SupervisionDetails({ executionId }: { executionId: string }) {
   if (!data) {
     return <p>No supervisions found for this execution.</p>;
   }
-
-  useEffect(() => {
-    if (data) {
-      setSupervisions(data.data);
-    }
-  }, [data]);
 
   if (!supervisions) {
     return <p>Agent hasn't made a requests yet.</p>;
