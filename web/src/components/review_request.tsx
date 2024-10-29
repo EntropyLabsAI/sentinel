@@ -36,7 +36,7 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
   }
 
   function handleSendResponse(decision: Decision) {
-    const selectedToolChoice = updatedReviewRequest.tool_requests[selectedToolIndex];
+    const selectedToolChoice = updatedReviewRequest.tool_requests?.[selectedToolIndex];
     sendResponse(decision, selectedToolChoice);
   }
 
