@@ -35,7 +35,7 @@ import {
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "./ui/card"
 import { useEffect, useState } from "react"
 import { useProject } from '@/contexts/project_context';
-import { useGetProjects } from '@/types'; // Assuming you have this hook from Orval
+import { Project, useGetProjects } from '@/types'; // Assuming you have this hook from Orval
 import { useConfig } from "@/contexts/config_context"
 
 interface SidebarProps {
@@ -49,7 +49,14 @@ export default function SidebarComponent({ children }: SidebarProps) {
   const location = useLocation();
   const [currentPath, setCurrentPath] = useState<string[]>([])
   const { selectedProject, setSelectedProject } = useProject();
-  const { data: projects } = useGetProjects();
+  const { data } = useGetProjects();
+  const [projects, setProjects] = useState<Project[]>([]);
+
+  useEffect(() => {
+    if (data) {
+      setProjects(data.data);
+    }
+  }, [data]);
 
   useEffect(() => {
     if (location.pathname === '/') {
@@ -157,8 +164,8 @@ export default function SidebarComponent({ children }: SidebarProps) {
                     <div className="flex flex-col gap-0.5 leading-none">
                       <span className="font-semibold">Sentinel</span>
                       <span className="text-xs">
-                        {selectedProject ?
-                          projects?.data.find(p => p.id === selectedProject)?.name || 'Select Project'
+                        {projects && selectedProject ?
+                          projects?.find(p => p.id === selectedProject)?.name || 'Select Project'
                           : 'Select Project'}
                       </span>
                     </div>
@@ -169,7 +176,7 @@ export default function SidebarComponent({ children }: SidebarProps) {
                   className="w-[--radix-dropdown-menu-trigger-width]"
                   align="start"
                 >
-                  {projects && projects.data.map((project) => (
+                  {projects && projects.map((project) => (
                     <DropdownMenuItem
                       key={project.id}
                       onSelect={() => setSelectedProject(project.id)}
@@ -279,8 +286,8 @@ export default function SidebarComponent({ children }: SidebarProps) {
                 <LucideBuilding className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">
                   Selected Project: {` `}
-                  {selectedProject ?
-                    projects?.data.find(p => p.id === selectedProject)?.name || 'No Project Selected'
+                  {projects && selectedProject ?
+                    projects?.find(p => p.id === selectedProject)?.name || 'No Project Selected'
                     : 'No Project Selected'}
                 </span>
               </div>
