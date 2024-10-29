@@ -21,8 +21,6 @@ export function MessagesDisplay({ messages }: { messages: Message[] }) {
     }
   }, [messages, isLoaded]);
 
-
-
   return (
     <Card>
       <CardHeader>
