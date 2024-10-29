@@ -7,30 +7,6 @@ from inspect_ai.tool import ToolCall
 from inspect_ai.tool._tool_call import ToolCallError
 import json
 
-def create_task_state_from_context(context) -> TaskState:
-    """
-    Convert context events into a TaskState object.
-    """
-    # Parse messages from langchain_events
-    messages = extract_messages_from_events(context.langchain_events)
-
-    # Assign default or extracted values for required parameters
-    model_name = 'model_name'
-    sample_id = str(uuid.uuid4())  # Generate a unique sample ID
-    epoch = 1  # Set epoch to 1 or another appropriate value
-    input_data = messages[0].content if messages else ""  # Use the first message content as input
-
-    task_state = TaskState(
-        model=model_name,
-        sample_id=sample_id,
-        epoch=epoch,
-        input=input_data,
-        messages=messages,
-        completed=False,
-        metadata={}
-    )
-    return task_state
-
 def extract_messages_from_events(events: List[Dict[str, Any]]) -> List[ChatMessage]:
     """
     Extract messages from LangChain events.
