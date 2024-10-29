@@ -117,8 +117,8 @@ func (s Server) GetTool(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	apiGetToolHandler(w, r, id, s.Store)
 }
 
-func (s Server) GetTools(w http.ResponseWriter, r *http.Request) {
-	apiGetToolsHandler(w, r, s.Store)
+func (s Server) GetTools(w http.ResponseWriter, r *http.Request, params GetToolsParams) {
+	apiGetToolsHandler(w, r, params, s.Store)
 }
 
 func (s Server) GetRunToolSupervisors(w http.ResponseWriter, r *http.Request, runId uuid.UUID, toolId uuid.UUID) {
@@ -141,8 +141,8 @@ func (s Server) GetSupervisor(w http.ResponseWriter, r *http.Request, id uuid.UU
 	apiGetSupervisorHandler(w, r, id, s.Store)
 }
 
-func (s Server) GetSupervisors(w http.ResponseWriter, r *http.Request) {
-	apiGetSupervisorsHandler(w, r, s.Store)
+func (s Server) GetSupervisors(w http.ResponseWriter, r *http.Request, params GetSupervisorsParams) {
+	apiGetSupervisorsHandler(w, r, params, s.Store)
 }
 
 func (s Server) CreateSupervisor(w http.ResponseWriter, r *http.Request) {

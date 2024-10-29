@@ -621,17 +621,6 @@ func (s *PostgresqlStore) CountSupervisionRequests(ctx context.Context, status s
 	return count, err
 }
 
-// ProjectToolStore implementation
-func (s *PostgresqlStore) GetProjectTools(ctx context.Context, id uuid.UUID) ([]sentinel.Tool, error) {
-	fmt.Printf("Stub: GetProjectTools called with project ID: %s\n", id)
-	return []sentinel.Tool{}, nil
-}
-
-func (s *PostgresqlStore) CreateProjectTool(ctx context.Context, id uuid.UUID, tool sentinel.Tool) error {
-	fmt.Printf("Stub: CreateProjectTool called with project ID: %s and tool ID: %s\n", id, tool.Id)
-	return nil
-}
-
 func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*sentinel.Tool, error) {
 	query := `
 		SELECT id, name, attributes, description
@@ -661,12 +650,15 @@ func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*sentinel.
 	return &tool, nil
 }
 
-func (s *PostgresqlStore) GetTools(ctx context.Context) ([]sentinel.Tool, error) {
+func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UUID) ([]sentinel.Tool, error) {
 	query := `
-		SELECT id, name, attributes, description
-		FROM tool`
+		SELECT t.id, t.name, t.attributes, t.description
+		FROM tool t
+		INNER JOIN run_tool_supervisor rts ON t.id = rts.tool_id
+		INNER JOIN run r ON rts.run_id = r.id
+		WHERE r.project_id = $1`
 
-	rows, err := s.db.QueryContext(ctx, query)
+	rows, err := s.db.QueryContext(ctx, query, projectId)
 	if err != nil {
 		return nil, fmt.Errorf("error getting tools: %w", err)
 	}
@@ -1057,12 +1049,15 @@ func (s *PostgresqlStore) GetSupervisor(ctx context.Context, id uuid.UUID) (*sen
 	return &supervisor, nil
 }
 
-func (s *PostgresqlStore) GetSupervisors(ctx context.Context) ([]sentinel.Supervisor, error) {
+func (s *PostgresqlStore) GetSupervisors(ctx context.Context, projectId uuid.UUID) ([]sentinel.Supervisor, error) {
 	query := `
 		SELECT id, description, created_at, type
-		FROM supervisor`
+		FROM supervisor
+		INNER JOIN run_tool_supervisor rts ON supervisor.id = rts.supervisor_id
+		INNER JOIN run r ON rts.run_id = r.id
+		WHERE r.project_id = $1`
 
-	rows, err := s.db.QueryContext(ctx, query)
+	rows, err := s.db.QueryContext(ctx, query, projectId)
 	if err != nil {
 		return nil, fmt.Errorf("error getting supervisors: %w", err)
 	}

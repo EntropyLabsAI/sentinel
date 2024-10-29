@@ -339,11 +339,19 @@ paths:
         - Tools
   /api/tools:
     get:
-      summary: List all tools
+      summary: List all tools available for a project
       operationId: GetTools
+      parameters:
+        - name: projectId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Project context for the tools query
       responses:
         "200":
-          description: List of tools
+          description: List of tools available for the project
           content:
             application/json:
               schema:
@@ -419,11 +427,19 @@ paths:
 
   /api/supervisors:
     get:
-      summary: List all supervisors
+      summary: List all supervisors available for a project
       operationId: GetSupervisors
+      parameters:
+        - name: projectId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Project context for the supervisors query
       responses:
         "200":
-          description: List of supervisors
+          description: List of supervisors available for the project
           content:
             application/json:
               schema:
