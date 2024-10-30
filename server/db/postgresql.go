@@ -133,6 +133,34 @@ func (s *PostgresqlStore) CreateExecution(ctx context.Context, runId uuid.UUID, 
 	return id, nil
 }
 
+func (s *PostgresqlStore) GetToolFromValues(ctx context.Context, attributes map[string]interface{}, name string, description string) (*sentinel.Tool, error) {
+	query := `
+		SELECT id, name, description, attributes, created_at
+		FROM tool
+		WHERE name = $1
+		AND description = $2
+		AND attributes = $3`
+
+	attrJSON, err := json.Marshal(attributes)
+	if err != nil {
+		return nil, fmt.Errorf("error marshalling attributes: %w", err)
+	}
+
+	var tool sentinel.Tool
+	err = s.db.QueryRowContext(ctx, query, name, description, attrJSON).Scan(&tool.Id, &tool.Name, &tool.Description, &tool.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error getting tool from values: %w", err)
+	}
+
+	// Just use the attributes passed in since we know they match, saves us having to fiddle with converting.
+	tool.Attributes = &attributes
+
+	return &tool, nil
+}
+
 func (s *PostgresqlStore) GetSupervisorFromValues(ctx context.Context, code string, name string, desc string, t sentinel.SupervisorType) (*sentinel.Supervisor, error) {
 	query := `
 		SELECT id, code, name, description, type, created_at
