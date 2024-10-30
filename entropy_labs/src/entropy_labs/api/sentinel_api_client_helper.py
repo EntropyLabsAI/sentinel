@@ -216,8 +216,9 @@ def wait_for_human_decision(review_id: UUID, client: Client, timeout: int = 300)
             )
             if response.status_code == 200 and response.parsed is not None:
                 status = response.parsed.status
-                if isinstance(status, Status) and status != Status.PENDING:
+                if isinstance(status, Status) and status in [Status.FAILED, Status.COMPLETED, Status.TIMEOUT]:
                     # Map status to SupervisionDecision
+                    print(f"Polling for human decision completed. Status: {status}")
                     return status
                 else:
                     print("Waiting for human supervisor decision...")
@@ -227,6 +228,7 @@ def wait_for_human_decision(review_id: UUID, client: Client, timeout: int = 300)
             print(f"Error while polling for supervision status: {e}")
 
         if time.time() - start_time > timeout:
+            print(f"Timed out waiting for human supervision decision. Timeout: {timeout} seconds")
             raise TimeoutError("Timed out waiting for human supervision decision.")
 
         time.sleep(5)  # Wait for 5 seconds before polling again
