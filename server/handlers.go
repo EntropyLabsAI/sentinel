@@ -427,58 +427,7 @@ func apiCreateSupervisionRequestHandler(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	// If no supervisor ID is provided and there are no supervisors registered for this tool/run combination, shortcircuit. No supervision is required.
-	if request.SupervisorId == nil && len(supervisors) == 0 {
-		if len(request.ToolRequests) != 1 {
-			http.Error(w, fmt.Sprintf("Agent submitted %d samples, but no supervisor ID was provided and no supervisors were registered for tool %s for run %s. If you want to choose between multiple tools, you must have a supervisor registered before the run is started and provide a supervisor ID.", len(request.ToolRequests), toolID, request.RunId), http.StatusBadRequest)
-			return
-		}
-		// Store the supervisor in the database
-		reviewID, err := store.CreateSupervisionRequest(ctx, request)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// Supervision is not required for this tool/run combination. Shortcircuit.
-		result := SupervisionResult{
-			SupervisionRequestId: reviewID,
-			CreatedAt:            t,
-			Decision:             Approve,
-			Reasoning:            "No supervisors registered for this tool/run combination. No supervision is required.",
-			Toolrequest:          &request.ToolRequests[0],
-		}
-
-		err = store.CreateSupervisionResult(ctx, result)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Error creating supervisionresult entry for supervisionRequest.RequestId %s: %v", reviewID, err), http.StatusInternalServerError)
-			return
-		}
-
-		response := SupervisionStatus{
-			SupervisionRequestId: &reviewID,
-			Status:               Completed,
-			CreatedAt:            t,
-		}
-
-		w.WriteHeader(http.StatusOK)
-		err = json.NewEncoder(w).Encode(response)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	// However, if the supervisor ID is not provided but one or more supervisors exists for this tool/run combination, that's an error.
-	if request.SupervisorId == nil && len(supervisors) > 0 {
-		http.Error(w, fmt.Sprintf("No supervisor ID provided but there are %d supervisors registered for tool %s for run %s. Did you mean to send a supervisor ID?", len(supervisors), toolID, request.RunId), http.StatusBadRequest)
-		return
-	}
-
-	// If a supervisor ID is provided, check if it exists in the list of supervisors for this tool/run combination
+	// Check supervisor ID exists in the list of supervisors for this tool/run combination
 	exists := false
 	for _, supervisor := range supervisors {
 		if supervisor.Id.String() == request.SupervisorId.String() {

@@ -332,20 +332,12 @@ func (s *PostgresqlStore) CreateSupervisionRequest(ctx context.Context, request 
 		return uuid.UUID{}, fmt.Errorf("error marshalling task state: %w", err)
 	}
 
-	// We allow nil supervisor IDs, which means that no supervisor is assigned to this request
-	var supervisorId uuid.UUID
-	if request.SupervisorId == nil {
-		supervisorId = uuid.Nil
-	} else {
-		supervisorId = *request.SupervisorId
-	}
-
 	query := `
 		INSERT INTO supervisionrequest (id, execution_id, task_state, supervisor_id)
 		VALUES ($1, $2, $3, $4)`
 	requestID := uuid.New()
 	_, err = tx.ExecContext(
-		ctx, query, requestID, request.ExecutionId, taskStateJSON, supervisorId,
+		ctx, query, requestID, request.ExecutionId, taskStateJSON, request.SupervisorId,
 	)
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error creating supervision request: %w", err)

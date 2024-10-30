@@ -763,6 +763,7 @@ components:
         - task_state
         - tool_requests
         - messages
+        - supervisor_id
 
     SupervisionStatus:
       type: object
@@ -862,7 +863,7 @@ components:
     SupervisorType:
       type: string
       description: The type of supervisor. ClientSupervisor means that the supervision is done client side and the server is merely informed. Other supervisor types are handled serverside, e.g. HumanSupervisor means that a human will review the request via the Sentinel UI.
-      enum: [client_supervisor, human_supervisor]
+      enum: [client_supervisor, human_supervisor, no_supervisor]
 
     HubStats:
       type: object
