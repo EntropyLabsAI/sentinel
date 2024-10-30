@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Badge } from './ui/badge';
 import { Link } from 'react-router-dom';
-import { Supervisor, useGetProject } from '@/types';
+import { Decision, Supervisor, useGetProject } from '@/types';
 import { useGetSupervisors } from '@/types';
 import { useProject } from '@/contexts/project_context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -10,7 +10,8 @@ import { UUIDDisplay } from './uuid_display';
 import { CreatedAgo } from './created_ago';
 import { Button } from './ui/button';
 import { ArrowRightIcon } from 'lucide-react';
-import { SupervisorTypeBadge } from './supervisor_type_badge';
+import { SupervisorTypeBadge } from './status_badge';
+import { DecisionBadge } from './status_badge';
 
 const SupervisorSelection: React.FC = () => {
   const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
@@ -71,19 +72,19 @@ const SupervisorSelection: React.FC = () => {
         <p>Supervisors will then return one of the following responses to your agent:
         </p>
         <div className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-2 mt-2">
-          <Badge variant="outline" className="flex flex-col text-center bg-green-500 text-white whitespace-nowrap">APPROVE</Badge>
+          <DecisionBadge decision={Decision.approve} />
           <div>The agent can proceed</div>
 
-          <Badge variant="outline" className="flex flex-col text-center bg-blue-500 text-white whitespace-nowrap">MODIFY</Badge>
+          <DecisionBadge decision={Decision.modify} />
           <div>The action has been modified and should be approved in its new form</div>
 
-          <Badge variant="outline" className="flex flex-col text-center bg-red-500 text-white whitespace-nowrap">REJECT</Badge>
+          <DecisionBadge decision={Decision.reject} />
           <div>The agent action is blocked and the agent should try again</div>
 
-          <Badge variant="outline" className="flex flex-col text-center bg-yellow-500 text-white whitespace-nowrap">ESCALATE</Badge>
+          <DecisionBadge decision={Decision.escalate} />
           <div>The action should be escalated to the next supervisor if one is configured</div>
 
-          <Badge variant="outline" className="flex flex-col text-center bg-black text-white whitespace-nowrap">TERMINATE</Badge>
+          <DecisionBadge decision={Decision.terminate} />
           <div>The agent process should be killed</div>
         </div>
       </div>
