@@ -2,6 +2,7 @@ package sentinel
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -21,15 +22,15 @@ func InitAPI(store Store) {
 	hub := NewHub(store, humanReviewChan)
 	go hub.Run()
 
+	// Start the processor which will pick up reviews from the DB and send them to the humanReviewChan
+	processor := NewProcessor(store, humanReviewChan)
+	go processor.Start(context.Background())
+
 	// Create an instance of your ServerInterface implementation
 	server := Server{
 		Hub:   hub,
 		Store: store,
 	}
-
-	// Start the processor which will pick up reviews from the DB and send them to the humanReviewChan
-	processor := NewProcessor(store, humanReviewChan)
-	go processor.Start(context.Background())
 
 	// Generate the API handler using the generated code
 	apiHandler := Handler(server)
@@ -55,7 +56,7 @@ func InitAPI(store Store) {
 
 	log.Printf("Server started on port %s", port)
 	// err := http.ListenAndServe(fmt.Sprintf(":%s", port), mux)
-	err := http.ListenAndServe("0.0.0.0:8080", mux)
+	err := http.ListenAndServe(fmt.Sprintf(":%s", port), mux)
 	if err != nil {
 		log.Fatal("Error listening and serving: ", err)
 	}

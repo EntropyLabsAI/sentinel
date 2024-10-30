@@ -17,7 +17,7 @@ func NewProcessor(store Store, humanReviewChan chan SupervisionRequest) *Process
 	return &Processor{
 		store:           store,
 		humanReviewChan: humanReviewChan,
-		interval:        10 * time.Second, // Configurable interval
+		interval:        2 * time.Second, // Configurable interval
 	}
 }
 
