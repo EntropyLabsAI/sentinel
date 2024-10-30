@@ -141,4 +141,23 @@ Keyword Arguments: {kwargs}
                 explanation=f"Error during LLM supervision: {str(e)}",
                 modified=None
             )
+    supervisor.__name__ = llm_supervisor.__name__
+    return supervisor
+
+
+
+def auto_approve_supervisor() -> Supervisor:
+    """Creates a supervisor that automatically approves any input."""
+    def supervisor(
+        func: Callable,
+        supervision_context: SupervisionContext,
+        *args,
+        **kwargs
+    ) -> SupervisionDecision:
+        return SupervisionDecision(
+            decision=SupervisionDecisionType.APPROVE,
+            explanation="No supervisor found for this function. It's automatically approved.",
+            modified=None
+        )
+    supervisor.__name__ = auto_approve_supervisor.__name__
     return supervisor
