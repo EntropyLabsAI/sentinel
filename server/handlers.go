@@ -190,6 +190,28 @@ func apiCreateToolHandler(w http.ResponseWriter, r *http.Request, store ToolStor
 		return
 	}
 
+	var existingTool *Tool
+	if request.Attributes != nil && request.Name != "" && request.Description != "" {
+		found, err := store.GetToolFromValues(ctx, *request.Attributes, request.Name, request.Description)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("error trying to locate an existing tool: %v", err), http.StatusInternalServerError)
+			return
+		}
+		if found != nil {
+			existingTool = found
+		}
+	}
+
+	if existingTool != nil {
+		w.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(w).Encode(existingTool)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
 	toolId, err := store.CreateTool(ctx, request)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
