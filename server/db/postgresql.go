@@ -117,7 +117,6 @@ func (s *PostgresqlStore) CreateExecution(ctx context.Context, runId uuid.UUID, 
 	defer func() { _ = tx.Rollback() }()
 
 	id := uuid.New()
-	status := sentinel.Pending
 	query := `
 		INSERT INTO execution (id, run_id, tool_id, created_at)
 		VALUES ($1, $2, $3, $4)`
@@ -125,14 +124,6 @@ func (s *PostgresqlStore) CreateExecution(ctx context.Context, runId uuid.UUID, 
 	_, err = tx.ExecContext(ctx, query, id, runId, toolId, time.Now())
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error creating execution: %w", err)
-	}
-
-	query = `
-		INSERT INTO execution_status (execution_id, status, created_at)
-		VALUES ($1, $2, $3)`
-	_, err = tx.ExecContext(ctx, query, id, status, time.Now())
-	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("error creating execution status: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
