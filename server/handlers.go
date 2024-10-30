@@ -22,6 +22,22 @@ func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request, store Pro
 		return
 	}
 
+	existingProject, err := store.GetProjectFromName(ctx, request.Name)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error getting project: %v", err.Error()), http.StatusInternalServerError)
+		return
+	}
+
+	if existingProject != nil {
+		w.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(w).Encode(existingProject)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error encoding existing project: %v", err.Error()), http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
 	// Generate a new Project ID
 	id := uuid.New()
 

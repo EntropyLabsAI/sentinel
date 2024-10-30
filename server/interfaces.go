@@ -36,6 +36,7 @@ type ExecutionStore interface {
 type ProjectStore interface {
 	CreateProject(ctx context.Context, project Project) error
 	GetProject(ctx context.Context, id uuid.UUID) (*Project, error)
+	GetProjectFromName(ctx context.Context, name string) (*Project, error)
 	GetProjects(ctx context.Context) ([]Project, error)
 	GetProjectRuns(ctx context.Context, id uuid.UUID) ([]Run, error)
 }

@@ -73,6 +73,24 @@ func (s *PostgresqlStore) GetProject(ctx context.Context, id uuid.UUID) (*sentin
 	return &project, nil
 }
 
+func (s *PostgresqlStore) GetProjectFromName(ctx context.Context, name string) (*sentinel.Project, error) {
+	query := `
+		SELECT id, name, created_at
+		FROM project
+		WHERE name = $1`
+
+	var project sentinel.Project
+	err := s.db.QueryRowContext(ctx, query, name).Scan(&project.Id, &project.Name, &project.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error getting project: %w", err)
+	}
+
+	return &project, nil
+}
+
 func (s *PostgresqlStore) CreateExecution(ctx context.Context, runId uuid.UUID, toolId uuid.UUID) (uuid.UUID, error) {
 
 	// First check if both the run and tool exist
