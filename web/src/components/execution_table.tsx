@@ -18,7 +18,7 @@ import { CreatedAgo } from "@/components/created_ago"
 import { Link } from "react-router-dom"
 import { Badge } from "@/components/ui/badge"
 import { SupervisionDetails } from "@/components/supervision_details"
-import { StatusBadge } from "./status_badge"
+import { StatusBadge, ToolBadge } from "./status_badge"
 
 export default function ExecutionTable({ executions }: { executions: Execution[] }) {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
@@ -29,7 +29,6 @@ export default function ExecutionTable({ executions }: { executions: Execution[]
 
   return (
     <Table>
-      <TableCaption>A list of tool executions from this run.</TableCaption>
       <TableHeader>
         <TableRow>
           <TableHead className="w-[100px]">Execution ID</TableHead>
@@ -44,7 +43,9 @@ export default function ExecutionTable({ executions }: { executions: Execution[]
           <>
             <TableRow key={execution.id} className="">
               <TableCell className="font-medium"><UUIDDisplay uuid={execution.id} /></TableCell>
-              <TableCell><UUIDDisplay uuid={execution.tool_id} href={`/tools/${execution.tool_id}`} /></TableCell>
+              <TableCell>
+                <ToolBadge toolId={execution.tool_id || ''} />
+              </TableCell>
               <TableCell><StatusBadge status={execution.status || Status.failed} /></TableCell>
               <TableCell className="text-right"><CreatedAgo datetime={execution.created_at || ''} /></TableCell>
               <TableCell className="cursor-pointer w-[100px]" onClick={() => toggleRow(execution.id)}>
@@ -73,7 +74,7 @@ export default function ExecutionTable({ executions }: { executions: Execution[]
       </TableBody >
       <TableFooter>
         <TableRow>
-          <TableCell colSpan={5}>{executions.length} rows</TableCell>
+          <TableCell className="text-xs text-muted-foreground" colSpan={5}>{executions.length} tool executions were found for this run</TableCell>
         </TableRow>
       </TableFooter>
     </Table >
