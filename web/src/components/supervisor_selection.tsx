@@ -10,6 +10,7 @@ import { UUIDDisplay } from './uuid_display';
 import { CreatedAgo } from './created_ago';
 import { Button } from './ui/button';
 import { ArrowRightIcon } from 'lucide-react';
+import { SupervisorTypeBadge } from './supervisor_type_badge';
 
 const SupervisorSelection: React.FC = () => {
   const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
@@ -35,35 +36,34 @@ const SupervisorSelection: React.FC = () => {
 
   return (
     <Page title="Supervisors" subtitle={`${supervisors.length} supervisors registered against runs in ${projectData?.data.name}`}>
-      <div className="py-12">
-
+      {supervisors.length === 0 && <div>No supervisors registered. Register a supervisor to get started.</div>}
+      {supervisors.length > 0 && <div className="py-12 col-span-3 space-y-4">
         {supervisors.map((supervisor) => {
           return (
-            <div>
-              <Card key={supervisor.id}>
-                <CardHeader className="">
-                  <CardTitle className="flex flex-row justify-between gap-2">
-                    <p>
-                      {supervisor.name || <span>Supervisor <UUIDDisplay uuid={supervisor.id} /></span>}
-                    </p>
-                    <Badge variant="outline">{supervisor.type}</Badge>
-                  </CardTitle>
+            <Card key={supervisor.id}>
+              <CardHeader className="">
+                <CardTitle className="flex flex-row justify-between gap-2">
+                  <p>
+                    {supervisor.name || <span>Supervisor <UUIDDisplay uuid={supervisor.id} /></span>}
+                  </p>
+                  <SupervisorTypeBadge type={supervisor.type} />
+                </CardTitle>
 
-                  <CardDescription className="">
-                    <CreatedAgo datetime={supervisor.created_at} />
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-row justify-between gap-2">
-                  <p>{supervisor.description}</p>
-                  <Link to={`/supervisors/${supervisor.id}`} key={supervisor.id}>
-                    <Button variant="ghost"><ArrowRightIcon className="" /></Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            </div>
+                <CardDescription className="">
+                  <CreatedAgo datetime={supervisor.created_at} />
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-row justify-between gap-2">
+                <p>{supervisor.description}</p>
+                <Link to={`/supervisors/${supervisor.id}`} key={supervisor.id}>
+                  <Button variant="ghost"><ArrowRightIcon className="" /></Button>
+                </Link>
+              </CardContent>
+            </Card>
           )
         })}
       </div>
+      }
       <div className="mb-12 space-y-12 col-span-3">
         <p className="text-lg text-gray-700">
           Supervisors are used to review agent actions. To get started, ensure that your agent is running and making requests to the Sentinel API when it wants to take an action. Requests will be paused until a supervisor approves the action.
