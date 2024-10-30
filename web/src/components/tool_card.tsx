@@ -6,6 +6,7 @@ import { Button } from "./ui/button";
 import React, { useEffect, useState } from "react";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
 import { UUIDDisplay } from "./uuid_display";
+import { SupervisorTypeBadge, ToolBadge } from "./status_badge";
 
 type ToolCardProps = {
   tool: Tool;
@@ -16,9 +17,10 @@ export function ToolCard({ tool, runId }: ToolCardProps) {
   return (
     <Card className="flex flex-col ">
       <CardHeader>
-        <CardTitle>{tool.name}</CardTitle>
+        <CardTitle className="py-4">
+          <ToolBadge toolId={tool.id || ''} />
+        </CardTitle>
         <CardDescription>
-          <div>Tool <UUIDDisplay uuid={tool.id} /></div>
           <div>{tool.description}</div>
         </CardDescription>
       </CardHeader>
@@ -64,7 +66,7 @@ function RunToolSupervisors({ runId, toolId }: { runId: string, toolId: string }
           <CardHeader className="flex flex-col gap-2">
             <CardTitle className="flex flex-row justify-between">
               {supervisor.name || <span>Supervisor <UUIDDisplay uuid={supervisor.id} /></span>}
-              <Badge variant="secondary" className="text-xs">{supervisor.type}</Badge>
+              <SupervisorTypeBadge type={supervisor.type} />
             </CardTitle>
             <CardDescription className="flex flex-row justify-between gap-2">
               {supervisor.description}

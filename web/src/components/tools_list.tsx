@@ -5,6 +5,7 @@ import { Badge } from "./ui/badge";
 import React from "react";
 import { ToolCard } from "./tool_card";
 import { UUIDDisplay } from "./uuid_display";
+import { ToolBadge } from "./status_badge";
 
 interface ToolsListProps {
   tools: Tool[] | string[];
@@ -19,7 +20,7 @@ export function ToolsList({ tools, variant = "card", runId }: ToolsListProps) {
       <div className="flex gap-2">
         {(tools as string[]).map((toolId) => (
           <Link key={toolId} to={`/tools/${toolId}`}>
-            <Badge variant="secondary"><UUIDDisplay uuid={toolId} /></Badge>
+            <ToolBadge toolId={toolId} />
           </Link>
         ))}
       </div>
