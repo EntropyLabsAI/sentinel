@@ -515,12 +515,10 @@ func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result se
 func (s *PostgresqlStore) GetSupervisionResults(ctx context.Context, id uuid.UUID) ([]*sentinel.SupervisionResult, error) {
 	query := `
 		SELECT sr.id, sr.supervisionrequest_id, sr.created_at, sr.decision, sr.reasoning, 
-		sr.toolrequest_id, tr.tool_id, tr.message_id, tr.arguments
+		sr.toolrequest_id, tr.tool_id, tr.message_id, tr.arguments::text
 		FROM supervisionresult sr
 		LEFT JOIN toolrequest tr ON sr.toolrequest_id = tr.id
 		WHERE sr.supervisionrequest_id = $1`
-
-	var tr sentinel.ToolRequest
 
 	rows, err := s.db.QueryContext(ctx, query, id)
 	if err != nil {
@@ -531,18 +529,27 @@ func (s *PostgresqlStore) GetSupervisionResults(ctx context.Context, id uuid.UUI
 	var results []*sentinel.SupervisionResult
 	for rows.Next() {
 		var result sentinel.SupervisionResult
+		var tr sentinel.ToolRequest
+		var argumentsJSON []byte
 		if err := rows.Scan(
 			&result.Id, &result.SupervisionRequestId, &result.CreatedAt, &result.Decision, &result.Reasoning,
-			&tr.Id, &tr.ToolId, &tr.MessageId, &tr.Arguments,
+			&tr.Id, &tr.ToolId, &tr.MessageId, &argumentsJSON,
 		); err != nil {
 			return nil, fmt.Errorf("error scanning supervisor result: %w", err)
 		}
+
+		// Parse the JSON arguments if they exist
+		if len(argumentsJSON) > 0 {
+			if err := json.Unmarshal(argumentsJSON, &tr.Arguments); err != nil {
+				return nil, fmt.Errorf("error parsing tool request arguments: %w", err)
+			}
+		}
+
 		result.Toolrequest = &tr
 		results = append(results, &result)
 	}
 
 	return results, nil
-
 }
 
 func (s *PostgresqlStore) UpdateSupervisionRequest(ctx context.Context, supervisorRequest sentinel.SupervisionRequest) error {
