@@ -22,21 +22,21 @@ class SupervisionRequest:
     Attributes:
         run_id (UUID):
         execution_id (UUID):
+        supervisor_id (UUID):
         task_state (TaskState):
         tool_requests (List['ToolRequest']):
         messages (List['LLMMessage']):
         id (Union[Unset, UUID]):
-        supervisor_id (Union[Unset, UUID]):
         status (Union[Unset, SupervisionStatus]):
     """
 
     run_id: UUID
     execution_id: UUID
+    supervisor_id: UUID
     task_state: "TaskState"
     tool_requests: List["ToolRequest"]
     messages: List["LLMMessage"]
     id: Union[Unset, UUID] = UNSET
-    supervisor_id: Union[Unset, UUID] = UNSET
     status: Union[Unset, "SupervisionStatus"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -44,6 +44,8 @@ class SupervisionRequest:
         run_id = str(self.run_id)
 
         execution_id = str(self.execution_id)
+
+        supervisor_id = str(self.supervisor_id)
 
         task_state = self.task_state.to_dict()
 
@@ -61,10 +63,6 @@ class SupervisionRequest:
         if not isinstance(self.id, Unset):
             id = str(self.id)
 
-        supervisor_id: Union[Unset, str] = UNSET
-        if not isinstance(self.supervisor_id, Unset):
-            supervisor_id = str(self.supervisor_id)
-
         status: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.status, Unset):
             status = self.status.to_dict()
@@ -75,6 +73,7 @@ class SupervisionRequest:
             {
                 "run_id": run_id,
                 "execution_id": execution_id,
+                "supervisor_id": supervisor_id,
                 "task_state": task_state,
                 "tool_requests": tool_requests,
                 "messages": messages,
@@ -82,8 +81,6 @@ class SupervisionRequest:
         )
         if id is not UNSET:
             field_dict["id"] = id
-        if supervisor_id is not UNSET:
-            field_dict["supervisor_id"] = supervisor_id
         if status is not UNSET:
             field_dict["status"] = status
 
@@ -100,6 +97,8 @@ class SupervisionRequest:
         run_id = UUID(d.pop("run_id"))
 
         execution_id = UUID(d.pop("execution_id"))
+
+        supervisor_id = UUID(d.pop("supervisor_id"))
 
         task_state = TaskState.from_dict(d.pop("task_state"))
 
@@ -124,13 +123,6 @@ class SupervisionRequest:
         else:
             id = UUID(_id)
 
-        _supervisor_id = d.pop("supervisor_id", UNSET)
-        supervisor_id: Union[Unset, UUID]
-        if isinstance(_supervisor_id, Unset):
-            supervisor_id = UNSET
-        else:
-            supervisor_id = UUID(_supervisor_id)
-
         _status = d.pop("status", UNSET)
         status: Union[Unset, SupervisionStatus]
         if isinstance(_status, Unset):
@@ -141,11 +133,11 @@ class SupervisionRequest:
         supervision_request = cls(
             run_id=run_id,
             execution_id=execution_id,
+            supervisor_id=supervisor_id,
             task_state=task_state,
             tool_requests=tool_requests,
             messages=messages,
             id=id,
-            supervisor_id=supervisor_id,
             status=status,
         )
 
