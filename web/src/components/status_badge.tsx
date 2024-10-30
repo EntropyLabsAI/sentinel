@@ -12,7 +12,7 @@ export function StatusBadge({ status }: { status: Status }) {
     [Status.assigned]: 'bg-purple-700',
     [Status.timeout]: 'bg-gray-600',
   }
-  return <Badge className={`shadow-none ${colors[status]}`}>{status.toUpperCase()}</Badge>;
+  return <Badge className={`shadow-none ${colors[status]}`}>{status}</Badge>;
 }
 
 export function DecisionBadge({ decision }: { decision: Decision }) {
@@ -24,16 +24,17 @@ export function DecisionBadge({ decision }: { decision: Decision }) {
     [Decision.terminate]: 'bg-black',
   }
 
-  return <Badge className={`text-center ${colors[decision]} text-white shadow-none whitespace-nowrap`}>{decision.toUpperCase()}</Badge>;
+  return <Badge className={`text-center ${colors[decision]} text-white shadow-none whitespace-nowrap`}>{decision}</Badge>;
 }
 
 export const SupervisorTypeBadge: React.FC<{ type: SupervisorType }> = ({ type }) => {
-  const label = type === SupervisorType.client_supervisor ? "Client-side Supervision" : "Human Supervision";
+  const label = type === SupervisorType.client_supervisor ? "client-side supervision" : "human supervision";
   const color = type === SupervisorType.client_supervisor ? "blue" : "blue";
-  return <Badge className={`text-white bg-${color}-900 shadow-none whitespace-nowrap hover:bg-${color}-700`}>{label.toUpperCase()}</Badge>;
+  return <Badge className={`text-white bg-${color}-900 shadow-none whitespace-nowrap hover:bg-${color}-700`}>{label}</Badge>;
 
 };
 
+// TODO accept a tool object instead of ID, optionally.
 export const ToolBadge: React.FC<{ toolId: string }> = ({ toolId }) => {
   // Load tool name from toolId
   const { data, isLoading, error } = useGetTool(toolId);
