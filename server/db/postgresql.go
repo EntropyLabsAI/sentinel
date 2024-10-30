@@ -133,6 +133,27 @@ func (s *PostgresqlStore) CreateExecution(ctx context.Context, runId uuid.UUID, 
 	return id, nil
 }
 
+func (s *PostgresqlStore) GetSupervisorFromValues(ctx context.Context, code string, name string, desc string, t sentinel.SupervisorType) (*sentinel.Supervisor, error) {
+	query := `
+		SELECT id, code, name, description, type, created_at
+		FROM supervisor
+		WHERE code = $1
+		AND name = $2
+		AND description = $3
+		AND type = $4`
+
+	var supervisor sentinel.Supervisor
+	err := s.db.QueryRowContext(ctx, query, code, name, desc, t).Scan(&supervisor.Id, &supervisor.Code, &supervisor.Name, &supervisor.Description, &supervisor.Type, &supervisor.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error getting supervisor by values: %w", err)
+	}
+
+	return &supervisor, nil
+}
+
 func (s *PostgresqlStore) GetExecution(ctx context.Context, id uuid.UUID) (*sentinel.Execution, error) {
 	query := `
 		SELECT id, run_id, tool_id, created_at
