@@ -190,7 +190,7 @@ def register_tools_and_supervisors(client: Client, run_id: UUID):
 
 
 
-def wait_for_human_decision(review_id: UUID, client: Client, timeout: int = 300) -> str:
+def wait_for_human_decision(review_id: UUID, client: Client, timeout: int = 300) -> Status:
     start_time = time.time()
 
     while True:
@@ -214,7 +214,7 @@ def wait_for_human_decision(review_id: UUID, client: Client, timeout: int = 300)
 
         if time.time() - start_time > timeout:
             print(f"Timed out waiting for human supervision decision. Timeout: {timeout} seconds")
-            raise TimeoutError("Timed out waiting for human supervision decision.")
+            return Status.TIMEOUT
 
         time.sleep(5)  # Wait for 5 seconds before polling again
 
