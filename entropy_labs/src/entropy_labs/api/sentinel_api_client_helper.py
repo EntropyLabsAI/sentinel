@@ -145,44 +145,21 @@ def register_tools_and_supervisors(client: Client, run_id: UUID):
 
         # Register supervisors and associate them with the tool
         supervisor_ids = []
-        for supervisor_func in supervision_functions or []:
-            supervisor_name = supervisor_func.__name__
-            supervisor_description = supervisor_func.__doc__
-            supervisor_code = get_function_code(supervisor_func)
-            
-            # Determine supervisor type
-            if supervisor_name == 'human_supervisor':
-                supervisor_type = SupervisorType.HUMAN_SUPERVISOR
-            else:
-                supervisor_type = SupervisorType.CLIENT_SUPERVISOR
-
-            supervisor_data = Supervisor(
-                name=supervisor_name,
-                description=supervisor_description,
-                created_at=datetime.now(timezone.utc),
-                type=supervisor_type,
-                code=supervisor_code
-            )
-            supervisor_response = create_supervisor_sync_detailed(
-                client=client,
-                body=supervisor_data
-            )
-            if (
-                supervisor_response.status_code == 200 and
-                supervisor_response.parsed is not None and
-                supervisor_response.parsed.id is not None
-            ):
-                supervisor_id = supervisor_response.parsed.id
-                supervision_context.add_supervisor_id(supervisor_name, supervisor_id)
-                # Add this line to store the supervisor function
-                if isinstance(supervisor_id, UUID):  # Ensure supervisor_id is a UUID
-                    supervision_config.add_local_supervisor(supervisor_id, supervisor_func)
-                else:
-                    raise ValueError("Invalid supervisor_id: Expected UUID")
-                print(f"Supervisor '{supervisor_name}' registered with ID: {supervisor_id}")
-            else:
-                raise Exception(f"Failed to register supervisor '{supervisor_name}'. Status code: {supervisor_response.status_code}")
+        if supervision_functions == []:
+            supervisor_info = create_auto_approve_supervisor()
+            supervisor_id = register_supervisor(client, supervisor_info, supervision_context)
             supervisor_ids.append(supervisor_id)
+        else:
+            for supervisor_func in supervision_functions:
+                supervisor_info = {
+                    'func': supervisor_func,
+                    'name': supervisor_func.__name__,
+                    'description': supervisor_func.__doc__,
+                    'type': SupervisorType.HUMAN_SUPERVISOR if supervisor_func.__name__ == 'human_supervisor' else SupervisorType.CLIENT_SUPERVISOR,
+                    'code': get_function_code(supervisor_func)
+                }
+                supervisor_id = register_supervisor(client, supervisor_info, supervision_context)
+                supervisor_ids.append(supervisor_id)
 
         # Ensure tool_id is a UUID before proceeding
         if tool_id is UNSET or not isinstance(tool_id, UUID):
@@ -369,7 +346,7 @@ def send_supervision_request(supervisor, func, supervision_context, execution_id
     supervision_request = SupervisionRequest(
         run_id=run_id,
         execution_id=execution_id,
-        supervisor_id=supervisor.id,
+        supervisor_id=supervisor.id if supervisor else UNSET,
         task_state=supervision_context.to_task_state(), #TODO: Make sure this is the correct format
         tool_requests=tool_requests,
         messages=[supervision_context.get_api_messages()[-1]] #TODO: API otherwise returns Number of tool choices and messages must be the same
@@ -462,3 +439,53 @@ def send_review_result(
     except Exception as e:
         print(f"Error submitting supervision result: {e}")
         raise
+
+def create_auto_approve_supervisor():
+    """Creates a default supervisor that automatically approves everything."""
+    def auto_approve_supervisor(x):
+        """Automatically approves any input since no supervisor was found for this function."""
+        return SupervisionDecision(
+            decision=SupervisionDecisionType.APPROVE, 
+            explanation="No supervisor found for this function. It's automatically approved."
+        )
+    
+    return {
+        'func': auto_approve_supervisor,
+        'name': "No supervisor",
+        'description': auto_approve_supervisor.__doc__,
+        'type': SupervisorType.NO_SUPERVISOR,
+        'code': get_function_code(auto_approve_supervisor)
+    }
+
+def register_supervisor(client: Client, supervisor_info: dict, supervision_context) -> UUID:
+    """Registers a single supervisor with the API and returns its ID."""
+    supervisor_data = Supervisor(
+        name=supervisor_info['name'],
+        description=supervisor_info['description'],
+        created_at=datetime.now(timezone.utc),
+        type=supervisor_info['type'],
+        code=supervisor_info['code']
+    )
+    
+    supervisor_response = create_supervisor_sync_detailed(
+        client=client,
+        body=supervisor_data
+    )
+    
+    if (
+        supervisor_response.status_code == 200 and
+        supervisor_response.parsed is not None and
+        supervisor_response.parsed.id is not None
+    ):
+        supervisor_id = supervisor_response.parsed.id
+        supervision_context.add_supervisor_id(supervisor_info['name'], supervisor_id)
+        
+        if isinstance(supervisor_id, UUID):
+            supervision_config.add_local_supervisor(supervisor_id, supervisor_info['func'])
+        else:
+            raise ValueError("Invalid supervisor_id: Expected UUID")
+            
+        print(f"Supervisor '{supervisor_info['name']}' registered with ID: {supervisor_id}")
+        return supervisor_id
+    else:
+        raise Exception(f"Failed to register supervisor '{supervisor_info['name']}'. Status code: {supervisor_response.status_code}")
