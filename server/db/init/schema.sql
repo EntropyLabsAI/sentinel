@@ -3,7 +3,6 @@ DROP TABLE IF EXISTS toolrequest CASCADE;
 DROP TABLE IF EXISTS supervisionrequest_status CASCADE;
 DROP TABLE IF EXISTS supervisionrequest CASCADE;
 DROP TABLE IF EXISTS run_tool_supervisor CASCADE;
-DROP TABLE IF EXISTS execution_status CASCADE;
 DROP TABLE IF EXISTS llm_supervisor CASCADE;
 DROP TABLE IF EXISTS code_supervisor CASCADE;
 DROP TABLE IF EXISTS execution CASCADE;
@@ -80,14 +79,6 @@ CREATE TABLE code_supervisor (
     supervisor_id UUID PRIMARY KEY,
     code UUID,
     FOREIGN KEY (supervisor_id) REFERENCES supervisor(id)
-);
-
-CREATE TABLE execution_status (
-    id SERIAL PRIMARY KEY,
-    execution_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE,
-    status TEXT CHECK (status IN ('pending', 'completed', 'failed')),
-    FOREIGN KEY (execution_id) REFERENCES execution(id)
 );
 
 CREATE TABLE run_tool_supervisor (
