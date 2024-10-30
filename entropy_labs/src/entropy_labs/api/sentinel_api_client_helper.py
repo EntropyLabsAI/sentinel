@@ -1,6 +1,7 @@
 import asyncio
 from entropy_labs.supervision.config import SupervisionDecision, SupervisionDecisionType, supervision_config
 from entropy_labs.supervision.inspect_ai._config import FRONTEND_URL
+from entropy_labs.supervision.supervisors import auto_approve_supervisor
 from rich.console import Console
 from inspect_ai.util._console import input_screen
 import time
@@ -146,7 +147,14 @@ def register_tools_and_supervisors(client: Client, run_id: UUID):
         # Register supervisors and associate them with the tool
         supervisor_ids = []
         if supervision_functions == []:
-            supervisor_info = create_auto_approve_supervisor()
+            supervisor_func = auto_approve_supervisor()
+            supervisor_info = {
+                    'func': supervisor_func,
+                    'name': supervisor_func.__name__,
+                    'description': supervisor_func.__doc__,
+                    'type': SupervisorType.NO_SUPERVISOR,
+                    'code': get_function_code(supervisor_func)
+            }
             supervisor_id = register_supervisor(client, supervisor_info, supervision_context)
             supervisor_ids.append(supervisor_id)
         else:
@@ -346,7 +354,7 @@ def send_supervision_request(supervisor, func, supervision_context, execution_id
     supervision_request = SupervisionRequest(
         run_id=run_id,
         execution_id=execution_id,
-        supervisor_id=supervisor.id if supervisor else UNSET,
+        supervisor_id=supervisor.id,
         task_state=supervision_context.to_task_state(), #TODO: Make sure this is the correct format
         tool_requests=tool_requests,
         messages=[supervision_context.get_api_messages()[-1]] #TODO: API otherwise returns Number of tool choices and messages must be the same
@@ -439,23 +447,6 @@ def send_review_result(
     except Exception as e:
         print(f"Error submitting supervision result: {e}")
         raise
-
-def create_auto_approve_supervisor():
-    """Creates a default supervisor that automatically approves everything."""
-    def auto_approve_supervisor(x):
-        """Automatically approves any input since no supervisor was found for this function."""
-        return SupervisionDecision(
-            decision=SupervisionDecisionType.APPROVE, 
-            explanation="No supervisor found for this function. It's automatically approved."
-        )
-    
-    return {
-        'func': auto_approve_supervisor,
-        'name': "No supervisor",
-        'description': auto_approve_supervisor.__doc__,
-        'type': SupervisorType.NO_SUPERVISOR,
-        'code': get_function_code(auto_approve_supervisor)
-    }
 
 def register_supervisor(client: Client, supervisor_info: dict, supervision_context) -> UUID:
     """Registers a single supervisor with the API and returns its ID."""
