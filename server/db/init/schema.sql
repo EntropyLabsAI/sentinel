@@ -28,7 +28,7 @@ CREATE TABLE tool (
 
 CREATE TABLE project (
     id UUID PRIMARY KEY,
-    name TEXT,
+    name TEXT UNIQUE,
     created_at TIMESTAMP WITH TIME ZONE
 );
 
