@@ -66,25 +66,17 @@ from entropy_labs.supervision.config import (
 # Create an asyncio.Lock to prevent concurrent console access
 _console_lock = asyncio.Lock()
 
-def register_project(client: Client, project_name: str, overwrite_old_project: bool = False) -> UUID:
+def register_project(client: Client, project_name: str) -> UUID:
     """
     Registers a new project using the Sentinel API.
 
     Args:
         client (Client): The Sentinel API client.
         project_name (str): The name of the project to create.
-        overwrite_old_project (bool): If True, create a new project even if one exists with the same name.
 
     Returns:
         UUID: The project ID.
     """
-    # First check if the project already exists
-    if not overwrite_old_project:
-        existing_projects_response = get_projects_sync_detailed(client=client)
-        if existing_projects_response.status_code == 200 and existing_projects_response.parsed:
-            for project in existing_projects_response.parsed:
-                if project.name == project_name:
-                    return project.id
     
     # Create new project if it doesn't exist or overwrite_old_project is True
     project_data = ProjectCreate(
