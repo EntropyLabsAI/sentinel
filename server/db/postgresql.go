@@ -204,7 +204,7 @@ func (s *PostgresqlStore) GetProjects(ctx context.Context) ([]sentinel.Project, 
 	}
 	defer rows.Close()
 
-	var projects []sentinel.Project
+	projects := make([]sentinel.Project, 0)
 	for rows.Next() {
 		var project sentinel.Project
 		if err := rows.Scan(&project.Id, &project.Name, &project.CreatedAt); err != nil {
@@ -213,7 +213,6 @@ func (s *PostgresqlStore) GetProjects(ctx context.Context) ([]sentinel.Project, 
 		projects = append(projects, project)
 	}
 
-	// If no rows were found, projects will be empty slice
 	return projects, nil
 }
 
