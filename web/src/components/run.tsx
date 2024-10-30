@@ -6,8 +6,8 @@ import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Page from "./page";
 import { ToolsList } from "@/components/tools_list";
-import ExecutionCard from "./execution_card";
 import { UUIDDisplay } from "@/components/uuid_display";
+import ExecutionTable from "./execution_table";
 
 export default function Run() {
   const { runId } = useParams();
@@ -19,6 +19,8 @@ export default function Run() {
 
   useEffect(() => {
     if (data?.data) {
+      // Sort executions by created_at
+      data.data.sort((a, b) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime());
       setExecutions(data.data);
     }
   }, [data]);
@@ -48,17 +50,12 @@ export default function Run() {
           </span>
         }
       >
-        <div className="mb-4">
-        </div>
+        <div className="mb-4"></div>
       </Page>
 
-      <Page title={`Executions for run`} subtitle={`${executions.length} execution${executions.length === 1 ? "" : "s"} for this run `}>
-        <div className="mb-4">
-          {executions.map((execution) => (
-            <>
-              <ExecutionCard key={execution.id} execution={execution} />
-            </>
-          ))}
+      <Page title={`Executions for run`} subtitle={`${executions.length} execution${executions.length === 1 ? "" : "s"} of ${tools.length} tool${tools.length === 1 ? "" : "s"} for this run `}>
+        <div className="col-span-3">
+          <ExecutionTable executions={executions} />
         </div>
       </Page>
       <Page title="Tools used in this run" subtitle={`${tools.length} tool${tools.length === 1 ? "" : "s"} used in this run`}>
@@ -67,3 +64,11 @@ export default function Run() {
     </>
   );
 }
+
+{/* <div className="mb-4 flex flex-col col-span-3 gap-4">
+          {executions.map((execution) => (
+            <div className="flex flex-row">
+              <ExecutionCard key={execution.id} execution={execution} />
+            </div>
+          ))}
+        </div> */}
