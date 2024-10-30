@@ -535,6 +535,17 @@ func apiGetExecutionHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID
 func apiGetRunExecutionsHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
 	ctx := r.Context()
 
+	run, err := store.GetRun(ctx, runId)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if run == nil {
+		http.Error(w, "Run not found", http.StatusNotFound)
+		return
+	}
+
 	executions, err := store.GetRunExecutions(ctx, runId)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

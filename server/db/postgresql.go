@@ -194,15 +194,20 @@ func (s *PostgresqlStore) GetRunExecutions(ctx context.Context, runId uuid.UUID)
 }
 
 func (s *PostgresqlStore) GetExecutionStatus(ctx context.Context, id uuid.UUID) (sentinel.Status, error) {
+	// Get the most recent status for any supervision request associated with this execution
 	query := `
-		SELECT status
-		FROM execution_status
-		WHERE execution_id = $1
-		ORDER BY created_at DESC
+		SELECT ss.status
+		FROM supervisionrequest_status ss
+		JOIN supervisionrequest sr ON ss.supervisionrequest_id = sr.id
+		WHERE sr.execution_id = $1
+		ORDER BY ss.id DESC
 		LIMIT 1`
 
 	var status sentinel.Status
 	err := s.db.QueryRowContext(ctx, query, id).Scan(&status)
+	if errors.Is(err, sql.ErrNoRows) {
+		return sentinel.Failed, nil
+	}
 	if err != nil {
 		return sentinel.Status(""), fmt.Errorf("error getting execution status: %w", err)
 	}
