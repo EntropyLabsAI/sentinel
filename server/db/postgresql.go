@@ -821,14 +821,14 @@ func (s *PostgresqlStore) GetSupervisionRequestsForStatus(ctx context.Context, s
 
 func (s *PostgresqlStore) GetSupervisorFromToolID(ctx context.Context, id uuid.UUID) (*sentinel.Supervisor, error) {
 	query := `
-		SELECT s.id, s.description, s.created_at, s.type
+		SELECT s.id, s.description, s.name, s.code, s.created_at, s.type
 		FROM supervisor s
 		INNER JOIN tool_supervisor ts ON s.id = ts.supervisor_id
 		INNER JOIN tool t ON ts.tool_id = t.id
 		WHERE t.id = $1`
 
 	var supervisor sentinel.Supervisor
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&supervisor.Id, &supervisor.Description, &supervisor.CreatedAt, &supervisor.Type)
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&supervisor.Id, &supervisor.Description, &supervisor.Name, &supervisor.Code, &supervisor.CreatedAt, &supervisor.Type)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -1110,12 +1110,12 @@ func (s *PostgresqlStore) GetRunToolSupervisors(ctx context.Context, runId uuid.
 
 func (s *PostgresqlStore) GetSupervisor(ctx context.Context, id uuid.UUID) (*sentinel.Supervisor, error) {
 	query := `
-		SELECT id, description, created_at, type
+		SELECT id, description, name, created_at, type
 		FROM supervisor
 		WHERE id = $1`
 
 	var supervisor sentinel.Supervisor
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&supervisor.Id, &supervisor.Description, &supervisor.CreatedAt, &supervisor.Type)
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&supervisor.Id, &supervisor.Description, &supervisor.Name, &supervisor.CreatedAt, &supervisor.Type)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -1128,7 +1128,7 @@ func (s *PostgresqlStore) GetSupervisor(ctx context.Context, id uuid.UUID) (*sen
 
 func (s *PostgresqlStore) GetSupervisors(ctx context.Context, projectId uuid.UUID) ([]sentinel.Supervisor, error) {
 	query := `
-		SELECT s.id, s.description, s.created_at, s.type
+		SELECT s.id, s.description, s.name, s.code, s.created_at, s.type
 		FROM supervisor s
 		INNER JOIN run_tool_supervisor rts ON s.id = rts.supervisor_id
 		INNER JOIN run r ON rts.run_id = r.id
@@ -1143,7 +1143,7 @@ func (s *PostgresqlStore) GetSupervisors(ctx context.Context, projectId uuid.UUI
 	var supervisors []sentinel.Supervisor
 	for rows.Next() {
 		var supervisor sentinel.Supervisor
-		if err := rows.Scan(&supervisor.Id, &supervisor.Description, &supervisor.CreatedAt, &supervisor.Type); err != nil {
+		if err := rows.Scan(&supervisor.Id, &supervisor.Description, &supervisor.Name, &supervisor.Code, &supervisor.CreatedAt, &supervisor.Type); err != nil {
 			return nil, fmt.Errorf("error scanning supervisor: %w", err)
 		}
 		supervisors = append(supervisors, supervisor)
