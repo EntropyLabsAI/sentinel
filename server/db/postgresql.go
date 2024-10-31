@@ -725,7 +725,7 @@ func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*sentinel.
 
 func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UUID) ([]sentinel.Tool, error) {
 	query := `
-		SELECT t.id, t.name, t.attributes, t.description
+		SELECT DISTINCT ON (t.id) t.id, t.name, t.attributes, t.description
 		FROM tool t
 		INNER JOIN run_tool_supervisor rts ON t.id = rts.tool_id
 		INNER JOIN run r ON rts.run_id = r.id
