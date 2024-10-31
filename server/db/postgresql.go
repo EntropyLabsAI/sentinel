@@ -865,10 +865,10 @@ func (s *PostgresqlStore) CreateSupervisor(ctx context.Context, supervisor senti
 	id = uuid.New()
 
 	query = `
-		INSERT INTO supervisor (id, description, created_at, type, code)
-		VALUES ($1, $2, $3, $4, $5)`
+		INSERT INTO supervisor (id, description, name, created_at, type, code)
+		VALUES ($1, $2, $3, $4, $5, $6)`
 
-	_, err = s.db.ExecContext(ctx, query, id, supervisor.Description, supervisor.CreatedAt, supervisor.Type, supervisor.Code)
+	_, err = s.db.ExecContext(ctx, query, id, supervisor.Description, supervisor.Name, supervisor.CreatedAt, supervisor.Type, supervisor.Code)
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error creating supervisor: %w", err)
 	}
