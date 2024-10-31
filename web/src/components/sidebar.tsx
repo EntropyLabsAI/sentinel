@@ -1,5 +1,5 @@
 import * as React from "react"
-import { BookIcon, Check, ChevronsUpDown, PickaxeIcon, GithubIcon, InspectIcon, FileIcon, RailSymbol, Building2Icon, LucideBuilding, CogIcon, HistoryIcon, BarChartIcon } from "lucide-react"
+import { BookIcon, Check, ChevronsUpDown, PickaxeIcon, GithubIcon, InspectIcon, FileIcon, RailSymbol, Building2Icon, LucideBuilding, CogIcon, HistoryIcon, BarChartIcon, DoorOpenIcon } from "lucide-react"
 import { Link, useLocation } from 'react-router-dom'
 
 import {
@@ -78,13 +78,6 @@ export default function SidebarComponent({ children }: SidebarProps) {
         url: "#",
         items: [
           {
-            title: "Supervisors",
-            url: "/supervisors",
-            isActive: false,
-            disabled: false,
-            icon: <InspectIcon />
-          },
-          {
             title: "Projects",
             url: "/projects",
             isActive: true,
@@ -99,6 +92,13 @@ export default function SidebarComponent({ children }: SidebarProps) {
             icon: <RailSymbol />
           },
           {
+            title: "Supervisors",
+            url: "/supervisors",
+            isActive: false,
+            disabled: false,
+            icon: <InspectIcon />
+          },
+          {
             title: "Tools",
             url: `/tools`,
             isActive: false,
@@ -111,6 +111,13 @@ export default function SidebarComponent({ children }: SidebarProps) {
             isActive: false,
             disabled: true,
             icon: <HistoryIcon />
+          },
+          {
+            title: "Export Data",
+            url: "/export",
+            isActive: false,
+            disabled: true,
+            icon: <DoorOpenIcon />
           },
           {
             title: "Stats",
