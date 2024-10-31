@@ -135,7 +135,7 @@ func (s *PostgresqlStore) CreateExecution(ctx context.Context, runId uuid.UUID, 
 
 func (s *PostgresqlStore) GetToolFromValues(ctx context.Context, attributes map[string]interface{}, name string, description string) (*sentinel.Tool, error) {
 	query := `
-		SELECT id, name, description, attributes, created_at
+		SELECT id, name, description, attributes
 		FROM tool
 		WHERE name = $1
 		AND description = $2
@@ -147,7 +147,7 @@ func (s *PostgresqlStore) GetToolFromValues(ctx context.Context, attributes map[
 	}
 
 	var tool sentinel.Tool
-	err = s.db.QueryRowContext(ctx, query, name, description, attrJSON).Scan(&tool.Id, &tool.Name, &tool.Description, &tool.CreatedAt)
+	err = s.db.QueryRowContext(ctx, query, name, description, attrJSON).Scan(&tool.Id, &tool.Name, &tool.Description)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
