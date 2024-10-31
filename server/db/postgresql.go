@@ -135,7 +135,7 @@ func (s *PostgresqlStore) CreateExecution(ctx context.Context, runId uuid.UUID, 
 
 func (s *PostgresqlStore) GetToolFromValues(ctx context.Context, attributes map[string]interface{}, name string, description string) (*sentinel.Tool, error) {
 	query := `
-		SELECT id, name, description, attributes
+		SELECT id, name, description
 		FROM tool
 		WHERE name = $1
 		AND description = $2
