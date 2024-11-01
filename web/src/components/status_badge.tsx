@@ -1,8 +1,8 @@
 import React from "react";
-import { Decision, Status, SupervisionStatus, SupervisorType, useGetTool } from "@/types";
+import { Decision, Status, SupervisionStatus, SupervisorType, useGetSupervisor, useGetTool } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
-import { PickaxeIcon } from "lucide-react";
+import { BotIcon, PickaxeIcon } from "lucide-react";
 
 export function StatusBadge({ status }: { status: Status }) {
   const colors = {
@@ -15,7 +15,11 @@ export function StatusBadge({ status }: { status: Status }) {
   return <Badge className={`shadow-none ${colors[status]}`}>{status}</Badge>;
 }
 
-export function DecisionBadge({ decision }: { decision: Decision }) {
+export function DecisionBadge({ decision }: { decision: Decision | undefined }) {
+  if (!decision) {
+    return
+  }
+
   const colors = {
     [Decision.approve]: 'bg-green-600',
     [Decision.modify]: 'bg-green-500',
@@ -43,5 +47,22 @@ export const ToolBadge: React.FC<{ toolId: string }> = ({ toolId }) => {
   if (error) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Error: {error.message}</Badge>;
 
   return <Badge className="text-gray-800 shadow-none bg-gray-100 hover:bg-gray-200 whitespace-nowrap"><Link to={`/tools/${toolId}`} className="flex flex-row gap-2 items-center"><PickaxeIcon className="w-3 h-3" />{data?.data.name}</Link></Badge>;
+
+};
+
+// TODO figure out which status is most recent and return that
+export const ExecutionStatusBadge: React.FC<{ statuses: SupervisionStatus[] }> = ({ statuses }) => {
+
+  return <StatusBadge status={statuses[statuses.length - 1].status} />
+}
+
+export const SupervisorBadge: React.FC<{ supervisorId: string }> = ({ supervisorId }) => {
+  // Load tool name from toolId
+  const { data, isLoading, error } = useGetSupervisor(supervisorId);
+
+  if (isLoading) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Loading...</Badge>;
+  if (error) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Error: {error.message}</Badge>;
+
+  return <Badge className="text-gray-800 shadow-none bg-gray-100 hover:bg-gray-200 whitespace-nowrap"><Link to={`/supervisors/${supervisorId}`} className="flex flex-row gap-2 items-center"><BotIcon className="w-3 h-3" />{data?.data.name}</Link></Badge>;
 
 };

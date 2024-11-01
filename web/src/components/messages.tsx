@@ -30,7 +30,7 @@ export function MessagesDisplay({ messages }: { messages: Message[] }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-[500px] overflow-auto" ref={scrollAreaRef}>
+        <div className="overflow-auto" ref={scrollAreaRef}>
           {messages.map((message, index) => (
             <MessageDisplay key={index} message={message} index={index} />
           ))}
