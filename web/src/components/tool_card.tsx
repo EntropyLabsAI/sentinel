@@ -16,26 +16,21 @@ type ToolCardProps = {
 export function ToolCard({ tool, runId }: ToolCardProps) {
   return (
     <Card className="flex flex-col ">
-      <CardHeader>
-        <CardTitle className="py-4">
+      <CardHeader className="py-2">
+        <CardTitle className="py-4 flex flex-row gap-4">
           <ToolBadge toolId={tool.id || ''} />
+          <p>
+            {tool.description}
+          </p>
         </CardTitle>
         <CardDescription>
-          <div>{tool.description}</div>
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex-grow flex flex-col gap-4">
+      <CardContent className="    flex flex-col gap-2">
         {tool.created_at}
-        {tool.attributes && <pre className="text-xs mt-1 bg-muted p-2 rounded">{JSON.stringify(tool.attributes, null, 2)}</pre>}
+        {tool.attributes && <pre className="text-xs bg-muted p-2 rounded">{JSON.stringify(tool.attributes, null, 2)}</pre>}
         {runId && tool.id && <RunToolSupervisors runId={runId} toolId={tool.id} />}
       </CardContent>
-
-      <CardFooter className="flex justify-end">
-        <Link to={`/tools/${tool.id}`} key={tool.id}>
-          <Button variant="outline">View Tool <ArrowRightIcon className="w-4 h-4" /></Button>
-        </Link>
-      </CardFooter>
-
     </Card>
   );
 }
