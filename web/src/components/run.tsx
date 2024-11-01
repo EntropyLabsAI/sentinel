@@ -44,16 +44,16 @@ export default function Run() {
         title="Run details"
         subtitle={
           <span>
-            {executions.length} execution{executions.length === 1 ? "" : "s"} for run{' '}
+            We recorded {executions.length} execution{executions.length === 1 ? "" : "s"} for run{' '}
             <UUIDDisplay uuid={runId} />{' '}
-            across {tools.length} tool{tools.length === 1 ? "" : "s"}
+            across {tools.length} tool{tools.length === 1 ? "" : "s"}. To see more details for each tool execution, inspect the rows in the table below.
           </span>
         }
       >
         <div className="mb-4"></div>
       </Page>
 
-      <Page title={`Executions for run`} subtitle={`${executions.length} execution${executions.length === 1 ? "" : "s"} of ${tools.length} tool${tools.length === 1 ? "" : "s"} for this run `}>
+      <Page title={`Executions for run`} subtitle={`During this agent run, we recorded ${executions.length} execution${executions.length === 1 ? "" : "s"} of ${tools.length} tool${tools.length === 1 ? "" : "s"}. `}>
         <div className="col-span-3">
           <ExecutionTable executions={executions} />
         </div>
