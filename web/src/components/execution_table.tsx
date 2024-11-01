@@ -23,7 +23,7 @@ import { useProject } from "@/contexts/project_context"
 
 export default function ExecutionTable({ executions }: { executions: Execution[] }) {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
-  const projectId = useProject()
+  const { selectedProject } = useProject()
 
   const toggleRow = (invoice: string) => {
     setExpandedRows((prev) => ({ ...prev, [invoice]: !prev[invoice] }))
@@ -41,20 +41,28 @@ export default function ExecutionTable({ executions }: { executions: Execution[]
         </TableRow>
       </TableHeader>
       <TableBody>
-        {executions?.map((execution) => (
+        {executions?.map((execution, index) => (
           <>
             <TableRow key={execution.id} className="">
-              <TableCell className="font-medium"><UUIDDisplay uuid={execution.id} href={`/projects/${projectId}/runs/${execution.run_id}/executions/${execution.id}`} /></TableCell>
+              <TableCell className="font-medium"><UUIDDisplay uuid={execution.id} href={`/projects/${selectedProject}/runs/${execution.run_id}/executions/${execution.id}`} /></TableCell>
               <TableCell>
                 <ToolBadge toolId={execution.tool_id || ''} />
               </TableCell>
               <TableCell><StatusBadge status={execution.status || Status.failed} /></TableCell>
               <TableCell className="text-right"><CreatedAgo datetime={execution.created_at || ''} /></TableCell>
-              <TableCell className="cursor-pointer w-[100px]" onClick={() => toggleRow(execution.id)}>
+              <TableCell className="cursor-pointer w-[200px]" onClick={() => toggleRow(execution.id)}>
                 {expandedRows[execution.id] ? (
-                  <ChevronUpIcon className="h-4 w-4" />
+
+
+                  <span className="flex flex-row gap-4 text-xs text-muted-foreground">
+                    <ChevronUpIcon className="h-4 w-4" />
+                    Execution summary
+                  </span>
                 ) : (
-                  <ChevronDownIcon className="h-4 w-4" />
+                  <span className="flex flex-row gap-4 text-xs text-muted-foreground">
+                    <ChevronDownIcon className="h-4 w-4" />
+                    Execution summary
+                  </span>
                 )}
               </TableCell>
             </TableRow>
@@ -62,8 +70,12 @@ export default function ExecutionTable({ executions }: { executions: Execution[]
               <TableCell colSpan={5} className="p-0">
                 <div
                   className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
-                  style={{ maxHeight: expandedRows[execution.id] ? "500px" : "0" }}
+                  style={{
+                    maxHeight: expandedRows[execution.id] ? "500px" : "0",
+                    padding: expandedRows[execution.id] ? "1rem" : "0rem"
+                  }}
                 >
+                  <p className="text-sm text-gray-500">In this execution, the agent requested to execute the <ToolBadge toolId={execution.tool_id || ''} /> tool. The agent was supervised by the configured supervisors, resulting in these supervision results:</p>
                   <div className="p-4 bg-muted/50">
                     <SupervisionDetails executionId={execution.id} />
                   </div>
