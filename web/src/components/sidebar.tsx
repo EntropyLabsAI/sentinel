@@ -37,6 +37,7 @@ import { useEffect, useState } from "react"
 import { useProject } from '@/contexts/project_context';
 import { Project, useGetProjects } from '@/types'; // Assuming you have this hook from Orval
 import { useConfig } from "@/contexts/config_context"
+import { randomUUID } from "crypto"
 
 interface SidebarProps {
   children: React.ReactNode;
@@ -268,7 +269,7 @@ export default function SidebarComponent({ children }: SidebarProps) {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink>
+                <BreadcrumbLink asChild={true}>
                   <Link to="/">
                     home
                   </Link>
@@ -276,16 +277,15 @@ export default function SidebarComponent({ children }: SidebarProps) {
               </BreadcrumbItem>
               {currentPath.length > 0 && (
                 currentPath.map((path, index) => (
-                  <>
-                    <BreadcrumbSeparator className="hidden md:block" />
-                    <BreadcrumbItem key={path}>
+                  <BreadcrumbItem key={index}>
+                    {/* <BreadcrumbSeparator className="hidden md:block" /> */}
+                    <span className="text-muted-foreground text-xs">/</span>
+                    <BreadcrumbLink asChild={true}>
                       <Link to={`/${currentPath.slice(0, index + 1).join('/')}`}>
-                        <BreadcrumbLink>
-                          {path}
-                        </BreadcrumbLink>
+                        {path}
                       </Link>
-                    </BreadcrumbItem>
-                  </>
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
                 ))
               )}
             </BreadcrumbList>

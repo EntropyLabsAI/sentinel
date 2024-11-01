@@ -38,12 +38,14 @@ export default function ProjectList() {
       {projects.length === 0 && <div>No projects found. To register a project, check out the <Link to="/api" className="text-blue-500">docs</Link>.</div>}
 
       {projects.map((project) => (
-        <Card className="flex flex-col">
+        <Card key={project.id} className="flex flex-col">
           <CardHeader>
             <CardTitle>{project.name}</CardTitle>
-            <CardDescription>
+            <CardDescription className="flex flex-col">
               <span>Project <UUIDDisplay uuid={project.id} /></span>
-              <div><CreatedAgo datetime={project.created_at} /></div>
+              <span>
+                <CreatedAgo datetime={project.created_at} />
+              </span>
             </CardDescription>
           </CardHeader>
           <CardContent className="flex-grow">

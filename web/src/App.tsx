@@ -10,6 +10,7 @@ import Executions from './components/run';
 import Tools from './components/tools';
 import ToolDetails from './components/tool';
 import SupervisorDetails from './components/supervisor_details';
+import Execution from './components/execution';
 
 const App: React.FC = () => {
   return (
@@ -18,22 +19,15 @@ const App: React.FC = () => {
         <Router>
           <Sidebar >
             <Routes>
-              <Route path="/" element={
-                <Home />
-              } />
-              <Route path="/projects" element={
-                <ProjectList />
-              } />
-              <Route path="/supervisors" element={
-                <SupervisorSelection />
-              } />
-              <Route path="/api" element={
-                <SwaggerUI />
-              } />
+              <Route path="/" element={<Home />} />
+              <Route path="/api" element={<SwaggerUI />} />
+              <Route path="/projects" element={<ProjectList />} />
               <Route path="/projects/:projectId" element={<Runs />} />
               <Route path="/projects/:projectId/runs/:runId" element={<Executions />} />
+              <Route path="/projects/:projectId/runs/:runId/executions/:executionId" element={<Execution />} />
               <Route path="/tools" element={<Tools />} />
               <Route path="/tools/:toolId" element={<ToolDetails />} />
+              <Route path="/supervisors" element={<SupervisorSelection />} />
               <Route path="/supervisors/:supervisorId" element={<SupervisorDetails />} />
             </Routes>
           </Sidebar>
