@@ -19,9 +19,11 @@ import { Link } from "react-router-dom"
 import { Badge } from "@/components/ui/badge"
 import { SupervisionDetails } from "@/components/supervision_details"
 import { StatusBadge, ToolBadge } from "./status_badge"
+import { useProject } from "@/contexts/project_context"
 
 export default function ExecutionTable({ executions }: { executions: Execution[] }) {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
+  const projectId = useProject()
 
   const toggleRow = (invoice: string) => {
     setExpandedRows((prev) => ({ ...prev, [invoice]: !prev[invoice] }))
@@ -42,7 +44,7 @@ export default function ExecutionTable({ executions }: { executions: Execution[]
         {executions?.map((execution) => (
           <>
             <TableRow key={execution.id} className="">
-              <TableCell className="font-medium"><UUIDDisplay uuid={execution.id} /></TableCell>
+              <TableCell className="font-medium"><UUIDDisplay uuid={execution.id} href={`/projects/${projectId}/runs/${execution.run_id}/executions/${execution.id}`} /></TableCell>
               <TableCell>
                 <ToolBadge toolId={execution.tool_id || ''} />
               </TableCell>
@@ -82,11 +84,12 @@ export default function ExecutionTable({ executions }: { executions: Execution[]
 }
 
 export function ExecutionCard({ execution }: { execution: Execution }) {
+  const projectId = useProject()
   return (
     <Card key={execution.id} className="w-full ">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          Execution <UUIDDisplay uuid={execution.id} />
+          Execution <UUIDDisplay uuid={execution.id} href={`/projects/${projectId}/runs/${execution.run_id}/executions/${execution.id}`} />
           <Badge>{execution.status}</Badge>
         </CardTitle>
         <CardDescription>
