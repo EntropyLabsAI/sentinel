@@ -4,7 +4,7 @@ import { HubStats as HubStatsType } from '@/types';
 import * as Accordion from '@radix-ui/react-accordion';
 import { ChevronDownIcon } from 'lucide-react'; // Using Lucide Icons for the Chevron
 
-const HubStatsAccordion: React.FC<{ API_BASE_URL: string }> = ({ API_BASE_URL }) => {
+export const HubStatsAccordion: React.FC<{ API_BASE_URL: string }> = ({ API_BASE_URL }) => {
   const [hubStats, setHubStats] = useState<HubStatsType | null>(null);
   // Fetch hub stats every second
   useEffect(() => {
@@ -30,7 +30,7 @@ const HubStatsAccordion: React.FC<{ API_BASE_URL: string }> = ({ API_BASE_URL })
       <Accordion.Item value="hub-stats" className="border border-gray-200 rounded-md mb-4">
         <Accordion.Header>
           <Accordion.Trigger className="flex justify-between items-center w-full p-4 rounded-md cursor-pointer focus:outline-none">
-            <span className="text-sm font-mono font-semibold text-gray-400">Websocket Hub Statistics</span>
+            <span className="text-sm text-gray-400">Websocket Hub Statistics</span>
             <ChevronDownIcon className="h-5 w-5 transition-transform duration-200" />
           </Accordion.Trigger>
         </Accordion.Header>
@@ -45,8 +45,6 @@ const HubStatsAccordion: React.FC<{ API_BASE_URL: string }> = ({ API_BASE_URL })
     </Accordion.Root>
   );
 };
-
-export { HubStatsAccordion };
 
 const HubStats: React.FC<{ stats: HubStatsType }> = ({ stats }) => {
   return (
