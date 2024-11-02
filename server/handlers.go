@@ -286,7 +286,7 @@ func apiCreateSupervisorHandler(w http.ResponseWriter, r *http.Request, store Su
 	fmt.Printf("request: %+v\n", request)
 
 	// Check if the supervisor submitted for creation already exists in the db by looking up the name,code,type,desc
-	var existingSupervisor Supervisor
+	var existingSupervisor *Supervisor
 	if request.Code != nil && request.Name != "" && request.Description != "" && request.Type != "" {
 		fmt.Printf("looking up supervisor by values: %s, %s, %s, %s\n", *request.Code, request.Name, request.Description, request.Type)
 		found, err := store.GetSupervisorFromValues(ctx, *request.Code, request.Name, request.Description, request.Type)
@@ -296,13 +296,13 @@ func apiCreateSupervisorHandler(w http.ResponseWriter, r *http.Request, store Su
 		}
 		if found != nil {
 			fmt.Printf("found supervisor: %+v\n", *found)
-			existingSupervisor = *found
+			existingSupervisor = found
 		}
 	}
 
 	fmt.Printf("existingSupervisor: %+v\n", existingSupervisor)
 
-	if existingSupervisor.Id != &uuid.Nil {
+	if existingSupervisor != nil {
 		w.WriteHeader(http.StatusOK)
 		err = json.NewEncoder(w).Encode(existingSupervisor)
 		if err != nil {
