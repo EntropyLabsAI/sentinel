@@ -10,6 +10,15 @@ import (
 	"github.com/google/uuid"
 )
 
+// respondJSON writes a JSON response with status 200 OK
+func respondJSON(w http.ResponseWriter, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 // apiRegisterProjectHandler handles the POST /api/project/register endpoint
 func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request, store ProjectStore) {
 	ctx := r.Context()
@@ -29,12 +38,7 @@ func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request, store Pro
 	}
 
 	if existingProject != nil {
-		w.WriteHeader(http.StatusOK)
-		err = json.NewEncoder(w).Encode(existingProject)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Error encoding existing project: %v", err.Error()), http.StatusInternalServerError)
-			return
-		}
+		respondJSON(w, existingProject)
 		return
 	}
 
@@ -56,13 +60,7 @@ func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request, store Pro
 	}
 
 	// Send the response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(project)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, project)
 }
 
 // apiCreateRunHandler handles the POST /api/run endpoint
@@ -87,12 +85,7 @@ func apiCreateRunHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, s
 
 	log.Printf("created run with ID: %s", run.Id)
 
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(run)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, run)
 }
 
 // apiGetProjectRunsHandler handles the GET /api/project/{id}/runs endpoint
@@ -105,13 +98,7 @@ func apiGetProjectRunsHandler(w http.ResponseWriter, r *http.Request, id uuid.UU
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(runs)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, runs)
 }
 
 func apiGetRunsHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, store RunStore) {
@@ -123,13 +110,7 @@ func apiGetRunsHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UU
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(runs)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, runs)
 }
 
 // apiGetRunHandler handles the GET /api/run/{id} endpoint
@@ -147,13 +128,7 @@ func apiGetRunHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, stor
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(run)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, run)
 }
 
 // apiGetRunToolSupervisorsHandler handles the GET /api/runs/{runId}/tools/{toolId}/supervisors endpoint
@@ -171,13 +146,7 @@ func apiGetRunToolSupervisorsHandler(w http.ResponseWriter, r *http.Request, run
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(supervisors)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, supervisors)
 }
 
 func apiCreateToolHandler(w http.ResponseWriter, r *http.Request, store ToolStore) {
@@ -203,12 +172,7 @@ func apiCreateToolHandler(w http.ResponseWriter, r *http.Request, store ToolStor
 	}
 
 	if existingTool != nil {
-		w.WriteHeader(http.StatusOK)
-		err = json.NewEncoder(w).Encode(existingTool)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+		respondJSON(w, existingTool)
 		return
 	}
 	fmt.Printf("creating tool: %+v", request)
@@ -221,12 +185,7 @@ func apiCreateToolHandler(w http.ResponseWriter, r *http.Request, store ToolStor
 
 	request.Id = &toolId
 
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(request)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, request)
 }
 
 // apiCreateRunToolSupervisorsHandler handles the POST /api/runs/{runId}/tools/{toolId}/supervisors endpoint
@@ -251,7 +210,7 @@ func apiCreateRunToolSupervisorsHandler(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	respondJSON(w, nil)
 }
 
 func apiGetSupervisorHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store SupervisorStore) {
@@ -263,13 +222,7 @@ func apiGetSupervisorHandler(w http.ResponseWriter, r *http.Request, id uuid.UUI
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(supervisor)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, supervisor)
 }
 
 func apiCreateSupervisorHandler(w http.ResponseWriter, r *http.Request, store SupervisorStore) {
@@ -292,14 +245,6 @@ func apiCreateSupervisorHandler(w http.ResponseWriter, r *http.Request, store Su
 	respondJSON(w, request)
 }
 
-// respondJSON writes a JSON response with status 200 OK
-func respondJSON(w http.ResponseWriter, data interface{}) {
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
 func apiGetSupervisorsHandler(w http.ResponseWriter, r *http.Request, params GetSupervisorsParams, store SupervisorStore) {
 	ctx := r.Context()
 
@@ -309,13 +254,7 @@ func apiGetSupervisorsHandler(w http.ResponseWriter, r *http.Request, params Get
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(supervisors)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, supervisors)
 }
 
 func apiGetToolHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store ToolStore) {
@@ -350,13 +289,7 @@ func apiGetToolsHandler(w http.ResponseWriter, r *http.Request, params GetToolsP
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(tools)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, tools)
 }
 
 func apiGetRunToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
@@ -380,13 +313,7 @@ func apiGetRunToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID,
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(tools)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, tools)
 }
 
 // apiCreateSupervisionRequestHandler receives supervisor requests via the HTTP API
@@ -481,12 +408,7 @@ func apiCreateSupervisionRequestHandler(w http.ResponseWriter, r *http.Request, 
 
 	// Respond immediately with 200 OK.
 	// The client will receive and ID they can use to poll the status of their supervisor
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, response)
 }
 
 func apiGetExecutionHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
@@ -498,12 +420,7 @@ func apiGetExecutionHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(execution)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, execution)
 }
 
 func apiGetRunExecutionsHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
@@ -526,12 +443,7 @@ func apiGetRunExecutionsHandler(w http.ResponseWriter, r *http.Request, runId uu
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(executions)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, executions)
 }
 
 func apiCreateExecutionHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
@@ -564,12 +476,7 @@ func apiCreateExecutionHandler(w http.ResponseWriter, r *http.Request, runId uui
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(execution)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, execution)
 }
 
 // apiGetSupervisionRequestHandler handles the GET /api/supervisor/{id} endpoint
@@ -587,13 +494,7 @@ func apiGetSupervisionRequestHandler(w http.ResponseWriter, r *http.Request, id 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(supervisor)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, supervisor)
 }
 
 // apiGetSupervisionRequestsHandler handles the GET /api/supervisor endpoint
@@ -606,13 +507,7 @@ func apiGetSupervisionRequestsHandler(w http.ResponseWriter, r *http.Request, _ 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(reviews)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, reviews)
 }
 
 // apiGetSupervisionResultsHandler handles the GET /api/supervisor/{id}/results endpoint
@@ -637,13 +532,7 @@ func apiGetSupervisionResultsHandler(w http.ResponseWriter, r *http.Request, id 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(results)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, results)
 }
 
 // apiCreateSupervisionResultHandler handles the POST /api/supervisor/{id}/results endpoint
@@ -689,7 +578,7 @@ func apiCreateSupervisionResultHandler(w http.ResponseWriter, r *http.Request, _
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	respondJSON(w, request.SupervisionResult)
 }
 
 // apiSupervisionStatusHandler checks the status of a supervisor request
@@ -707,13 +596,7 @@ func apiSupervisionStatusHandler(w http.ResponseWriter, r *http.Request, reviewI
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(supervisor.Status)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, supervisor.Status)
 }
 
 // apiGetReviewToolRequestsHandler handles the GET /api/supervisor/{id}/toolrequests endpoint
@@ -738,13 +621,7 @@ func apiGetReviewToolRequestsHandler(w http.ResponseWriter, r *http.Request, id 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(results)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, results)
 }
 
 func apiStatsHandler(hub *Hub, w http.ResponseWriter, _ *http.Request) {
@@ -754,13 +631,7 @@ func apiStatsHandler(hub *Hub, w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(stats)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, stats)
 }
 
 // apiGetProjectsHandler returns all projects
@@ -773,13 +644,7 @@ func apiGetProjectsHandler(w http.ResponseWriter, r *http.Request, store Project
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(projects)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, projects)
 }
 
 // apiGetProjectByIdHandler handles the GET /api/project/{id} endpoint
@@ -797,12 +662,7 @@ func apiGetProjectByIdHandler(w http.ResponseWriter, r *http.Request, id uuid.UU
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(project); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, project)
 }
 
 // apiLLMExplanationHandler receives a code snippet and returns an explanation and a danger score by calling an LLM
@@ -879,11 +739,5 @@ func apiGetExecutionSupervisionsHandler(w http.ResponseWriter, r *http.Request, 
 		Statuses:    statuses,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, response)
 }
