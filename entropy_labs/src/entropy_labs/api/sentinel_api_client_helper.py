@@ -118,13 +118,13 @@ def register_tools_and_supervisors(client: Client, run_id: UUID):
 
     for func, data in supervision_context.supervised_functions_registry.items():
         supervision_functions = data['supervision_functions']
-        tool_name = func.__name__
+        tool_name = func.__qualname__
         attributes = ToolAttributes()
 
         # Register the tool
         tool_data = Tool(
             name=tool_name,
-            description=func.__doc__,
+            description=func.__doc__ if func.__doc__ else tool_name,
             attributes=attributes,
             created_at=datetime.now(timezone.utc)
         )

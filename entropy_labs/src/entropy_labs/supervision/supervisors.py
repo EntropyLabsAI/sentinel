@@ -8,6 +8,8 @@ from .config import (
 import inspect
 import json
 from openai import OpenAI
+from inspect_ai.tool import ToolCall
+from entropy_labs.sentinel_api_client.sentinel_api_client.client import Client
 
 client = OpenAI()
 
@@ -63,6 +65,9 @@ def llm_supervisor(
         *args,
         **kwargs
     ) -> SupervisionDecision:
+        """
+        LLM supervisor that makes a decision based on the function call, its arguments, and the supervision instructions.
+        """
         # Extract function details
         func_name = func.__name__
         func_description = func.__doc__ or "No description available."
@@ -144,6 +149,75 @@ Keyword Arguments: {kwargs}
     supervisor.__name__ = llm_supervisor.__name__
     return supervisor
 
+
+def human_supervisor(
+    backend_api_endpoint: Optional[str] = None,
+    timeout: int = 300,
+    n: int = 1,
+    ignore_function_kwargs: list = []
+) -> Supervisor:
+    """
+    Create a supervisor function that requires human approval via backend API or CLI.
+
+    Args:
+        backend_api_endpoint (Optional[str]): Endpoint for backend API for human supervision.
+        timeout (int): Timeout in seconds for waiting for the human decision.
+        n (int): Number of approvals required.
+
+    Returns:
+        Supervisor: A supervisor function that implements human supervision.
+    """
+    async def supervisor(
+        func: Callable,
+        supervision_context: SupervisionContext,
+        *args,
+        **kwargs
+    ) -> SupervisionDecision:
+        """
+        Human supervisor that requests approval via backend API or CLI.
+
+        Args:
+            func (Callable): The function being supervised.
+            supervision_context (SupervisionContext): Additional context.
+            *args: Positional arguments for the function.
+            **kwargs: Keyword arguments for the function.
+
+        Returns:
+            SupervisionDecision: The decision made by the supervisor.
+        """
+        from .common import human_supervisor_wrapper
+        from .config import supervision_config
+
+        # Create TaskState from supervision_context
+        task_state = supervision_context.to_task_state()
+
+        # Create a ToolCall object representing the function call
+        tool_call = ToolCall(
+            id="tool_id",  # Use an appropriate ID if available
+            function=func.__qualname__,
+            arguments=kwargs if not ignore_function_kwargs else {k: v for k, v in kwargs.items() if k not in ignore_function_kwargs},
+            type='function'
+        )
+
+        # Initialize client if needed
+        client = supervision_config.client  # Assuming supervision_config is accessible
+
+        # Get the human supervision decision
+        supervisor_decision = await human_supervisor_wrapper(
+            task_state=task_state,
+            call=tool_call,
+            backend_api_endpoint=backend_api_endpoint,
+            timeout=timeout,
+            use_inspect_ai=False,
+            n=n,
+            review_id=kwargs.get('review_id', None),
+            client=client
+        )
+
+        return supervisor_decision
+
+    supervisor.__name__ = human_supervisor.__name__
+    return supervisor
 
 
 def auto_approve_supervisor() -> Supervisor:
