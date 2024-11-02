@@ -70,6 +70,9 @@ export function SupervisionResultsForExecution({ requests, results }: { requests
   // It's dumb that we don't have a Supervision parent type with a SupervisionRequest and SupervisionResult attribute,
   // as then we wouldn't have to search through arrays looking for the matching result for the request
   function findResultForRequest(results: SupervisionResult[], request_id: string) {
+    if (!requests || !results) {
+      return undefined
+    }
     var result = results.find(result => result.supervision_request_id === request_id)
 
     if (!result) {
