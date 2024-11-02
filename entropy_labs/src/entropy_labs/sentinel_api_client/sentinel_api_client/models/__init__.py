@@ -26,6 +26,7 @@ from .supervision_result import SupervisionResult
 from .supervision_status import SupervisionStatus
 from .supervisor import Supervisor
 from .supervisor_assignment import SupervisorAssignment
+from .supervisor_attributes import SupervisorAttributes
 from .supervisor_type import SupervisorType
 from .task_state import TaskState
 from .task_state_metadata import TaskStateMetadata
@@ -69,6 +70,7 @@ __all__ = (
     "SupervisionStatus",
     "Supervisor",
     "SupervisorAssignment",
+    "SupervisorAttributes",
     "SupervisorType",
     "TaskState",
     "TaskStateMetadata",

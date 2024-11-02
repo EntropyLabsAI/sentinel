@@ -1,5 +1,5 @@
 import datetime
-from typing import Any, Dict, List, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -9,6 +9,10 @@ from dateutil.parser import isoparse
 from ..models.supervisor_type import SupervisorType
 from ..types import UNSET, Unset
 
+if TYPE_CHECKING:
+    from ..models.supervisor_attributes import SupervisorAttributes
+
+
 T = TypeVar("T", bound="Supervisor")
 
 
@@ -16,66 +20,76 @@ T = TypeVar("T", bound="Supervisor")
 class Supervisor:
     """
     Attributes:
+        name (str):
         description (str):
         created_at (datetime.datetime):
         type (SupervisorType): The type of supervisor. ClientSupervisor means that the supervision is done client side
             and the server is merely informed. Other supervisor types are handled serverside, e.g. HumanSupervisor means
             that a human will review the request via the Sentinel UI.
-        name (str):
+        code (str):
+        attributes (SupervisorAttributes):
         id (Union[Unset, UUID]):
-        code (Union[Unset, str]):
     """
 
+    name: str
     description: str
     created_at: datetime.datetime
     type: SupervisorType
-    name: str
+    code: str
+    attributes: "SupervisorAttributes"
     id: Union[Unset, UUID] = UNSET
-    code: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
+        name = self.name
+
         description = self.description
 
         created_at = self.created_at.isoformat()
 
         type = self.type.value
 
-        name = self.name
+        code = self.code
+
+        attributes = self.attributes.to_dict()
 
         id: Union[Unset, str] = UNSET
         if not isinstance(self.id, Unset):
             id = str(self.id)
 
-        code = self.code
-
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
+                "name": name,
                 "description": description,
                 "created_at": created_at,
                 "type": type,
-                "name": name,
+                "code": code,
+                "attributes": attributes,
             }
         )
         if id is not UNSET:
             field_dict["id"] = id
-        if code is not UNSET:
-            field_dict["code"] = code
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.supervisor_attributes import SupervisorAttributes
+
         d = src_dict.copy()
+        name = d.pop("name")
+
         description = d.pop("description")
 
         created_at = isoparse(d.pop("created_at"))
 
         type = SupervisorType(d.pop("type"))
 
-        name = d.pop("name")
+        code = d.pop("code")
+
+        attributes = SupervisorAttributes.from_dict(d.pop("attributes"))
 
         _id = d.pop("id", UNSET)
         id: Union[Unset, UUID]
@@ -84,15 +98,14 @@ class Supervisor:
         else:
             id = UUID(_id)
 
-        code = d.pop("code", UNSET)
-
         supervisor = cls(
+            name=name,
             description=description,
             created_at=created_at,
             type=type,
-            name=name,
-            id=id,
             code=code,
+            attributes=attributes,
+            id=id,
         )
 
         supervisor.additional_properties = d
