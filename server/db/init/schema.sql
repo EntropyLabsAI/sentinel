@@ -22,7 +22,8 @@ CREATE TABLE tool (
     id UUID PRIMARY KEY,
     name VARCHAR,
     description TEXT,
-    attributes JSONB
+    attributes JSONB,
+    ignored_attributes TEXT[]
 );
 
 CREATE TABLE project (

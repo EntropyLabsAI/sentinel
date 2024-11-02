@@ -722,10 +722,17 @@ components:
           type: string
         attributes:
           type: object
+          description: Attributes of the tool that requests to this tool will have
           additionalProperties: true
+        ignored_attributes:
+          type: array
+          description: Attributes of the tool that will not be shown in the UI for requests to this tool
+          items:
+            type: string
         created_at:
           type: string
           format: date-time
+      
       required:
         - name
         - description
