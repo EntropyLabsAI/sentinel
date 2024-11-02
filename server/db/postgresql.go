@@ -10,6 +10,7 @@ import (
 
 	sentinel "github.com/entropylabsai/sentinel/server"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )
 
@@ -133,21 +134,24 @@ func (s *PostgresqlStore) CreateExecution(ctx context.Context, runId uuid.UUID, 
 	return id, nil
 }
 
-func (s *PostgresqlStore) GetToolFromValues(ctx context.Context, attributes map[string]interface{}, name string, description string) (*sentinel.Tool, error) {
+func (s *PostgresqlStore) GetToolFromValues(ctx context.Context, attributes map[string]interface{}, name string, description string, ignoredAttributes []string) (*sentinel.Tool, error) {
 	query := `
-		SELECT id, name, description
+		SELECT id, name, description, attributes, ignored_attributes
 		FROM tool
 		WHERE name = $1
 		AND description = $2
-		AND attributes = $3`
+		AND attributes = $3
+		AND ignored_attributes = $4`
 
 	attrJSON, err := json.Marshal(attributes)
 	if err != nil {
 		return nil, fmt.Errorf("error marshalling attributes: %w", err)
 	}
 
+	ignoredAttr := pq.Array(ignoredAttributes)
+
 	var tool sentinel.Tool
-	err = s.db.QueryRowContext(ctx, query, name, description, attrJSON).Scan(&tool.Id, &tool.Name, &tool.Description)
+	err = s.db.QueryRowContext(ctx, query, name, description, attrJSON, ignoredAttr).Scan(&tool.Id, &tool.Name, &tool.Description, &tool.Attributes, &tool.IgnoredAttributes)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -157,6 +161,7 @@ func (s *PostgresqlStore) GetToolFromValues(ctx context.Context, attributes map[
 
 	// Just use the attributes passed in since we know they match, saves us having to fiddle with converting.
 	tool.Attributes = &attributes
+	tool.IgnoredAttributes = &ignoredAttributes
 
 	return &tool, nil
 }
@@ -696,14 +701,20 @@ func (s *PostgresqlStore) CountSupervisionRequests(ctx context.Context, status s
 
 func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*sentinel.Tool, error) {
 	query := `
-		SELECT id, name, attributes, description, ignored_attributes
+		SELECT id, name, description, attributes, ignored_attributes
 		FROM tool
 		WHERE id = $1`
 
 	var tool sentinel.Tool
 	var attributesJSON []byte
 	var ignoredAttributes []string
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&tool.Id, &tool.Name, &attributesJSON, &tool.Description, &ignoredAttributes)
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
+		&tool.Id,
+		&tool.Name,
+		&tool.Description,
+		&attributesJSON,
+		pq.Array(&ignoredAttributes),
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -744,7 +755,13 @@ func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UU
 		var tool sentinel.Tool
 		var attributesJSON []byte
 		var ignoredAttributes []string
-		if err := rows.Scan(&tool.Id, &tool.Name, &tool.Description, &attributesJSON, &ignoredAttributes); err != nil {
+		if err := rows.Scan(
+			&tool.Id,
+			&tool.Name,
+			&tool.Description,
+			&attributesJSON,
+			pq.Array(&ignoredAttributes),
+		); err != nil {
 			return nil, fmt.Errorf("error scanning tool: %w", err)
 		}
 
@@ -910,37 +927,33 @@ func (s *PostgresqlStore) CreateTool(ctx context.Context, tool sentinel.Tool) (u
 		return uuid.UUID{}, fmt.Errorf("can't create tool, tool name, description, and attributes are required. Values: %+v", tool)
 	}
 
-	if tool.IgnoredAttributes != nil {
-		for _, ignoredAttribute := range *tool.IgnoredAttributes {
-			if _, ok := (*tool.Attributes)[ignoredAttribute]; !ok {
-				return uuid.UUID{}, fmt.Errorf("ignored attribute %s not found in attributes", ignoredAttribute)
-			}
-		}
-	} else {
-		tool.IgnoredAttributes = &[]string{}
-	}
-
 	attributes, err := json.Marshal(tool.Attributes)
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error marshalling tool attributes: %w", err)
 	}
 
-	// Check that the ignored attributes are a subset of the attributes
+	// Handle nil IgnoredAttributes
+	var ignoredAttributes []string
 	if tool.IgnoredAttributes != nil {
-		for _, ignoredAttribute := range *tool.IgnoredAttributes {
-			if _, ok := (*tool.Attributes)[ignoredAttribute]; !ok {
-				return uuid.UUID{}, fmt.Errorf("ignored attribute %s not found in attributes", ignoredAttribute)
-			}
-		}
+		ignoredAttributes = *tool.IgnoredAttributes
 	} else {
-		tool.IgnoredAttributes = &[]string{}
+		ignoredAttributes = []string{}
 	}
 
 	query := `
 		INSERT INTO tool (id, name, description, attributes, ignored_attributes)
 		VALUES ($1, $2, $3, $4, $5)`
 
-	_, err = s.db.ExecContext(ctx, query, id, tool.Name, tool.Description, attributes, tool.IgnoredAttributes)
+	// Add debug logging
+	fmt.Printf("Creating tool with ignored attributes: %v\n", ignoredAttributes)
+
+	_, err = s.db.ExecContext(ctx, query,
+		id,
+		tool.Name,
+		tool.Description,
+		attributes,
+		pq.Array(ignoredAttributes),
+	)
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error creating tool: %w", err)
 	}
@@ -1063,7 +1076,7 @@ func (s *PostgresqlStore) AssignSupervisorsToTool(ctx context.Context, runId uui
 
 func (s *PostgresqlStore) GetRunTools(ctx context.Context, runId uuid.UUID) ([]sentinel.Tool, error) {
 	query := `
-		SELECT tool.id, tool.name, tool.description, tool.attributes, tool.ignored_attributes
+		SELECT tool.id, tool.name, tool.description, tool.attributes, COALESCE(tool.ignored_attributes, '{}') as ignored_attributes
 		FROM run_tool_supervisor
 		INNER JOIN tool ON run_tool_supervisor.tool_id = tool.id
 		WHERE run_tool_supervisor.run_id = $1`
@@ -1079,7 +1092,14 @@ func (s *PostgresqlStore) GetRunTools(ctx context.Context, runId uuid.UUID) ([]s
 		var tool sentinel.Tool
 		var attributesJSON []byte
 		var ignoredAttributes []string
-		if err := rows.Scan(&tool.Id, &tool.Name, &tool.Description, &attributesJSON, &ignoredAttributes); err != nil {
+
+		if err := rows.Scan(
+			&tool.Id,
+			&tool.Name,
+			&tool.Description,
+			&attributesJSON,
+			pq.Array(&ignoredAttributes),
+		); err != nil {
 			return nil, fmt.Errorf("error scanning tool: %w", err)
 		}
 
