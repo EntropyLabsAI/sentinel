@@ -33,8 +33,7 @@ export default function ProjectList() {
   };
 
   return (
-    <Page title="Projects" icon={<Building2 className="w-6 h-6" />}>
-      {projects.length === 0 && <div>No projects found. To register a project, check out the <Link to="/api" className="text-blue-500">docs</Link>.</div>}
+    <Page title="Projects" icon={<Building2 className="w-6 h-6" />} subtitle={projects.length === 0 && <div>No projects found. To register a project, check out the <Link to="/api" className="text-blue-500">docs</Link>.</div>}>
       {isLoading && (
         <Loading />
       )}

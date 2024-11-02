@@ -7,6 +7,8 @@ import { Link } from "react-router-dom";
 import { ToolsList } from "@/components/tools_list";
 import { useProject } from '@/contexts/project_context';
 import { UUIDDisplay } from "./uuid_display";
+import Loading from "./loading";
+import { PickaxeIcon } from "lucide-react";
 
 export default function Tools() {
   const [tools, setTools] = useState<Tool[]>([]);
@@ -30,11 +32,14 @@ export default function Tools() {
     return <div>Please select a project first</div>;
   }
 
-  if (isLoading) return <Page title="Tools">Loading...</Page>;
-  if (error) return <Page title="Tools">Error: {error.message}</Page>;
-
   return (
-    <Page title={`Tools for project`} subtitle={<span>{tools.length} tools{tools.length === 1 ? '' : 's'} found for project <UUIDDisplay uuid={projectData?.data?.id} /></span>}>
+    <Page title={`Tools for project`} subtitle={<span>{tools.length} tool{tools.length === 1 ? '' : 's'} found for project <UUIDDisplay uuid={projectData?.data?.id} /></span>} icon={<PickaxeIcon className="w-6 h-6" />}>
+      {isLoading && (
+        <Loading />
+      )}
+      {error && (
+        <div>Error loading tools: {error.message}</div>
+      )}
       {tools.length > 0 && <ToolsList tools={tools} variant="card" />}
       {tools.length === 0 && <p className="text-sm text-gray-500">No tools found for this project. When your agent registers a tool, it will appear here.</p>}
 
