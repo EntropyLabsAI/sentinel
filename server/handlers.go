@@ -1,6 +1,7 @@
 package sentinel
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -276,59 +277,53 @@ func apiCreateSupervisorHandler(w http.ResponseWriter, r *http.Request, store Su
 	ctx := r.Context()
 
 	var request Supervisor
-	err := json.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Debug prints
-	fmt.Printf("request: %+v\n", request)
-
-	// Check if the supervisor submitted for creation already exists in the db by looking up the name,code,type,desc
-	var existingSupervisor *Supervisor
-	if request.Code != nil && request.Name != "" && request.Description != "" && request.Type != "" {
-		fmt.Printf("looking up supervisor by values: %s, %s, %s, %s\n", *request.Code, request.Name, request.Description, request.Type)
-		found, err := store.GetSupervisorFromValues(ctx, *request.Code, request.Name, request.Description, request.Type)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("error trying to locate an existing supervisor: %v", err), http.StatusInternalServerError)
-			return
-		}
-		if found != nil {
-			fmt.Printf("found supervisor: %+v\n", *found)
-			existingSupervisor = found
-		}
-	}
-
-	fmt.Printf("existingSupervisor: %+v\n", existingSupervisor)
-
-	if existingSupervisor != nil {
-		w.WriteHeader(http.StatusOK)
-		err = json.NewEncoder(w).Encode(existingSupervisor)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+	// Try to find existing supervisor if we have all required fields
+	if supervisor, err := findExistingSupervisor(ctx, store, request); err != nil {
+		http.Error(w, fmt.Sprintf("Error looking up existing supervisor: %v", err), http.StatusInternalServerError)
+		return
+	} else if supervisor != nil {
+		respondJSON(w, supervisor)
 		return
 	}
 
-	fmt.Printf("creating supervisor: %+v\n", request)
-
+	// Create new supervisor
 	supervisorId, err := store.CreateSupervisor(ctx, request)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	fmt.Printf("created supervisor with ID: %s\n", supervisorId)
-
 	request.Id = &supervisorId
+	respondJSON(w, request)
+}
 
+// findExistingSupervisor checks if a supervisor already exists with the given values
+func findExistingSupervisor(ctx context.Context, store SupervisorStore, request Supervisor) (*Supervisor, error) {
+	if !hasRequiredFields(request) {
+		return nil, nil
+	}
+
+	return store.GetSupervisorFromValues(ctx, *request.Code, request.Name, request.Description, request.Type)
+}
+
+// hasRequiredFields checks if all required fields are present
+func hasRequiredFields(s Supervisor) bool {
+	return s.Code != nil &&
+		s.Name != "" &&
+		s.Description != "" &&
+		s.Type != ""
+}
+
+// respondJSON writes a JSON response with status 200 OK
+func respondJSON(w http.ResponseWriter, data interface{}) {
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(request)
-	if err != nil {
+	if err := json.NewEncoder(w).Encode(data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
 	}
 }
 
