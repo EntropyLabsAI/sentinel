@@ -151,7 +151,14 @@ func (s *PostgresqlStore) GetToolFromValues(ctx context.Context, attributes map[
 	ignoredAttr := pq.Array(ignoredAttributes)
 
 	var tool sentinel.Tool
-	err = s.db.QueryRowContext(ctx, query, name, description, attrJSON, ignoredAttr).Scan(&tool.Id, &tool.Name, &tool.Description, &tool.Attributes, &tool.IgnoredAttributes)
+	var attributesJSON []byte
+	err = s.db.QueryRowContext(ctx, query, name, description, attrJSON, ignoredAttr).Scan(
+		&tool.Id,
+		&tool.Name,
+		&tool.Description,
+		&attributesJSON, // Scan into byte array first
+		&tool.IgnoredAttributes,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -159,9 +166,14 @@ func (s *PostgresqlStore) GetToolFromValues(ctx context.Context, attributes map[
 		return nil, fmt.Errorf("error getting tool from values: %w", err)
 	}
 
-	// Just use the attributes passed in since we know they match, saves us having to fiddle with converting.
-	tool.Attributes = &attributes
-	tool.IgnoredAttributes = &ignoredAttributes
+	// Parse the JSON attributes if they exist
+	if len(attributesJSON) > 0 {
+		var attrs map[string]interface{}
+		if err := json.Unmarshal(attributesJSON, &attrs); err != nil {
+			return nil, fmt.Errorf("error parsing tool attributes: %w", err)
+		}
+		tool.Attributes = &attrs
+	}
 
 	return &tool, nil
 }
