@@ -1,5 +1,6 @@
 from entropy_labs.supervision.config import supervision_config
 from entropy_labs.supervision.langchain.supervisors import human_supervisor
+from entropy_labs.supervision.supervisors import llm_supervisor
 from entropy_labs.supervision.langchain.logging import EntropyLabsCallbackHandler
 from entropy_labs.supervision.decorators import supervise
 from entropy_labs.api.sentinel_api_client_helper import register_project, create_run, register_tools_and_supervisors
@@ -47,6 +48,7 @@ def divide_supervisor(min_a: int = 0, min_b: int = 0) -> Supervisor:
                 decision=SupervisionDecisionType.ESCALATE,
                 explanation=f"One or both numbers are below their minimums (a ≤ {min_a} or b ≤ {min_b})."
             )
+    supervisor.__name__ = divide_supervisor.__name__
     return supervisor
 # Define tool functions with supervision decorators
 @tool
@@ -67,10 +69,12 @@ class UploadResponse(BaseModel):
     data: List[dict]
     message: str
 
+
 @tool
 @supervise(
     supervision_functions=[
         human_supervisor(backend_api_endpoint="http://localhost:8080"),
+        llm_supervisor(instructions="You are an AI safety reviewer. Your task is to evaluate the following function call and decide whether it should be approved, rejected, escalated, terminated, or modified. Provide your decision along with an explanation.")
     ]
 )
 def upload_api(input_data: str) -> UploadResponse:
@@ -106,7 +110,7 @@ def run_agent(llm_with_tools, messages, callbacks):
             break
 
 if __name__ == "__main__":
-    client = Client(base_url="http://localhost:8080")
+    client = Client(base_url="http://localhost:8080") #TODO: Move this inside registration functions
 
     supervision_config.client = client #TODO: Move this somewhere else
     # Register the project and create a run
