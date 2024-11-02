@@ -1,9 +1,6 @@
 import { Tool, useGetProject, useGetTools } from "@/types";
 import React, { useEffect, useState } from "react";
 import Page from "./page";
-import { CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
-import { Card } from "@radix-ui/themes";
-import { Link } from "react-router-dom";
 import { ToolsList } from "@/components/tools_list";
 import { useProject } from '@/contexts/project_context';
 import { UUIDDisplay } from "./uuid_display";

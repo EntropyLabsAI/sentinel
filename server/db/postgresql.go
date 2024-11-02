@@ -696,13 +696,14 @@ func (s *PostgresqlStore) CountSupervisionRequests(ctx context.Context, status s
 
 func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*sentinel.Tool, error) {
 	query := `
-		SELECT id, name, attributes, description
+		SELECT id, name, attributes, description, ignored_attributes
 		FROM tool
 		WHERE id = $1`
 
 	var tool sentinel.Tool
 	var attributesJSON []byte
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&tool.Id, &tool.Name, &attributesJSON, &tool.Description)
+	var ignoredAttributes []string
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&tool.Id, &tool.Name, &attributesJSON, &tool.Description, &ignoredAttributes)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -720,12 +721,13 @@ func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*sentinel.
 		}
 	}
 	tool.Attributes = &t
+	tool.IgnoredAttributes = &ignoredAttributes
 	return &tool, nil
 }
 
 func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UUID) ([]sentinel.Tool, error) {
 	query := `
-		SELECT DISTINCT ON (t.id) t.id, t.name, t.attributes, t.description
+		SELECT DISTINCT ON (t.id) t.id, t.name, t.attributes, t.description, t.ignored_attributes
 		FROM tool t
 		INNER JOIN run_tool_supervisor rts ON t.id = rts.tool_id
 		INNER JOIN run r ON rts.run_id = r.id
@@ -733,7 +735,7 @@ func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UU
 
 	rows, err := s.db.QueryContext(ctx, query, projectId)
 	if err != nil {
-		return nil, fmt.Errorf("error getting tools: %w", err)
+		return nil, fmt.Errorf("error getting project tools: %w", err)
 	}
 	defer rows.Close()
 
@@ -741,7 +743,8 @@ func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UU
 	for rows.Next() {
 		var tool sentinel.Tool
 		var attributesJSON []byte
-		if err := rows.Scan(&tool.Id, &tool.Name, &attributesJSON, &tool.Description); err != nil {
+		var ignoredAttributes []string
+		if err := rows.Scan(&tool.Id, &tool.Name, &tool.Description, &attributesJSON, &ignoredAttributes); err != nil {
 			return nil, fmt.Errorf("error scanning tool: %w", err)
 		}
 
@@ -755,6 +758,7 @@ func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UU
 			}
 		}
 		tool.Attributes = &t
+		tool.IgnoredAttributes = &ignoredAttributes
 
 		tools = append(tools, tool)
 	}
@@ -912,10 +916,10 @@ func (s *PostgresqlStore) CreateTool(ctx context.Context, tool sentinel.Tool) (u
 	}
 
 	query := `
-		INSERT INTO tool (id, name, description, attributes)
-		VALUES ($1, $2, $3, $4)`
+		INSERT INTO tool (id, name, description, attributes, ignored_attributes)
+		VALUES ($1, $2, $3, $4, $5)`
 
-	_, err = s.db.ExecContext(ctx, query, id, tool.Name, tool.Description, attributes)
+	_, err = s.db.ExecContext(ctx, query, id, tool.Name, tool.Description, attributes, tool.IgnoredAttributes)
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error creating tool: %w", err)
 	}
@@ -1038,7 +1042,7 @@ func (s *PostgresqlStore) AssignSupervisorsToTool(ctx context.Context, runId uui
 
 func (s *PostgresqlStore) GetRunTools(ctx context.Context, runId uuid.UUID) ([]sentinel.Tool, error) {
 	query := `
-		SELECT tool.id, tool.name, tool.description, tool.attributes
+		SELECT tool.id, tool.name, tool.description, tool.attributes, tool.ignored_attributes
 		FROM run_tool_supervisor
 		INNER JOIN tool ON run_tool_supervisor.tool_id = tool.id
 		WHERE run_tool_supervisor.run_id = $1`
@@ -1053,7 +1057,8 @@ func (s *PostgresqlStore) GetRunTools(ctx context.Context, runId uuid.UUID) ([]s
 	for rows.Next() {
 		var tool sentinel.Tool
 		var attributesJSON []byte
-		if err := rows.Scan(&tool.Id, &tool.Name, &tool.Description, &attributesJSON); err != nil {
+		var ignoredAttributes []string
+		if err := rows.Scan(&tool.Id, &tool.Name, &tool.Description, &attributesJSON, &ignoredAttributes); err != nil {
 			return nil, fmt.Errorf("error scanning tool: %w", err)
 		}
 
@@ -1067,6 +1072,7 @@ func (s *PostgresqlStore) GetRunTools(ctx context.Context, runId uuid.UUID) ([]s
 			}
 		}
 		tool.Attributes = &t
+		tool.IgnoredAttributes = &ignoredAttributes
 
 		tools = append(tools, tool)
 	}
