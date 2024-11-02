@@ -742,23 +742,23 @@ func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*sentinel.
 		return nil, fmt.Errorf("error getting tool: %w", err)
 	}
 
-	// Initialize the attributes map
-	t := make(map[string]interface{})
-
-	// Parse the JSON attributes
+	// Parse the JSON attributes if they exist
 	if len(attributesJSON) > 0 {
-		if err := json.Unmarshal(attributesJSON, &t); err != nil {
+		var attributes map[string]interface{}
+		fmt.Printf("attributesJSON: %s\n", string(attributesJSON))
+		if err := json.Unmarshal(attributesJSON, &attributes); err != nil {
 			return nil, fmt.Errorf("error parsing tool attributes: %w", err)
 		}
+		tool.Attributes = &attributes
 	}
-	tool.Attributes = &t
+
 	tool.IgnoredAttributes = &ignoredAttributes
 	return &tool, nil
 }
 
 func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UUID) ([]sentinel.Tool, error) {
 	query := `
-		SELECT DISTINCT ON (t.id) t.id, t.name, t.attributes, t.description, t.ignored_attributes
+		SELECT DISTINCT ON (t.id) t.id, t.name, t.description, t.attributes, t.ignored_attributes
 		FROM tool t
 		INNER JOIN run_tool_supervisor rts ON t.id = rts.tool_id
 		INNER JOIN run r ON rts.run_id = r.id
@@ -790,12 +790,14 @@ func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UU
 
 		// Parse the JSON attributes if they exist
 		if len(attributesJSON) > 0 {
+			fmt.Printf("attributesJSON: %s\n", string(attributesJSON))
 			if err := json.Unmarshal(attributesJSON, &t); err != nil {
 				return nil, fmt.Errorf("error parsing tool attributes: %w", err)
 			}
 		}
-		tool.Attributes = &t
+
 		tool.IgnoredAttributes = &ignoredAttributes
+		tool.Attributes = &t
 
 		tools = append(tools, tool)
 	}
@@ -913,43 +915,27 @@ func (s *PostgresqlStore) CreateRun(ctx context.Context, run sentinel.Run) (uuid
 }
 
 func (s *PostgresqlStore) CreateTool(ctx context.Context, tool sentinel.Tool) (uuid.UUID, error) {
-	id := uuid.New()
-
-	if tool.Name == "" || tool.Description == "" || tool.Attributes == nil {
-		return uuid.UUID{}, fmt.Errorf("can't create tool, tool name, description, and attributes are required. Values: %+v", tool)
-	}
-
-	attributes, err := json.Marshal(tool.Attributes)
+	// Convert attributes to JSON if it's not already
+	attributesJSON, err := json.Marshal(tool.Attributes)
 	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("error marshalling tool attributes: %w", err)
-	}
-
-	// Handle nil IgnoredAttributes
-	var ignoredAttributes []string
-	if tool.IgnoredAttributes != nil {
-		ignoredAttributes = *tool.IgnoredAttributes
-	} else {
-		ignoredAttributes = []string{}
+		return uuid.Nil, fmt.Errorf("error marshaling tool attributes: %w", err)
 	}
 
 	query := `
-		INSERT INTO tool (id, name, description, attributes, ignored_attributes)
-		VALUES ($1, $2, $3, $4, $5)`
+		INSERT INTO tool (name, description, attributes, ignored_attributes)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id`
 
-	// Add debug logging
-	fmt.Printf("Creating tool with ignored attributes: %v\n", ignoredAttributes)
-
-	_, err = s.db.ExecContext(ctx, query,
-		id,
+	var id uuid.UUID
+	err = s.db.QueryRowContext(ctx, query,
 		tool.Name,
 		tool.Description,
-		attributes,
-		pq.Array(ignoredAttributes),
-	)
+		attributesJSON, // Use the JSON-encoded attributes
+		pq.Array(tool.IgnoredAttributes),
+	).Scan(&id)
 	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("error creating tool: %w", err)
+		return uuid.Nil, fmt.Errorf("error creating tool: %w", err)
 	}
-
 	return id, nil
 }
 
