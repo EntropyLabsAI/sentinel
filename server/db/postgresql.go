@@ -178,11 +178,16 @@ func (s *PostgresqlStore) GetSupervisorFromValues(ctx context.Context, code stri
 	var supervisor sentinel.Supervisor
 	err := s.db.QueryRowContext(ctx, query, code, name, desc, t).Scan(&supervisor.Id, &supervisor.Code, &supervisor.Name, &supervisor.Description, &supervisor.Type, &supervisor.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
+		// Print the query and values
+		fmt.Printf("NOT FOUND: query: %s\n", query)
+		fmt.Printf("NOT FOUND: values: %s, %s, %s, %s\n", code, name, desc, t)
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error getting supervisor by values: %w", err)
 	}
+
+	fmt.Printf("FOUND: %+v\n", supervisor)
 
 	return &supervisor, nil
 }
