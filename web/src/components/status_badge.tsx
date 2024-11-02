@@ -31,10 +31,18 @@ export function DecisionBadge({ decision }: { decision: Decision | undefined }) 
   return <Badge className={`text-center ${colors[decision]} text-white shadow-none whitespace-nowrap`}>{decision}</Badge>;
 }
 
-export const SupervisorTypeBadge: React.FC<{ type: SupervisorType }> = ({ type }) => {
-  const label = type === SupervisorType.client_supervisor ? "client-side supervision" : "human supervision";
-  const color = type === SupervisorType.client_supervisor ? "blue" : "blue";
-  return <Badge className={`text-white bg-${color}-900 shadow-none whitespace-nowrap hover:bg-${color}-700`}>{label}</Badge>;
+export function SupervisorTypeBadge({ type }: { type: SupervisorType }) {
+  const colors = {
+    [SupervisorType.client_supervisor]: 'gray',
+    [SupervisorType.human_supervisor]: 'gray',
+    [SupervisorType.no_supervisor]: 'gray',
+  }
+
+  return (
+    <Badge className={`text-white bg-${colors[type]}-600`}>
+      {type.toString()}
+    </Badge>
+  );
 
 };
 

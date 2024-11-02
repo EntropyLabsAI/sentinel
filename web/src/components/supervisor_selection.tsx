@@ -9,14 +9,16 @@ import Page from './page';
 import { UUIDDisplay } from './uuid_display';
 import { CreatedAgo } from './created_ago';
 import { Button } from './ui/button';
-import { ArrowRightIcon, UsersIcon } from 'lucide-react';
+import { ArrowRightIcon, EyeIcon, InspectIcon, ScanEyeIcon, UsersIcon } from 'lucide-react';
 import { SupervisorTypeBadge } from './status_badge';
 import { DecisionBadge } from './status_badge';
 import Loading from './loading';
+import { EyeOpenIcon } from '@radix-ui/react-icons';
 
 const SupervisorSelection: React.FC = () => {
   const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
   const { selectedProject } = useProject();
+
   const { data, isLoading, error } = useGetSupervisors(
     { projectId: selectedProject! }
   );
@@ -32,9 +34,10 @@ const SupervisorSelection: React.FC = () => {
   if (!selectedProject) {
     return <div>Please select a project first</div>;
   }
+  console.log(supervisors);
 
   return (
-    <Page title="Supervisors" subtitle={`${supervisors.length} supervisors registered against runs in ${projectData?.data.name}`} icon={<UsersIcon className="w-6 h-6" />}>
+    <Page title="Supervisors" subtitle={`${supervisors.length} supervisors registered against runs in ${projectData?.data.name}`} icon={<ScanEyeIcon className="w-6 h-6" />}>
       {isLoading && (
         <Loading />
       )}
@@ -47,9 +50,12 @@ const SupervisorSelection: React.FC = () => {
             <Card key={supervisor.id}>
               <CardHeader className="">
                 <CardTitle className="flex flex-row justify-between gap-2">
-                  <p>
-                    {supervisor.name || <span>Supervisor <UUIDDisplay uuid={supervisor.id} /></span>}
-                  </p>
+                  <div className="flex flex-row gap-2 items-center">
+                    <EyeIcon className="w-4 h-4" />
+                    <p>
+                      {supervisor.name || <span>Supervisor <UUIDDisplay uuid={supervisor.id} /></span>}
+                    </p>
+                  </div>
                   <SupervisorTypeBadge type={supervisor.type} />
                 </CardTitle>
 
