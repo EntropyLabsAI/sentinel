@@ -51,13 +51,6 @@ export function SupervisionDetails({ executionId }: { executionId: string }) {
         </Badge>
       </div>
       <div className="space-y-4">
-        {/* {rows.map(({ request, result }) => (
-          <SupervisionPairCard
-            key={request.id}
-            request={request}
-            result={result}
-          />
-        ))} */}
         <SupervisionResultsForExecution results={supervisions.results} requests={supervisions.requests} />
       </div>
     </div>

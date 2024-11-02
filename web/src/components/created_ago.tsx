@@ -3,10 +3,11 @@ import { format } from 'timeago.js';
 
 interface CreatedAgoProps {
   datetime: string;
+  label?: string;
   className?: string;
 }
 
-export const CreatedAgo: React.FC<CreatedAgoProps> = ({ datetime, className = '' }) => {
+export const CreatedAgo: React.FC<CreatedAgoProps> = ({ datetime, label = 'Created', className = '' }) => {
   const formattedDate = format(datetime);
 
   return (
@@ -15,7 +16,7 @@ export const CreatedAgo: React.FC<CreatedAgoProps> = ({ datetime, className = ''
       className={`text-sm text-gray-500 ${className}`}
       title={new Date(datetime).toLocaleString()}
     >
-      Created {formattedDate}
+      {label} {formattedDate}
     </time>
   );
 };
