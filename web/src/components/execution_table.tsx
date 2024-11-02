@@ -50,18 +50,16 @@ export default function ExecutionTable({ executions }: { executions: Execution[]
               </TableCell>
               <TableCell><StatusBadge status={execution.status || Status.failed} /></TableCell>
               <TableCell className="text-right"><CreatedAgo datetime={execution.created_at || ''} /></TableCell>
-              <TableCell className="cursor-pointer w-[200px]" onClick={() => toggleRow(execution.id)}>
+              <TableCell className="cursor-pointer w-[200px] text-right" onClick={() => toggleRow(execution.id)}>
                 {expandedRows[execution.id] ? (
-
-
                   <span className="flex flex-row gap-4 text-xs text-muted-foreground">
-                    <ChevronUpIcon className="h-4 w-4" />
                     Execution summary
+                    <ChevronUpIcon className="h-4 w-4" />
                   </span>
                 ) : (
                   <span className="flex flex-row gap-4 text-xs text-muted-foreground">
-                    <ChevronDownIcon className="h-4 w-4" />
                     Execution summary
+                    <ChevronDownIcon className="h-4 w-4" />
                   </span>
                 )}
               </TableCell>

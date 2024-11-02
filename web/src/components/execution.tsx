@@ -8,6 +8,8 @@ import JsonDisplay from './json_display';
 import { DecisionBadge, ExecutionStatusBadge, StatusBadge, SupervisorBadge, ToolBadge } from './status_badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import { FileJsonIcon, GitPullRequestIcon, MessagesSquareIcon, PinIcon } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { CreatedAgo } from './created_ago';
 
 
 // TODO allow execution supervision to be passed in
@@ -140,7 +142,7 @@ export function SupervisionResultsForExecution({ requests, results }: { requests
                   </AccordionItem>
                 </Accordion>
 
-                <SupervisionResultAccordion result={findResultForRequest(results, request.id || '')} />
+                <SupervisionResultCard result={findResultForRequest(results, request.id || '')} supervisorId={request.supervisor_id || ''} />
               </AccordionContent>
             </AccordionItem>
           </Accordion>
@@ -151,16 +153,25 @@ export function SupervisionResultsForExecution({ requests, results }: { requests
   )
 }
 
-function SupervisionResultAccordion({ result }: { result: SupervisionResult | undefined }) {
+function SupervisionResultCard({ result, supervisorId }: { result: SupervisionResult | undefined, supervisorId: string }) {
   if (!result) {
     return <p>No result has yet been recorded for this request</p>
   }
 
   return (
-    <div>
-      {result.reasoning != "" ? result.reasoning : "No reasoning given"}
-
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          Supervision Result: <SupervisorBadge supervisorId={supervisorId} /> returned <DecisionBadge decision={result.decision} />
+        </CardTitle>
+        <CardDescription>
+          <CreatedAgo datetime={result.created_at} label="Supervision result occurred" />. ID is <UUIDDisplay uuid={result.id} />
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <p>Reasoning: {result.reasoning != "" ? result.reasoning : "No reasoning given"}</p>
+      </CardContent>
+    </Card>
 
   )
 }

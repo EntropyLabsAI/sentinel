@@ -1,4 +1,4 @@
-import { SupervisionRequest } from '@/types'
+import { SupervisionRequest, SupervisionResult } from '@/types'
 import { ScrollArea } from '@radix-ui/react-scroll-area'
 import { Code } from 'lucide-react'
 import React, { useState } from 'react'
@@ -7,12 +7,12 @@ import { Card, CardHeader, CardTitle, CardContent } from './ui/card'
 import { Button } from '@/components/ui/button'
 
 
-export default function JsonDisplay({ reviewRequest }: { reviewRequest: SupervisionRequest }) {
+export default function JsonDisplay({ reviewRequest }: { reviewRequest: SupervisionRequest | SupervisionResult }) {
   const [showJson, setShowJson] = useState(true)
   const jsonString = JSON.stringify(reviewRequest, null, 2)
 
   return (
-    <Card className="mt-4 overflow-scroll border-none">
+    <Card className="mt-4 overflow-scroll">
       <CardHeader>
       </CardHeader>
       <CardContent>
