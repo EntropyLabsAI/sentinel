@@ -910,9 +910,30 @@ func (s *PostgresqlStore) CreateTool(ctx context.Context, tool sentinel.Tool) (u
 		return uuid.UUID{}, fmt.Errorf("can't create tool, tool name, description, and attributes are required. Values: %+v", tool)
 	}
 
+	if tool.IgnoredAttributes != nil {
+		for _, ignoredAttribute := range *tool.IgnoredAttributes {
+			if _, ok := (*tool.Attributes)[ignoredAttribute]; !ok {
+				return uuid.UUID{}, fmt.Errorf("ignored attribute %s not found in attributes", ignoredAttribute)
+			}
+		}
+	} else {
+		tool.IgnoredAttributes = &[]string{}
+	}
+
 	attributes, err := json.Marshal(tool.Attributes)
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error marshalling tool attributes: %w", err)
+	}
+
+	// Check that the ignored attributes are a subset of the attributes
+	if tool.IgnoredAttributes != nil {
+		for _, ignoredAttribute := range *tool.IgnoredAttributes {
+			if _, ok := (*tool.Attributes)[ignoredAttribute]; !ok {
+				return uuid.UUID{}, fmt.Errorf("ignored attribute %s not found in attributes", ignoredAttribute)
+			}
+		}
+	} else {
+		tool.IgnoredAttributes = &[]string{}
 	}
 
 	query := `
@@ -1087,7 +1108,7 @@ func (s *PostgresqlStore) GetRunToolSupervisors(ctx context.Context, runId uuid.
 		FROM run_tool_supervisor rts
 		INNER JOIN supervisor ON rts.supervisor_id = supervisor.id
 		WHERE rts.run_id = $1 AND rts.tool_id = $2
-		ORDER BY rts.id DESC`
+		ORDER BY rts.id ASC`
 
 	rows, err := s.db.QueryContext(ctx, query, runId, toolId)
 	if err != nil {
