@@ -64,9 +64,8 @@ type ToolStore interface {
 }
 
 type SupervisorStore interface {
-	GetSupervisorFromToolID(ctx context.Context, id uuid.UUID) (*Supervisor, error)
 	GetSupervisor(ctx context.Context, id uuid.UUID) (*Supervisor, error)
-	GetSupervisorFromValues(ctx context.Context, code string, name string, desc string, t SupervisorType) (*Supervisor, error)
+	GetSupervisorFromValues(ctx context.Context, code string, name string, desc string, t SupervisorType, attributes map[string]interface{}) (*Supervisor, error)
 	GetSupervisors(ctx context.Context, projectId uuid.UUID) ([]Supervisor, error)
 	CreateSupervisor(ctx context.Context, supervisor Supervisor) (uuid.UUID, error)
 	GetRunToolSupervisors(ctx context.Context, runId uuid.UUID, toolId uuid.UUID) ([]Supervisor, error)

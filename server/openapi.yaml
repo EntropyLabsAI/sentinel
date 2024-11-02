@@ -683,6 +683,8 @@ components:
         id:
           type: string
           format: uuid
+        name:
+          type: string
         description:
           type: string
         created_at:
@@ -692,14 +694,17 @@ components:
           $ref: "#/components/schemas/SupervisorType"
         code:
           type: string
-        name:
-          type: string
+        attributes:
+          type: object
+          additionalProperties: true
 
       required:
         - name
-        - type
         - description
+        - type
         - created_at
+        - attributes
+        - code
 
     SupervisorAssignment:
       type: object
@@ -732,7 +737,7 @@ components:
         created_at:
           type: string
           format: date-time
-      
+
       required:
         - name
         - description
