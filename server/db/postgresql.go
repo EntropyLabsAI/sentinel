@@ -1114,9 +1114,9 @@ func (s *PostgresqlStore) GetRunTools(ctx context.Context, runId uuid.UUID) ([]s
 // GetRunToolSupervisors returns an ordered list of supervisors assigned to a tool for a run. The list is ordered by ID of the run_tool_supervisor record, most recent first.
 func (s *PostgresqlStore) GetRunToolSupervisors(ctx context.Context, runId uuid.UUID, toolId uuid.UUID) ([]sentinel.Supervisor, error) {
 	query := `
-		SELECT supervisor.id, supervisor.description, supervisor.created_at, supervisor.type, rts.created_at
+		SELECT s.id, s.description, s.created_at, s.type, rts.created_at, s.attributes
 		FROM run_tool_supervisor rts
-		INNER JOIN supervisor ON rts.supervisor_id = supervisor.id
+		INNER JOIN supervisor s ON rts.supervisor_id = s.id
 		WHERE rts.run_id = $1 AND rts.tool_id = $2
 		ORDER BY rts.id ASC`
 
@@ -1130,14 +1130,23 @@ func (s *PostgresqlStore) GetRunToolSupervisors(ctx context.Context, runId uuid.
 	var supervisors []sentinel.Supervisor
 	for rows.Next() {
 		var supervisor sentinel.Supervisor
+		var attributesJSON []byte
 		if err := rows.Scan(
 			&supervisor.Id,
 			&supervisor.Description,
 			&supervisor.CreatedAt,
 			&supervisor.Type,
 			&supervisor.CreatedAt,
+			&attributesJSON,
 		); err != nil {
 			return nil, fmt.Errorf("error scanning supervisor: %w", err)
+		}
+
+		// Parse the JSON attributes if they exist
+		if len(attributesJSON) > 0 {
+			if err := json.Unmarshal(attributesJSON, &supervisor.Attributes); err != nil {
+				return nil, fmt.Errorf("error parsing supervisor attributes: %w", err)
+			}
 		}
 		supervisors = append(supervisors, supervisor)
 	}
