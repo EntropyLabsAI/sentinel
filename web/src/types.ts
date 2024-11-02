@@ -195,6 +195,7 @@ export type SupervisorType = typeof SupervisorType[keyof typeof SupervisorType];
 export const SupervisorType = {
   client_supervisor: 'client_supervisor',
   human_supervisor: 'human_supervisor',
+  no_supervisor: 'no_supervisor',
 } as const;
 
 export type ToolCreateAttributes = { [key: string]: unknown };
@@ -256,18 +257,24 @@ export interface SupervisionRequest {
   messages: LLMMessage[];
   run_id: string;
   status?: SupervisionStatus;
-  supervisor_id?: string;
+  supervisor_id: string;
   task_state: TaskState;
   tool_requests: ToolRequest[];
 }
 
+/**
+ * Attributes of the tool that requests to this tool will have
+ */
 export type ToolAttributes = { [key: string]: unknown };
 
 export interface Tool {
+  /** Attributes of the tool that requests to this tool will have */
   attributes?: ToolAttributes;
   created_at?: string;
   description: string;
   id?: string;
+  /** Attributes of the tool that will not be shown in the UI for requests to this tool */
+  ignored_attributes?: string[];
   name: string;
 }
 
@@ -356,6 +363,65 @@ export const useGetOpenAPI = <TData = Awaited<ReturnType<typeof getOpenAPI>>, TE
   ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
 
   const queryOptions = getGetOpenAPIQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Get the Swagger UI
+ */
+export const getSwaggerDocs = (
+     options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<void>> => {
+    
+    return axios.get(
+      `/api/swagger-ui`,options
+    );
+  }
+
+
+export const getGetSwaggerDocsQueryKey = () => {
+    return [`/api/swagger-ui`] as const;
+    }
+
+    
+export const getGetSwaggerDocsQueryOptions = <TData = Awaited<ReturnType<typeof getSwaggerDocs>>, TError = AxiosError<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSwaggerDocs>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSwaggerDocsQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSwaggerDocs>>> = ({ signal }) => getSwaggerDocs({ signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSwaggerDocs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSwaggerDocsQueryResult = NonNullable<Awaited<ReturnType<typeof getSwaggerDocs>>>
+export type GetSwaggerDocsQueryError = AxiosError<unknown>
+
+/**
+ * @summary Get the Swagger UI
+ */
+export const useGetSwaggerDocs = <TData = Awaited<ReturnType<typeof getSwaggerDocs>>, TError = AxiosError<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSwaggerDocs>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetSwaggerDocsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

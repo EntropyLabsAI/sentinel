@@ -6,7 +6,8 @@ import { Button } from "./ui/button";
 import React, { useEffect, useState } from "react";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
 import { UUIDDisplay } from "./uuid_display";
-import { SupervisorTypeBadge, ToolBadge } from "./status_badge";
+import { SupervisorBadge, SupervisorTypeBadge, ToolBadge } from "./status_badge";
+import { ToolAttributes } from "./tool_attributes";
 
 type ToolCardProps = {
   tool: Tool;
@@ -28,7 +29,7 @@ export function ToolCard({ tool, runId }: ToolCardProps) {
       </CardHeader>
       <CardContent className="    flex flex-col gap-2">
         {tool.created_at}
-        {tool.attributes && <pre className="text-xs bg-muted p-2 rounded">{JSON.stringify(tool.attributes, null, 2)}</pre>}
+        {tool.attributes && <ToolAttributes attributes={tool.attributes || ''} ignoredAttributes={tool.ignored_attributes || []} />}
         {runId && tool.id && <RunToolSupervisors runId={runId} toolId={tool.id} />}
       </CardContent>
     </Card>
@@ -57,22 +58,7 @@ function RunToolSupervisors({ runId, toolId }: { runId: string, toolId: string }
     <div className="flex flex-col gap-2">
       <p className="text-sm font-semibold">Supervisors configured for this tool</p>
       {supervisors.map((supervisor) => (
-        <Card key={supervisor.id}>
-          <CardHeader className="flex flex-col gap-2">
-            <CardTitle className="flex flex-row justify-between">
-              {supervisor.name || <span>Supervisor <UUIDDisplay uuid={supervisor.id} /></span>}
-              <SupervisorTypeBadge type={supervisor.type} />
-            </CardTitle>
-            <CardDescription className="flex flex-row justify-between gap-2">
-              {supervisor.description}
-              <Link to={`/supervisors/${supervisor.id}`} key={supervisor.id}>
-                <Button variant="ghost"><ArrowRightIcon className="" /></Button>
-              </Link>
-            </CardDescription>
-
-
-          </CardHeader>
-        </Card>
+        supervisor.id && <SupervisorBadge supervisorId={supervisor.id} />
       ))}
     </div>
   );
