@@ -1,5 +1,5 @@
 import React from "react";
-import { Decision, Status, SupervisionStatus, SupervisorType, useGetSupervisor, useGetTool } from "@/types";
+import { Decision, Status, SupervisionStatus, Supervisor, SupervisorType, useGetSupervisor, useGetTool } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { BotIcon, PickaxeIcon } from "lucide-react";
@@ -50,19 +50,40 @@ export const ToolBadge: React.FC<{ toolId: string }> = ({ toolId }) => {
 
 };
 
-// TODO figure out which status is most recent and return that
 export const ExecutionStatusBadge: React.FC<{ statuses: SupervisionStatus[] }> = ({ statuses }) => {
+  // Sort statuses by ID and return the status of the most recent one
+  const mostRecentStatus = statuses.sort((a, b) => a.id - b.id)[statuses.length - 1].status;
 
-  return <StatusBadge status={statuses[statuses.length - 1].status} />
+  return <StatusBadge status={mostRecentStatus} />
 }
 
-export const SupervisorBadge: React.FC<{ supervisorId: string }> = ({ supervisorId }) => {
-  // Load tool name from toolId
+type SupervisorBadgeProps = {
+  supervisorId: string;
+  supervisor?: Supervisor;
+}
+
+// TODO stop re-fetching supervisor if already provided
+export const SupervisorBadge: React.FC<SupervisorBadgeProps> = ({ supervisorId, supervisor }) => {
   const { data, isLoading, error } = useGetSupervisor(supervisorId);
 
-  if (isLoading) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Loading...</Badge>;
-  if (error) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Error: {error.message}</Badge>;
+  if (isLoading) {
+    return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Loading...</Badge>;
+  }
+  if (error) {
+    return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Error: {error.message}</Badge>;
+  }
 
-  return <Badge className="text-gray-800 shadow-none bg-gray-100 hover:bg-gray-200 whitespace-nowrap"><Link to={`/supervisors/${supervisorId}`} className="flex flex-row gap-2 items-center"><BotIcon className="w-3 h-3" />{data?.data.name}</Link></Badge>;
+  const supervisorData = supervisor || data?.data;
+  const baseBadgeClasses = "text-gray-800 shadow-none bg-sky-200 hover:bg-gray-200 whitespace-nowrap";
 
+  return (
+    <Link to={`/supervisors/${supervisorId}`}>
+      <Badge className={baseBadgeClasses}>
+        <div className="flex flex-row gap-2 items-center">
+          <BotIcon className="w-3 h-3" />
+          {supervisorData?.name}
+        </div>
+      </Badge>
+    </Link>
+  );
 };
