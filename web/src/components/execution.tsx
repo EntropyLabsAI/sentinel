@@ -72,6 +72,10 @@ export function SupervisionResultsForExecution({ requests, results }: { requests
   function findResultForRequest(results: SupervisionResult[], request_id: string) {
     var result = results.find(result => result.supervision_request_id === request_id)
 
+    if (!result) {
+      return undefined
+    }
+
     return result
   }
 
