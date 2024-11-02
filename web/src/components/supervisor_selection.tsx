@@ -9,9 +9,10 @@ import Page from './page';
 import { UUIDDisplay } from './uuid_display';
 import { CreatedAgo } from './created_ago';
 import { Button } from './ui/button';
-import { ArrowRightIcon } from 'lucide-react';
+import { ArrowRightIcon, UsersIcon } from 'lucide-react';
 import { SupervisorTypeBadge } from './status_badge';
 import { DecisionBadge } from './status_badge';
+import Loading from './loading';
 
 const SupervisorSelection: React.FC = () => {
   const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
@@ -32,12 +33,14 @@ const SupervisorSelection: React.FC = () => {
     return <div>Please select a project first</div>;
   }
 
-  if (isLoading) return <Page title="Supervisors">Loading supervisors...</Page>;
-  if (error) return <Page title="Supervisors">Error loading supervisors: {error.message}</Page>;
-
   return (
-    <Page title="Supervisors" subtitle={`${supervisors.length} supervisors registered against runs in ${projectData?.data.name}`}>
-      {supervisors.length === 0 && <div>No supervisors registered. Register a supervisor to get started.</div>}
+    <Page title="Supervisors" subtitle={`${supervisors.length} supervisors registered against runs in ${projectData?.data.name}`} icon={<UsersIcon className="w-6 h-6" />}>
+      {isLoading && (
+        <Loading />
+      )}
+      {error && (
+        <div>Error loading supervisors: {error.message}</div>
+      )}
       {supervisors.length > 0 && <div className="py-12 col-span-3 space-y-4">
         {supervisors.map((supervisor) => {
           return (
