@@ -61,7 +61,7 @@ export default function Runs() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[100px]">Run ID</TableHead>
-                <TableHead className="w-[100px]">Tools Used</TableHead>
+                <TableHead className="w-[400px]">Tools Used</TableHead>
                 <TableHead className="text-right">Tool Executions</TableHead>
                 <TableHead className="text-right">Created</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
@@ -124,7 +124,7 @@ function ToolsBadgeList({ runId }: { runId: string }) {
   }, [toolsData]);
 
   return (
-    <div className="flex flex-row gap-2">
+    <div className="flex flex-row gap-2 flex-wrap">
 
       {toolsLoading && <p>Loading...</p>}
       {toolsError && <p>Error: {toolsError.message}</p>}
