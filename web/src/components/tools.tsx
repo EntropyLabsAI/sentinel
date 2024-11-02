@@ -30,7 +30,7 @@ export default function Tools() {
   }
 
   return (
-    <Page title={`Tools for project`} subtitle={<span>{tools.length} tool{tools.length === 1 ? '' : 's'} found for project <UUIDDisplay uuid={projectData?.data?.id} /></span>} icon={<PickaxeIcon className="w-6 h-6" />}>
+    <Page title={`Tools`} subtitle={<span>{tools.length} tool{tools.length === 1 ? '' : 's'} found for project {projectData?.data?.name} (<UUIDDisplay uuid={projectData?.data?.id} />)</span>} icon={<PickaxeIcon className="w-6 h-6" />}>
       {isLoading && (
         <Loading />
       )}
