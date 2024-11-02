@@ -864,37 +864,35 @@ func (s *PostgresqlStore) GetSupervisorFromToolID(ctx context.Context, id uuid.U
 	return &supervisor, nil
 }
 
+// hasRequiredFields checks if all required fields are present
+func hasRequiredFields(s sentinel.Supervisor) bool {
+	return s.Code != nil &&
+		s.Name != "" &&
+		s.Description != "" &&
+		s.Type != ""
+}
+
 func (s *PostgresqlStore) CreateSupervisor(ctx context.Context, supervisor sentinel.Supervisor) (uuid.UUID, error) {
 	if supervisor.Code == nil {
 		return uuid.UUID{}, fmt.Errorf("can't create supervisor, code is required")
 	}
 
-	var id uuid.UUID
+	// Try to find an existing supervisor with the same values
+	if hasRequiredFields(supervisor) {
+		if existingSupervisor, err := s.GetSupervisorFromValues(ctx, *supervisor.Code, supervisor.Name, supervisor.Description, supervisor.Type); err != nil {
+			return uuid.UUID{}, fmt.Errorf("error getting existing supervisor during create supervisor: %w", err)
+		} else if existingSupervisor != nil {
+			return *existingSupervisor.Id, nil
+		}
+	}
 
-	// Try and find a supervisor with the same code
+	id := uuid.New()
+
 	query := `
-		SELECT id
-		FROM supervisor
-		WHERE code = $1`
-
-	var existingSupervisorId uuid.UUID
-	err := s.db.QueryRowContext(ctx, query, supervisor.Code).Scan(&existingSupervisorId)
-	if err != nil && err != sql.ErrNoRows {
-		return uuid.UUID{}, fmt.Errorf("error checking if supervisor already exists: %w", err)
-	}
-
-	// If the supervisor already exists, just use the existing ID, else create a new one
-	if existingSupervisorId != uuid.Nil {
-		return existingSupervisorId, nil
-	}
-
-	id = uuid.New()
-
-	query = `
 		INSERT INTO supervisor (id, description, name, created_at, type, code)
 		VALUES ($1, $2, $3, $4, $5, $6)`
 
-	_, err = s.db.ExecContext(ctx, query, id, supervisor.Description, supervisor.Name, supervisor.CreatedAt, supervisor.Type, supervisor.Code)
+	_, err := s.db.ExecContext(ctx, query, id, supervisor.Description, supervisor.Name, supervisor.CreatedAt, supervisor.Type, supervisor.Code)
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error creating supervisor: %w", err)
 	}
