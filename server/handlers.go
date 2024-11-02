@@ -1,7 +1,6 @@
 package sentinel
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -282,15 +281,6 @@ func apiCreateSupervisorHandler(w http.ResponseWriter, r *http.Request, store Su
 		return
 	}
 
-	// Try to find existing supervisor if we have all required fields
-	if supervisor, err := findExistingSupervisor(ctx, store, request); err != nil {
-		http.Error(w, fmt.Sprintf("Error looking up existing supervisor: %v", err), http.StatusInternalServerError)
-		return
-	} else if supervisor != nil {
-		respondJSON(w, supervisor)
-		return
-	}
-
 	// Create new supervisor
 	supervisorId, err := store.CreateSupervisor(ctx, request)
 	if err != nil {
@@ -300,23 +290,6 @@ func apiCreateSupervisorHandler(w http.ResponseWriter, r *http.Request, store Su
 
 	request.Id = &supervisorId
 	respondJSON(w, request)
-}
-
-// findExistingSupervisor checks if a supervisor already exists with the given values
-func findExistingSupervisor(ctx context.Context, store SupervisorStore, request Supervisor) (*Supervisor, error) {
-	if !hasRequiredFields(request) {
-		return nil, nil
-	}
-
-	return store.GetSupervisorFromValues(ctx, *request.Code, request.Name, request.Description, request.Type)
-}
-
-// hasRequiredFields checks if all required fields are present
-func hasRequiredFields(s Supervisor) bool {
-	return s.Code != nil &&
-		s.Name != "" &&
-		s.Description != "" &&
-		s.Type != ""
 }
 
 // respondJSON writes a JSON response with status 200 OK
