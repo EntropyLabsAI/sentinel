@@ -12,25 +12,8 @@ export default function JsonDisplay({ reviewRequest }: { reviewRequest: Supervis
   const jsonString = JSON.stringify(reviewRequest, null, 2)
 
   return (
-    <Card className="mt-4 overflow-scroll">
+    <Card className="mt-4 overflow-scroll border-none">
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span className="flex items-center">
-            <Code className="mr-2" />
-            Task State JSON
-          </span>
-          <div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowJson(!showJson)}
-              className="mr-2"
-            >
-              {showJson ? "Hide" : "Show"} JSON
-            </Button>
-            {showJson && <CopyButton text={jsonString} />}
-          </div>
-        </CardTitle>
       </CardHeader>
       <CardContent>
         {showJson && (

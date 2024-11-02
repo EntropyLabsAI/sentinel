@@ -10,6 +10,8 @@ import { Button } from "./ui/button";
 import { useProject } from "@/contexts/project_context";
 import { UUIDDisplay } from "./uuid_display";
 import { CreatedAgo } from "./created_ago";
+import { Building2 } from "lucide-react";
+import Loading from "./loading";
 
 export default function ProjectList() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -30,12 +32,12 @@ export default function ProjectList() {
     navigate(`/projects/${project.id}`);
   };
 
-  if (isLoading) return <Page title="Projects">Loading...</Page>;
-  if (error) return <Page title="Projects">Error: {error.message}</Page>;
-
   return (
-    <Page title="Projects">
+    <Page title="Projects" icon={<Building2 className="w-6 h-6" />}>
       {projects.length === 0 && <div>No projects found. To register a project, check out the <Link to="/api" className="text-blue-500">docs</Link>.</div>}
+      {isLoading && (
+        <Loading />
+      )}
 
       {projects.map((project) => (
         <Card key={project.id} className="flex flex-col">

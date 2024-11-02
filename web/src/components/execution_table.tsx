@@ -71,11 +71,10 @@ export default function ExecutionTable({ executions }: { executions: Execution[]
                 <div
                   className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
                   style={{
-                    maxHeight: expandedRows[execution.id] ? "500px" : "0",
-                    padding: expandedRows[execution.id] ? "1rem" : "0rem"
+                    maxHeight: expandedRows[execution.id] ? "" : "0",
                   }}
                 >
-                  <p className="text-sm text-gray-500">In this execution, the agent requested to execute the <ToolBadge toolId={execution.tool_id || ''} /> tool. The agent was supervised by the configured supervisors, resulting in these supervision results:</p>
+                  <p className="text-sm text-gray-500 p-4">In this execution, the agent requested to execute the <ToolBadge toolId={execution.tool_id || ''} /> tool. The agent was supervised by the configured supervisors, resulting in these supervision results:</p>
                   <div className="p-4 bg-muted/50">
                     <SupervisionDetails executionId={execution.id} />
                   </div>
@@ -93,30 +92,4 @@ export default function ExecutionTable({ executions }: { executions: Execution[]
       </TableFooter>
     </Table >
   )
-}
-
-export function ExecutionCard({ execution }: { execution: Execution }) {
-  const projectId = useProject()
-  return (
-    <Card key={execution.id} className="w-full ">
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          Execution <UUIDDisplay uuid={execution.id} href={`/projects/${projectId}/runs/${execution.run_id}/executions/${execution.id}`} />
-          <Badge>{execution.status}</Badge>
-        </CardTitle>
-        <CardDescription>
-          <CreatedAgo datetime={execution.created_at || ''} />
-          <div>Run ID: <UUIDDisplay uuid={execution.run_id || ''} /></div>
-          <div>
-            <Link to={`/tools/${execution.tool_id}`}>
-              Tool ID: <UUIDDisplay uuid={execution.tool_id || ''} />
-            </Link>
-          </div>
-        </CardDescription>
-      </CardHeader >
-      <CardContent>
-        <SupervisionDetails executionId={execution.id} />
-      </CardContent>
-    </Card >
-  );
 }

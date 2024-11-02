@@ -278,7 +278,6 @@ export default function SidebarComponent({ children }: SidebarProps) {
               {currentPath.length > 0 && (
                 currentPath.map((path, index) => (
                   <BreadcrumbItem key={index}>
-                    {/* <BreadcrumbSeparator className="hidden md:block" /> */}
                     <span className="text-muted-foreground text-xs">/</span>
                     <BreadcrumbLink asChild={true}>
                       <Link to={`/${currentPath.slice(0, index + 1).join('/')}`}>

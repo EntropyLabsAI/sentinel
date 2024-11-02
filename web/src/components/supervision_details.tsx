@@ -2,6 +2,7 @@ import { ExecutionSupervisions, useGetExecutionSupervisions, SupervisionResult, 
 import { Badge } from "@/components/ui/badge";
 import React, { useState, useEffect } from "react";
 import { SupervisionPairCard } from "@/components/supervision_request_result";
+import { SupervisionResultsForExecution } from "./execution";
 
 export function SupervisionDetails({ executionId }: { executionId: string }) {
   const [supervisions, setSupervisions] = useState<ExecutionSupervisions>();
@@ -50,13 +51,14 @@ export function SupervisionDetails({ executionId }: { executionId: string }) {
         </Badge>
       </div>
       <div className="space-y-4">
-        {rows.map(({ request, result }) => (
+        {/* {rows.map(({ request, result }) => (
           <SupervisionPairCard
             key={request.id}
             request={request}
             result={result}
           />
-        ))}
+        ))} */}
+        <SupervisionResultsForExecution results={supervisions.results} requests={supervisions.requests} />
       </div>
     </div>
   );
