@@ -15,120 +15,102 @@ DROP TABLE IF EXISTS tool CASCADE;
 DROP TABLE IF EXISTS sentinel_user CASCADE;
 
 CREATE TABLE sentinel_user (
-    id UUID PRIMARY KEY
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid()
 );
 
 CREATE TABLE tool (
-    id UUID PRIMARY KEY,
-    name VARCHAR,
-    description TEXT,
-    attributes JSONB,
-    ignored_attributes TEXT[]
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR DEFAULT '',
+    description TEXT DEFAULT '',
+    attributes JSONB DEFAULT '{}',
+    ignored_attributes TEXT[] DEFAULT '{}'
 );
 
 CREATE TABLE project (
-    id UUID PRIMARY KEY,
-    name TEXT UNIQUE,
-    created_at TIMESTAMP WITH TIME ZONE
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT DEFAULT '' UNIQUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE supervisor (
-    id UUID PRIMARY KEY,
-    name TEXT,
-    description TEXT,
-    created_at TIMESTAMP WITH TIME ZONE,
-    type TEXT CHECK (type in ('human_supervisor', 'client_supervisor', 'no_supervisor')),
-    code TEXT
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT DEFAULT '',
+    description TEXT DEFAULT '',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    type TEXT DEFAULT 'no_supervisor' CHECK (type in ('human_supervisor', 'client_supervisor', 'no_supervisor')),
+    code TEXT DEFAULT ''
 );
 
 CREATE TABLE llm_message (
-    id UUID PRIMARY KEY,
-    role TEXT CHECK (role IN ('system', 'user', 'assistant')),
-    content TEXT
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    role TEXT DEFAULT 'user' CHECK (role IN ('system', 'user', 'assistant')),
+    content TEXT DEFAULT ''
 );
 
 CREATE TABLE user_project (
-    user_id UUID,
-    project_id UUID,
-    PRIMARY KEY (user_id, project_id),
-    FOREIGN KEY (user_id) REFERENCES sentinel_user(id),
-    FOREIGN KEY (project_id) REFERENCES project(id)
+    user_id UUID REFERENCES sentinel_user(id),
+    project_id UUID REFERENCES project(id),
+    PRIMARY KEY (user_id, project_id)
 );
 
 CREATE TABLE run (
-    id UUID PRIMARY KEY,
-    project_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE,
-    FOREIGN KEY (project_id) REFERENCES project(id)
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES project(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE execution (
-    id UUID PRIMARY KEY,
-    run_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE,
-    tool_id UUID,
-    FOREIGN KEY (run_id) REFERENCES run(id),
-    FOREIGN KEY (tool_id) REFERENCES tool(id)
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    run_id UUID REFERENCES run(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    tool_id UUID REFERENCES tool(id)
 );
 
 CREATE TABLE llm_supervisor (
-    supervisor_id UUID PRIMARY KEY,
-    prompt TEXT,
-    FOREIGN KEY (supervisor_id) REFERENCES supervisor(id)
+    supervisor_id UUID PRIMARY KEY REFERENCES supervisor(id),
+    prompt TEXT DEFAULT ''
 );
 
 CREATE TABLE code_supervisor (
-    supervisor_id UUID PRIMARY KEY,
-    code UUID,
-    FOREIGN KEY (supervisor_id) REFERENCES supervisor(id)
+    supervisor_id UUID PRIMARY KEY REFERENCES supervisor(id),
+    code UUID DEFAULT gen_random_uuid()
 );
 
 CREATE TABLE run_tool_supervisor (
     id SERIAL PRIMARY KEY,
-    tool_id UUID,
-    run_id UUID,
-    supervisor_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE,
-    FOREIGN KEY (tool_id) REFERENCES tool(id),
-    FOREIGN KEY (run_id) REFERENCES run(id),
-    FOREIGN KEY (supervisor_id) REFERENCES supervisor(id)
+    tool_id UUID REFERENCES tool(id),
+    run_id UUID REFERENCES run(id),
+    supervisor_id UUID REFERENCES supervisor(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE supervisionrequest (
-    id UUID PRIMARY KEY,
-    execution_id UUID,
-    supervisor_id UUID,
-    task_state JSONB,
-    FOREIGN KEY (execution_id) REFERENCES execution(id),
-    FOREIGN KEY (supervisor_id) REFERENCES supervisor(id)
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    execution_id UUID REFERENCES execution(id),
+    supervisor_id UUID REFERENCES supervisor(id),
+    task_state JSONB DEFAULT '{}'
 );
 
 CREATE TABLE supervisionrequest_status (
     id SERIAL PRIMARY KEY,
-    supervisionrequest_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE,
-    status TEXT CHECK (status IN ('timeout', 'pending', 'completed', 'failed', 'assigned')),
-    FOREIGN KEY (supervisionrequest_id) REFERENCES supervisionrequest(id)
+    supervisionrequest_id UUID REFERENCES supervisionrequest(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('timeout', 'pending', 'completed', 'failed', 'assigned'))
 );
 
 CREATE TABLE toolrequest (
-    id UUID PRIMARY KEY,
-    tool_id UUID,
-    supervisionrequest_id UUID,
-    message_id UUID,
-    arguments JSONB,
-    FOREIGN KEY (supervisionrequest_id) REFERENCES supervisionrequest(id),
-    FOREIGN KEY (tool_id) REFERENCES tool(id),
-    FOREIGN KEY (message_id) REFERENCES llm_message(id)
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tool_id UUID REFERENCES tool(id),
+    supervisionrequest_id UUID REFERENCES supervisionrequest(id),
+    message_id UUID REFERENCES llm_message(id),
+    arguments JSONB DEFAULT '{}'
 );
 
 CREATE TABLE supervisionresult (
-    id UUID PRIMARY KEY,
-    supervisionrequest_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE,
-    decision TEXT CHECK (decision IN ('approve', 'reject', 'terminate', 'modify', 'escalate')),
-    toolrequest_id UUID,
-    reasoning TEXT,
-    FOREIGN KEY (supervisionrequest_id) REFERENCES supervisionrequest(id),
-    FOREIGN KEY (toolrequest_id) REFERENCES toolrequest(id)
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    supervisionrequest_id UUID REFERENCES supervisionrequest(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    decision TEXT DEFAULT 'reject' CHECK (decision IN ('approve', 'reject', 'terminate', 'modify', 'escalate')),
+    toolrequest_id UUID REFERENCES toolrequest(id),
+    reasoning TEXT DEFAULT ''
 );
