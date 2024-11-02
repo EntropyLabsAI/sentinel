@@ -38,7 +38,8 @@ CREATE TABLE supervisor (
     description TEXT DEFAULT '',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     type TEXT DEFAULT 'no_supervisor' CHECK (type in ('human_supervisor', 'client_supervisor', 'no_supervisor')),
-    code TEXT DEFAULT ''
+    code TEXT DEFAULT '',
+    attributes JSONB DEFAULT '{}' NOT NULL
 );
 
 CREATE TABLE llm_message (
@@ -88,7 +89,7 @@ CREATE TABLE supervisionrequest (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     execution_id UUID REFERENCES execution(id),
     supervisor_id UUID REFERENCES supervisor(id),
-    task_state JSONB DEFAULT '{}'
+    task_state JSONB DEFAULT '{}' NOT NULL
 );
 
 CREATE TABLE supervisionrequest_status (
@@ -103,7 +104,7 @@ CREATE TABLE toolrequest (
     tool_id UUID REFERENCES tool(id),
     supervisionrequest_id UUID REFERENCES supervisionrequest(id),
     message_id UUID REFERENCES llm_message(id),
-    arguments JSONB DEFAULT '{}'
+    arguments JSONB DEFAULT '{}' NOT NULL
 );
 
 CREATE TABLE supervisionresult (

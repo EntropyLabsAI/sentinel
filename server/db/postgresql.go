@@ -166,28 +166,43 @@ func (s *PostgresqlStore) GetToolFromValues(ctx context.Context, attributes map[
 	return &tool, nil
 }
 
-func (s *PostgresqlStore) GetSupervisorFromValues(ctx context.Context, code string, name string, desc string, t sentinel.SupervisorType) (*sentinel.Supervisor, error) {
+func (s *PostgresqlStore) GetSupervisorFromValues(
+	ctx context.Context,
+	code string,
+	name string,
+	desc string,
+	t sentinel.SupervisorType,
+	attributes map[string]interface{},
+) (*sentinel.Supervisor, error) {
 	query := `
 		SELECT id, code, name, description, type, created_at
 		FROM supervisor
 		WHERE code = $1
 		AND name = $2
 		AND description = $3
-		AND type = $4`
+		AND type = $4
+		AND attributes = $5`
+
+	attrJSON, err := json.Marshal(attributes)
+	if err != nil {
+		return nil, fmt.Errorf("error marshalling attributes: %w", err)
+	}
 
 	var supervisor sentinel.Supervisor
-	err := s.db.QueryRowContext(ctx, query, code, name, desc, t).Scan(&supervisor.Id, &supervisor.Code, &supervisor.Name, &supervisor.Description, &supervisor.Type, &supervisor.CreatedAt)
+	err = s.db.QueryRowContext(
+		ctx, query, code, name, desc, t, attrJSON,
+	).Scan(
+		&supervisor.Id, &supervisor.Code, &supervisor.Name, &supervisor.Description, &supervisor.Type, &supervisor.CreatedAt,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
-		// Print the query and values
-		fmt.Printf("NOT FOUND: query: %s\n", query)
-		fmt.Printf("NOT FOUND: values: %s, %s, %s, %s\n", code, name, desc, t)
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error getting supervisor by values: %w", err)
 	}
 
-	fmt.Printf("FOUND: %+v\n", supervisor)
+	// Just use the attributes passed in since we know they match, saves us having to fiddle with converting.
+	supervisor.Attributes = attributes
 
 	return &supervisor, nil
 }
@@ -845,54 +860,28 @@ func (s *PostgresqlStore) GetSupervisionRequestsForStatus(ctx context.Context, s
 	return requests, nil
 }
 
-func (s *PostgresqlStore) GetSupervisorFromToolID(ctx context.Context, id uuid.UUID) (*sentinel.Supervisor, error) {
-	query := `
-		SELECT s.id, s.description, s.name, s.code, s.created_at, s.type
-		FROM supervisor s
-		INNER JOIN tool_supervisor ts ON s.id = ts.supervisor_id
-		INNER JOIN tool t ON ts.tool_id = t.id
-		WHERE t.id = $1`
-
-	var supervisor sentinel.Supervisor
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&supervisor.Id, &supervisor.Description, &supervisor.Name, &supervisor.Code, &supervisor.CreatedAt, &supervisor.Type)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("error getting supervisor: %w", err)
-	}
-	return &supervisor, nil
-}
-
-// hasRequiredFields checks if all required fields are present
-func hasRequiredFields(s sentinel.Supervisor) bool {
-	return s.Code != nil &&
-		s.Name != "" &&
-		s.Description != "" &&
-		s.Type != ""
-}
-
 func (s *PostgresqlStore) CreateSupervisor(ctx context.Context, supervisor sentinel.Supervisor) (uuid.UUID, error) {
-	if supervisor.Code == nil {
-		return uuid.UUID{}, fmt.Errorf("can't create supervisor, code is required")
-	}
-
 	// Try to find an existing supervisor with the same values
-	if hasRequiredFields(supervisor) {
-		if existingSupervisor, err := s.GetSupervisorFromValues(ctx, *supervisor.Code, supervisor.Name, supervisor.Description, supervisor.Type); err != nil {
-			return uuid.UUID{}, fmt.Errorf("error getting existing supervisor during create supervisor: %w", err)
-		} else if existingSupervisor != nil {
-			return *existingSupervisor.Id, nil
-		}
+	if existingSupervisor, err := s.GetSupervisorFromValues(
+		ctx, supervisor.Code, supervisor.Name, supervisor.Description, supervisor.Type, supervisor.Attributes,
+	); err != nil {
+		return uuid.UUID{}, fmt.Errorf("error getting existing supervisor during create supervisor: %w", err)
+	} else if existingSupervisor != nil {
+		return *existingSupervisor.Id, nil
 	}
 
 	id := uuid.New()
 
-	query := `
-		INSERT INTO supervisor (id, description, name, created_at, type, code)
-		VALUES ($1, $2, $3, $4, $5, $6)`
+	attributes, err := json.Marshal(supervisor.Attributes)
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("error marshalling supervisor attributes: %w", err)
+	}
 
-	_, err := s.db.ExecContext(ctx, query, id, supervisor.Description, supervisor.Name, supervisor.CreatedAt, supervisor.Type, supervisor.Code)
+	query := `
+		INSERT INTO supervisor (id, description, name, created_at, type, code, attributes)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`
+
+	_, err = s.db.ExecContext(ctx, query, id, supervisor.Description, supervisor.Name, supervisor.CreatedAt, supervisor.Type, supervisor.Code, attributes)
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error creating supervisor: %w", err)
 	}
@@ -1160,12 +1149,13 @@ func (s *PostgresqlStore) GetRunToolSupervisors(ctx context.Context, runId uuid.
 
 func (s *PostgresqlStore) GetSupervisor(ctx context.Context, id uuid.UUID) (*sentinel.Supervisor, error) {
 	query := `
-		SELECT id, description, name, created_at, type
+		SELECT id, description, name, created_at, type, attributes
 		FROM supervisor
 		WHERE id = $1`
 
 	var supervisor sentinel.Supervisor
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&supervisor.Id, &supervisor.Description, &supervisor.Name, &supervisor.CreatedAt, &supervisor.Type)
+	var attributesJSON []byte
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&supervisor.Id, &supervisor.Description, &supervisor.Name, &supervisor.CreatedAt, &supervisor.Type, &attributesJSON)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -1173,12 +1163,19 @@ func (s *PostgresqlStore) GetSupervisor(ctx context.Context, id uuid.UUID) (*sen
 		return nil, fmt.Errorf("error getting supervisor: %w", err)
 	}
 
+	// Parse the JSON attributes if they exist
+	if len(attributesJSON) > 0 {
+		if err := json.Unmarshal(attributesJSON, &supervisor.Attributes); err != nil {
+			return nil, fmt.Errorf("error parsing supervisor attributes: %w", err)
+		}
+	}
+
 	return &supervisor, nil
 }
 
 func (s *PostgresqlStore) GetSupervisors(ctx context.Context, projectId uuid.UUID) ([]sentinel.Supervisor, error) {
 	query := `
-		SELECT s.id, s.description, s.name, s.code, s.created_at, s.type
+		SELECT s.id, s.description, s.name, s.code, s.created_at, s.type, s.attributes
 		FROM supervisor s
 		INNER JOIN run_tool_supervisor rts ON s.id = rts.supervisor_id
 		INNER JOIN run r ON rts.run_id = r.id
@@ -1193,9 +1190,18 @@ func (s *PostgresqlStore) GetSupervisors(ctx context.Context, projectId uuid.UUI
 	var supervisors []sentinel.Supervisor
 	for rows.Next() {
 		var supervisor sentinel.Supervisor
-		if err := rows.Scan(&supervisor.Id, &supervisor.Description, &supervisor.Name, &supervisor.Code, &supervisor.CreatedAt, &supervisor.Type); err != nil {
+		var attributesJSON []byte
+		if err := rows.Scan(&supervisor.Id, &supervisor.Description, &supervisor.Name, &supervisor.Code, &supervisor.CreatedAt, &supervisor.Type, &attributesJSON); err != nil {
 			return nil, fmt.Errorf("error scanning supervisor: %w", err)
 		}
+
+		// Parse the JSON attributes if they exist
+		if len(attributesJSON) > 0 {
+			if err := json.Unmarshal(attributesJSON, &supervisor.Attributes); err != nil {
+				return nil, fmt.Errorf("error parsing supervisor attributes: %w", err)
+			}
+		}
+
 		supervisors = append(supervisors, supervisor)
 	}
 
