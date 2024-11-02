@@ -1,5 +1,5 @@
 import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -22,7 +22,9 @@ class Tool:
         name (str):
         description (str):
         id (Union[Unset, UUID]):
-        attributes (Union[Unset, ToolAttributes]):
+        attributes (Union[Unset, ToolAttributes]): Attributes of the tool that requests to this tool will have
+        ignored_attributes (Union[Unset, List[str]]): Attributes of the tool that will not be shown in the UI for
+            requests to this tool
         created_at (Union[Unset, datetime.datetime]):
     """
 
@@ -30,6 +32,7 @@ class Tool:
     description: str
     id: Union[Unset, UUID] = UNSET
     attributes: Union[Unset, "ToolAttributes"] = UNSET
+    ignored_attributes: Union[Unset, List[str]] = UNSET
     created_at: Union[Unset, datetime.datetime] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -45,6 +48,10 @@ class Tool:
         attributes: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.attributes, Unset):
             attributes = self.attributes.to_dict()
+
+        ignored_attributes: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.ignored_attributes, Unset):
+            ignored_attributes = self.ignored_attributes
 
         created_at: Union[Unset, str] = UNSET
         if not isinstance(self.created_at, Unset):
@@ -62,6 +69,8 @@ class Tool:
             field_dict["id"] = id
         if attributes is not UNSET:
             field_dict["attributes"] = attributes
+        if ignored_attributes is not UNSET:
+            field_dict["ignored_attributes"] = ignored_attributes
         if created_at is not UNSET:
             field_dict["created_at"] = created_at
 
@@ -90,6 +99,8 @@ class Tool:
         else:
             attributes = ToolAttributes.from_dict(_attributes)
 
+        ignored_attributes = cast(List[str], d.pop("ignored_attributes", UNSET))
+
         _created_at = d.pop("created_at", UNSET)
         created_at: Union[Unset, datetime.datetime]
         if isinstance(_created_at, Unset):
@@ -102,6 +113,7 @@ class Tool:
             description=description,
             id=id,
             attributes=attributes,
+            ignored_attributes=ignored_attributes,
             created_at=created_at,
         )
 
