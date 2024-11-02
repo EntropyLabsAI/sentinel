@@ -148,16 +148,15 @@ func (s *PostgresqlStore) GetToolFromValues(ctx context.Context, attributes map[
 		return nil, fmt.Errorf("error marshalling attributes: %w", err)
 	}
 
-	ignoredAttr := pq.Array(ignoredAttributes)
-
 	var tool sentinel.Tool
 	var attributesJSON []byte
-	err = s.db.QueryRowContext(ctx, query, name, description, attrJSON, ignoredAttr).Scan(
+	var toolIgnoredAttributes []string
+	err = s.db.QueryRowContext(ctx, query, name, description, attrJSON, pq.Array(ignoredAttributes)).Scan(
 		&tool.Id,
 		&tool.Name,
 		&tool.Description,
-		&attributesJSON, // Scan into byte array first
-		&tool.IgnoredAttributes,
+		&attributesJSON,
+		pq.Array(&toolIgnoredAttributes),
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -175,6 +174,7 @@ func (s *PostgresqlStore) GetToolFromValues(ctx context.Context, attributes map[
 		tool.Attributes = &attrs
 	}
 
+	tool.IgnoredAttributes = &toolIgnoredAttributes
 	return &tool, nil
 }
 
