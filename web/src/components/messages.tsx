@@ -22,12 +22,8 @@ export function MessagesDisplay({ messages }: { messages: Message[] }) {
   }, [messages, isLoaded]);
 
   return (
-    <Card>
+    <Card className="border-none">
       <CardHeader>
-        <CardTitle className="flex items-center">
-          <MessageSquare className="mr-2" />
-          Messages
-        </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="overflow-auto" ref={scrollAreaRef}>

@@ -6,7 +6,7 @@ import Page from "./page";
 import { useProject } from "@/contexts/project_context";
 import { UUIDDisplay } from "./uuid_display";
 import { Button } from "./ui/button";
-import { ArrowRightIcon } from "lucide-react";
+import { ArrowRightIcon, RailSymbol } from "lucide-react";
 import { CreatedAgo } from "./created_ago";
 
 export default function Runs() {
@@ -37,11 +37,10 @@ export default function Runs() {
     }
   }, [runsData, selectedProject]);
 
-  if (runsLoading) return <Page title="Runs">Loading...</Page>;
-  if (runsError) return <Page title="Runs">Error: {runsError.message}</Page>;
-
   return (
-    <Page title={`Runs for project ${projectData?.data?.name}`} subtitle={<span>{runs.length} runs found for project <UUIDDisplay uuid={projectData?.data?.id} /></span>}>
+    <Page title={`Agent runs for project ${projectData?.data?.name}`} subtitle={<span>{runs.length} runs found for project <UUIDDisplay uuid={projectData?.data?.id} /></span>}
+      icon={<RailSymbol className="w-6 h-6" />}
+    >
       <div className="flex flex-col space-y-4">
         {runs.length === 0 && <p className="text-sm text-gray-500">No runs found for this project. When you run an agent, it will appear here.</p>}
         {runs.map((run) => (
@@ -58,6 +57,6 @@ export default function Runs() {
           </Card>
         ))}
       </div>
-    </Page>
+    </Page >
   )
 }

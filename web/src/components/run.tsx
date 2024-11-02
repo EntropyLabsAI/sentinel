@@ -8,6 +8,7 @@ import Page from "./page";
 import { ToolsList } from "@/components/tools_list";
 import { UUIDDisplay } from "@/components/uuid_display";
 import ExecutionTable from "./execution_table";
+import { EyeIcon, ListOrderedIcon, PickaxeIcon, PyramidIcon } from "lucide-react";
 
 export default function Run() {
   const { runId } = useParams();
@@ -32,15 +33,13 @@ export default function Run() {
   }, [toolsData]);
 
   if (!runId) {
-    return <Page title="Executions">No run selected</Page>;
+    <p>No Run ID found</p>
   }
-
-  if (isLoading || toolsLoading) return <Page title="Executions">Loading...</Page>;
-  if (error) return <Page title="Executions">Error: {error.message}</Page>;
 
   return (
     <>
       <Page
+        icon={<ListOrderedIcon className="w-6 h-6" />}
         title="Run details"
         subtitle={
           <span>
@@ -53,22 +52,18 @@ export default function Run() {
         <div className="mb-4"></div>
       </Page>
 
-      <Page title={`Executions for run`} subtitle={`During this agent run, we recorded ${executions.length} execution${executions.length === 1 ? "" : "s"} of ${tools.length} tool${tools.length === 1 ? "" : "s"}. `}>
+      <Page
+        icon={<PyramidIcon className="h-5 w-5" />}
+        title={`Executions for run`} subtitle={`During this agent run, we recorded ${executions.length} execution${executions.length === 1 ? "" : "s"} of ${tools.length} tool${tools.length === 1 ? "" : "s"}. `}>
         <div className="col-span-3">
           <ExecutionTable executions={executions} />
         </div>
       </Page>
-      <Page title="Tools used in this run" subtitle={`${tools.length} tool${tools.length === 1 ? "" : "s"} used in this run`}>
+      <Page
+        icon={<PickaxeIcon className="h-5 w-5" />}
+        title="Tools used in this run" subtitle={`${tools.length} tool${tools.length === 1 ? "" : "s"} used in this run`}>
         <ToolsList tools={tools} runId={runId} variant="card" />
       </Page>
     </>
   );
 }
-
-{/* <div className="mb-4 flex flex-col col-span-3 gap-4">
-          {executions.map((execution) => (
-            <div className="flex flex-row">
-              <ExecutionCard key={execution.id} execution={execution} />
-            </div>
-          ))}
-        </div> */}
