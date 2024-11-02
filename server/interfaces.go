@@ -57,7 +57,7 @@ type SupervisorResultsStore interface {
 type ToolStore interface {
 	CreateTool(ctx context.Context, tool Tool) (uuid.UUID, error)
 	GetTool(ctx context.Context, id uuid.UUID) (*Tool, error)
-	GetToolFromValues(ctx context.Context, attributes map[string]interface{}, name string, description string) (*Tool, error)
+	GetToolFromValues(ctx context.Context, attributes map[string]interface{}, name string, description string, ignoredAttributes []string) (*Tool, error)
 	GetRunTools(ctx context.Context, id uuid.UUID) ([]Tool, error)
 	GetProjectTools(ctx context.Context, id uuid.UUID) ([]Tool, error)
 	GetSupervisionToolRequests(ctx context.Context, id uuid.UUID) ([]ToolRequest, error)

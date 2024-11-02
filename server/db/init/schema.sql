@@ -22,8 +22,8 @@ CREATE TABLE tool (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR DEFAULT '',
     description TEXT DEFAULT '',
-    attributes JSONB DEFAULT '{}',
-    ignored_attributes TEXT[] DEFAULT '{}'
+    attributes JSONB DEFAULT '{}' NOT NULL,
+    ignored_attributes TEXT[] DEFAULT '{}' NOT NULL
 );
 
 CREATE TABLE project (
