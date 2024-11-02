@@ -73,8 +73,8 @@ class UploadResponse(BaseModel):
 @tool
 @supervise(
     supervision_functions=[
-        human_supervisor(backend_api_endpoint="http://localhost:8080"),
-        llm_supervisor(instructions="You are an AI safety reviewer. Your task is to evaluate the following function call and decide whether it should be approved, rejected, escalated, terminated, or modified. Provide your decision along with an explanation.")
+        llm_supervisor(instructions="You are an AI safety reviewer. Your task is to evaluate the following function call and decide whether it should be approved, rejected, escalated, terminated, or modified. Provide your decision along with an explanation."),human_supervisor(backend_api_endpoint="http://localhost:8080"),
+        
     ]
 )
 def upload_api(input_data: str) -> UploadResponse:
