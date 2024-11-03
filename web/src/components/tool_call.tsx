@@ -33,6 +33,20 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
 
   const [args, setArgs] = useState<ToolRequestArguments>(toolChoice.arguments);
 
+  // Add new state to store hidden values
+  const [hiddenArgs, setHiddenArgs] = useState<Partial<ToolRequestArguments>>({});
+
+  // Add function to filter visible arguments
+  const getVisibleArgs = (fullArgs: ToolRequestArguments): ToolRequestArguments => {
+    if (!tool?.ignored_attributes) return fullArgs;
+
+    const visibleArgs = { ...fullArgs };
+    tool.ignored_attributes.forEach(key => {
+      delete visibleArgs[key];
+    });
+    return visibleArgs;
+  };
+
   const toolQuery = useGetTool(toolChoice.tool_id);
 
   function resetExplanation() {
@@ -43,17 +57,35 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
     setScore(null);
   }
 
+  // Update useEffect to set initial hidden values
+  useEffect(() => {
+    if (tool?.ignored_attributes) {
+      const hidden = tool.ignored_attributes.reduce((acc, key) => {
+        if (key in toolChoice.arguments) {
+          acc[key] = toolChoice.arguments[key];
+        }
+        return acc;
+      }, {} as Partial<ToolRequestArguments>);
+
+      setHiddenArgs(hidden);
+      setArgs(getVisibleArgs(toolChoice.arguments));
+    }
+  }, [tool, toolChoice.arguments]);
+
   function handleCodeChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const newArgs = e.target.value;
-    const newArgsObject: ToolRequestArguments = JSON.parse(newArgs);
+    const newVisibleArgs: ToolRequestArguments = JSON.parse(newArgs);
 
-    setArgs(newArgsObject);
-
+    setArgs(newVisibleArgs);
 
     const updatedToolChoice = {
       ...toolChoice,
-      arguments: newArgsObject,
+      arguments: {
+        ...newVisibleArgs,
+        ...hiddenArgs, // Merge back hidden values
+      },
     };
+
     onToolChoiceChange(updatedToolChoice);
   }
 
@@ -102,7 +134,7 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
       <CardContent>
         <div className="space-y-4">
           <ToolCodeBlock
-            code={JSON.stringify(args)}
+            code={JSON.stringify(getVisibleArgs(args), null, 2)}
             handleCodeChange={handleCodeChange}
             explanation={explanation}
             setExplanation={setExplanation}
