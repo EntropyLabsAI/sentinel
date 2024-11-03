@@ -103,7 +103,7 @@ CREATE TABLE toolrequest (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tool_id UUID REFERENCES tool(id),
     supervisionrequest_id UUID REFERENCES supervisionrequest(id),
-    message_id UUID REFERENCES llm_message(id),
+    message_id UUID REFERENCES llm_message(id) NULL,
     arguments JSONB DEFAULT '{}' NOT NULL
 );
 

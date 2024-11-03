@@ -819,6 +819,7 @@ components:
         - created_at
         - decision
         - reasoning
+        - toolrequest
 
     LLMMessage:
       type: object
@@ -943,15 +944,12 @@ components:
           format: uuid
         supervision_result:
           $ref: "#/components/schemas/SupervisionResult"
-        tool_request:
-          $ref: "#/components/schemas/ToolRequest"
       required:
         - run_id
         - execution_id
         - tool_id
         - supervisor_id
         - supervision_result
-        - tool_request
 
     Execution:
       type: object
@@ -1135,20 +1133,26 @@ components:
         execution_id:
           type: string
           format: uuid
-        requests:
+        supervisions:
           type: array
           items:
-            $ref: "#/components/schemas/SupervisionRequest"
-        results:
-          type: array
-          items:
-            $ref: "#/components/schemas/SupervisionResult"
+            $ref: "#/components/schemas/Supervision"
+      required:
+        - execution_id
+        - supervisions
+
+    Supervision:
+      type: object
+      properties:
+        request:
+          $ref: "#/components/schemas/SupervisionRequest"
+        result:
+          description: The result of the supervision, if it has been completed. Nil otherwise.
+          $ref: "#/components/schemas/SupervisionResult"
         statuses:
           type: array
           items:
             $ref: "#/components/schemas/SupervisionStatus"
       required:
-        - execution_id
-        - requests
-        - results
+        - request
         - statuses
