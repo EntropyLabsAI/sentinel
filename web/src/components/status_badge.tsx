@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { BotIcon, PickaxeIcon } from "lucide-react";
 
-export function StatusBadge({ status }: { status: Status }) {
+export function StatusBadge({ status, statuses }: { status?: Status, statuses?: SupervisionStatus[] }) {
   const colors = {
     [Status.pending]: 'bg-gray-400',
     [Status.completed]: 'bg-purple-800',
@@ -12,8 +12,18 @@ export function StatusBadge({ status }: { status: Status }) {
     [Status.assigned]: 'bg-purple-700',
     [Status.timeout]: 'bg-gray-600',
   }
+
+  if (statuses) {
+    const mostRecentStatus = statuses.sort((a, b) => a.id - b.id)[statuses.length - 1].status;
+    status = mostRecentStatus;
+  } else if (!status) {
+    return
+  }
+
   return <Badge className={`shadow-none ${colors[status]}`}>{status}</Badge>;
 }
+
+
 
 export function DecisionBadge({ decision }: { decision: Decision | undefined }) {
   if (!decision) {
@@ -54,7 +64,7 @@ export const ToolBadge: React.FC<{ toolId: string }> = ({ toolId }) => {
   if (isLoading) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Loading...</Badge>;
   if (error) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Error: {error.message}</Badge>;
 
-  return <Badge className="text-gray-800 shadow-none bg-gray-100 hover:bg-gray-200 whitespace-nowrap"><Link to={`/tools/${toolId}`} className="flex flex-row gap-2 items-center"><PickaxeIcon className="w-3 h-3" />{data?.data.name}</Link></Badge>;
+  return <Badge key={toolId} className="text-gray-800 shadow-none bg-gray-100 hover:bg-gray-200 whitespace-nowrap"><Link to={`/tools/${toolId}`} className="flex flex-row gap-2 items-center"><PickaxeIcon className="w-3 h-3" />{data?.data.name}</Link></Badge>;
 
 };
 
@@ -75,10 +85,10 @@ export const SupervisorBadge: React.FC<SupervisorBadgeProps> = ({ supervisorId, 
   const { data, isLoading, error } = useGetSupervisor(supervisorId);
 
   if (isLoading) {
-    return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Loading...</Badge>;
+    return <Badge key={supervisorId} className="text-white bg-gray-400 shadow-none whitespace-nowrap">Loading...</Badge>;
   }
   if (error) {
-    return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Error: {error.message}</Badge>;
+    return <Badge key={supervisorId} className="text-white bg-gray-400 shadow-none whitespace-nowrap">Error: {error.message}</Badge>;
   }
 
   const supervisorData = supervisor || data?.data;
@@ -86,7 +96,7 @@ export const SupervisorBadge: React.FC<SupervisorBadgeProps> = ({ supervisorId, 
 
   return (
     <Link to={`/supervisors/${supervisorId}`}>
-      <Badge className={baseBadgeClasses}>
+      <Badge key={supervisorId} className={baseBadgeClasses}>
         <div className="flex flex-row gap-2 items-center">
           <BotIcon className="w-3 h-3" />
           {supervisorData?.name}
