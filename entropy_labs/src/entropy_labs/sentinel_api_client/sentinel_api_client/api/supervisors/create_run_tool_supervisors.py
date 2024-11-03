@@ -13,7 +13,7 @@ def _get_kwargs(
     run_id: UUID,
     tool_id: UUID,
     *,
-    body: List[UUID],
+    body: List[List[UUID]],
 ) -> Dict[str, Any]:
     headers: Dict[str, Any] = {}
 
@@ -23,9 +23,19 @@ def _get_kwargs(
     }
 
     _body = []
-    for body_item_data in body:
-        body_item = str(body_item_data)
-        _body.append(body_item)
+    for componentsschemas_supervisor_chain_assignment_item_data in body:
+        componentsschemas_supervisor_chain_assignment_item = []
+        for (
+            componentsschemas_supervisor_chain_assignment_item_item_data
+        ) in componentsschemas_supervisor_chain_assignment_item_data:
+            componentsschemas_supervisor_chain_assignment_item_item = str(
+                componentsschemas_supervisor_chain_assignment_item_item_data
+            )
+            componentsschemas_supervisor_chain_assignment_item.append(
+                componentsschemas_supervisor_chain_assignment_item_item
+            )
+
+        _body.append(componentsschemas_supervisor_chain_assignment_item)
 
     _kwargs["json"] = _body
     headers["Content-Type"] = "application/json"
@@ -57,18 +67,19 @@ def sync_detailed(
     tool_id: UUID,
     *,
     client: Union[AuthenticatedClient, Client],
-    body: List[UUID],
+    body: List[List[UUID]],
 ) -> Response[Any]:
-    """Assign a list of supervisors to a tool for a given run
+    """Assign supervisors to a tool for a given run
 
-     Specify an array of supervisors in supervision order. The first supervisor will be called first, and
-    so on. These supervisors will be called in order when this tool is invoked for the remainder of the
-    run.
+     Specify an array of arrays of supervisors in supervision order. Each array represents a list of
+    supervisors that will be called in parallel, with the first supervisor in each array being called
+    first, and so on. These supervisors will be called in parallel when this tool is invoked for the
+    remainder of the run.
 
     Args:
         run_id (UUID):
         tool_id (UUID):
-        body (List[UUID]):
+        body (List[List[UUID]]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -96,18 +107,19 @@ async def asyncio_detailed(
     tool_id: UUID,
     *,
     client: Union[AuthenticatedClient, Client],
-    body: List[UUID],
+    body: List[List[UUID]],
 ) -> Response[Any]:
-    """Assign a list of supervisors to a tool for a given run
+    """Assign supervisors to a tool for a given run
 
-     Specify an array of supervisors in supervision order. The first supervisor will be called first, and
-    so on. These supervisors will be called in order when this tool is invoked for the remainder of the
-    run.
+     Specify an array of arrays of supervisors in supervision order. Each array represents a list of
+    supervisors that will be called in parallel, with the first supervisor in each array being called
+    first, and so on. These supervisors will be called in parallel when this tool is invoked for the
+    remainder of the run.
 
     Args:
         run_id (UUID):
         tool_id (UUID):
-        body (List[UUID]):
+        body (List[List[UUID]]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

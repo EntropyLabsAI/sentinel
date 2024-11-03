@@ -21,12 +21,13 @@ from .project import Project
 from .project_create import ProjectCreate
 from .run import Run
 from .status import Status
+from .supervision import Supervision
 from .supervision_request import SupervisionRequest
 from .supervision_result import SupervisionResult
 from .supervision_status import SupervisionStatus
 from .supervisor import Supervisor
-from .supervisor_assignment import SupervisorAssignment
 from .supervisor_attributes import SupervisorAttributes
+from .supervisor_chain import SupervisorChain
 from .supervisor_type import SupervisorType
 from .task_state import TaskState
 from .task_state_metadata import TaskStateMetadata
@@ -65,12 +66,13 @@ __all__ = (
     "ProjectCreate",
     "Run",
     "Status",
+    "Supervision",
     "SupervisionRequest",
     "SupervisionResult",
     "SupervisionStatus",
     "Supervisor",
-    "SupervisorAssignment",
     "SupervisorAttributes",
+    "SupervisorChain",
     "SupervisorType",
     "TaskState",
     "TaskStateMetadata",
