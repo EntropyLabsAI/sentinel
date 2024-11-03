@@ -7,7 +7,7 @@ import { UUIDDisplay } from './uuid_display';
 import JsonDisplay from './json_display';
 import { DecisionBadge, ExecutionStatusBadge, StatusBadge, SupervisorBadge, ToolBadge } from './status_badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
-import { FileJsonIcon, GitPullRequestIcon, MessagesSquareIcon, PinIcon } from 'lucide-react';
+import { FileJsonIcon, GitPullRequestIcon, MessagesSquareIcon, PickaxeIcon, PinIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { CreatedAgo } from './created_ago';
 import ToolRequestDisplay from './tool_request';
@@ -56,7 +56,6 @@ export default function ExecutionComponent() {
         </div>
         <div>
           <SupervisionResultsForExecution supervisions={supervisions} />
-
         </div>
       </div >
     </Page >
@@ -110,12 +109,16 @@ export function SupervisionResultsForExecution({ supervisions }: { supervisions:
                   <AccordionItem value="hub-stats" className="border border-gray-200 rounded-md mb-4">
                     <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
                       <div className="flex flex-row gap-4 text-center">
-                        <FileJsonIcon className="w-4 h-4" />
-                        Full Task State JSON
+                        <PickaxeIcon className="w-4 h-4" />
+                        Tool Requests
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <JsonDisplay reviewRequest={supervision.request} />
+                      {supervision.request.tool_requests.map((tool_request, index) => (
+                        <div key={index} className="px-4">
+                          <JsonDisplay json={tool_request} />
+                        </div>
+                      ))}
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
@@ -142,7 +145,7 @@ export function SupervisionResultsForExecution({ supervisions }: { supervisions:
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <JsonDisplay reviewRequest={supervision.request} />
+                      <JsonDisplay json={supervision.request} />
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
@@ -175,7 +178,11 @@ function SupervisionResultCard({ result, supervisorId }: { result: SupervisionRe
       </CardHeader>
       <CardContent>
         <p>Reasoning: {result.reasoning != "" ? result.reasoning : "No reasoning given"}</p>
-        {result.toolrequest && <ToolRequestDisplay tool_request={result.toolrequest} />}
+        {result.toolrequest && (
+          <div className="">
+            <JsonDisplay json={result.toolrequest} />
+          </div>
+        )}
       </CardContent>
     </Card>
 
