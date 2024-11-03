@@ -2,6 +2,7 @@ package sentinel
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,6 +14,20 @@ import (
 type Server struct {
 	Hub   *Hub
 	Store Store
+}
+
+// sendErrorResponse writes an error response with specific status code and message
+func sendErrorResponse(w http.ResponseWriter, status int, message string, details string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	response := ErrorResponse{
+		Error:   message,
+		Details: &details,
+	}
+	err := json.NewEncoder(w).Encode(response)
+	if err != nil {
+		log.Printf("Error encoding error response: %v", err)
+	}
 }
 
 func InitAPI(store Store) {
