@@ -13,7 +13,7 @@ from uuid import UUID
 def supervise(
     mock_policy: Optional[MockPolicy] = None,
     mock_responses: Optional[List[Any]] = None,
-    supervision_functions: Optional[List[Callable]] = None,
+    supervision_functions: Optional[List[List[Callable]]] = None,
     ignored_attributes: Optional[List[str]] = None
 ):
     def decorator(func):
@@ -21,7 +21,7 @@ def supervise(
         supervision_config.context.add_supervised_function(func, supervision_functions, ignored_attributes)
 
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*tool_args, **tool_kwargs):
             supervision_context = supervision_config.context
             run_id = supervision_config.run_id
             client = supervision_config.client  # Get the Sentinel API client
@@ -29,7 +29,7 @@ def supervise(
             print(f"\n--- Supervision ---")
             print(f"Function Name: {func.__qualname__}")
             print(f"Description: {func.__doc__}")
-            print(f"Arguments: {args}, {kwargs.keys()}")
+            print(f"Arguments: {tool_args}, {tool_kwargs.keys()}")
 
             # Retrieve the tool_id from the registry
             entry = supervision_context.get_supervised_function_entry(func)
@@ -50,98 +50,102 @@ def supervise(
             )
             # Handle mocking
             if effective_mock_policy != MockPolicy.NO_MOCK:
-                mock_result = handle_mocking(func, effective_mock_policy, mock_responses, *args, **kwargs)
+                mock_result = handle_mocking(func, effective_mock_policy, mock_responses, *tool_args, **tool_kwargs)
                 print(f"Mocking function execution. Mock result: {mock_result}")
                 return mock_result
             # Supervision logic
             if not supervisors_list:
                 print(f"No supervisors found for function {func.__name__}. Executing function.")
-                return func(*args, **kwargs)
-
-            for supervisor in supervisors_list:
+                return func(*tool_args, **tool_kwargs)
+            all_decisions = []
+            for supervisor_chain in supervisors_list:
                 # We send supervision request to the API
-                review_id = send_supervision_request(supervisor, func, supervision_context, execution_id, tool_id, *args, **kwargs)
+                supervisors = supervisor_chain.supervisors
+                for supervisor in supervisors:
+                    review_id = send_supervision_request(supervisor, func, supervision_context, execution_id, tool_id, tool_args=tool_args, tool_kwargs=tool_kwargs)
 
-                decision = None
-                supervisor_func = supervision_config.get_supervisor_by_id(supervisor.id)
-                if supervisor_func is None:
-                    print(f"No local supervisor function found for ID {supervisor.id}. Skipping.")
-                    return None  # Continue to next supervisor
+                    decision = None
+                    supervisor_func = supervision_config.get_supervisor_by_id(supervisor.id)
+                    if supervisor_func is None:
+                        print(f"No local supervisor function found for ID {supervisor.id}. Skipping.")
+                        return None  # Continue to next supervisor
 
-                # Execute supervisor function
-                decision = call_supervisor_function(supervisor_func, func, supervision_context, review_id=review_id, ignored_attributes=ignored_attributes, tool_kwargs=kwargs)
-                print(f"Supervisor decision: {decision.decision}")
+                    # Execute supervisor function
+                    decision = call_supervisor_function(supervisor_func, func, supervision_context, review_id=review_id, ignored_attributes=ignored_attributes, tool_args=tool_args, tool_kwargs=tool_kwargs)
+                    print(f"Supervisor decision: {decision.decision}")
 
-                # We send the decision to the API
-                send_review_result(
-                        review_id=review_id,
-                        execution_id=execution_id,
-                        run_id=run_id,
-                        tool_id=tool_id,
-                        supervisor_id=supervisor.id,
-                        decision=decision,
-                        client=client,
-                        *args,
-                        **kwargs
-                )
-                # Handle the decision
-                if decision.decision == SupervisionDecisionType.APPROVE:
-                    return func(*args, **kwargs)
-                elif decision.decision == SupervisionDecisionType.REJECT:
-                    return f"Execution of {func.__qualname__} was rejected. Explanation: {decision.explanation}"
-                elif decision.decision == SupervisionDecisionType.ESCALATE:
-                    continue
-                elif decision.decision == SupervisionDecisionType.MODIFY:
-                    print(f"Modified. Executing modified function.")
-                    modified_args = decision.modified.get('args', args)
-                    modified_kwargs = decision.modified.get('kwargs', kwargs)
-                    return func(*modified_args, **modified_kwargs)
-                elif decision.decision == SupervisionDecisionType.TERMINATE: #TODO: Agent termination does not work for all agents
-                    return f"Execution of {func.__qualname__} was terminated. Explanation: {decision.explanation}"
-                else:
-                    print(f"Unknown decision: {decision.decision}. Cancelling execution.")
-                    return f"Execution of {func.__qualname__} was cancelled due to an unknown supervision decision."
-            # If all supervisors escalated without approval
-            print(f"All supervisors escalated without approval. Cancelling {func.__qualname__} execution.")
-            return f"Execution of {func.__qualname__} was cancelled after all supervision levels."
+                    # We send the decision to the API
+                    send_review_result(
+                            review_id=review_id,
+                            execution_id=execution_id,
+                            run_id=run_id,
+                            tool_id=tool_id,
+                            supervisor_id=supervisor.id,
+                            decision=decision,
+                            client=client,
+                            tool_args=tool_args, #TODO: If modified, send modified args and kwargs
+                            tool_kwargs=tool_kwargs
+                    )
+                    # Handle the decision
+                    if decision.decision == SupervisionDecisionType.APPROVE:
+                        all_decisions.append(decision)
+                    elif decision.decision == SupervisionDecisionType.REJECT:
+                        return f"Execution of {func.__qualname__} was rejected. Explanation: {decision.explanation}"
+                    elif decision.decision == SupervisionDecisionType.ESCALATE:
+                        continue  # Proceed to the next supervisor
+                    elif decision.decision == SupervisionDecisionType.MODIFY:
+                        all_decisions.append(decision)
+                    elif decision.decision == SupervisionDecisionType.TERMINATE:
+                        return f"Execution of {func.__qualname__} was terminated. Explanation: {decision.explanation}"
+                    else:
+                        print(f"Unknown decision: {decision.decision}. Cancelling execution.")
+                        return f"Execution of {func.__qualname__} was cancelled due to an unknown supervision decision."
+
+            # Check decisions and apply modifications if any
+            if all(decision.decision in [SupervisionDecisionType.APPROVE, SupervisionDecisionType.MODIFY] for decision in all_decisions):
+                print("All decisions approved or modified.")
+                # Start with original arguments
+                final_args = list(tool_args)
+                final_kwargs = tool_kwargs.copy()
+
+                # Apply modifications while respecting ignored_attributes
+                for decision in all_decisions:
+                    if decision.decision == SupervisionDecisionType.MODIFY and decision.modified:
+                        # Update positional arguments
+                        # if decision.modified.tool_args:
+                        #     for idx, value in enumerate(decision.modified.tool_args):
+                        #         param_name = func.__code__.co_varnames[idx]
+                        #         if ignored_attributes and param_name in ignored_attributes:
+                        #             continue
+                        #         final_args[idx] = value
+                        #TODO: Fix this - make it work
+                        tool_args = decision.modified.tool_args
+                        # Update keyword arguments
+                        if decision.modified.tool_kwargs:
+                            for key, value in decision.modified.tool_kwargs.items():
+                                if ignored_attributes and key in ignored_attributes:
+                                    continue
+                                final_kwargs[key] = value
+                        break
+
+                # Call the function with modified arguments
+                return func(*final_args, **final_kwargs)
+            else:
+                return "All supervisors escalated without approval."
         return wrapper
     return decorator
 
 
-def call_supervisor_function(supervisor_func, func, supervision_context, review_id: UUID, ignored_attributes: List[str], tool_kwargs: dict[str, Any], decision: Optional[SupervisionDecision] = None):
+def call_supervisor_function(supervisor_func, func, supervision_context, review_id: UUID, ignored_attributes: List[str], tool_args: List[Any], tool_kwargs: dict[str, Any], decision: Optional[SupervisionDecision] = None):
     if asyncio.iscoroutinefunction(supervisor_func):
         decision = asyncio.run(supervisor_func(
-            func, supervision_context=supervision_context, review_id=review_id, ignored_attributes=ignored_attributes, tool_kwargs=tool_kwargs, decision=decision
+            func, supervision_context=supervision_context, review_id=review_id, ignored_attributes=ignored_attributes, tool_args=tool_args, tool_kwargs=tool_kwargs, decision=decision
         ))
     else:
         decision = supervisor_func(
-            func, supervision_context=supervision_context, review_id=review_id, ignored_attributes=ignored_attributes, tool_kwargs=tool_kwargs, decision=decision
+            func, supervision_context=supervision_context, review_id=review_id, ignored_attributes=ignored_attributes, tool_args=tool_args, tool_kwargs=tool_kwargs, decision=decision
         )
     return decision
-
-def handle_supervision_decision(decision: SupervisionDecision, func: Callable, *args, **kwargs):
-    print(f"Supervisor decision: {decision.decision}")
-    if decision.decision == SupervisionDecisionType.APPROVE:
-        print(f"Approved. Executing function.")
-        return func(*args, **kwargs)
-    elif decision.decision == SupervisionDecisionType.REJECT:
-        print(f"Rejected. Cancelling execution.")
-        return f"Execution of {func.__name__} was rejected. Explanation: {decision.explanation}"
-    elif decision.decision == SupervisionDecisionType.ESCALATE:
-        print(f"Escalated. Moving to next supervisor.")
-        return None  # Continue to next supervisor
-    elif decision.decision == SupervisionDecisionType.MODIFY:
-        print(f"Modified. Executing modified function.")
-        # Assuming modified data is in decision.modified
-        modified_args = decision.modified.get('args', args)
-        modified_kwargs = decision.modified.get('kwargs', kwargs)
-        return func(*modified_args, **modified_kwargs)
-    elif decision.decision == SupervisionDecisionType.TERMINATE:
-        print(f"Terminated. Cancelling execution.")
-        return f"Execution of {func.__name__} was terminated. Explanation: {decision.explanation}"
-    else:
-        print(f"Unknown decision: {decision.decision}. Cancelling execution.")
-        return f"Execution of {func.__name__} was cancelled due to an unknown supervision decision."
 
 def handle_mocking(func, mock_policy, mock_responses, *args, **kwargs):
     """Handle different mock policies."""

@@ -170,19 +170,21 @@ def register_tools_and_supervisors(client: Client, run_id: UUID):
                     'supervisor_attributes': {}
             }
             supervisor_id = register_supervisor(client, supervisor_info, supervision_context)
-            supervisor_ids.append(supervisor_id)
+            supervisor_ids.append([supervisor_id])
         else:
-            for supervisor_func in supervision_functions:
-                supervisor_info: dict[str, Any] = {
-                    'func': supervisor_func,
-                    'name': getattr(supervisor_func, '__name__', 'supervisor_name'),
-                    'description': getattr(supervisor_func, '__doc__', 'supervisor_description'),
-                    'type': SupervisorType.HUMAN_SUPERVISOR if getattr(supervisor_func, '__name__', 'supervisor_name') == 'human_supervisor' else SupervisorType.CLIENT_SUPERVISOR,
-                    'code': get_function_code(supervisor_func),
-                    'supervisor_attributes': getattr(supervisor_func, 'supervisor_attributes', {})
-                }
-                supervisor_id = register_supervisor(client, supervisor_info, supervision_context)
-                supervisor_ids.append(supervisor_id)
+            for idx, supervisor_func_list in enumerate(supervision_functions):
+                supervisor_ids.append([])
+                for supervisor_func in supervisor_func_list:
+                    supervisor_info: dict[str, Any] = {
+                        'func': supervisor_func,
+                        'name': getattr(supervisor_func, '__name__', 'supervisor_name'),
+                        'description': getattr(supervisor_func, '__doc__', 'supervisor_description'),
+                        'type': SupervisorType.HUMAN_SUPERVISOR if getattr(supervisor_func, '__name__', 'supervisor_name') == 'human_supervisor' else SupervisorType.CLIENT_SUPERVISOR,
+                        'code': get_function_code(supervisor_func),
+                        'supervisor_attributes': getattr(supervisor_func, 'supervisor_attributes', {})
+                    }
+                    supervisor_id = register_supervisor(client, supervisor_info, supervision_context)
+                    supervisor_ids[idx].append(supervisor_id)
 
         # Ensure tool_id is a UUID before proceeding
         if tool_id is UNSET or not isinstance(tool_id, UUID):
@@ -358,21 +360,29 @@ def get_supervisors_for_tool(tool_id: UUID, run_id: UUID, client: Client) -> Lis
     return supervisors_list
 
 
-def send_supervision_request(supervisor, func, supervision_context, execution_id, tool_id, *args, **kwargs):
+def send_supervision_request(supervisor, func, supervision_context, execution_id, tool_id, tool_args, tool_kwargs):
     client = supervision_config.client
     run_id = supervision_config.run_id
 
     # Prepare the SupervisionRequest with additional information
     if run_id is None:
         raise ValueError("Run ID is required to create a supervision request.")
-    tool_requests = [ToolRequest(tool_id=tool_id, arguments=ToolRequestArguments.from_dict(kwargs))]
+
+    # Use the helper function to serialize arguments
+    arguments_dict = _serialize_arguments(tool_args, tool_kwargs)
+
+    tool_requests = [ToolRequest(
+        tool_id=tool_id,
+        arguments=ToolRequestArguments.from_dict(arguments_dict)
+    )]
+
     supervision_request = SupervisionRequest(
         run_id=run_id,
         execution_id=execution_id,
         supervisor_id=supervisor.id,
-        task_state=supervision_context.to_task_state(), #TODO: Make sure this is the correct format
+        task_state=supervision_context.to_task_state(),  # TODO: Make sure this is the correct format
         tool_requests=tool_requests,
-        messages=[supervision_context.get_api_messages()[-1]] #TODO: API otherwise returns Number of tool choices and messages must be the same
+        messages=[supervision_context.get_api_messages()[-1]]  # TODO: API otherwise returns Number of tool choices and messages must be the same
     )
 
     # Send the SupervisionRequest to /api/reviews
@@ -403,8 +413,8 @@ def send_review_result(
     supervisor_id: UUID,
     decision: SupervisionDecision,
     client: Client,
-    *args,
-    **kwargs
+    tool_args: list[Any],
+    tool_kwargs: dict[str, Any]
 ):
     """
     Send the supervision result to the API.
@@ -421,9 +431,11 @@ def send_review_result(
     api_decision = decision_mapping.get(decision.decision)
     if not api_decision:
         raise ValueError(f"Unsupported decision type: {decision.decision}")
+    
+    # Combine tool_args and tool_kwargs into arguments_dict
+    arguments_dict = _serialize_arguments(tool_args, tool_kwargs)
 
-    # **Convert kwargs to ToolRequestArguments**
-    tool_request_arguments = ToolRequestArguments.from_dict(kwargs)
+    tool_request_arguments = ToolRequestArguments.from_dict(arguments_dict)
 
     tool_request = ToolRequest(
         tool_id=tool_id,
@@ -446,7 +458,6 @@ def send_review_result(
         tool_id=tool_id,
         supervisor_id=supervisor_id,
         supervision_result=supervision_result,
-        tool_request=tool_request,
     )
     # Send the supervision result to the API
     try:
@@ -458,7 +469,7 @@ def send_review_result(
         if response.status_code == 200:
             print(f"Successfully submitted supervision result for review ID: {review_id}")
         else:
-            print(f"Failed to submit supervision result. Status code: {response.status_code}")
+            print(f"Failed to submit supervision result. Response: {response}")
     except Exception as e:
         print(f"Error submitting supervision result: {e}")
         raise
@@ -496,3 +507,31 @@ def register_supervisor(client: Client, supervisor_info: dict, supervision_conte
         return supervisor_id
     else:
         raise Exception(f"Failed to register supervisor '{supervisor_info['name']}'. Status code: {supervisor_response.status_code}")
+
+def _serialize_arguments(tool_args: list[Any], tool_kwargs: dict[str, Any]) -> dict[str, Any]:
+    """
+    Helper function to serialize tool_args and tool_kwargs into a single arguments_dict.
+    Non-serializable objects are converted to strings.
+    """
+    arguments_dict = {}
+
+    for idx, arg in enumerate(tool_args):
+        try:
+            # Attempt to serialize the argument
+            if isinstance(arg, (str, int, float, bool, dict, list)):
+                arguments_dict[f'arg_{idx}'] = arg
+            else:
+                arguments_dict[f'arg_{idx}'] = str(arg)
+        except Exception:
+            arguments_dict[f'arg_{idx}'] = str(arg)
+
+    for key, value in tool_kwargs.items():
+        try:
+            if isinstance(value, (str, int, float, bool, dict, list)):
+                arguments_dict[key] = value
+            else:
+                arguments_dict[key] = str(value)
+        except Exception:
+            arguments_dict[key] = str(value)
+
+    return arguments_dict
