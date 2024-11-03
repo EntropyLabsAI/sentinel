@@ -4,6 +4,7 @@ from .config import (
     SupervisionDecisionType,
     SupervisionContext,
     PREFERRED_LLM_MODEL,
+    ModifiedData,
 )
 import inspect
 import json
@@ -25,6 +26,7 @@ class Supervisor(Protocol):
         func: Callable,
         supervision_context: SupervisionContext,
         ignored_attributes: list[str],
+        tool_args: list[Any],
         tool_kwargs: dict[str, Any],
         review_id: Optional[UUID],
         decision: Optional[SupervisionDecision] = None,
@@ -38,6 +40,7 @@ class Supervisor(Protocol):
             func (Callable): The function being supervised.
             supervision_context (SupervisionContext): Additional context.
             ignored_attributes (List[str]): Attributes to ignore.
+            tool_args (List[Any]): Positional arguments for the function.
             tool_kwargs (dict[str, Any]): Keyword arguments for the function.
             decision (Optional[SupervisionDecision]): Decision made by the previous supervisor that escalated to this Supervisor.
         Returns:
@@ -64,12 +67,17 @@ def llm_supervisor(
     Create a supervisor function that uses an LLM to make a supervision decision.
     """
     if system_prompt is None:
-        system_prompt = DEFAULT_SYSTEM_PROMPT
+        system_prompt = (
+            "Your goal is to review the agent's function call based on the provided policies, rules, and context. "
+            "You need to decide whether the function call should be approved, rejected, escalated, terminated, or modified. "
+            "Provide your decision along with a clear explanation."
+        )
 
     def supervisor(
         func: Callable,
         supervision_context: SupervisionContext,
         ignored_attributes: list[str],
+        tool_args: list[Any],
         tool_kwargs: dict[str, Any],
         decision: Optional[SupervisionDecision] = None,
         **kwargs
@@ -86,17 +94,39 @@ def llm_supervisor(
             func_implementation = "Source code not available."
             
         # Prepare tool arguments string
+        tool_args_str = ", ".join([f"{i}: {repr(arg)}" for i, arg in enumerate(tool_args)])
         tool_kwargs_str = ", ".join(
-            [f"{k}={v}" for k, v in tool_kwargs.items() if k not in ignored_attributes] +
+            [f"{k}={repr(v)}" for k, v in tool_kwargs.items() if k not in ignored_attributes] +
             [f"{k}=<value hidden> - Assume the value is correct" for k in ignored_attributes]
         )
-        if not tool_kwargs_str:
-            tool_kwargs_str = "The function does not require any arguments."
+        if tool_args_str and tool_kwargs_str:
+            arguments_str = f"Positional Arguments:\n{tool_args_str}\nKeyword Arguments:\n{tool_kwargs_str}"
+        elif tool_args_str:
+            arguments_str = f"Positional Arguments:\n{tool_args_str}"
+        elif tool_kwargs_str:
+            arguments_str = f"Keyword Arguments:\n{tool_kwargs_str}"
+        else:
+            arguments_str = "The function does not require any arguments."
 
         # Prepare the assistant's instructions
-        instructions_content = f"""
-Instructions:
-{instructions}
+        instructions_content = "Instructions:\n" + instructions 
+        
+        if decision is not None:
+            instructions_content += "\n\nDecision made by the previous supervisor:\nDecision: " + decision.decision + "\nExplanation: " + decision.explanation
+
+
+        
+
+        if include_context and supervision_context:
+            # Convert SupervisionContext into a textual description
+            context_description = supervision_context.to_text()
+            instructions_content += f"""
+This is the conversation between the AI customer support assistant and the customer:
+{context_description}
+"""
+
+        instructions_content += f"""
+The AI agent is attempting to call the following function:
 
 Function Name:
 {func_name}
@@ -107,18 +137,11 @@ Function Description:
 Function Implementation:
 {func_implementation}
 
-Arguments passed to the function: 
-{tool_kwargs_str}
+Arguments Passed to the Function:
+{arguments_str}
 
+Given the context and your specific instructions, you need to decide whether the function call should be **approved**, **rejected**, **escalated**, **terminated**, or **modified**. Provide your decision along with a clear and concise explanation. If you choose to modify the function call, specify the modified arguments.
 """
-
-        if decision is not None:
-            instructions_content += f"\nDecision made by the previous supervisor: {decision.decision} with explanation: {decision.explanation}\n"
-
-        if include_context and supervision_context:
-            # Convert SupervisionContext into a textual description
-            context_description = supervision_context.to_text()
-            instructions_content += f"\nContext of the function call:\n{context_description}\n"
 
         # Prepare messages
         messages = [
@@ -133,13 +156,13 @@ Arguments passed to the function:
         functions = [
             {
                 "name": "supervision_decision",
-                "description": "Make a supervision decision for the given function call.",
+                "description": "Make a supervision decision for the given function call. If you modify the function call, include the modified arguments or keyword arguments in the 'modified' field.",
                 "parameters": supervision_decision_schema,
             }
         ]
 
         try:
-            # Call the OpenAI API using sample_from_llm_function_call
+            # Call the OpenAI API
             completion = client.chat.completions.create(
                 model=openai_model,
                 messages=messages,
@@ -155,8 +178,20 @@ Arguments passed to the function:
             else:
                 raise ValueError("No valid function call in assistant's response.")
 
-            # Validate the response against the schema
-            decision = SupervisionDecision(**response_data)
+            # Parse the 'modified' field, only including fields that have changed
+            modified_data = None
+            if response_data.get("modified"):
+                modified_fields = response_data["modified"]
+                modified_data = ModifiedData(
+                    tool_args=modified_fields.get("tool_args", tool_args),
+                    tool_kwargs=modified_fields.get("tool_kwargs", tool_kwargs)
+                )
+
+            decision = SupervisionDecision(
+                decision=response_data.get("decision"),
+                modified=modified_data,
+                explanation=response_data.get("explanation")
+            )
             return decision
 
         except Exception as e:
@@ -166,9 +201,15 @@ Arguments passed to the function:
                 explanation=f"Error during LLM supervision: {str(e)}",
                 modified=None
             )
+
     supervisor.__name__ = supervisor_name if supervisor_name else llm_supervisor.__name__
     supervisor.__doc__ = description if description else supervisor.__doc__
-    supervisor.supervisor_attributes = {"instructions": instructions, "openai_model": openai_model, "system_prompt": system_prompt, "include_context": include_context}
+    supervisor.supervisor_attributes = {
+        "instructions": instructions,
+        "openai_model": openai_model,
+        "system_prompt": system_prompt,
+        "include_context": include_context
+    }
     return supervisor
 
 
@@ -192,6 +233,7 @@ def human_supervisor(
         func: Callable,
         supervision_context: SupervisionContext,
         ignored_attributes: list[str],
+        tool_args: list[Any],
         tool_kwargs: dict[str, Any],
         review_id: UUID,
         **kwargs
@@ -202,8 +244,8 @@ def human_supervisor(
         Args:
             func (Callable): The function being supervised.
             supervision_context (SupervisionContext): Additional context.
-            *args: Positional arguments for the function.
-            **kwargs: Keyword arguments for the function.
+            tool_args (List[Any]): Positional arguments for the function.
+            tool_kwargs (dict[str, Any]): Keyword arguments for the function.
 
         Returns:
             SupervisionDecision: The decision made by the supervisor.
@@ -250,6 +292,7 @@ def auto_approve_supervisor() -> Supervisor:
         func: Callable,
         supervision_context: SupervisionContext,
         ignored_attributes: list[str],
+        tool_args: list[Any],
         tool_kwargs: dict[str, Any],
         **kwargs
     ) -> SupervisionDecision:

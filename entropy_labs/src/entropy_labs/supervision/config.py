@@ -31,11 +31,18 @@ class SupervisionDecisionType(str, Enum):
     TERMINATE = "terminate"
     MODIFY = "modify"
 
+class ModifiedData(BaseModel):
+    tool_args: Optional[List[Any]] = None
+    """Modified positional arguments for the tool/function."""
+
+    tool_kwargs: Optional[Dict[str, Any]] = None
+    """Modified keyword arguments for the tool/function."""
+
 class SupervisionDecision(BaseModel):
     decision: SupervisionDecisionType
     """Supervision decision."""
 
-    modified: Any = Field(default=None)
+    modified: Optional[ModifiedData] = Field(default=None)
     """Modified data for decision 'modify'."""
 
     explanation: Optional[str] = Field(default=None)
@@ -152,7 +159,7 @@ class SupervisionContext:
         return "\n\n".join(texts)
 
     # Methods to manage the registries
-    def add_supervised_function(self, func: Callable, supervision_functions: List[Callable], ignored_attributes: List[str]):
+    def add_supervised_function(self, func: Callable, supervision_functions: List[List[Callable]], ignored_attributes: List[str]):
         with self.lock:
             if func in self.supervised_functions_registry:
                 print(f"Function '{func.__qualname__}' is already registered. Skipping.")
