@@ -5,6 +5,7 @@ from inspect_ai.solver import TaskState
 from inspect_ai.tool import ToolCall, ToolCallView
 from inspect_ai._util.registry import registry_lookup
 from entropy_labs.sentinel_api_client.sentinel_api_client.client import Client
+from uuid import UUID
 
 @approver
 def bash_approver(
@@ -66,7 +67,7 @@ def human_approver(agent_id: str, approval_api_endpoint: Optional[str] = None, n
         call: ToolCall,
         view: ToolCallView,
         state: Optional[TaskState] = None,
-        review_id: Optional[str] = None,
+        review_id: Optional[UUID] = None,
         client: Optional[Client] = None,
     ) -> Approval:
         from entropy_labs.supervision.common import human_supervisor_wrapper        
@@ -76,7 +77,7 @@ def human_approver(agent_id: str, approval_api_endpoint: Optional[str] = None, n
 
         logging.info(f"Generating {n} tool call suggestions for user review")
 
-        approval_decision = await human_supervisor_wrapper(task_state=state, call=call, backend_api_endpoint=approval_api_endpoint, agent_id=agent_id, timeout=timeout, use_inspect_ai=True, n=n, review_id=review_id, client=client)
+        approval_decision = await human_supervisor_wrapper(task_state=state, call=call, backend_api_endpoint=approval_api_endpoint, timeout=timeout, use_inspect_ai=True, n=n, review_id=review_id, client=client)
         inspect_approval = _transform_entropy_labs_approval_to_inspect_ai_approval(approval_decision)
         return inspect_approval
     return approve

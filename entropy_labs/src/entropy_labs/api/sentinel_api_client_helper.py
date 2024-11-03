@@ -22,7 +22,7 @@ from entropy_labs.sentinel_api_client.sentinel_api_client.api.runs.create_run im
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.project_create import ProjectCreate
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_attributes import ToolAttributes
 from entropy_labs.utils.utils import get_function_code
-from typing import List, Optional
+from typing import List, Optional, Any
 from uuid import UUID
 from entropy_labs.sentinel_api_client.sentinel_api_client.api.tools.create_tool import sync_detailed as create_tool_sync_detailed
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool import Tool
@@ -55,6 +55,7 @@ from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor impo
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervision_request import SupervisionRequest
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.task_state import TaskState
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_type import SupervisorType
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_attributes import SupervisorAttributes
 from entropy_labs.sentinel_api_client.sentinel_api_client.client import Client
 from uuid import uuid4, UUID
 from datetime import datetime, timezone
@@ -62,6 +63,7 @@ from entropy_labs.supervision.config import (
     SupervisionDecision,
     SupervisionDecisionType,
 )
+import inspect
 
 
 # Create an asyncio.Lock to prevent concurrent console access
@@ -118,15 +120,26 @@ def register_tools_and_supervisors(client: Client, run_id: UUID):
 
     for func, data in supervision_context.supervised_functions_registry.items():
         supervision_functions = data['supervision_functions']
+        ignored_attributes = data['ignored_attributes']
+
         tool_name = func.__qualname__
-        attributes = ToolAttributes()
+        # Extract function arguments using inspect
+        func_signature = inspect.signature(func)
+        func_arguments = {
+            param.name: str(param.annotation) if param.annotation is not param.empty else 'Any'
+            for param in func_signature.parameters.values()
+        }
+
+        # Pass the extracted arguments to ToolAttributes.from_dict
+        attributes = ToolAttributes.from_dict(src_dict=func_arguments)
 
         # Register the tool
         tool_data = Tool(
             name=tool_name,
             description=func.__doc__ if func.__doc__ else tool_name,
             attributes=attributes,
-            created_at=datetime.now(timezone.utc)
+            ignored_attributes=ignored_attributes,
+            created_at=datetime.now(timezone.utc),
         )
         tool_response = create_tool_sync_detailed(
             client=client,
@@ -148,23 +161,25 @@ def register_tools_and_supervisors(client: Client, run_id: UUID):
         supervisor_ids = []
         if supervision_functions == []:
             supervisor_func = auto_approve_supervisor()
-            supervisor_info = {
+            supervisor_info: dict[str, Any] = {
                     'func': supervisor_func,
-                    'name': supervisor_func.__name__,
-                    'description': supervisor_func.__doc__,
+                    'name': getattr(supervisor_func, '__name__', 'supervisor_name'),
+                    'description': getattr(supervisor_func, '__doc__', 'supervisor_description'),
                     'type': SupervisorType.NO_SUPERVISOR,
-                    'code': get_function_code(supervisor_func)
+                    'code': get_function_code(supervisor_func),
+                    'supervisor_attributes': {}
             }
             supervisor_id = register_supervisor(client, supervisor_info, supervision_context)
             supervisor_ids.append(supervisor_id)
         else:
             for supervisor_func in supervision_functions:
-                supervisor_info = {
+                supervisor_info: dict[str, Any] = {
                     'func': supervisor_func,
-                    'name': supervisor_func.__name__,
-                    'description': supervisor_func.__doc__,
-                    'type': SupervisorType.HUMAN_SUPERVISOR if supervisor_func.__name__ == 'human_supervisor' else SupervisorType.CLIENT_SUPERVISOR,
-                    'code': get_function_code(supervisor_func)
+                    'name': getattr(supervisor_func, '__name__', 'supervisor_name'),
+                    'description': getattr(supervisor_func, '__doc__', 'supervisor_description'),
+                    'type': SupervisorType.HUMAN_SUPERVISOR if getattr(supervisor_func, '__name__', 'supervisor_name') == 'human_supervisor' else SupervisorType.CLIENT_SUPERVISOR,
+                    'code': get_function_code(supervisor_func),
+                    'supervisor_attributes': getattr(supervisor_func, 'supervisor_attributes', {})
                 }
                 supervisor_id = register_supervisor(client, supervisor_info, supervision_context)
                 supervisor_ids.append(supervisor_id)
@@ -455,7 +470,8 @@ def register_supervisor(client: Client, supervisor_info: dict, supervision_conte
         description=supervisor_info['description'],
         created_at=datetime.now(timezone.utc),
         type=supervisor_info['type'],
-        code=supervisor_info['code']
+        code=supervisor_info['code'],
+        attributes=SupervisorAttributes.from_dict(src_dict=supervisor_info['supervisor_attributes'])
     )
     
     supervisor_response = create_supervisor_sync_detailed(

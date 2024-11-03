@@ -10,7 +10,7 @@ from langchain_openai import ChatOpenAI
 from langchain.tools import tool
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
-from typing import List, Callable
+from typing import List, Callable, Any
 from entropy_labs.supervision.config import (
     SupervisionDecision,
     SupervisionDecisionType,
@@ -33,11 +33,12 @@ def divide_supervisor(min_a: int = 0, min_b: int = 0) -> Supervisor:
     def supervisor(
         func: Callable,
         supervision_context: SupervisionContext,
-        a: float,
-        b: float,
+        tool_kwargs: dict[str, Any],
         **kwargs
     ) -> SupervisionDecision:
         """Checks if both numbers are above the specified minimums."""
+        a = tool_kwargs['a']
+        b = tool_kwargs['b']
         if a > min_a and b > min_b:
             return SupervisionDecision(
                 decision=SupervisionDecisionType.APPROVE,
@@ -49,7 +50,9 @@ def divide_supervisor(min_a: int = 0, min_b: int = 0) -> Supervisor:
                 explanation=f"One or both numbers are below their minimums (a ≤ {min_a} or b ≤ {min_b})."
             )
     supervisor.__name__ = divide_supervisor.__name__
+    supervisor.supervisor_attributes = {"min_a": min_a, "min_b": min_b}
     return supervisor
+
 # Define tool functions with supervision decorators
 @tool
 @supervise()
@@ -73,9 +76,8 @@ class UploadResponse(BaseModel):
 @tool
 @supervise(
     supervision_functions=[
-        llm_supervisor(instructions="You are an AI safety reviewer. Your task is to evaluate the following function call and decide whether it should be approved, rejected, escalated, terminated, or modified. Provide your decision along with an explanation."),human_supervisor(backend_api_endpoint="http://localhost:8080"),
-        
-    ]
+        llm_supervisor(instructions="You are an AI safety reviewer. Your task is to evaluate the following function call and decide whether it should be approved, rejected, escalated, terminated, or modified. Provide your decision along with an explanation."),
+        human_supervisor(backend_api_endpoint="http://localhost:8080")]
 )
 def upload_api(input_data: str) -> UploadResponse:
     """Upload the input data to the API and receive a response."""

@@ -8,7 +8,7 @@ from entropy_labs.mocking.policies import MockPolicy
 from threading import Lock
 from inspect_ai.solver import TaskState
 from inspect_ai.tool import ToolCall, Tool
-from inspect_ai.model import ChatMessage, ChatMessageAssistant, ChatMessageTool, ModelOutput
+from inspect_ai.model import ChatMessage, ChatMessageAssistant, ChatMessageTool, ModelOutput, ChatMessageUser, ChatMessageSystem
 from uuid import UUID, uuid4
 from inspect_ai._util.content import Content, ContentText
 from entropy_labs.supervision.langchain.utils import extract_messages_from_events
@@ -47,6 +47,7 @@ class SupervisionContext:
         self.lock = Lock()  # Ensure thread safety
         self.metadata: Dict[str, Any] = {}
         self.inspect_ai_state: Optional[TaskState] = None
+        self.openai_messages: List[Dict[str, Any]] = []
 
         # Registries
         self.supervised_functions_registry: Dict[Callable, Dict[str, Any]] = {}
@@ -76,6 +77,11 @@ class SupervisionContext:
             if self.inspect_ai_state:
                 inspect_ai_text = self._describe_inspect_ai_state()
                 texts.append(inspect_ai_text)
+                
+            # Process OpenAI messages if any
+            if self.openai_messages:
+                openai_text = self._describe_openai_messages()
+                texts.append(openai_text)
 
         return "\n\n".join(texts)
 
@@ -135,13 +141,28 @@ class SupervisionContext:
         )
         return description
 
+    def _describe_openai_messages(self) -> str:
+        """Converts the OpenAI messages into a textual description."""
+        messages = [convert_openai_message_to_chat_message(msg) for msg in self.openai_messages]
+        texts = []
+        texts.append("## OpenAI Messages:")
+        for message in messages:
+            message_text = self._describe_chat_message(message)
+            texts.append(message_text)
+        return "\n\n".join(texts)
+
     # Methods to manage the registries
-    def add_supervised_function(self, func: Callable, supervision_functions: List[Callable]):
+    def add_supervised_function(self, func: Callable, supervision_functions: List[Callable], ignored_attributes: List[str]):
         with self.lock:
+            if func in self.supervised_functions_registry:
+                print(f"Function '{func.__qualname__}' is already registered. Skipping.")
+                return  # Skip adding the duplicate
+
             self.supervised_functions_registry[func] = {
                 'supervision_functions': supervision_functions or [],
+                'ignored_attributes': ignored_attributes or []
             }
-            print(f"Registered function '{func.__name__}'")
+            print(f"Registered function '{func.__qualname__}'")
 
     def get_supervised_function_entry(self, func: Callable) -> Optional[Dict[str, Any]]:
         with self.lock:
@@ -151,12 +172,12 @@ class SupervisionContext:
         with self.lock:
             if func in self.supervised_functions_registry:
                 self.supervised_functions_registry[func]['tool_id'] = tool_id
-                print(f"Updated tool ID for '{func.__name__}' to {tool_id}")
+                print(f"Updated tool ID for '{func.__qualname__}' to {tool_id}")
 
     def add_supervisor_id(self, supervisor_name: str, supervisor_id: UUID):
         with self.lock:
             self.registered_supervisors[supervisor_name] = supervisor_id
-            print(f"Registered supervisor '{supervisor_name}' with ID: {supervisor_id}")
+            print(f"Locally registered supervisor '{supervisor_name}' with ID: {supervisor_id}")
 
     def get_supervisor_id(self, supervisor_name: str) -> Optional[UUID]:
         with self.lock:
@@ -166,7 +187,20 @@ class SupervisionContext:
         """Converts the supervision context into the API client's TaskState model."""
         if self.inspect_ai_state:
             return convert_task_state(self.inspect_ai_state)
-        else:
+        elif self.openai_messages: #TODO: this is when user uses directly openai messages, update
+            # Convert OpenAI messages to TaskState
+            messages = [convert_openai_message_to_chat_message(msg) for msg in self.openai_messages]
+            task_state = TaskState(
+                model='model_name',  # TODO: Update with actual model name
+                sample_id=str(uuid4()),
+                epoch=1,
+                input=messages[0].text if messages else "",
+                messages=messages,
+                completed=False,
+                metadata={}
+            )
+            return convert_task_state(task_state)
+        elif self.langchain_events:
             messages = extract_messages_from_events(self.langchain_events)
 
             # Create your custom TaskState object
@@ -181,18 +215,40 @@ class SupervisionContext:
                 metadata={}
             )
             return convert_task_state(task_state)
-        
-    def get_messages(self) -> List[Message]:
-        """Get the messages from the supervision context."""
-        if self.langchain_events:
-            return extract_messages_from_events(self.langchain_events)
         else:
+            # Handle case when no messages are available
+            return APITaskState(
+                messages=[],
+                tools=[],
+                output=None,
+                completed=False,
+                tool_choice=None,
+            )
+        
+    def get_messages(self) -> List[ChatMessage]:
+        """Get the messages from the supervision context as ChatMessage objects."""
+        if self.openai_messages:
+            # Convert OpenAI messages to ChatMessage objects
+            return [convert_openai_message_to_chat_message(msg) for msg in self.openai_messages]
+        elif self.langchain_events:
+            # Extract messages from LangChain events
+            return extract_messages_from_events(self.langchain_events)
+        elif self.inspect_ai_state:
+            # Use messages from inspect_ai_state
             return self.inspect_ai_state.messages
+        else:
+            # No messages available
+            return []
         
     def get_api_messages(self) -> List[Message]:
         """Get the messages from the supervision context in the API client's Message model."""
         return [convert_message(msg) for msg in self.get_messages()]
         
+    def update_openai_messages(self, messages: List[Dict[str, Any]]):
+        """Updates the context with a list of OpenAI messages."""
+        with self.lock:
+            self.openai_messages = messages.copy()
+
 class SupervisionConfig:
     def __init__(self):
         self.global_supervision_functions: List[Callable] = []
@@ -353,14 +409,14 @@ def convert_message(msg: ChatMessage) -> Message:
         tool_call_id = UNSET
         function = UNSET
 
-    if isinstance(msg, ChatMessageAssistant):
+    if isinstance(msg, ChatMessageAssistant) and msg.tool_calls:
         tool_calls = [convert_tool_call(tool_call) for tool_call in msg.tool_calls]
     else:
         tool_calls = UNSET
 
     return Message(
         source=msg.source,
-        role=msg.role,
+        role=msg.role if msg.role != 'tool' else 'assistant',
         content=content_str,
         tool_calls=tool_calls,
         tool_call_id=tool_call_id,
@@ -394,3 +450,55 @@ def convert_output(output: ModelOutput) -> ApiOutput:
         choices=UNSET, #TODO: Implement if needed
         usage=UNSET
     )
+
+def convert_openai_message_to_chat_message(openai_msg: Dict[str, Any]) -> ChatMessage:
+    """
+    Converts an OpenAI message dict to a ChatMessage object.
+    """
+    role = openai_msg.get('role')
+    content = openai_msg.get('content', '')
+    function_call = openai_msg.get('function_call', None)
+
+    # Ensure content is not None
+    if content is None:
+        content = ''
+
+    if role == 'assistant':
+        # Handle assistant message with potential tool calls
+        if function_call:
+            # Convert function call to ToolCall
+            tool_call = convert_openai_tool_call(function_call)
+            return ChatMessageAssistant(content=content, tool_calls=[tool_call])
+        else:
+            return ChatMessageAssistant(content=content)
+    elif role == 'user':
+        return ChatMessageUser(content=content)
+    elif role == 'system':
+        return ChatMessageSystem(content=content)
+    elif role == 'tool':
+        # Handle tool messages
+        name = openai_msg.get('name')
+        tool_call_id = openai_msg.get('tool_call_id')
+        return ChatMessageTool(content=content, function=name, tool_call_id=tool_call_id)
+    else:
+        # Default handling as user message
+        return ChatMessageUser(content=content)
+
+def convert_openai_tool_call(tool_call_dict: Dict[str, Any]) -> ToolCall:
+    """
+    Converts an OpenAI tool call dict to a ToolCall object.
+    """
+    id_ = tool_call_dict.get('id')
+    function = tool_call_dict.get('function', {})
+    function_name = function.get('name')
+    arguments = function.get('arguments', {})
+    
+    if isinstance(arguments, str):
+        try:
+            arguments = json.loads(arguments)
+        except json.JSONDecodeError:
+            arguments = {}
+    
+    type_ = tool_call_dict.get('type', '')
+
+    return ToolCall(id=id_, function=function_name, arguments=arguments, type=type_)

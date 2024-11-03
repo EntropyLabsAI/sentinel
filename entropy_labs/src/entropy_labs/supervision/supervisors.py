@@ -1,4 +1,4 @@
-from typing import Callable, Optional, Protocol
+from typing import Callable, Optional, Protocol, Any
 from .config import (
     SupervisionDecision,
     SupervisionDecisionType,
@@ -10,6 +10,7 @@ import json
 from openai import OpenAI
 from inspect_ai.tool import ToolCall
 from entropy_labs.sentinel_api_client.sentinel_api_client.client import Client
+from uuid import UUID
 
 client = OpenAI()
 
@@ -23,7 +24,9 @@ class Supervisor(Protocol):
         self,
         func: Callable,
         supervision_context: SupervisionContext,
-        *args,
+        ignored_attributes: list[str],
+        tool_kwargs: dict[str, Any],
+        review_id: Optional[UUID],
         **kwargs
     ) -> SupervisionDecision:
         """
@@ -33,9 +36,8 @@ class Supervisor(Protocol):
         Args:
             func (Callable): The function being supervised.
             supervision_context (SupervisionContext): Additional context.
-            *args: Positional arguments for the function.
-            **kwargs: Keyword arguments for the function.
-
+            ignored_attributes (List[str]): Attributes to ignore.
+            tool_kwargs (dict[str, Any]): Keyword arguments for the function.
         Returns:
             SupervisionDecision: The decision made by the supervisor.
         """
@@ -49,6 +51,8 @@ DEFAULT_SYSTEM_PROMPT = (
 
 def llm_supervisor(
     instructions: str,
+    supervisor_name: Optional[str] = None,
+    description: Optional[str] = None,
     openai_model: str = PREFERRED_LLM_MODEL,
     system_prompt: Optional[str] = None,
     include_context: bool = False
@@ -62,19 +66,28 @@ def llm_supervisor(
     def supervisor(
         func: Callable,
         supervision_context: SupervisionContext,
-        *args,
+        ignored_attributes: list[str],
+        tool_kwargs: dict[str, Any],
         **kwargs
     ) -> SupervisionDecision:
         """
         LLM supervisor that makes a decision based on the function call, its arguments, and the supervision instructions.
         """
         # Extract function details
-        func_name = func.__name__
+        func_name = func.__qualname__
         func_description = func.__doc__ or "No description available."
         try:
             func_implementation = inspect.getsource(func)
         except OSError:
             func_implementation = "Source code not available."
+            
+        # Prepare tool arguments string
+        tool_kwargs_str = ", ".join(
+            [f"{k}={v}" for k, v in tool_kwargs.items() if k not in ignored_attributes] +
+            [f"{k}=<value hidden> - Assume the value is correct" for k in ignored_attributes]
+        )
+        if not tool_kwargs_str:
+            tool_kwargs_str = "The function does not require any arguments."
 
         # Prepare the assistant's instructions
         instructions_content = f"""
@@ -90,9 +103,8 @@ Function Description:
 Function Implementation:
 {func_implementation}
 
-Function Arguments:
-Positional Arguments: {args}
-Keyword Arguments: {kwargs}
+Arguments passed to the function: 
+{tool_kwargs_str}
 """
 
         if include_context and supervision_context:
@@ -146,7 +158,9 @@ Keyword Arguments: {kwargs}
                 explanation=f"Error during LLM supervision: {str(e)}",
                 modified=None
             )
-    supervisor.__name__ = llm_supervisor.__name__
+    supervisor.__name__ = supervisor_name if supervisor_name else llm_supervisor.__name__
+    supervisor.__doc__ = description if description else supervisor.__doc__
+    supervisor.supervisor_attributes = {"instructions": instructions, "openai_model": openai_model, "system_prompt": system_prompt, "include_context": include_context}
     return supervisor
 
 
@@ -154,7 +168,6 @@ def human_supervisor(
     backend_api_endpoint: Optional[str] = None,
     timeout: int = 300,
     n: int = 1,
-    ignore_function_kwargs: list = []
 ) -> Supervisor:
     """
     Create a supervisor function that requires human approval via backend API or CLI.
@@ -170,7 +183,9 @@ def human_supervisor(
     async def supervisor(
         func: Callable,
         supervision_context: SupervisionContext,
-        *args,
+        ignored_attributes: list[str],
+        tool_kwargs: dict[str, Any],
+        review_id: UUID,
         **kwargs
     ) -> SupervisionDecision:
         """
@@ -195,7 +210,7 @@ def human_supervisor(
         tool_call = ToolCall(
             id="tool_id",  # Use an appropriate ID if available
             function=func.__qualname__,
-            arguments=kwargs if not ignore_function_kwargs else {k: v for k, v in kwargs.items() if k not in ignore_function_kwargs},
+            arguments=tool_kwargs,
             type='function'
         )
 
@@ -210,13 +225,14 @@ def human_supervisor(
             timeout=timeout,
             use_inspect_ai=False,
             n=n,
-            review_id=kwargs.get('review_id', None),
+            review_id=review_id,
             client=client
         )
 
         return supervisor_decision
 
     supervisor.__name__ = human_supervisor.__name__
+    supervisor.supervisor_attributes = {"backend_api_endpoint": backend_api_endpoint, "timeout": timeout, "n": n}
     return supervisor
 
 
@@ -225,7 +241,8 @@ def auto_approve_supervisor() -> Supervisor:
     def supervisor(
         func: Callable,
         supervision_context: SupervisionContext,
-        *args,
+        ignored_attributes: list[str],
+        tool_kwargs: dict[str, Any],
         **kwargs
     ) -> SupervisionDecision:
         return SupervisionDecision(
@@ -234,4 +251,5 @@ def auto_approve_supervisor() -> Supervisor:
             modified=None
         )
     supervisor.__name__ = auto_approve_supervisor.__name__
+    supervisor.supervisor_attributes = {}
     return supervisor
