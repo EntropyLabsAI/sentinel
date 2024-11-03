@@ -67,8 +67,8 @@ type SupervisorStore interface {
 	GetSupervisorFromValues(ctx context.Context, code string, name string, desc string, t SupervisorType, attributes map[string]interface{}) (*Supervisor, error)
 	GetSupervisors(ctx context.Context, projectId uuid.UUID) ([]Supervisor, error)
 	CreateSupervisor(ctx context.Context, supervisor Supervisor) (uuid.UUID, error)
-	GetRunToolSupervisors(ctx context.Context, runId uuid.UUID, toolId uuid.UUID) ([]Supervisor, error)
-	AssignSupervisorsToTool(ctx context.Context, runId uuid.UUID, toolID uuid.UUID, supervisorIds []uuid.UUID) error
+	GetRunToolSupervisors(ctx context.Context, runId uuid.UUID, toolId uuid.UUID) (SupervisorChains, error)
+	AssignSupervisorsToTool(ctx context.Context, runId uuid.UUID, toolID uuid.UUID, chains SupervisorChainAssignment) error
 }
 
 type RunStore interface {
