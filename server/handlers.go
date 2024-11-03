@@ -710,33 +710,37 @@ func apiGetExecutionSupervisionsHandler(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	// Get all supervision requests for this execution
-	requests, err := store.GetSupervisionRequestsForExecution(ctx, executionId)
+	supervisions, err := store.GetExecutionSupervisions(ctx, executionId)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Get all supervision results
-	results, err := store.GetSupervisionResultsForExecution(ctx, executionId)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	// // Get all supervision requests for this execution
+	// requests, err := store.GetSupervisionRequestsForExecution(ctx, executionId)
+	// if err != nil {
+	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+	// 	return
+	// }
 
-	// Get all supervision statuses
-	statuses, err := store.GetSupervisionStatusesForExecution(ctx, executionId)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	// // Get all supervision results
+	// results, err := store.GetSupervisionResultsForExecution(ctx, executionId)
+	// if err != nil {
+	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+	// 	return
+	// }
+
+	// // Get all supervision statuses
+	// statuses, err := store.GetSupervisionStatusesForExecution(ctx, executionId)
+	// if err != nil {
+	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+	// 	return
+	// }
 
 	// Combine the data into ExecutionSupervisions response
 	response := &ExecutionSupervisions{
-		ExecutionId: executionId,
-		Requests:    requests,
-		Results:     results,
-		Statuses:    statuses,
+		ExecutionId:  executionId,
+		Supervisions: supervisions,
 	}
 
 	respondJSON(w, response)

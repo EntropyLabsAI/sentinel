@@ -22,15 +22,14 @@ type Store interface {
 type SupervisorStatusStore interface {
 	CreateSupervisionStatus(ctx context.Context, requestID uuid.UUID, status SupervisionStatus) error
 	CountSupervisionRequests(ctx context.Context, status Status) (int, error)
+	GetSupervisionStatusesForRequest(ctx context.Context, requestId uuid.UUID) ([]SupervisionStatus, error)
 }
 
 type ExecutionStore interface {
 	CreateExecution(ctx context.Context, runId uuid.UUID, toolId uuid.UUID) (uuid.UUID, error)
 	GetExecution(ctx context.Context, id uuid.UUID) (*Execution, error)
 	GetRunExecutions(ctx context.Context, runId uuid.UUID) ([]Execution, error)
-	GetSupervisionRequestsForExecution(ctx context.Context, executionId uuid.UUID) ([]SupervisionRequest, error)
-	GetSupervisionResultsForExecution(ctx context.Context, executionId uuid.UUID) ([]SupervisionResult, error)
-	GetSupervisionStatusesForExecution(ctx context.Context, executionId uuid.UUID) ([]SupervisionStatus, error)
+	GetExecutionSupervisions(ctx context.Context, id uuid.UUID) ([]Supervision, error)
 }
 
 type ProjectStore interface {

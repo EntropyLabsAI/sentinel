@@ -412,6 +412,7 @@ func (s *PostgresqlStore) CreateSupervisionRequest(ctx context.Context, request 
 	query := `
 		INSERT INTO supervisionrequest (id, execution_id, task_state, supervisor_id)
 		VALUES ($1, $2, $3, $4)`
+
 	requestID := uuid.New()
 	_, err = tx.ExecContext(
 		ctx, query, requestID, request.ExecutionId, taskStateJSON, request.SupervisorId,
@@ -423,26 +424,24 @@ func (s *PostgresqlStore) CreateSupervisionRequest(ctx context.Context, request 
 	// Store the tool requests
 	for i, toolRequest := range request.ToolRequests {
 		toolRequestID := uuid.New()
-
-		// Marshal the Arguments map to JSON
-		argumentsJSON, err := json.Marshal(toolRequest.Arguments)
-		if err != nil {
-			return uuid.UUID{}, fmt.Errorf("error marshalling tool request arguments: %w", err)
+		r := sentinel.ToolRequest{
+			Id:                   &toolRequestID,
+			SupervisionRequestId: &requestID,
+			ToolId:               toolRequest.ToolId,
+			MessageId:            &messageIDs[i],
+			Arguments:            toolRequest.Arguments,
 		}
 
-		query := `
-			INSERT INTO toolrequest (id, supervisionrequest_id, tool_id, message_id, arguments)
-			VALUES ($1, $2, $3, $4, $5)`
-
-		_, err = tx.ExecContext(
-			ctx, query, toolRequestID, requestID, toolRequest.ToolId, messageIDs[i], argumentsJSON,
-		)
+		err = s.createToolRequest(ctx, tx, r)
 		if err != nil {
 			return uuid.UUID{}, fmt.Errorf("error creating tool request: %w", err)
 		}
 	}
 
-	status := sentinel.SupervisionStatus{Status: sentinel.Pending, CreatedAt: time.Now()}
+	status := sentinel.SupervisionStatus{
+		Status:    sentinel.Pending,
+		CreatedAt: time.Now(),
+	}
 
 	// Store a supervisor status pending
 	err = s.createSupervisionStatus(ctx, requestID, status, tx)
@@ -456,6 +455,30 @@ func (s *PostgresqlStore) CreateSupervisionRequest(ctx context.Context, request 
 	}
 
 	return requestID, nil
+}
+
+func (s *PostgresqlStore) createToolRequest(ctx context.Context, tx *sql.Tx, request sentinel.ToolRequest) error {
+	if request.SupervisionRequestId == nil {
+		return fmt.Errorf("supervision request ID is required to create a tool request")
+	}
+
+	query := `
+		INSERT INTO toolrequest (id, supervisionrequest_id, tool_id, message_id, arguments)
+		VALUES ($1, $2, $3, $4, $5)`
+
+	argumentsJSON, err := json.Marshal(request.Arguments)
+	if err != nil {
+		return fmt.Errorf("error marshalling tool request arguments: %w", err)
+	}
+
+	_, err = tx.ExecContext(
+		ctx, query, request.Id, request.SupervisionRequestId, request.ToolId, request.MessageId, argumentsJSON,
+	)
+	if err != nil {
+		return fmt.Errorf("error creating tool request: %w", err)
+	}
+
+	return nil
 }
 
 func (s *PostgresqlStore) CreateSupervisionStatus(ctx context.Context, requestID uuid.UUID, status sentinel.SupervisionStatus) error {
@@ -599,6 +622,44 @@ func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result se
 		return fmt.Errorf("error creating supervisor status: %w", err)
 	}
 
+	if result.Decision == sentinel.Approve {
+		// Check that the tool request is one of the approved tool requests
+		approvedToolRequests, err := s.GetSupervisionToolRequests(ctx, result.SupervisionRequestId)
+		if err != nil {
+			return fmt.Errorf("error getting approved tool requests: %w", err)
+		}
+
+		valid := false
+		for _, approvedToolRequest := range approvedToolRequests {
+			if approvedToolRequest.Id == result.Toolrequest.Id {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return fmt.Errorf("tool request is not one of the approved tool requests")
+		}
+	}
+
+	// If the user decided not to go with any of the initially sent tool requests and instead
+	// has modified the tool request, we need to store the new tool request, associate it with
+	// the supervision request, and store this new ID in the supervisionresult record.
+	if result.Decision == sentinel.Modify {
+		toolRequestID := uuid.New()
+		r := sentinel.ToolRequest{
+			Id:                   &toolRequestID,
+			SupervisionRequestId: &result.SupervisionRequestId,
+			ToolId:               result.Toolrequest.ToolId,
+			MessageId:            result.Toolrequest.MessageId,
+			Arguments:            result.Toolrequest.Arguments,
+		}
+
+		err = s.createToolRequest(ctx, tx, r)
+		if err != nil {
+			return fmt.Errorf("error creating tool request: %w", err)
+		}
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		return fmt.Errorf("error committing transaction: %w", err)
@@ -610,7 +671,7 @@ func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result se
 func (s *PostgresqlStore) GetSupervisionResults(ctx context.Context, id uuid.UUID) ([]*sentinel.SupervisionResult, error) {
 	query := `
 		SELECT sr.id, sr.supervisionrequest_id, sr.created_at, sr.decision, sr.reasoning, 
-		sr.toolrequest_id, tr.tool_id, tr.message_id, tr.arguments::text
+		sr.toolrequest_id, tr.tool_id, tr.message_id, tr.arguments
 		FROM supervisionresult sr
 		LEFT JOIN toolrequest tr ON sr.toolrequest_id = tr.id
 		WHERE sr.supervisionrequest_id = $1`
@@ -626,9 +687,17 @@ func (s *PostgresqlStore) GetSupervisionResults(ctx context.Context, id uuid.UUI
 		var result sentinel.SupervisionResult
 		var tr sentinel.ToolRequest
 		var argumentsJSON []byte
+
 		if err := rows.Scan(
-			&result.Id, &result.SupervisionRequestId, &result.CreatedAt, &result.Decision, &result.Reasoning,
-			&tr.Id, &tr.ToolId, &tr.MessageId, &argumentsJSON,
+			&result.Id,
+			&result.SupervisionRequestId,
+			&result.CreatedAt,
+			&result.Decision,
+			&result.Reasoning,
+			&tr.Id,
+			&tr.ToolId,
+			&tr.MessageId,
+			&argumentsJSON,
 		); err != nil {
 			return nil, fmt.Errorf("error scanning supervisor result: %w", err)
 		}
@@ -640,7 +709,8 @@ func (s *PostgresqlStore) GetSupervisionResults(ctx context.Context, id uuid.UUI
 			}
 		}
 
-		result.Toolrequest = &tr
+		result.Toolrequest = tr
+
 		results = append(results, &result)
 	}
 
@@ -933,6 +1003,10 @@ func (s *PostgresqlStore) CreateTool(ctx context.Context, tool sentinel.Tool) (u
 		return uuid.Nil, fmt.Errorf("error marshaling tool attributes: %w", err)
 	}
 
+	if tool.IgnoredAttributes == nil {
+		tool.IgnoredAttributes = &[]string{}
+	}
+
 	query := `
 		INSERT INTO tool (name, description, attributes, ignored_attributes)
 		VALUES ($1, $2, $3, $4)
@@ -1215,7 +1289,7 @@ func (s *PostgresqlStore) GetSupervisors(ctx context.Context, projectId uuid.UUI
 	return supervisors, nil
 }
 
-func (s *PostgresqlStore) GetSupervisionRequestsForExecution(ctx context.Context, executionId uuid.UUID) ([]sentinel.SupervisionRequest, error) {
+func (s *PostgresqlStore) GetExecutionSupervisions(ctx context.Context, executionId uuid.UUID) ([]sentinel.Supervision, error) {
 	// First get all supervision request IDs for this execution
 	query := `
         SELECT id 
@@ -1238,22 +1312,72 @@ func (s *PostgresqlStore) GetSupervisionRequestsForExecution(ctx context.Context
 	}
 
 	// Now get each supervision request using the existing method
-	var requests []sentinel.SupervisionRequest
+	var supervisions []sentinel.Supervision
 	for _, id := range requestIds {
+		var supervision sentinel.Supervision
+
 		request, err := s.GetSupervisionRequest(ctx, id)
 		if err != nil {
 			return nil, fmt.Errorf("error getting supervision request %s: %w", id, err)
 		}
-		if request != nil {
-			requests = append(requests, *request)
+		if request == nil {
+			return nil, fmt.Errorf("supervision request %s not found", id)
 		}
+
+		supervision.Request = *request
+
+		results, err := s.GetSupervisionResults(ctx, id)
+		if err != nil {
+			return nil, fmt.Errorf("error getting supervision results for request %s: %w", id, err)
+		}
+
+		if len(results) > 0 {
+			supervision.Result = results[0]
+		}
+
+		// XXX: Can't understand why this would be anything other than 0 or 1
+		if len(results) > 1 {
+			return nil, fmt.Errorf("multiple supervision results found for request %s", id)
+		}
+
+		statuses, err := s.GetSupervisionStatusesForRequest(ctx, id)
+		if err != nil {
+			return nil, fmt.Errorf("error getting supervision statuses for request %s: %w", id, err)
+		}
+		supervision.Statuses = statuses
+
+		supervisions = append(supervisions, supervision)
 	}
 
-	if len(requests) != len(requestIds) {
+	if len(supervisions) != len(requestIds) {
 		return nil, fmt.Errorf("some supervision requests were not found for execution %s", executionId)
 	}
 
-	return requests, nil
+	return supervisions, nil
+}
+
+func (s *PostgresqlStore) GetSupervisionStatusesForRequest(ctx context.Context, requestId uuid.UUID) ([]sentinel.SupervisionStatus, error) {
+	query := `
+        SELECT ss.id, ss.supervisionrequest_id, ss.status, ss.created_at
+        FROM supervisionrequest_status ss
+        WHERE ss.supervisionrequest_id = $1`
+
+	rows, err := s.db.QueryContext(ctx, query, requestId)
+	if err != nil {
+		return nil, fmt.Errorf("error getting supervision statuses for request %s: %w", requestId, err)
+	}
+	defer rows.Close()
+
+	var statuses []sentinel.SupervisionStatus
+	for rows.Next() {
+		var status sentinel.SupervisionStatus
+		if err := rows.Scan(&status.Id, &status.SupervisionRequestId, &status.Status, &status.CreatedAt); err != nil {
+			return nil, fmt.Errorf("error scanning supervision status: %w", err)
+		}
+		statuses = append(statuses, status)
+	}
+
+	return statuses, nil
 }
 
 func (s *PostgresqlStore) GetSupervisionResultsForExecution(ctx context.Context, executionId uuid.UUID) ([]sentinel.SupervisionResult, error) {
