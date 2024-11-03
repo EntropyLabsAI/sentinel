@@ -45,6 +45,14 @@ export type GetSupervisionRequestsParams = {
 type?: SupervisorType;
 };
 
+export interface SupervisorChain {
+  supervisors: Supervisor[];
+}
+
+export type SupervisorChains = SupervisorChain[];
+
+export type SupervisorChainAssignment = string[][];
+
 export interface Supervision {
   request: SupervisionRequest;
   /** The result of the supervision, if it has been completed. Nil otherwise. */
@@ -158,6 +166,14 @@ export interface Execution {
   tool_id?: string;
 }
 
+export interface CreateSupervisionResult {
+  execution_id: string;
+  run_id: string;
+  supervision_result: SupervisionResult;
+  supervisor_id: string;
+  tool_id: string;
+}
+
 export interface LLMExplanationResponse {
   explanation?: string;
 }
@@ -240,14 +256,6 @@ export interface SupervisionResult {
   toolrequest: ToolRequest;
 }
 
-export interface CreateSupervisionResult {
-  execution_id: string;
-  run_id: string;
-  supervision_result: SupervisionResult;
-  supervisor_id: string;
-  tool_id: string;
-}
-
 export interface SupervisionStatus {
   created_at: string;
   id: number;
@@ -280,10 +288,6 @@ export interface Tool {
   /** Attributes of the tool that will not be shown in the UI for requests to this tool */
   ignored_attributes?: string[];
   name: string;
-}
-
-export interface SupervisorAssignment {
-  supervisor_id: string;
 }
 
 export type SupervisorAttributes = { [key: string]: unknown };
@@ -902,12 +906,12 @@ export const useGetRunTools = <TData = Awaited<ReturnType<typeof getRunTools>>, 
 
 
 /**
- * @summary Get the supervisors assigned to a tool
+ * @summary Get the supervisors assigned to a tool, grouped by chain
  */
 export const getRunToolSupervisors = (
     runId: string,
     toolId: string, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<Supervisor[]>> => {
+ ): Promise<AxiosResponse<SupervisorChains>> => {
     
     return axios.get(
       `/api/runs/${runId}/tools/${toolId}/supervisors`,options
@@ -944,7 +948,7 @@ export type GetRunToolSupervisorsQueryResult = NonNullable<Awaited<ReturnType<ty
 export type GetRunToolSupervisorsQueryError = AxiosError<void>
 
 /**
- * @summary Get the supervisors assigned to a tool
+ * @summary Get the supervisors assigned to a tool, grouped by chain
  */
 export const useGetRunToolSupervisors = <TData = Awaited<ReturnType<typeof getRunToolSupervisors>>, TError = AxiosError<void>>(
  runId: string,
@@ -965,32 +969,32 @@ export const useGetRunToolSupervisors = <TData = Awaited<ReturnType<typeof getRu
 
 
 /**
- * Specify an array of supervisors in supervision order. The first supervisor will be called first, and so on. These supervisors will be called in order when this tool is invoked for the remainder of the run.
- * @summary Assign a list of supervisors to a tool for a given run
+ * Specify an array of arrays of supervisors in supervision order. Each array represents a list of supervisors that will be called in parallel, with the first supervisor in each array being called first, and so on. These supervisors will be called in parallel when this tool is invoked for the remainder of the run.
+ * @summary Assign supervisors to a tool for a given run
  */
 export const createRunToolSupervisors = (
     runId: string,
     toolId: string,
-    createRunToolSupervisorsBody: string[], options?: AxiosRequestConfig
+    supervisorChainAssignment: SupervisorChainAssignment, options?: AxiosRequestConfig
  ): Promise<AxiosResponse<void>> => {
     
     return axios.post(
       `/api/runs/${runId}/tools/${toolId}/supervisors`,
-      createRunToolSupervisorsBody,options
+      supervisorChainAssignment,options
     );
   }
 
 
 
 export const getCreateRunToolSupervisorsMutationOptions = <TError = AxiosError<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRunToolSupervisors>>, TError,{runId: string;toolId: string;data: string[]}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof createRunToolSupervisors>>, TError,{runId: string;toolId: string;data: string[]}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRunToolSupervisors>>, TError,{runId: string;toolId: string;data: SupervisorChainAssignment}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof createRunToolSupervisors>>, TError,{runId: string;toolId: string;data: SupervisorChainAssignment}, TContext> => {
 const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
 
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRunToolSupervisors>>, {runId: string;toolId: string;data: string[]}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRunToolSupervisors>>, {runId: string;toolId: string;data: SupervisorChainAssignment}> = (props) => {
           const {runId,toolId,data} = props ?? {};
 
           return  createRunToolSupervisors(runId,toolId,data,axiosOptions)
@@ -1002,18 +1006,18 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
   return  { mutationFn, ...mutationOptions }}
 
     export type CreateRunToolSupervisorsMutationResult = NonNullable<Awaited<ReturnType<typeof createRunToolSupervisors>>>
-    export type CreateRunToolSupervisorsMutationBody = string[]
+    export type CreateRunToolSupervisorsMutationBody = SupervisorChainAssignment
     export type CreateRunToolSupervisorsMutationError = AxiosError<unknown>
 
     /**
- * @summary Assign a list of supervisors to a tool for a given run
+ * @summary Assign supervisors to a tool for a given run
  */
 export const useCreateRunToolSupervisors = <TError = AxiosError<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRunToolSupervisors>>, TError,{runId: string;toolId: string;data: string[]}, TContext>, axios?: AxiosRequestConfig}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRunToolSupervisors>>, TError,{runId: string;toolId: string;data: SupervisorChainAssignment}, TContext>, axios?: AxiosRequestConfig}
 ): UseMutationResult<
         Awaited<ReturnType<typeof createRunToolSupervisors>>,
         TError,
-        {runId: string;toolId: string;data: string[]},
+        {runId: string;toolId: string;data: SupervisorChainAssignment},
         TContext
       > => {
 
