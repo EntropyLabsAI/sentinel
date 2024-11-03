@@ -27,6 +27,7 @@ class Supervisor(Protocol):
         ignored_attributes: list[str],
         tool_kwargs: dict[str, Any],
         review_id: Optional[UUID],
+        decision: Optional[SupervisionDecision] = None,
         **kwargs
     ) -> SupervisionDecision:
         """
@@ -38,6 +39,7 @@ class Supervisor(Protocol):
             supervision_context (SupervisionContext): Additional context.
             ignored_attributes (List[str]): Attributes to ignore.
             tool_kwargs (dict[str, Any]): Keyword arguments for the function.
+            decision (Optional[SupervisionDecision]): Decision made by the previous supervisor that escalated to this Supervisor.
         Returns:
             SupervisionDecision: The decision made by the supervisor.
         """
@@ -55,7 +57,8 @@ def llm_supervisor(
     description: Optional[str] = None,
     openai_model: str = PREFERRED_LLM_MODEL,
     system_prompt: Optional[str] = None,
-    include_context: bool = False
+    include_context: bool = False,
+    decision: Optional[SupervisionDecision] = None
 ) -> Supervisor:
     """
     Create a supervisor function that uses an LLM to make a supervision decision.
@@ -68,6 +71,7 @@ def llm_supervisor(
         supervision_context: SupervisionContext,
         ignored_attributes: list[str],
         tool_kwargs: dict[str, Any],
+        decision: Optional[SupervisionDecision] = None,
         **kwargs
     ) -> SupervisionDecision:
         """
@@ -105,7 +109,11 @@ Function Implementation:
 
 Arguments passed to the function: 
 {tool_kwargs_str}
+
 """
+
+        if decision is not None:
+            instructions_content += f"\nDecision made by the previous supervisor: {decision.decision} with explanation: {decision.explanation}\n"
 
         if include_context and supervision_context:
             # Convert SupervisionContext into a textual description
