@@ -6,6 +6,8 @@ import CopyButton from "./copy_button"
 import { Button } from "./ui/button";
 import ToolCodeBlock from "./tool_code_block";
 import { MessageDisplay } from "./messages";
+import { UUIDDisplay } from "./uuid_display";
+import { ToolBadge } from "./status_badge";
 
 interface ToolChoiceDisplayProps {
   toolChoice: ToolRequest;
@@ -108,12 +110,11 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
               <MessageSquare size={16} />
             </Button>
             <span className="font-semibold"></span>
-            <code className="">{toolChoice.id}</code>
-            <CopyButton className="bg-transparent shadow-none text-gray-600 hover:text-gray-400 hover:bg-transparent outline-none" text={toolChoice.id || ""} />
+            <code className="">Tool Choice ID <UUIDDisplay className="" uuid={toolChoice.id} /></code>
           </div>
           <div className="flex items-center">
             <span className="font-semibold mr-2"></span>
-            <code>{toolChoice.tool_id}</code>
+            <ToolBadge toolId={toolChoice.tool_id} />
             <Button
               size="sm"
               variant={isSelected ? "outline" : "outline"}
