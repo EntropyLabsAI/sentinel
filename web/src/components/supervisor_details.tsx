@@ -5,6 +5,8 @@ import Page from "./page";
 import { useProject } from "@/contexts/project_context";
 import { UUIDDisplay } from "./uuid_display";
 import HumanReviews from "./human_reviews";
+import { EyeIcon } from "lucide-react";
+import JsonDisplay from "./json_display";
 
 export default function SupervisorDetails() {
   const [supervisor, setSupervisor] = useState<Supervisor>();
@@ -21,15 +23,17 @@ export default function SupervisorDetails() {
     }
   }, [supervisorData]);
 
-  if (supervisorLoading) return <Page title="Supervisor">Loading...</Page>;
-  if (supervisorError) return <Page title="Supervisor">Error: {supervisorError.message}</Page>;
-
   return (
-    <Page title={`Supervisor ${supervisor?.name} reviews`} subtitle={<span>Review for supervisor <UUIDDisplay uuid={supervisor?.id} /> will be displayed here</span>}>
-      <div className="flex flex-col space-y-4 col-span-3">
-        {supervisor?.type === SupervisorType.human_supervisor && <HumanReviews />}
-        {supervisor?.type === SupervisorType.client_supervisor && <div>Client Supervisor</div>}
-      </div>
+    <Page title={`Supervisor ${supervisor?.name} reviews`} subtitle={<span>Review for supervisor <UUIDDisplay uuid={supervisor?.id} /> will be displayed here</span>} icon={<EyeIcon />}>
+      {supervisorLoading && <div>Loading...</div>}
+      {supervisorError && <div>Error: {supervisorError.message}</div>}
+      {supervisor && <>
+        <div className="flex flex-col space-y-4 col-span-3">
+          {supervisor?.type === SupervisorType.human_supervisor && <HumanReviews />}
+          {supervisor?.type === SupervisorType.client_supervisor && <JsonDisplay json={supervisor} />}
+          {supervisor?.type === SupervisorType.no_supervisor && <div>No supervisor</div>}
+        </div>
+      </>}
     </Page>
   )
 }
