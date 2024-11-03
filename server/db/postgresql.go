@@ -718,39 +718,6 @@ func (s *PostgresqlStore) GetSupervisionResults(ctx context.Context, id uuid.UUI
 	return results, nil
 }
 
-func (s *PostgresqlStore) UpdateSupervisionRequest(ctx context.Context, supervisorRequest sentinel.SupervisionRequest) error {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("error starting transaction: %w", err)
-	}
-	if err = tx.Rollback(); err != nil {
-		return fmt.Errorf("error rolling back transaction: %w", err)
-	}
-
-	// Update supervisor request
-	query1 := `
-		UPDATE supervisionrequest 
-		SET task_state = $1
-		WHERE id = $2`
-
-	_, err = tx.ExecContext(ctx, query1, supervisorRequest.TaskState, supervisorRequest.Id)
-	if err != nil {
-		return fmt.Errorf("error updating supervisor request: %w", err)
-	}
-
-	// Insert new status
-	query2 := `
-		INSERT INTO supervisionrequest_status (id, supervisionrequest_id, created_at, status)
-		VALUES ($1, $2, CURRENT_TIMESTAMP, $3)`
-
-	_, err = tx.ExecContext(ctx, query2, supervisorRequest.Id, supervisorRequest.Id, supervisorRequest.Status.Status)
-	if err != nil {
-		return fmt.Errorf("error updating supervisor status: %w", err)
-	}
-
-	return tx.Commit()
-}
-
 func (s *PostgresqlStore) GetSupervisionRequests(ctx context.Context) ([]sentinel.SupervisionRequest, error) {
 	// Get a list of all supervision request IDs then pass them to GetSupervisionRequest
 	query := `SELECT id FROM supervisionrequest`
