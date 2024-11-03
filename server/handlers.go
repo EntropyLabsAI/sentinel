@@ -155,7 +155,7 @@ func apiCreateToolHandler(w http.ResponseWriter, r *http.Request, store ToolStor
 	var request Tool
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
 		return
 	}
 
@@ -163,7 +163,7 @@ func apiCreateToolHandler(w http.ResponseWriter, r *http.Request, store ToolStor
 	if request.Attributes != nil && request.Name != "" && request.Description != "" && request.IgnoredAttributes != nil {
 		found, err := store.GetToolFromValues(ctx, *request.Attributes, request.Name, request.Description, *request.IgnoredAttributes)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("error trying to locate an existing tool: %v", err), http.StatusInternalServerError)
+			sendErrorResponse(w, http.StatusInternalServerError, "error trying to locate an existing tool", err.Error())
 			return
 		}
 		if found != nil {
@@ -178,7 +178,7 @@ func apiCreateToolHandler(w http.ResponseWriter, r *http.Request, store ToolStor
 
 	toolId, err := store.CreateTool(ctx, request)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error creating tool", err.Error())
 		return
 	}
 
@@ -194,18 +194,18 @@ func apiCreateRunToolSupervisorsHandler(w http.ResponseWriter, r *http.Request, 
 	var request SupervisorChainAssignment
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
 		return
 	}
 
 	if len(request) == 0 {
-		http.Error(w, "No supervisors provided", http.StatusBadRequest)
+		sendErrorResponse(w, http.StatusBadRequest, "No supervisors provided", "")
 		return
 	}
 
 	err = store.AssignSupervisorsToTool(ctx, runId, toolId, request)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error assigning supervisors to tool", err.Error())
 		return
 	}
 
@@ -217,7 +217,7 @@ func apiGetSupervisorHandler(w http.ResponseWriter, r *http.Request, id uuid.UUI
 
 	supervisor, err := store.GetSupervisor(ctx, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisor", err.Error())
 		return
 	}
 
@@ -229,14 +229,14 @@ func apiCreateSupervisorHandler(w http.ResponseWriter, r *http.Request, store Su
 
 	var request Supervisor
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
 		return
 	}
 
 	// Create new supervisor
 	supervisorId, err := store.CreateSupervisor(ctx, request)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error creating supervisor", err.Error())
 		return
 	}
 
@@ -249,7 +249,7 @@ func apiGetSupervisorsHandler(w http.ResponseWriter, r *http.Request, params Get
 
 	supervisors, err := store.GetSupervisors(ctx, params.ProjectId)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisors", err.Error())
 		return
 	}
 
@@ -261,19 +261,19 @@ func apiGetToolHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, sto
 
 	tool, err := store.GetTool(ctx, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool", err.Error())
 		return
 	}
 
 	if tool == nil {
-		http.Error(w, "Tool not found", http.StatusNotFound)
+		sendErrorResponse(w, http.StatusNotFound, "Tool not found", "")
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(tool)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error encoding tool", err.Error())
 		return
 	}
 }
@@ -284,7 +284,7 @@ func apiGetToolsHandler(w http.ResponseWriter, r *http.Request, params GetToolsP
 
 	tools, err := store.GetProjectTools(ctx, params.ProjectId)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting tools", err.Error())
 		return
 	}
 
@@ -297,18 +297,18 @@ func apiGetRunToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID,
 	// First check if run exists
 	run, err := store.GetRun(ctx, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting run", err.Error())
 		return
 	}
 
 	if run == nil {
-		http.Error(w, "Run not found", http.StatusNotFound)
+		sendErrorResponse(w, http.StatusNotFound, "Run not found", "")
 		return
 	}
 
 	tools, err := store.GetRunTools(ctx, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting run tools", err.Error())
 		return
 	}
 
@@ -325,28 +325,28 @@ func apiCreateSupervisionRequestHandler(w http.ResponseWriter, r *http.Request, 
 
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
 		return
 	}
 
 	if len(request.ToolRequests) == 0 || len(request.Messages) == 0 {
-		http.Error(w, "No tool choices or messages provided", http.StatusBadRequest)
+		sendErrorResponse(w, http.StatusBadRequest, "No tool choices or messages provided", "")
 		return
 	}
 
 	if len(request.ToolRequests) != len(request.Messages) {
-		http.Error(w, "Number of tool choices and messages must be the same", http.StatusBadRequest)
+		sendErrorResponse(w, http.StatusBadRequest, "Number of tool choices and messages must be the same", "")
 		return
 	}
 
 	execution, err := store.GetExecution(ctx, request.ExecutionId)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error getting execution when creating supervision request: %v", err), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting execution when creating supervision request", err.Error())
 		return
 	}
 
 	if execution == nil {
-		http.Error(w, "Execution not found", http.StatusNotFound)
+		sendErrorResponse(w, http.StatusNotFound, "Execution not found", "")
 		return
 	}
 
@@ -354,7 +354,7 @@ func apiCreateSupervisionRequestHandler(w http.ResponseWriter, r *http.Request, 
 	toolID := request.ToolRequests[0].ToolId
 	for _, toolRequest := range request.ToolRequests {
 		if toolRequest.ToolId != toolID {
-			http.Error(w, fmt.Sprintf("Agent submitted %d samples, some of which were not the same tool choice", len(request.ToolRequests)), http.StatusBadRequest)
+			sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Agent submitted %d samples, some of which were not the same tool choice", len(request.ToolRequests)), "")
 			return
 		}
 	}
@@ -362,19 +362,19 @@ func apiCreateSupervisionRequestHandler(w http.ResponseWriter, r *http.Request, 
 	// Check the tool exists
 	tool, err := store.GetTool(ctx, toolID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool", err.Error())
 		return
 	}
 
 	if tool == nil {
-		http.Error(w, "Tool not found", http.StatusNotFound)
+		sendErrorResponse(w, http.StatusNotFound, "Tool not found", "")
 		return
 	}
 
 	// Get the supervisors that are supposed to be supervising this tool for this run
 	supervisorChains, err := store.GetRunToolSupervisors(ctx, request.RunId, toolID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisors for tool", err.Error())
 		return
 	}
 
@@ -390,14 +390,14 @@ func apiCreateSupervisionRequestHandler(w http.ResponseWriter, r *http.Request, 
 	}
 
 	if !exists {
-		http.Error(w, fmt.Sprintf("Trying to do supervision with supervisor %s that is not associated with tool %s for run %s. All supervisors must be registered to a tool for a run before the run is started.", request.SupervisorId, toolID, request.RunId), http.StatusBadRequest)
+		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Trying to do supervision with supervisor %s that is not associated with tool %s for run %s. All supervisors must be registered to a tool for a run before the run is started.", request.SupervisorId, toolID, request.RunId), "")
 		return
 	}
 
 	// Store the supervisor in the database
 	reviewID, err := store.CreateSupervisionRequest(ctx, request)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error creating supervision request", err.Error())
 		return
 	}
 
@@ -417,7 +417,7 @@ func apiGetExecutionHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID
 
 	execution, err := store.GetExecution(ctx, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting execution", err.Error())
 		return
 	}
 
@@ -429,18 +429,18 @@ func apiGetRunExecutionsHandler(w http.ResponseWriter, r *http.Request, runId uu
 
 	run, err := store.GetRun(ctx, runId)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting run", err.Error())
 		return
 	}
 
 	if run == nil {
-		http.Error(w, "Run not found", http.StatusNotFound)
+		sendErrorResponse(w, http.StatusNotFound, "Run not found", "")
 		return
 	}
 
 	executions, err := store.GetRunExecutions(ctx, runId)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting run executions", err.Error())
 		return
 	}
 
@@ -456,24 +456,24 @@ func apiCreateExecutionHandler(w http.ResponseWriter, r *http.Request, runId uui
 
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
 		return
 	}
 
 	executionId, err := store.CreateExecution(ctx, runId, request.ToolId)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error creating execution", err.Error())
 		return
 	}
 
 	execution, err := store.GetExecution(ctx, executionId)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting execution", err.Error())
 		return
 	}
 
 	if execution == nil {
-		http.Error(w, "Something went wrong, execution not found", http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "Something went wrong, execution not found", "")
 		return
 	}
 
@@ -486,12 +486,12 @@ func apiGetSupervisionRequestHandler(w http.ResponseWriter, r *http.Request, id 
 
 	supervisor, err := store.GetSupervisionRequest(ctx, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisor", err.Error())
 		return
 	}
 
 	if supervisor == nil {
-		http.Error(w, "Supervisor not found", http.StatusNotFound)
+		sendErrorResponse(w, http.StatusNotFound, "Supervisor not found", "")
 		return
 	}
 
@@ -504,7 +504,7 @@ func apiGetSupervisionRequestsHandler(w http.ResponseWriter, r *http.Request, _ 
 
 	reviews, err := store.GetSupervisionRequests(ctx)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision requests", err.Error())
 		return
 	}
 
@@ -518,18 +518,18 @@ func apiGetSupervisionResultsHandler(w http.ResponseWriter, r *http.Request, id 
 	// First check if supervisor exists
 	supervisor, err := store.GetSupervisionRequest(ctx, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisor", err.Error())
 		return
 	}
 
 	if supervisor == nil {
-		http.Error(w, "Supervisor not found", http.StatusNotFound)
+		sendErrorResponse(w, http.StatusNotFound, "Supervisor not found", "")
 		return
 	}
 
 	results, err := store.GetSupervisionResults(ctx, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision results", err.Error())
 		return
 	}
 
@@ -543,7 +543,7 @@ func apiCreateSupervisionResultHandler(w http.ResponseWriter, r *http.Request, _
 	var request CreateSupervisionResult
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
 		return
 	}
 
@@ -551,12 +551,12 @@ func apiCreateSupervisionResultHandler(w http.ResponseWriter, r *http.Request, _
 
 	supervisorChains, err := store.GetRunToolSupervisors(ctx, request.RunId, request.ToolId)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisors for tool", err.Error())
 		return
 	}
 
 	if len(supervisorChains) == 0 {
-		http.Error(w, fmt.Sprintf("No supervisors found for run %s and tool %s", request.RunId, request.ToolId), http.StatusBadRequest)
+		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("No supervisors found for run %s and tool %s", request.RunId, request.ToolId), "")
 		return
 	}
 
@@ -572,13 +572,13 @@ func apiCreateSupervisionResultHandler(w http.ResponseWriter, r *http.Request, _
 	}
 
 	if !exists {
-		http.Error(w, fmt.Sprintf("Supervisor %s not associated with tool %s for run %s", request.SupervisorId, request.ToolId, request.RunId), http.StatusBadRequest)
+		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Supervisor %s not associated with tool %s for run %s", request.SupervisorId, request.ToolId, request.RunId), "")
 		return
 	}
 
 	err = store.CreateSupervisionResult(ctx, request.SupervisionResult)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error creating supervision result", err.Error())
 		return
 	}
 
@@ -591,12 +591,12 @@ func apiSupervisionStatusHandler(w http.ResponseWriter, r *http.Request, reviewI
 	// Use the reviewID directly
 	supervisor, err := store.GetSupervisionRequest(ctx, reviewID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisor", err.Error())
 		return
 	}
 
 	if supervisor == nil {
-		http.Error(w, "Supervisor not found", http.StatusNotFound)
+		sendErrorResponse(w, http.StatusNotFound, "Supervisor not found", "")
 		return
 	}
 
@@ -610,18 +610,18 @@ func apiGetReviewToolRequestsHandler(w http.ResponseWriter, r *http.Request, id 
 	// First check if supervisor exists
 	supervisor, err := store.GetSupervisionRequest(ctx, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisor", err.Error())
 		return
 	}
 
 	if supervisor == nil {
-		http.Error(w, "Supervisor not found", http.StatusNotFound)
+		sendErrorResponse(w, http.StatusNotFound, "Supervisor not found", "")
 		return
 	}
 
 	results, err := store.GetSupervisionToolRequests(ctx, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisor tool requests", err.Error())
 		return
 	}
 
@@ -631,7 +631,7 @@ func apiGetReviewToolRequestsHandler(w http.ResponseWriter, r *http.Request, id 
 func apiStatsHandler(hub *Hub, w http.ResponseWriter, _ *http.Request) {
 	stats, err := hub.getStats()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting stats", err.Error())
 		return
 	}
 
@@ -644,7 +644,7 @@ func apiGetProjectsHandler(w http.ResponseWriter, r *http.Request, store Project
 
 	projects, err := store.GetProjects(ctx)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting projects", err.Error())
 		return
 	}
 
@@ -657,12 +657,12 @@ func apiGetProjectByIdHandler(w http.ResponseWriter, r *http.Request, id uuid.UU
 
 	project, err := store.GetProject(ctx, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting project", err.Error())
 		return
 	}
 
 	if project == nil {
-		http.Error(w, "Project not found", http.StatusNotFound)
+		sendErrorResponse(w, http.StatusNotFound, "Project not found", "")
 		return
 	}
 
@@ -679,21 +679,21 @@ func apiLLMExplanationHandler(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
 		return
 	}
 
 	explanation, score, err := getExplanationFromLLM(ctx, request.Text)
 	if err != nil {
 		fmt.Printf("error: %v\n", err)
-		http.Error(w, "Failed to get explanation from LLM", http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "Failed to get explanation from LLM", err.Error())
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(map[string]string{"explanation": explanation, "score": score})
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "Failed to get explanation from LLM", err.Error())
 		return
 	}
 }
@@ -705,41 +705,20 @@ func apiGetExecutionSupervisionsHandler(w http.ResponseWriter, r *http.Request, 
 	// First check if execution exists
 	execution, err := store.GetExecution(ctx, executionId)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting execution", err.Error())
 		return
 	}
 
 	if execution == nil {
-		http.Error(w, fmt.Sprintf("Execution not found for ID %s", executionId), http.StatusNotFound)
+		sendErrorResponse(w, http.StatusNotFound, fmt.Sprintf("Execution not found for ID %s", executionId), "")
 		return
 	}
 
 	supervisions, err := store.GetExecutionSupervisions(ctx, executionId)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting execution supervisions", err.Error())
 		return
 	}
-
-	// // Get all supervision requests for this execution
-	// requests, err := store.GetSupervisionRequestsForExecution(ctx, executionId)
-	// if err != nil {
-	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 	return
-	// }
-
-	// // Get all supervision results
-	// results, err := store.GetSupervisionResultsForExecution(ctx, executionId)
-	// if err != nil {
-	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 	return
-	// }
-
-	// // Get all supervision statuses
-	// statuses, err := store.GetSupervisionStatusesForExecution(ctx, executionId)
-	// if err != nil {
-	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 	return
-	// }
 
 	// Combine the data into ExecutionSupervisions response
 	response := &ExecutionSupervisions{

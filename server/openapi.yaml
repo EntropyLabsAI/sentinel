@@ -32,6 +32,12 @@ paths:
             schema:
               $ref: "#/components/schemas/ProjectCreate"
       responses:
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
           description: Project created successfully
           content:
@@ -44,6 +50,12 @@ paths:
       summary: List all projects
       operationId: GetProjects
       responses:
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
           description: List of projects
           content:
@@ -67,6 +79,12 @@ paths:
             type: string
             format: uuid
       responses:
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
           description: List of runs
           content:
@@ -116,6 +134,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SupervisionStatus"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
       tags:
         - Reviews
     get:
@@ -135,6 +159,12 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/SupervisionRequest"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
       tags:
         - Reviews
 
@@ -156,6 +186,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SupervisionStatus"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Supervision request not found
       tags:
@@ -184,6 +220,12 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Tool"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Run not found
 
@@ -211,6 +253,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SupervisorChains"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Run or tool not found
       tags:
@@ -241,6 +289,12 @@ paths:
       responses:
         "200":
           description: Supervisors assigned to tool successfully
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
       tags:
         - Supervisors
 
@@ -262,6 +316,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ExecutionSupervisions"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
       tags:
         - Executions
 
@@ -285,6 +345,12 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Execution"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
       tags:
         - Executions
     post:
@@ -308,6 +374,12 @@ paths:
                   type: string
                   format: uuid
       responses:
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
           description: Execution created successfully
           content:
@@ -329,6 +401,12 @@ paths:
             type: string
             format: uuid
       responses:
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
           description: Tool details
           content:
@@ -352,6 +430,12 @@ paths:
             format: uuid
           description: Project context for the tools query
       responses:
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
           description: List of tools available for the project
           content:
@@ -372,6 +456,12 @@ paths:
             schema:
               $ref: "#/components/schemas/Tool"
       responses:
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
           description: Tool created successfully
           content:
@@ -393,6 +483,12 @@ paths:
             type: string
             format: uuid
       responses:
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
           description: Project details
           content:
@@ -416,6 +512,12 @@ paths:
             type: string
             format: uuid
       responses:
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
           description: Run details
           content:
@@ -440,6 +542,12 @@ paths:
             format: uuid
           description: Project context for the supervisors query
       responses:
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
           description: List of supervisors available for the project
           content:
@@ -460,6 +568,12 @@ paths:
             schema:
               $ref: "#/components/schemas/Supervisor"
       responses:
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
           description: Supervisor created successfully
           content:
@@ -481,6 +595,12 @@ paths:
             type: string
             format: uuid
       responses:
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
           description: Supervisor details
           content:
@@ -504,6 +624,12 @@ paths:
             type: string
             format: uuid
       responses:
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
           description: Supervision request details
           content:
@@ -527,6 +653,12 @@ paths:
             type: string
             format: uuid
       responses:
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
           description: Supervision results
           content:
@@ -556,6 +688,12 @@ paths:
             schema:
               $ref: "#/components/schemas/CreateSupervisionResult"
       responses:
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
           description: Supervision result created successfully
       tags:
@@ -573,6 +711,12 @@ paths:
             type: string
             format: uuid
       responses:
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
           description: Tool requests for the supervisor
           content:
@@ -591,6 +735,12 @@ paths:
       summary: Get hub stats
       operationId: GetHubStats
       responses:
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
           description: Hub stats
           content:
@@ -611,6 +761,12 @@ paths:
             schema:
               $ref: "#/components/schemas/LLMExplanationRequest"
       responses:
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
           description: LLM explanation
           content:
@@ -1165,3 +1321,13 @@ components:
             $ref: "#/components/schemas/Supervisor"
       required:
         - supervisors
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: string
+      required:
+        - error
