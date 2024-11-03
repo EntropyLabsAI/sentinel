@@ -28,9 +28,16 @@ export default function Run() {
 
   useEffect(() => {
     if (toolsData?.data) {
-      setTools(toolsData.data);
+      setTools(deduplicateTools(toolsData.data));
     }
   }, [toolsData]);
+
+  // TODO do this serverside 
+  function deduplicateTools(tools: Tool[]) {
+    return tools.filter((tool, index, self) =>
+      index === self.findIndex((t) => t.id === tool.id)
+    );
+  }
 
   if (!runId) {
     <p>No Run ID found</p>
