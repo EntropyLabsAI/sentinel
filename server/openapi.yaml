@@ -189,7 +189,7 @@ paths:
 
   /api/runs/{runId}/tools/{toolId}/supervisors:
     get:
-      summary: Get the supervisors assigned to a tool
+      summary: Get the supervisors assigned to a tool, grouped by chain
       operationId: GetRunToolSupervisors
       parameters:
         - name: runId
@@ -206,20 +206,18 @@ paths:
             format: uuid
       responses:
         "200":
-          description: List of tools
+          description: List of chains of supervisors
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Supervisor"
+                $ref: "#/components/schemas/SupervisorChains"
         "404":
           description: Run or tool not found
       tags:
         - Supervisors
     post:
-      summary: Assign a list of supervisors to a tool for a given run
-      description: Specify an array of supervisors in supervision order. The first supervisor will be called first, and so on. These supervisors will be called in order when this tool is invoked for the remainder of the run.
+      summary: Assign supervisors to a tool for a given run
+      description: Specify an array of arrays of supervisors in supervision order. Each array represents a list of supervisors that will be called in parallel, with the first supervisor in each array being called first, and so on. These supervisors will be called in parallel when this tool is invoked for the remainder of the run.
       operationId: CreateRunToolSupervisors
       parameters:
         - name: toolId
@@ -239,10 +237,7 @@ paths:
         content:
           application/json:
             schema:
-              type: array
-              items:
-                type: string
-                format: uuid
+              $ref: "#/components/schemas/SupervisorChainAssignment"
       responses:
         "200":
           description: Supervisors assigned to tool successfully
@@ -706,15 +701,6 @@ components:
         - attributes
         - code
 
-    SupervisorAssignment:
-      type: object
-      properties:
-        supervisor_id:
-          type: string
-          format: uuid
-      required:
-        - supervisor_id
-
     Tool:
       type: object
       properties:
@@ -1156,3 +1142,26 @@ components:
       required:
         - request
         - statuses
+
+    SupervisorChainAssignment:
+      type: array
+      items:
+        type: array
+        items:
+          type: string
+          format: uuid
+
+    SupervisorChains:
+      type: array
+      items:
+        $ref: "#/components/schemas/SupervisorChain"
+
+    SupervisorChain:
+      type: object
+      properties:
+        supervisors:
+          type: array
+          items:
+            $ref: "#/components/schemas/Supervisor"
+      required:
+        - supervisors

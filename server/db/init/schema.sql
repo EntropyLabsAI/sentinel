@@ -82,6 +82,7 @@ CREATE TABLE run_tool_supervisor (
     tool_id UUID REFERENCES tool(id),
     run_id UUID REFERENCES run(id),
     supervisor_id UUID REFERENCES supervisor(id),
+    chain INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -192,7 +192,7 @@ func apiCreateToolHandler(w http.ResponseWriter, r *http.Request, store ToolStor
 func apiCreateRunToolSupervisorsHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, toolId uuid.UUID, store SupervisorStore) {
 	ctx := r.Context()
 
-	var request []uuid.UUID
+	var request SupervisorChainAssignment
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -373,18 +373,20 @@ func apiCreateSupervisionRequestHandler(w http.ResponseWriter, r *http.Request, 
 	}
 
 	// Get the supervisors that are supposed to be supervising this tool for this run
-	supervisors, err := store.GetRunToolSupervisors(ctx, request.RunId, toolID)
+	supervisorChains, err := store.GetRunToolSupervisors(ctx, request.RunId, toolID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Check supervisor ID exists in the list of supervisors for this tool/run combination
+	// Check supervisor ID exists in the lists of supervisors for this tool/run combination
 	exists := false
-	for _, supervisor := range supervisors {
-		if supervisor.Id.String() == request.SupervisorId.String() {
-			exists = true
-			break
+	for _, chain := range supervisorChains {
+		for _, supervisor := range chain.Supervisors {
+			if supervisor.Id.String() == request.SupervisorId.String() {
+				exists = true
+				break
+			}
 		}
 	}
 
@@ -546,28 +548,29 @@ func apiCreateSupervisionResultHandler(w http.ResponseWriter, r *http.Request, _
 		return
 	}
 
-	supervisors, err := store.GetRunToolSupervisors(ctx, request.RunId, request.ToolId)
+	supervisorChains, err := store.GetRunToolSupervisors(ctx, request.RunId, request.ToolId)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if len(supervisors) == 0 {
+	if len(supervisorChains) == 0 {
 		http.Error(w, fmt.Sprintf("No supervisors found for run %s and tool %s", request.RunId, request.ToolId), http.StatusBadRequest)
 		return
 	}
 
-	// Check if the supervisor is associated with the tool for the run
-	found := false
-	for _, supervisor := range supervisors {
-		if supervisor.Id.String() == request.SupervisorId.String() {
-			fmt.Printf("Supervisor %s found for run %s and tool %s", supervisor.Id, request.RunId, request.ToolId)
-			found = true
-			break
+	// Check supervisor ID exists in the lists of supervisors for this tool/run combination
+	exists := false
+	for _, chain := range supervisorChains {
+		for _, supervisor := range chain.Supervisors {
+			if supervisor.Id.String() == request.SupervisorId.String() {
+				exists = true
+				break
+			}
 		}
 	}
 
-	if !found {
+	if !exists {
 		http.Error(w, fmt.Sprintf("Supervisor %s not associated with tool %s for run %s", request.SupervisorId, request.ToolId, request.RunId), http.StatusBadRequest)
 		return
 	}

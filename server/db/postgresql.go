@@ -1075,7 +1075,15 @@ func (s *PostgresqlStore) GetRun(ctx context.Context, id uuid.UUID) (*sentinel.R
 	return &run, nil
 }
 
-func (s *PostgresqlStore) AssignSupervisorsToTool(ctx context.Context, runId uuid.UUID, toolID uuid.UUID, supervisorIds []uuid.UUID) error {
+// AssignSupervisorsToTool assigns a list of supervisors to a tool for a run.
+// The supervisors are assigned to the tool in the order they are provided in the chains array.
+// The chains array is an array of arrays, where each sub-array is a chain of supervisors to be called in parallel.
+// The supervisors in each chain are called in order
+// Example:
+// chain_1: [supervisor_1, supervisor_2]
+// chain_2: [supervisor_3]
+// chain_3: [supervisor_1, supervisor_3, supervisor_6, supervisor_7]
+func (s *PostgresqlStore) AssignSupervisorsToTool(ctx context.Context, runId uuid.UUID, toolID uuid.UUID, chains sentinel.SupervisorChainAssignment) error {
 	// Start a transaction
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -1083,50 +1091,69 @@ func (s *PostgresqlStore) AssignSupervisorsToTool(ctx context.Context, runId uui
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	for _, supervisorID := range supervisorIds {
-		// Check if the supervisor exists
-		supervisor, err := s.GetSupervisor(ctx, supervisorID)
-		if err != nil {
-			return fmt.Errorf("error getting supervisor: %w", err)
-		}
-		if supervisor == nil {
-			return fmt.Errorf("supervisor %s not found", supervisorID)
-		}
-
-		// Check if the tool exists
-		tool, err := s.GetTool(ctx, toolID)
-		if err != nil {
-			return fmt.Errorf("error getting tool: %w", err)
-		}
-		if tool == nil {
-			return fmt.Errorf("tool %s not found", toolID)
-		}
-
-		// Check if the supervisor is already assigned to the tool
-		query := `
-		SELECT 1
+	// First, we need to get the highest chain number already assigned to this run/tool pair
+	query := `
+		SELECT COALESCE(MAX(chain), 0)
 		FROM run_tool_supervisor
-		WHERE run_id = $1 AND tool_id = $2 AND supervisor_id = $3`
+		WHERE run_id = $1 AND tool_id = $2`
 
-		var exists bool
-		err = tx.QueryRowContext(ctx, query, runId, toolID, supervisorID).Scan(&exists)
-		if err != nil && err != sql.ErrNoRows {
-			return fmt.Errorf("error checking if supervisor is already assigned to tool: %w", err)
-		}
+	var highestChain int
+	err = tx.QueryRowContext(ctx, query, runId, toolID).Scan(&highestChain)
+	if err != nil {
+		return fmt.Errorf("error getting highest chain number: %w", err)
+	}
 
-		if exists {
-			return fmt.Errorf("supervisor %s is already assigned to tool %s", supervisorID, toolID)
-		}
+	// Iterate over each chain of supervisors
+	for i, chain := range chains {
+		// Iterate over each supervisor in the chain
+		for _, supervisorID := range chain {
+			// Check if the supervisor exists
+			supervisor, err := s.GetSupervisor(ctx, supervisorID)
+			if err != nil {
+				return fmt.Errorf("error getting supervisor: %w", err)
+			}
+			if supervisor == nil {
+				return fmt.Errorf("supervisor %s not found", supervisorID)
+			}
 
-		t := time.Now()
-		query = `
-		INSERT INTO run_tool_supervisor (run_id, tool_id, supervisor_id, created_at)
-		VALUES ($1, $2, $3, $4)`
+			// Check if the tool exists
+			tool, err := s.GetTool(ctx, toolID)
+			if err != nil {
+				return fmt.Errorf("error getting tool: %w", err)
+			}
+			if tool == nil {
+				return fmt.Errorf("tool %s not found", toolID)
+			}
 
-		// If the supervisor is not assigned to the tool, assign them
-		_, err = tx.ExecContext(ctx, query, runId, toolID, supervisorID, t)
-		if err != nil {
-			return fmt.Errorf("error assigning supervisor to tool: %w", err)
+			// Check if the supervisor is already assigned to the tool
+			query := `
+				SELECT 1
+				FROM run_tool_supervisor
+				WHERE run_id = $1 
+				AND tool_id = $2 
+				AND supervisor_id = $3 
+				AND chain = $4`
+
+			var exists bool
+			err = tx.QueryRowContext(ctx, query, runId, toolID, supervisorID, i).Scan(&exists)
+			if err != nil && err != sql.ErrNoRows {
+				return fmt.Errorf("error checking if supervisor is already assigned to tool: %w", err)
+			}
+
+			if exists {
+				return fmt.Errorf("supervisor %s is already assigned to tool %s in chain %d", supervisorID, toolID, i)
+			}
+
+			t := time.Now()
+			query = `
+				INSERT INTO run_tool_supervisor (run_id, tool_id, supervisor_id, chain, created_at)
+				VALUES ($1, $2, $3, $4, $5)`
+
+			// If the supervisor is not assigned to the tool, assign them
+			_, err = tx.ExecContext(ctx, query, runId, toolID, supervisorID, i+highestChain, t)
+			if err != nil {
+				return fmt.Errorf("error assigning supervisor to tool: %w", err)
+			}
 		}
 	}
 
@@ -1185,10 +1212,9 @@ func (s *PostgresqlStore) GetRunTools(ctx context.Context, runId uuid.UUID) ([]s
 	return tools, nil
 }
 
-// GetRunToolSupervisors returns an ordered list of supervisors assigned to a tool for a run. The list is ordered by ID of the run_tool_supervisor record, most recent first.
-func (s *PostgresqlStore) GetRunToolSupervisors(ctx context.Context, runId uuid.UUID, toolId uuid.UUID) ([]sentinel.Supervisor, error) {
+func (s *PostgresqlStore) GetRunToolSupervisors(ctx context.Context, runId uuid.UUID, toolId uuid.UUID) (sentinel.SupervisorChains, error) {
 	query := `
-		SELECT s.id, s.description, s.created_at, s.type, rts.created_at, s.attributes
+		SELECT s.id, s.description, s.created_at, s.type, rts.created_at, s.attributes, rts.chain
 		FROM run_tool_supervisor rts
 		INNER JOIN supervisor s ON rts.supervisor_id = s.id
 		WHERE rts.run_id = $1 AND rts.tool_id = $2
@@ -1200,11 +1226,14 @@ func (s *PostgresqlStore) GetRunToolSupervisors(ctx context.Context, runId uuid.
 	}
 	defer rows.Close()
 
+	// Chains is a map from chain number to a list of supervisors
+	chains := make(map[int][]sentinel.Supervisor)
+
 	// TODO this is returning the created_at of the run_tool_supervisor record, not the supervisor
-	var supervisors []sentinel.Supervisor
 	for rows.Next() {
 		var supervisor sentinel.Supervisor
 		var attributesJSON []byte
+		var chain int
 		if err := rows.Scan(
 			&supervisor.Id,
 			&supervisor.Description,
@@ -1212,6 +1241,7 @@ func (s *PostgresqlStore) GetRunToolSupervisors(ctx context.Context, runId uuid.
 			&supervisor.Type,
 			&supervisor.CreatedAt,
 			&attributesJSON,
+			&chain,
 		); err != nil {
 			return nil, fmt.Errorf("error scanning supervisor: %w", err)
 		}
@@ -1222,10 +1252,18 @@ func (s *PostgresqlStore) GetRunToolSupervisors(ctx context.Context, runId uuid.
 				return nil, fmt.Errorf("error parsing supervisor attributes: %w", err)
 			}
 		}
-		supervisors = append(supervisors, supervisor)
+		chains[chain] = append(chains[chain], supervisor)
 	}
 
-	return supervisors, nil
+	return convertSupervisorMapToChains(chains), nil
+}
+
+func convertSupervisorMapToChains(chains map[int][]sentinel.Supervisor) sentinel.SupervisorChains {
+	var supervisorChains sentinel.SupervisorChains
+	for _, chain := range chains {
+		supervisorChains = append(supervisorChains, sentinel.SupervisorChain{Supervisors: chain})
+	}
+	return supervisorChains
 }
 
 func (s *PostgresqlStore) GetSupervisor(ctx context.Context, id uuid.UUID) (*sentinel.Supervisor, error) {
