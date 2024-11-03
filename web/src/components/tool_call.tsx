@@ -3,11 +3,9 @@ import { Code, Code2, Link, X, MessageSquare } from "lucide-react"
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import CopyButton from "./copy_button"
-import ExplainButton from "./ask_lm"
 import { Button } from "./ui/button";
-import { Textarea } from "./ui/textarea"; // Make sure to import Textarea
 import ToolCodeBlock from "./tool_code_block";
-import { MessageDisplay, MessagesDisplay } from "./messages";
+import { MessageDisplay } from "./messages";
 
 interface ToolChoiceDisplayProps {
   toolChoice: ToolRequest;
@@ -33,10 +31,8 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
 
   const [args, setArgs] = useState<ToolRequestArguments>(toolChoice.arguments);
 
-  // Add new state to store hidden values
   const [hiddenArgs, setHiddenArgs] = useState<Partial<ToolRequestArguments>>({});
 
-  // Add function to filter visible arguments
   const getVisibleArgs = (fullArgs: ToolRequestArguments): ToolRequestArguments => {
     if (!tool?.ignored_attributes) return fullArgs;
 
@@ -57,7 +53,6 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
     setScore(null);
   }
 
-  // Update useEffect to set initial hidden values
   useEffect(() => {
     if (tool?.ignored_attributes) {
       const hidden = tool.ignored_attributes.reduce((acc, key) => {
