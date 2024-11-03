@@ -109,8 +109,9 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
             >
               <MessageSquare size={16} />
             </Button>
-            <span className="font-semibold"></span>
-            <code className="">Tool Choice ID <UUIDDisplay className="" uuid={toolChoice.id} /></code>
+            <span className="text-sm text-gray-500">
+              Tool Choice ID <UUIDDisplay className="" uuid={toolChoice.id} />
+            </span>
           </div>
           <div className="flex items-center">
             <span className="font-semibold mr-2"></span>
