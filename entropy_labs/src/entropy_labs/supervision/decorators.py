@@ -108,14 +108,14 @@ def supervise(
     return decorator
 
 
-def call_supervisor_function(supervisor_func, func, supervision_context, review_id: UUID, ignored_attributes: List[str], tool_kwargs: dict[str, Any]):
+def call_supervisor_function(supervisor_func, func, supervision_context, review_id: UUID, ignored_attributes: List[str], tool_kwargs: dict[str, Any], decision: Optional[SupervisionDecision] = None):
     if asyncio.iscoroutinefunction(supervisor_func):
         decision = asyncio.run(supervisor_func(
-            func, supervision_context=supervision_context, review_id=review_id, ignored_attributes=ignored_attributes, tool_kwargs=tool_kwargs
+            func, supervision_context=supervision_context, review_id=review_id, ignored_attributes=ignored_attributes, tool_kwargs=tool_kwargs, decision=decision
         ))
     else:
         decision = supervisor_func(
-            func, supervision_context=supervision_context, review_id=review_id, ignored_attributes=ignored_attributes, tool_kwargs=tool_kwargs
+            func, supervision_context=supervision_context, review_id=review_id, ignored_attributes=ignored_attributes, tool_kwargs=tool_kwargs, decision=decision
         )
     return decision
 
