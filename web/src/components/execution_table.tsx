@@ -62,7 +62,7 @@ export default function ExecutionTable({ executions }: { executions: Execution[]
               </TableCell>
             </TableRow>
             <TableRow>
-              <TableCell colSpan={5} className="p-0">
+              <TableCell colSpan={5} className="p-0 bg-muted/50">
                 <div
                   className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
                   style={{

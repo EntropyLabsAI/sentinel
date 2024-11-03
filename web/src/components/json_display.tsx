@@ -7,9 +7,9 @@ import { Card, CardHeader, CardTitle, CardContent } from './ui/card'
 import { Button } from '@/components/ui/button'
 
 
-export default function JsonDisplay({ reviewRequest }: { reviewRequest: SupervisionRequest | SupervisionResult }) {
+export default function JsonDisplay({ json }: { json: any }) {
   const [showJson, setShowJson] = useState(true)
-  const jsonString = JSON.stringify(reviewRequest, null, 2)
+  const jsonString = JSON.stringify(json, null, 2)
 
   return (
     <Card className="mt-4 overflow-scroll">
@@ -17,7 +17,7 @@ export default function JsonDisplay({ reviewRequest }: { reviewRequest: Supervis
       </CardHeader>
       <CardContent>
         {showJson && (
-          <ScrollArea className="h-[300px]">
+          <ScrollArea className="">
             <pre className="text-xs">{jsonString}</pre>
           </ScrollArea>
         )}
