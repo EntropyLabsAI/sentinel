@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	sentinel "github.com/entropylabsai/sentinel/server"
@@ -624,14 +625,14 @@ func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result se
 
 	if result.Decision == sentinel.Approve {
 		// Check that the tool request is one of the approved tool requests
-		approvedToolRequests, err := s.GetSupervisionToolRequests(ctx, result.SupervisionRequestId)
+		toolRequests, err := s.GetSupervisionToolRequests(ctx, result.SupervisionRequestId)
 		if err != nil {
 			return fmt.Errorf("error getting approved tool requests: %w", err)
 		}
 
 		valid := false
-		for _, approvedToolRequest := range approvedToolRequests {
-			if approvedToolRequest.Id == result.Toolrequest.Id {
+		for _, toolRequest := range toolRequests {
+			if toolRequest.ToolId.String() == result.Toolrequest.ToolId.String() && reflect.DeepEqual(toolRequest.Arguments, result.Toolrequest.Arguments) {
 				valid = true
 				break
 			}
@@ -1043,7 +1044,13 @@ func (s *PostgresqlStore) GetSupervisionToolRequests(ctx context.Context, id uui
 	for rows.Next() {
 		var toolRequest sentinel.ToolRequest
 		var argumentsJSON []byte
-		if err := rows.Scan(&toolRequest.Id, &toolRequest.SupervisionRequestId, &toolRequest.ToolId, &toolRequest.MessageId, &argumentsJSON); err != nil {
+		if err := rows.Scan(
+			&toolRequest.Id,
+			&toolRequest.SupervisionRequestId,
+			&toolRequest.ToolId,
+			&toolRequest.MessageId,
+			&argumentsJSON,
+		); err != nil {
 			return nil, fmt.Errorf("error scanning tool request: %w", err)
 		}
 
