@@ -17,17 +17,19 @@ type ToolCardProps = {
 
 export function ToolCard({ tool, runId }: ToolCardProps) {
   return (
-    <Card className="flex flex-col ">
+    <Card className="flex flex-col text-muted-foreground">
       <CardHeader className="py-2">
         <CardTitle className="py-4 flex flex-row gap-4">
           <ToolBadge toolId={tool.id || ''} />
         </CardTitle>
         <CardDescription>
-          <JsonDisplay json={tool.description} />
+          <p className="text-sm font-semibold">Description</p>
+          <textarea className="text-xs bg-muted p-2 rounded w-full resize-none" value={JSON.stringify(tool.description, null, 2)} readOnly rows={10} disabled />
         </CardDescription>
       </CardHeader>
       <CardContent className="    flex flex-col gap-2">
         {tool.created_at}
+        <p className="text-sm font-semibold">Attributes</p>
         {tool.attributes && <ToolAttributes attributes={tool.attributes || ''} ignoredAttributes={tool.ignored_attributes || []} />}
         {runId && tool.id && <RunToolSupervisors runId={runId} toolId={tool.id} />}
       </CardContent>

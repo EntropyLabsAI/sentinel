@@ -69,7 +69,9 @@ export default function Run() {
       <Page
         icon={<PickaxeIcon className="h-5 w-5" />}
         title="Tools used in this run" subtitle={`${tools.length} tool${tools.length === 1 ? "" : "s"} used in this run`}>
-        <ToolsList tools={tools} runId={runId} variant="card" />
+        <div className="col-span-3">
+          <ToolsList tools={tools} runId={runId} variant="card" />
+        </div>
       </Page>
     </>
   );
