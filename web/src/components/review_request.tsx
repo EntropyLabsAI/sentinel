@@ -97,7 +97,7 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
       {/* Context Display */}
       <div className="w-full flex-grow overflow-auto">
         <ContextDisplay context={updatedReviewRequest.task_state} />
-        <JsonDisplay reviewRequest={updatedReviewRequest} />
+        <JsonDisplay json={updatedReviewRequest} />
       </div>
     </div>
   )

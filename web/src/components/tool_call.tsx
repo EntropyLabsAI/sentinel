@@ -1,4 +1,4 @@
-import { Message, ToolChoice, ToolRequest, ToolRequestArguments } from "@/types";
+import { Message, Tool, ToolChoice, ToolRequest, ToolRequestArguments, useGetTool } from "@/types";
 import { Code, Code2, Link, X, MessageSquare } from "lucide-react"
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,8 +13,8 @@ interface ToolChoiceDisplayProps {
   toolChoice: ToolRequest;
   lastMessage: Message;
   onToolChoiceChange: (updatedToolChoice: ToolRequest) => void;
-  isSelected: boolean; // Added isSelected prop
-  onSelect: () => void; // Added onSelect prop
+  isSelected: boolean;
+  onSelect: () => void;
   index: number;
 }
 
@@ -29,7 +29,11 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
   const [explanation, setExplanation] = useState<string | null>(null);
   const [score, setScore] = useState<string | null>(null);
   const [showMessage, setShowMessage] = useState(false);
-  const [code, setCode] = useState<ToolRequestArguments>(toolChoice.arguments);
+  const [tool, setTool] = useState<Tool>();
+
+  const [args, setArgs] = useState<ToolRequestArguments>(toolChoice.arguments);
+
+  const toolQuery = useGetTool(toolChoice.tool_id);
 
   function resetExplanation() {
     setExplanation(null);
@@ -40,17 +44,24 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
   }
 
   function handleCodeChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const newCode = e.target.value;
-    const newCodeObject: ToolRequestArguments = JSON.parse(newCode);
-    setCode(newCodeObject);
+    const newArgs = e.target.value;
+    const newArgsObject: ToolRequestArguments = JSON.parse(newArgs);
+
+    setArgs(newArgsObject);
+
+
     const updatedToolChoice = {
       ...toolChoice,
-      arguments: newCodeObject,
+      arguments: newArgsObject,
     };
     onToolChoiceChange(updatedToolChoice);
   }
 
-  console.log("ToolChoiceDisplay", toolChoice, lastMessage, isSelected, onSelect, index);
+  useEffect(() => {
+    if (toolQuery.data) {
+      setTool(toolQuery.data.data);
+    }
+  }, [toolQuery.data]);
 
   return (
     <Card className={isSelected ? "border-2 border-blue-500" : ""}>
@@ -91,7 +102,7 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
       <CardContent>
         <div className="space-y-4">
           <ToolCodeBlock
-            code={JSON.stringify(code)}
+            code={JSON.stringify(args)}
             handleCodeChange={handleCodeChange}
             explanation={explanation}
             setExplanation={setExplanation}
