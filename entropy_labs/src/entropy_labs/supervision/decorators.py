@@ -9,7 +9,7 @@ from .llm_sampling import sample_from_llm
 from entropy_labs.api.sentinel_api_client_helper import create_execution, get_supervisors_for_tool, send_supervision_request, send_review_result
 import random
 from uuid import UUID
-
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_type import SupervisorType
 def supervise(
     mock_policy: Optional[MockPolicy] = None,
     mock_responses: Optional[List[Any]] = None,
@@ -74,8 +74,9 @@ def supervise(
                     decision = call_supervisor_function(supervisor_func, func, supervision_context, review_id=review_id, ignored_attributes=ignored_attributes, tool_args=tool_args, tool_kwargs=tool_kwargs)
                     print(f"Supervisor decision: {decision.decision}")
 
-                    # We send the decision to the API
-                    send_review_result(
+                    if supervisor.type != SupervisorType.HUMAN_SUPERVISOR:
+                        # We send the decision to the API
+                        send_review_result(
                             review_id=review_id,
                             execution_id=execution_id,
                             run_id=run_id,
@@ -89,12 +90,15 @@ def supervise(
                     # Handle the decision
                     if decision.decision == SupervisionDecisionType.APPROVE:
                         all_decisions.append(decision)
+                        break
                     elif decision.decision == SupervisionDecisionType.REJECT:
                         return f"Execution of {func.__qualname__} was rejected. Explanation: {decision.explanation}"
                     elif decision.decision == SupervisionDecisionType.ESCALATE:
-                        continue  # Proceed to the next supervisor
+                        continue
+                        #continue  # Proceed to the next supervisor
                     elif decision.decision == SupervisionDecisionType.MODIFY:
                         all_decisions.append(decision)
+                        break
                     elif decision.decision == SupervisionDecisionType.TERMINATE:
                         return f"Execution of {func.__qualname__} was terminated. Explanation: {decision.explanation}"
                     else:

@@ -87,7 +87,7 @@ def llm_supervisor(
         """
         # Extract function details
         func_name = func.__qualname__
-        func_description = func.__doc__ or "No description available."
+        func_description = str(func.__doc__) or "No description available."
         try:
             func_implementation = inspect.getsource(func)
         except OSError:

@@ -136,7 +136,7 @@ def register_tools_and_supervisors(client: Client, run_id: UUID):
         # Register the tool
         tool_data = Tool(
             name=tool_name,
-            description=func.__doc__ if func.__doc__ else tool_name,
+            description=str(func.__doc__) if func.__doc__ else tool_name,
             attributes=attributes,
             ignored_attributes=ignored_attributes,
             created_at=datetime.now(timezone.utc),
@@ -155,7 +155,7 @@ def register_tools_and_supervisors(client: Client, run_id: UUID):
             supervision_context.update_tool_id(func, tool_id)
             print(f"Tool '{tool_name}' registered with ID: {tool_id}")
         else:
-            raise Exception(f"Failed to register tool '{tool_name}'. Status code: {tool_response.status_code}")
+            raise Exception(f"Failed to register tool '{tool_name}'. Status code: {tool_response}")
 
         # Register supervisors and associate them with the tool
         supervisor_ids = []
@@ -351,7 +351,7 @@ def get_supervisors_for_tool(tool_id: UUID, run_id: UUID, client: Client) -> Lis
         )
         if supervisors_response is not None and supervisors_response.parsed is not None:
             supervisors_list = supervisors_response.parsed  # List[Supervisor]
-            print(f"Retrieved {len(supervisors_list)} supervisors from the API.")
+            print(f"Retrieved {len(supervisors_list)} supervisor chains from the API.")
         else:
             print("No supervisors found for this tool and run.")
     except Exception as e:
