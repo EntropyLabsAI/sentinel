@@ -1,0 +1,12 @@
+[
+  {
+    "task_id": 2,
+    "reward": 0.0,
+    "info": {
+      "error": "1 validation error for EnvResponse\nobservation\n  Input should be a valid string [type=string_type, input_value=None, input_type=NoneType]\n    For further information visit https://errors.pydantic.dev/2.9/v/string_type",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/david/PycharmProjects/tau-bench/run.py\", line 97, in _run\n    res = agent.solve(\n          ^^^^^^^^^^^^\n  File \"/Users/david/PycharmProjects/tau-bench/tau_bench/agents/tool_calling_agent.py\", line 53, in solve\n    env_response = env.step(action)\n                   ^^^^^^^^^^^^^^^^\n  File \"/Users/david/PycharmProjects/tau-bench/tau_bench/envs/base.py\", line 119, in step\n    return EnvResponse(observation=observation, reward=reward, done=done, info=info)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/david/miniconda3/envs/tau-bench/lib/python3.11/site-packages/pydantic/main.py\", line 212, in __init__\n    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\npydantic_core._pydantic_core.ValidationError: 1 validation error for EnvResponse\nobservation\n  Input should be a valid string [type=string_type, input_value=None, input_type=NoneType]\n    For further information visit https://errors.pydantic.dev/2.9/v/string_type\n"
+    },
+    "traj": [],
+    "trial": 0
+  }
+]

@@ -1,0 +1,12 @@
+[
+  {
+    "task_id": 1,
+    "reward": 0.0,
+    "info": {
+      "error": "'str' object has no attribute 'get'",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/david/PycharmProjects/tau-bench/run.py\", line 95, in _run\n    res = agent.solve(\n          ^^^^^^^^^^^^\n  File \"/Users/david/PycharmProjects/tau-bench/tau_bench/agents/tool_calling_agent.py\", line 53, in solve\n    env_response = env.step(action)\n                   ^^^^^^^^^^^^^^^^\n  File \"/Users/david/PycharmProjects/tau-bench/tau_bench/envs/base.py\", line 140, in step\n    observation = self.respond_to_user(content=action.kwargs[\"content\"])\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/david/PycharmProjects/agent-control-plane/entropy_labs/src/entropy_labs/supervision/decorators.py\", line 96, in wrapper\n    modified_args = decision.modified.get('args', tool_args)\n                    ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'str' object has no attribute 'get'\n"
+    },
+    "traj": [],
+    "trial": 0
+  }
+]
