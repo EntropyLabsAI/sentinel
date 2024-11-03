@@ -1,4 +1,4 @@
-import { Decision, Execution, ExecutionSupervisions, SupervisionRequest, SupervisionResult, SupervisionStatus, Tool, useGetExecutionSupervisions, useGetRunExecutions, useGetRunTools } from '@/types';
+import { Decision, Execution, ExecutionSupervisions, Supervision, SupervisionRequest, SupervisionResult, SupervisionStatus, Tool, useGetExecutionSupervisions, useGetRunExecutions, useGetRunTools } from '@/types';
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Page from './page';
@@ -10,19 +10,14 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './
 import { FileJsonIcon, GitPullRequestIcon, MessagesSquareIcon, PinIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { CreatedAgo } from './created_ago';
+import ToolRequestDisplay from './tool_request';
 
 
 // TODO allow execution supervision to be passed in
 export default function ExecutionComponent() {
+  const [supervisions, setSupervisions] = useState<ExecutionSupervisions>();
   const { executionId } = useParams()
-
-  // const [executions, setExecutions] = useState<Execution[]>([]);
-  const [supervision, setSupervisions] = useState<ExecutionSupervisions>();
-
   const { data, isLoading, isError } = useGetExecutionSupervisions(executionId || '');
-  // const { data, isLoading, error } = useGetExecution(executionID || '');
-
-  // const { data: toolsData, isLoading: toolsLoading } = useGetRunTools(executionID || '');
 
   useEffect(() => {
     if (data?.data) {
@@ -30,7 +25,7 @@ export default function ExecutionComponent() {
     }
   }, [data]);
 
-  if (!supervision) {
+  if (!supervisions) {
     return (
       <p>No supervision found</p>
     )
@@ -41,8 +36,8 @@ export default function ExecutionComponent() {
       title="Supervision requests & results"
       subtitle={
         <span>
-          {supervision.requests.length} supervision requests have been made so far for execution <UUIDDisplay uuid={executionId} /> which is currently in status {` `}
-          <ExecutionStatusBadge statuses={supervision.statuses} />
+          {supervisions.supervisions.length} supervision requests have been made so far for execution <UUIDDisplay uuid={executionId} /> which is currently in status {` `}
+          <ExecutionStatusBadge statuses={supervisions.supervisions.map(s => s.statuses[0])} />
         </span>
       }
       icon={<GitPullRequestIcon className="w-6 h-6" />}
@@ -55,12 +50,12 @@ export default function ExecutionComponent() {
       )}
       <div className="col-span-3 flex flex-col space-y-4">
         <div>
-          {supervision.requests && supervision.requests[0].tool_requests && (
-            <ToolBadge toolId={supervision.requests[0].tool_requests[0].tool_id} />
+          {supervisions.supervisions[0].request.tool_requests && (
+            <ToolBadge toolId={supervisions.supervisions[0].request.tool_requests[0].tool_id} />
           )}
         </div>
         <div>
-          <SupervisionResultsForExecution requests={supervision.requests} results={supervision.results} />
+          <SupervisionResultsForExecution supervisions={supervisions} />
 
         </div>
       </div >
@@ -68,26 +63,21 @@ export default function ExecutionComponent() {
   )
 }
 
-export function SupervisionResultsForExecution({ requests, results }: { requests: SupervisionRequest[], results: SupervisionResult[] }) {
-  // It's dumb that we don't have a Supervision parent type with a SupervisionRequest and SupervisionResult attribute,
-  // as then we wouldn't have to search through arrays looking for the matching result for the request
-  function findResultForRequest(results: SupervisionResult[], request_id: string) {
-    if (!requests || !results) {
-      return undefined
-    }
-    var result = results.find(result => result.supervision_request_id === request_id)
+export function SupervisionsForExecution({ executionId }: { executionId: string }) {
+  const { data, isLoading, isError } = useGetExecutionSupervisions(executionId);
 
-    if (!result) {
-      return undefined
-    }
-
-    return result
+  if (!data) {
+    return <p>No supervisions found</p>
   }
 
+  return <SupervisionResultsForExecution supervisions={data.data} />
+}
+
+export function SupervisionResultsForExecution({ supervisions }: { supervisions: ExecutionSupervisions }) {
   return (
     <div>
       {
-        requests?.map((request, index) => (
+        supervisions.supervisions.map((supervision, index) => (
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="hub-stats" className="border border-gray-200 rounded-md mb-4">
               <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
@@ -95,13 +85,13 @@ export function SupervisionResultsForExecution({ requests, results }: { requests
                   <div className="flex flex-row gap-2">
 
                     <span className="text-sm text-gray-500">Supervision Request #{index + 1} to supervisor</span>
-                    <SupervisorBadge supervisorId={request.supervisor_id || ''} />
+                    <SupervisorBadge supervisorId={supervision.request.supervisor_id || ''} />
                     is in status
-                    {request.status?.status && (
-                      <StatusBadge status={request.status?.status} />
+                    {supervision.statuses && (
+                      <StatusBadge statuses={supervision.statuses} />
                     )}
                     because supervisor decided to
-                    <DecisionBadge decision={findResultForRequest(results, request.id || '')?.decision} />
+                    <DecisionBadge decision={supervision.result?.decision} />
                   </div>
 
 
@@ -113,8 +103,23 @@ export function SupervisionResultsForExecution({ requests, results }: { requests
               <AccordionContent className="p-4 bg-white rounded-md space-y-4">
                 <p className="text-xs text-gray-500">
 
-                  Supervision info for request <UUIDDisplay uuid={request.id} /> as part of execution <UUIDDisplay uuid={request.execution_id} />
+                  Supervision info for request <UUIDDisplay uuid={supervision.request.id} /> as part of execution <UUIDDisplay uuid={supervision.request.execution_id} />
                 </p>
+
+                <Accordion type="single" collapsible className="w-full">
+                  <AccordionItem value="hub-stats" className="border border-gray-200 rounded-md mb-4">
+                    <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
+                      <div className="flex flex-row gap-4 text-center">
+                        <FileJsonIcon className="w-4 h-4" />
+                        Full Task State JSON
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <JsonDisplay reviewRequest={supervision.request} />
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+
                 <Accordion type="single" collapsible className="w-full">
                   <AccordionItem value="hub-stats" className="border border-gray-200 rounded-md mb-4">
                     <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
@@ -123,7 +128,7 @@ export function SupervisionResultsForExecution({ requests, results }: { requests
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <ContextDisplay context={request.task_state} />
+                      <ContextDisplay context={supervision.request.task_state} />
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
@@ -137,12 +142,12 @@ export function SupervisionResultsForExecution({ requests, results }: { requests
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <JsonDisplay reviewRequest={request} />
+                      <JsonDisplay reviewRequest={supervision.request} />
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
 
-                <SupervisionResultCard result={findResultForRequest(results, request.id || '')} supervisorId={request.supervisor_id || ''} />
+                <SupervisionResultCard result={supervision.result} supervisorId={supervision.request.supervisor_id || ''} />
               </AccordionContent>
             </AccordionItem>
           </Accordion>
@@ -170,6 +175,7 @@ function SupervisionResultCard({ result, supervisorId }: { result: SupervisionRe
       </CardHeader>
       <CardContent>
         <p>Reasoning: {result.reasoning != "" ? result.reasoning : "No reasoning given"}</p>
+        {result.toolrequest && <ToolRequestDisplay tool_request={result.toolrequest} />}
       </CardContent>
     </Card>
 

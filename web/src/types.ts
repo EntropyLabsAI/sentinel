@@ -45,11 +45,16 @@ export type GetSupervisionRequestsParams = {
 type?: SupervisorType;
 };
 
+export interface Supervision {
+  request: SupervisionRequest;
+  /** The result of the supervision, if it has been completed. Nil otherwise. */
+  result?: SupervisionResult;
+  statuses: SupervisionStatus[];
+}
+
 export interface ExecutionSupervisions {
   execution_id: string;
-  requests: SupervisionRequest[];
-  results: SupervisionResult[];
-  statuses: SupervisionStatus[];
+  supervisions: Supervision[];
 }
 
 export interface Usage {
@@ -153,15 +158,6 @@ export interface Execution {
   tool_id?: string;
 }
 
-export interface CreateSupervisionResult {
-  execution_id: string;
-  run_id: string;
-  supervision_result: SupervisionResult;
-  supervisor_id: string;
-  tool_id: string;
-  tool_request: ToolRequest;
-}
-
 export interface LLMExplanationResponse {
   explanation?: string;
 }
@@ -241,7 +237,15 @@ export interface SupervisionResult {
   id: string;
   reasoning: string;
   supervision_request_id: string;
-  toolrequest?: ToolRequest;
+  toolrequest: ToolRequest;
+}
+
+export interface CreateSupervisionResult {
+  execution_id: string;
+  run_id: string;
+  supervision_result: SupervisionResult;
+  supervisor_id: string;
+  tool_id: string;
 }
 
 export interface SupervisionStatus {
@@ -282,8 +286,11 @@ export interface SupervisorAssignment {
   supervisor_id: string;
 }
 
+export type SupervisorAttributes = { [key: string]: unknown };
+
 export interface Supervisor {
-  code?: string;
+  attributes: SupervisorAttributes;
+  code: string;
   created_at: string;
   description: string;
   id?: string;

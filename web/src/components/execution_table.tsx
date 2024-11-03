@@ -12,14 +12,11 @@ import {
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import React from "react"
 import { Execution, Status } from "@/types"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { UUIDDisplay } from "@/components/uuid_display"
 import { CreatedAgo } from "@/components/created_ago"
-import { Link } from "react-router-dom"
-import { Badge } from "@/components/ui/badge"
-import { SupervisionDetails } from "@/components/supervision_details"
 import { StatusBadge, ToolBadge } from "./status_badge"
 import { useProject } from "@/contexts/project_context"
+import { SupervisionResultsForExecution, SupervisionsForExecution } from "./execution"
 
 export default function ExecutionTable({ executions }: { executions: Execution[] }) {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
@@ -74,7 +71,7 @@ export default function ExecutionTable({ executions }: { executions: Execution[]
                 >
                   <p className="text-sm text-gray-500 p-4">In this execution, the agent requested to execute the <ToolBadge toolId={execution.tool_id || ''} /> tool. The agent was supervised by the configured supervisors, resulting in these supervision results:</p>
                   <div className="p-4 bg-muted/50">
-                    <SupervisionDetails executionId={execution.id} />
+                    <SupervisionsForExecution executionId={execution.id} />
                   </div>
                 </div>
               </TableCell>
