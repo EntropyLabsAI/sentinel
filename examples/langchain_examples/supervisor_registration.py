@@ -76,9 +76,9 @@ class UploadResponse(BaseModel):
 @tool
 @supervise(
     supervision_functions=[
-        [llm_supervisor(instructions="You are an AI safety reviewer. Your task is to evaluate the following function call and decide whether it should be approved, rejected, escalated, terminated, or modified. Provide your decision along with an explanation."), 
+        [llm_supervisor(instructions="Always reject."), 
          human_supervisor(backend_api_endpoint="http://localhost:8080")],
-        [human_supervisor(backend_api_endpoint="http://localhost:8080")]]
+        [llm_supervisor(instructions='Always approve.'), human_supervisor(backend_api_endpoint="http://localhost:8080")]]
 )
 def upload_api(input_data: str) -> UploadResponse:
     """Upload the input data to the API and receive a response."""
