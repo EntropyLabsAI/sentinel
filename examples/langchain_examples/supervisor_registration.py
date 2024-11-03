@@ -76,7 +76,7 @@ class UploadResponse(BaseModel):
 @tool
 @supervise(
     supervision_functions=[
-        [llm_supervisor(instructions="Always reject."), 
+        [llm_supervisor(instructions="Always escalate."), 
          human_supervisor(backend_api_endpoint="http://localhost:8080")],
         [llm_supervisor(instructions='Always approve.'), human_supervisor(backend_api_endpoint="http://localhost:8080")]]
 )
