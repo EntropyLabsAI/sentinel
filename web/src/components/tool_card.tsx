@@ -8,6 +8,7 @@ import { ArrowRightIcon } from "@radix-ui/react-icons";
 import { UUIDDisplay } from "./uuid_display";
 import { SupervisorBadge, SupervisorTypeBadge, ToolBadge } from "./status_badge";
 import { ToolAttributes } from "./tool_attributes";
+import JsonDisplay from "./json_display";
 
 type ToolCardProps = {
   tool: Tool;
@@ -20,11 +21,9 @@ export function ToolCard({ tool, runId }: ToolCardProps) {
       <CardHeader className="py-2">
         <CardTitle className="py-4 flex flex-row gap-4">
           <ToolBadge toolId={tool.id || ''} />
-          <p>
-            {tool.description}
-          </p>
         </CardTitle>
         <CardDescription>
+          <JsonDisplay json={tool.description} />
         </CardDescription>
       </CardHeader>
       <CardContent className="    flex flex-col gap-2">
