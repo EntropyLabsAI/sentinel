@@ -217,7 +217,6 @@ func (c *Client) WritePump() {
 			log.Println("Error sending supervisionRequest to client:", err)
 			break
 		}
-		log.Printf("Sent supervisionRequest.RequestId %s to client.", supervisionRequest.Id)
 
 		// Log the supervisionrequest_status entry for the supervision request
 		rs := SupervisionStatus{Status: Assigned, CreatedAt: time.Now()}
@@ -239,22 +238,32 @@ func (c *Client) ReadPump() {
 		_, message, err := c.Conn.ReadMessage()
 		if err != nil {
 			log.Println("Read error:", err)
-			break
+			break // This will trigger the deferred cleanup
 		}
 
 		var response SupervisionResult
 		if err := json.Unmarshal(message, &response); err != nil {
-			log.Println("Error unmarshaling reviewer response:", err)
+			log.Printf("Error unmarshaling reviewer response: %v. Message: %s", err, string(message))
+			// Could add logic here to notify the client of the error
 			continue
 		}
 
 		// Handle the response
 		err = c.Hub.Store.CreateSupervisionResult(context.Background(), response)
 		if err != nil {
-			fmt.Printf("Error creating supervisionresult entry for supervisionResult.RequestId %s: %v\n", response.Id, err)
+			log.Printf("Error creating supervisionresult entry for supervisionResult.RequestId %s: %v", response.Id, err)
+			// Mark the review as pending again so it can be reassigned
+			status := SupervisionStatus{
+				Status:               Pending,
+				CreatedAt:            time.Now(),
+				SupervisionRequestId: &response.Id,
+			}
+			if err := c.Hub.Store.CreateSupervisionStatus(context.Background(), response.Id, status); err != nil {
+				log.Printf("Error resetting supervision status: %v", err)
+			}
 		}
 
-		// Thread-safe removal of the supervisor ID from assigned reviews
+		// Always remove the review from assigned reviews, whether it succeeded or failed
 		c.Hub.AssignedReviewsMutex.Lock()
 		if _, exists := c.Hub.AssignedReviews[c]; exists {
 			delete(c.Hub.AssignedReviews[c], response.Id.String())

@@ -80,11 +80,9 @@ func (p *Processor) processReview(ctx context.Context, supervisionRequest Superv
 }
 
 func (p *Processor) processHumanReview(ctx context.Context, supervisionRequest SupervisionRequest) error {
-	log.Printf("Processing human review for supervision request %s", *supervisionRequest.Id)
 	// Send to supervisor channel for human processing
 	select {
 	case p.humanReviewChan <- supervisionRequest:
-		log.Printf("Sent SupervisionRequest.RequestId %s to human supervisor channel", *supervisionRequest.Id)
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()

@@ -47,8 +47,6 @@ func (s *PostgresqlStore) CreateProject(ctx context.Context, project sentinel.Pr
 		INSERT INTO project (id, name, created_at)
 		VALUES ($1, $2, $3)`
 
-	fmt.Printf("Creating project: %+v\n", project)
-
 	_, err := s.db.ExecContext(ctx, query, project.Id, project.Name, project.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("error creating project: %w", err)
@@ -599,15 +597,24 @@ func (s *PostgresqlStore) GetSupervisionMessages(ctx context.Context, id uuid.UU
 }
 
 func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result sentinel.SupervisionResult) error {
-	query := `
-		INSERT INTO supervisionresult (id, supervisionrequest_id, created_at, decision, reasoning, toolrequest_id)
-		VALUES ($1, $2, $3, $4, $5, $6)`
-
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("error starting transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
+
+	// Sanity check that we're not creating a result for a review that already has a result
+	existingResults, err := s.GetSupervisionResults(ctx, result.SupervisionRequestId)
+	if err != nil {
+		return fmt.Errorf("error getting existing results: %w", err)
+	}
+	if len(existingResults) > 0 {
+		return fmt.Errorf("result for supervision request %s already exists", result.SupervisionRequestId)
+	}
+
+	query := `
+		INSERT INTO supervisionresult (id, supervisionrequest_id, created_at, decision, reasoning, toolrequest_id)
+		VALUES ($1, $2, $3, $4, $5, $6)`
 
 	_, err = tx.ExecContext(
 		ctx, query, result.Id, result.SupervisionRequestId, result.CreatedAt, result.Decision, result.Reasoning, result.Toolrequest.Id,
@@ -638,7 +645,7 @@ func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result se
 			}
 		}
 		if !valid {
-			return fmt.Errorf("tool request is not one of the approved tool requests")
+			return fmt.Errorf("tool request %s is not one of the approved tool requests (%v)", result.Toolrequest.Id, toolRequests)
 		}
 	}
 
@@ -713,6 +720,10 @@ func (s *PostgresqlStore) GetSupervisionResults(ctx context.Context, id uuid.UUI
 		result.Toolrequest = tr
 
 		results = append(results, &result)
+	}
+
+	if len(results) > 1 {
+		return nil, fmt.Errorf("multiple supervision results found for supervision request %s", id)
 	}
 
 	return results, nil
@@ -795,7 +806,6 @@ func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*sentinel.
 	// Parse the JSON attributes if they exist
 	if len(attributesJSON) > 0 {
 		var attributes map[string]interface{}
-		fmt.Printf("attributesJSON: %s\n", string(attributesJSON))
 		if err := json.Unmarshal(attributesJSON, &attributes); err != nil {
 			return nil, fmt.Errorf("error parsing tool attributes: %w", err)
 		}
@@ -840,7 +850,6 @@ func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UU
 
 		// Parse the JSON attributes if they exist
 		if len(attributesJSON) > 0 {
-			fmt.Printf("attributesJSON: %s\n", string(attributesJSON))
 			if err := json.Unmarshal(attributesJSON, &t); err != nil {
 				return nil, fmt.Errorf("error parsing tool attributes: %w", err)
 			}
@@ -884,8 +893,6 @@ func (s *PostgresqlStore) GetSupervisionRequestsForStatus(ctx context.Context, s
 		requestIds = append(requestIds, id)
 	}
 
-	fmt.Printf("Found %d requests for status %s\n", len(requestIds), status)
-
 	// If there are no requests, return an empty list
 	if len(requestIds) == 0 {
 		return nil, nil
@@ -906,8 +913,6 @@ func (s *PostgresqlStore) GetSupervisionRequestsForStatus(ctx context.Context, s
 	if len(requests) != len(requestIds) {
 		return nil, fmt.Errorf("number of requests (%d) does not match number of request IDs (%d) for status %s", len(requests), len(requestIds), status)
 	}
-
-	fmt.Printf("Found %d requests for status %s\n", len(requests), status)
 
 	return requests, nil
 }
