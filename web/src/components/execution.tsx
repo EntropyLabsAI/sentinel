@@ -89,8 +89,12 @@ export function SupervisionResultsForExecution({ supervisions }: { supervisions:
                     {supervision.statuses && (
                       <StatusBadge statuses={supervision.statuses} />
                     )}
-                    because supervisor decided to
-                    <DecisionBadge decision={supervision.result?.decision} />
+                    {supervision.result && (
+                      <>
+                        because supervisor decided to
+                        <DecisionBadge decision={supervision.result?.decision} />
+                      </>
+                    )}
                   </div>
 
 

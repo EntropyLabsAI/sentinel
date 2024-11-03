@@ -175,7 +175,6 @@ func apiCreateToolHandler(w http.ResponseWriter, r *http.Request, store ToolStor
 		respondJSON(w, existingTool)
 		return
 	}
-	fmt.Printf("creating tool: %+v", request)
 
 	toolId, err := store.CreateTool(ctx, request)
 	if err != nil {
@@ -547,6 +546,8 @@ func apiCreateSupervisionResultHandler(w http.ResponseWriter, r *http.Request, _
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	fmt.Printf("CreateSupervisionResultHandler: %v\n", request)
 
 	supervisorChains, err := store.GetRunToolSupervisors(ctx, request.RunId, request.ToolId)
 	if err != nil {
