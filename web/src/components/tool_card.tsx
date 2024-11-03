@@ -60,8 +60,11 @@ function RunToolSupervisors({ runId, toolId }: { runId: string, toolId: string }
       {supervisorChain.map((chain, index) => (
         <div className="flex flex-row gap-2 bg-muted p-2 rounded-md items-center" key={index}>
           <p className="text-sm font-semibold text-muted-foreground">Chain {index + 1}</p>
-          {chain.supervisors.map((supervisor) => (
-            supervisor.id && <SupervisorBadge supervisorId={supervisor.id} />
+          {chain.supervisors.map((supervisor, index) => (
+            <>
+              {index > 0 && <ArrowRightIcon className="w-4 h-4" />}
+              {supervisor.id && <SupervisorBadge supervisorId={supervisor.id} key={index} />}
+            </>
           ))}
         </div>
       ))}
