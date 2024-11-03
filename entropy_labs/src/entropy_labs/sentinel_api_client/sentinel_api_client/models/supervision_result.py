@@ -1,5 +1,5 @@
 import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -7,7 +7,6 @@ from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 from ..models.decision import Decision
-from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.tool_request import ToolRequest
@@ -24,17 +23,16 @@ class SupervisionResult:
         supervision_request_id (UUID):
         created_at (datetime.datetime):
         decision (Decision):
+        toolrequest (ToolRequest): A tool request is a request to use a tool. It must be approved by a supervisor.
         reasoning (str):
-        toolrequest (Union[Unset, ToolRequest]): A tool request is a request to use a tool. It must be approved by a
-            supervisor.
     """
 
     id: UUID
     supervision_request_id: UUID
     created_at: datetime.datetime
     decision: Decision
+    toolrequest: "ToolRequest"
     reasoning: str
-    toolrequest: Union[Unset, "ToolRequest"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -46,11 +44,9 @@ class SupervisionResult:
 
         decision = self.decision.value
 
-        reasoning = self.reasoning
+        toolrequest = self.toolrequest.to_dict()
 
-        toolrequest: Union[Unset, Dict[str, Any]] = UNSET
-        if not isinstance(self.toolrequest, Unset):
-            toolrequest = self.toolrequest.to_dict()
+        reasoning = self.reasoning
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -60,11 +56,10 @@ class SupervisionResult:
                 "supervision_request_id": supervision_request_id,
                 "created_at": created_at,
                 "decision": decision,
+                "toolrequest": toolrequest,
                 "reasoning": reasoning,
             }
         )
-        if toolrequest is not UNSET:
-            field_dict["toolrequest"] = toolrequest
 
         return field_dict
 
@@ -81,22 +76,17 @@ class SupervisionResult:
 
         decision = Decision(d.pop("decision"))
 
-        reasoning = d.pop("reasoning")
+        toolrequest = ToolRequest.from_dict(d.pop("toolrequest"))
 
-        _toolrequest = d.pop("toolrequest", UNSET)
-        toolrequest: Union[Unset, ToolRequest]
-        if isinstance(_toolrequest, Unset):
-            toolrequest = UNSET
-        else:
-            toolrequest = ToolRequest.from_dict(_toolrequest)
+        reasoning = d.pop("reasoning")
 
         supervision_result = cls(
             id=id,
             supervision_request_id=supervision_request_id,
             created_at=created_at,
             decision=decision,
-            reasoning=reasoning,
             toolrequest=toolrequest,
+            reasoning=reasoning,
         )
 
         supervision_result.additional_properties = d

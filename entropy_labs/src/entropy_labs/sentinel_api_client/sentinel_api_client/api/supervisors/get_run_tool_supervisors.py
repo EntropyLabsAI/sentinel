@@ -6,7 +6,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.supervisor import Supervisor
+from ...models.supervisor_chain import SupervisorChain
 from ...types import Response
 
 
@@ -24,14 +24,16 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[Any, List["Supervisor"]]]:
+) -> Optional[Union[Any, List["SupervisorChain"]]]:
     if response.status_code == 200:
         response_200 = []
         _response_200 = response.json()
-        for response_200_item_data in _response_200:
-            response_200_item = Supervisor.from_dict(response_200_item_data)
+        for componentsschemas_supervisor_chains_item_data in _response_200:
+            componentsschemas_supervisor_chains_item = SupervisorChain.from_dict(
+                componentsschemas_supervisor_chains_item_data
+            )
 
-            response_200.append(response_200_item)
+            response_200.append(componentsschemas_supervisor_chains_item)
 
         return response_200
     if response.status_code == 404:
@@ -45,7 +47,7 @@ def _parse_response(
 
 def _build_response(
     *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[Any, List["Supervisor"]]]:
+) -> Response[Union[Any, List["SupervisorChain"]]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -59,8 +61,8 @@ def sync_detailed(
     tool_id: UUID,
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Response[Union[Any, List["Supervisor"]]]:
-    """Get the supervisors assigned to a tool
+) -> Response[Union[Any, List["SupervisorChain"]]]:
+    """Get the supervisors assigned to a tool, grouped by chain
 
     Args:
         run_id (UUID):
@@ -71,7 +73,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Any, List['Supervisor']]]
+        Response[Union[Any, List['SupervisorChain']]]
     """
 
     kwargs = _get_kwargs(
@@ -91,8 +93,8 @@ def sync(
     tool_id: UUID,
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Optional[Union[Any, List["Supervisor"]]]:
-    """Get the supervisors assigned to a tool
+) -> Optional[Union[Any, List["SupervisorChain"]]]:
+    """Get the supervisors assigned to a tool, grouped by chain
 
     Args:
         run_id (UUID):
@@ -103,7 +105,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Any, List['Supervisor']]
+        Union[Any, List['SupervisorChain']]
     """
 
     return sync_detailed(
@@ -118,8 +120,8 @@ async def asyncio_detailed(
     tool_id: UUID,
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Response[Union[Any, List["Supervisor"]]]:
-    """Get the supervisors assigned to a tool
+) -> Response[Union[Any, List["SupervisorChain"]]]:
+    """Get the supervisors assigned to a tool, grouped by chain
 
     Args:
         run_id (UUID):
@@ -130,7 +132,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Any, List['Supervisor']]]
+        Response[Union[Any, List['SupervisorChain']]]
     """
 
     kwargs = _get_kwargs(
@@ -148,8 +150,8 @@ async def asyncio(
     tool_id: UUID,
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Optional[Union[Any, List["Supervisor"]]]:
-    """Get the supervisors assigned to a tool
+) -> Optional[Union[Any, List["SupervisorChain"]]]:
+    """Get the supervisors assigned to a tool, grouped by chain
 
     Args:
         run_id (UUID):
@@ -160,7 +162,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Any, List['Supervisor']]
+        Union[Any, List['SupervisorChain']]
     """
 
     return (

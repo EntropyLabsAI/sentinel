@@ -6,7 +6,6 @@ from attrs import field as _attrs_field
 
 if TYPE_CHECKING:
     from ..models.supervision_result import SupervisionResult
-    from ..models.tool_request import ToolRequest
 
 
 T = TypeVar("T", bound="CreateSupervisionResult")
@@ -21,7 +20,6 @@ class CreateSupervisionResult:
         tool_id (UUID):
         supervisor_id (UUID):
         supervision_result (SupervisionResult):
-        tool_request (ToolRequest): A tool request is a request to use a tool. It must be approved by a supervisor.
     """
 
     execution_id: UUID
@@ -29,7 +27,6 @@ class CreateSupervisionResult:
     tool_id: UUID
     supervisor_id: UUID
     supervision_result: "SupervisionResult"
-    tool_request: "ToolRequest"
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -43,8 +40,6 @@ class CreateSupervisionResult:
 
         supervision_result = self.supervision_result.to_dict()
 
-        tool_request = self.tool_request.to_dict()
-
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -54,7 +49,6 @@ class CreateSupervisionResult:
                 "tool_id": tool_id,
                 "supervisor_id": supervisor_id,
                 "supervision_result": supervision_result,
-                "tool_request": tool_request,
             }
         )
 
@@ -63,7 +57,6 @@ class CreateSupervisionResult:
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.supervision_result import SupervisionResult
-        from ..models.tool_request import ToolRequest
 
         d = src_dict.copy()
         execution_id = UUID(d.pop("execution_id"))
@@ -76,15 +69,12 @@ class CreateSupervisionResult:
 
         supervision_result = SupervisionResult.from_dict(d.pop("supervision_result"))
 
-        tool_request = ToolRequest.from_dict(d.pop("tool_request"))
-
         create_supervision_result = cls(
             execution_id=execution_id,
             run_id=run_id,
             tool_id=tool_id,
             supervisor_id=supervisor_id,
             supervision_result=supervision_result,
-            tool_request=tool_request,
         )
 
         create_supervision_result.additional_properties = d
