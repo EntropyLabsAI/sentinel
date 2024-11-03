@@ -1,4 +1,4 @@
-import { Supervisor, Tool, useGetRunToolSupervisors } from "@/types";
+import { Supervisor, SupervisorChain, Tool, useGetRunToolSupervisors } from "@/types";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -37,12 +37,12 @@ export function ToolCard({ tool, runId }: ToolCardProps) {
 }
 
 function RunToolSupervisors({ runId, toolId }: { runId: string, toolId: string }) {
-  const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
+  const [supervisorChain, setSupervisorChain] = useState<SupervisorChain[]>([]);
   const { data, isLoading, error } = useGetRunToolSupervisors(runId, toolId);
 
   useEffect(() => {
     if (data) {
-      setSupervisors(data.data);
+      setSupervisorChain(data.data);
     }
   }, [data]);
 
@@ -57,8 +57,13 @@ function RunToolSupervisors({ runId, toolId }: { runId: string, toolId: string }
   return (
     <div className="flex flex-col gap-2">
       <p className="text-sm font-semibold">Supervisors configured for this tool</p>
-      {supervisors.map((supervisor) => (
-        supervisor.id && <SupervisorBadge supervisorId={supervisor.id} />
+      {supervisorChain.map((chain, index) => (
+        <div className="flex flex-row gap-2 bg-muted p-2 rounded-md items-center" key={index}>
+          <p className="text-sm font-semibold text-muted-foreground">Chain {index + 1}</p>
+          {chain.supervisors.map((supervisor) => (
+            supervisor.id && <SupervisorBadge supervisorId={supervisor.id} />
+          ))}
+        </div>
       ))}
     </div>
   );
