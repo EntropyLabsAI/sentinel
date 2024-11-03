@@ -87,11 +87,12 @@ def supervise(
                 # Handle the decision
                 if decision.decision == SupervisionDecisionType.APPROVE:
                     return func(*args, **kwargs)
-                elif decision.decision in [SupervisionDecisionType.REJECT, SupervisionDecisionType.ESCALATE]:
+                elif decision.decision == SupervisionDecisionType.REJECT:
+                    return f"Execution of {func.__qualname__} was rejected. Explanation: {decision.explanation}"
+                elif decision.decision == SupervisionDecisionType.ESCALATE:
                     continue
                 elif decision.decision == SupervisionDecisionType.MODIFY:
-                    print(f"Modified. Executing modified function.") #TODO: Show this in the UI
-                    # Assuming modified data is in decision.modified
+                    print(f"Modified. Executing modified function.")
                     modified_args = decision.modified.get('args', args)
                     modified_kwargs = decision.modified.get('kwargs', kwargs)
                     return func(*modified_args, **modified_kwargs)
