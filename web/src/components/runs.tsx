@@ -61,9 +61,9 @@ export default function Runs() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[100px]">Run ID</TableHead>
-                <TableHead className="w-[400px]">Tools Used</TableHead>
-                <TableHead className="text-right">Tool Executions</TableHead>
-                <TableHead className="text-right">Created</TableHead>
+                <TableHead className="">Tools Used</TableHead>
+                <TableHead className="w-[100px] text-right">Tool Executions</TableHead>
+                <TableHead className="w-[100px] text-right">Created</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
