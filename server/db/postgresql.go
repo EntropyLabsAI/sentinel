@@ -242,16 +242,17 @@ func (s *PostgresqlStore) GetRunExecutions(ctx context.Context, runId uuid.UUID)
 		FROM execution e
 		WHERE run_id = $1`
 
+	executions := make([]sentinel.Execution, 0)
+
 	rows, err := s.db.QueryContext(ctx, query, runId)
 	if errors.Is(err, sql.ErrNoRows) {
-		return []sentinel.Execution{}, nil
+		return executions, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error getting run executions: %w", err)
 	}
 	defer rows.Close()
 
-	var executions []sentinel.Execution
 	for rows.Next() {
 		var execution sentinel.Execution
 		if err := rows.Scan(&execution.Id, &execution.RunId, &execution.ToolId, &execution.CreatedAt); err != nil {
@@ -681,11 +682,7 @@ func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result se
 
 func (s *PostgresqlStore) GetSupervisionResults(ctx context.Context, id uuid.UUID) ([]*sentinel.SupervisionResult, error) {
 	query := `
-		SELECT sr.id, sr.supervisionrequest_id, sr.created_at, sr.decision, sr.reasoning, 
-		sr.toolrequest_id, tr.tool_id, tr.message_id, tr.arguments
-		FROM supervisionresult sr
-		LEFT JOIN toolrequest tr ON sr.toolrequest_id = tr.id
-		WHERE sr.supervisionrequest_id = $1`
+SELECT sr.id, sr.supervisionrequest_id, sr.created_at, sr.decision, sr.reasoning, sr.toolrequest_id, tr.tool_id, tr.message_id, tr.arguments FROM supervisionresult sr LEFT JOIN toolrequest tr ON sr.toolrequest_id = tr.id WHERE sr.supervisionrequest_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, query, id)
 	if err != nil {
