@@ -4,7 +4,7 @@ import Page from "./page";
 import { useParams } from "react-router-dom";
 import { ToolCard } from "./tool_card";
 import { PickaxeIcon } from "lucide-react";
-import Loading from "./loading";
+import LoadingSpinner from "./loading";
 
 export default function ToolDetails() {
   const { toolId } = useParams();
@@ -21,7 +21,7 @@ export default function ToolDetails() {
   return (
     <Page title={`Tool Details`} subtitle={`Details for tool ${tool?.name || "Tool"} (${toolId})`} icon={<PickaxeIcon className="w-6 h-6" />}>
       <div className="col-span-3">
-        {isLoading && <Loading />}
+        {isLoading && <LoadingSpinner />}
         {error && <div>Error loading tool: {error.message}</div>}
         {tool && <ToolCard tool={tool} />}
       </div>

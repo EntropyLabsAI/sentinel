@@ -4,7 +4,7 @@ import Page from "./page";
 import { ToolsList } from "@/components/tools_list";
 import { useProject } from '@/contexts/project_context';
 import { UUIDDisplay } from "./uuid_display";
-import Loading from "./loading";
+import LoadingSpinner from "./loading";
 import { PickaxeIcon } from "lucide-react";
 
 export default function Tools() {
@@ -34,7 +34,7 @@ export default function Tools() {
       <div className="col-span-3">
 
         {isLoading && (
-          <Loading />
+          <LoadingSpinner />
         )}
         {error && (
           <div>Error loading tools: {error.message}</div>
