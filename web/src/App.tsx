@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import SwaggerUI from '@/components/swagger_ui';
-import SupervisorSelection from '@/components/supervisor_selection';
+import SupervisorSelection from '@/components/supervisors';
 import Sidebar from './components/sidebar';
 import Home from './components/home';
 import ProjectList from './components/project_list';

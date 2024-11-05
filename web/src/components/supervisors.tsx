@@ -13,7 +13,6 @@ import { ArrowRightIcon, EyeIcon, InspectIcon, ScanEyeIcon, UsersIcon } from 'lu
 import { SupervisorTypeBadge } from './status_badge';
 import { DecisionBadge } from './status_badge';
 import Loading from './loading';
-import { EyeOpenIcon } from '@radix-ui/react-icons';
 
 const SupervisorSelection: React.FC = () => {
   const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
@@ -27,9 +26,15 @@ const SupervisorSelection: React.FC = () => {
 
   useEffect(() => {
     if (data?.data) {
-      setSupervisors(data.data);
+      setSupervisors(dedupeSupervisors(data.data));
     }
   }, [data]);
+
+  function dedupeSupervisors(supervisors: Supervisor[]) {
+    return supervisors.filter((supervisor, index, self) =>
+      index === self.findIndex((t) => t.id === supervisor.id)
+    );
+  }
 
   if (!selectedProject) {
     return <div>Please select a project first</div>;

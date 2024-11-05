@@ -20,9 +20,11 @@ export default function ToolDetails() {
 
   return (
     <Page title={`Tool Details`} subtitle={`Details for tool ${tool?.name || "Tool"} (${toolId})`} icon={<PickaxeIcon className="w-6 h-6" />}>
-      {isLoading && <Loading />}
-      {error && <div>Error loading tool: {error.message}</div>}
-      {tool && <ToolCard tool={tool} />}
+      <div className="col-span-3">
+        {isLoading && <Loading />}
+        {error && <div>Error loading tool: {error.message}</div>}
+        {tool && <ToolCard tool={tool} />}
+      </div>
     </Page>
   )
 }

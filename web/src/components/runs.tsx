@@ -124,7 +124,7 @@ function ToolsBadgeList({ runId }: { runId: string }) {
   }, [toolsData]);
 
   return (
-    <div className="flex flex-row gap-2 flex-wrap">
+    <div className="flex flex-row flex-wrap gap-2">
 
       {toolsLoading && <p>Loading...</p>}
       {toolsError && <p>Error: {toolsError.message}</p>}
