@@ -243,7 +243,6 @@ func (s *PostgresqlStore) GetRunExecutions(ctx context.Context, runId uuid.UUID)
 		WHERE run_id = $1`
 
 	executions := make([]sentinel.Execution, 0)
-
 	rows, err := s.db.QueryContext(ctx, query, runId)
 	if errors.Is(err, sql.ErrNoRows) {
 		return executions, nil
@@ -1193,7 +1192,7 @@ func (s *PostgresqlStore) GetRunTools(ctx context.Context, runId uuid.UUID) ([]s
 
 func (s *PostgresqlStore) GetRunToolSupervisors(ctx context.Context, runId uuid.UUID, toolId uuid.UUID) (sentinel.SupervisorChains, error) {
 	query := `
-		SELECT s.id, s.description, s.created_at, s.type, rts.created_at, s.attributes, rts.chain
+		SELECT s.id, s.name, s.description, s.created_at, s.type, rts.created_at, s.attributes, rts.chain
 		FROM run_tool_supervisor rts
 		INNER JOIN supervisor s ON rts.supervisor_id = s.id
 		WHERE rts.run_id = $1 AND rts.tool_id = $2
@@ -1215,6 +1214,7 @@ func (s *PostgresqlStore) GetRunToolSupervisors(ctx context.Context, runId uuid.
 		var chain int
 		if err := rows.Scan(
 			&supervisor.Id,
+			&supervisor.Name,
 			&supervisor.Description,
 			&supervisor.CreatedAt,
 			&supervisor.Type,
