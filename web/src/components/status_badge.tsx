@@ -64,7 +64,7 @@ export const ToolBadge: React.FC<{ toolId: string }> = ({ toolId }) => {
   if (isLoading) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Loading...</Badge>;
   if (error) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Error: {error.message}</Badge>;
 
-  return <Badge key={toolId} className="text-gray-800 shadow-none bg-gray-100 whitespace-nowrap"><Link to={`/tools/${toolId}`} className="flex flex-row gap-2 items-center"><PickaxeIcon className="w-3 h-3" />{data?.data.name}</Link></Badge>;
+  return <Badge key={toolId} className="text-gray-800 shadow-none bg-amber-300 whitespace-nowrap"><Link to={`/tools/${toolId}`} className="flex flex-row gap-2 items-center"><PickaxeIcon className="w-3 h-3" />{data?.data.name}</Link></Badge>;
 
 };
 
