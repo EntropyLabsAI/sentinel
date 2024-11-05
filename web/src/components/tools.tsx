@@ -31,14 +31,17 @@ export default function Tools() {
 
   return (
     <Page title={`Tools`} subtitle={<span>{tools.length} tool{tools.length === 1 ? '' : 's'} found for project {projectData?.data?.name} (<UUIDDisplay uuid={projectData?.data?.id} />)</span>} icon={<PickaxeIcon className="w-6 h-6" />}>
-      {isLoading && (
-        <Loading />
-      )}
-      {error && (
-        <div>Error loading tools: {error.message}</div>
-      )}
-      {tools.length > 0 && <ToolsList tools={tools} variant="card" />}
-      {tools.length === 0 && <p className="text-sm text-gray-500">No tools found for this project. When your agent registers a tool, it will appear here.</p>}
+      <div className="col-span-3">
+
+        {isLoading && (
+          <Loading />
+        )}
+        {error && (
+          <div>Error loading tools: {error.message}</div>
+        )}
+        {tools.length > 0 && <ToolsList tools={tools} variant="card" />}
+        {tools.length === 0 && <p className="text-sm text-gray-500">No tools found for this project. When your agent registers a tool, it will appear here.</p>}
+      </div>
 
     </Page>
   );
