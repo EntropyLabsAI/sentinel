@@ -1306,71 +1306,88 @@ func (s *PostgresqlStore) GetSupervisors(ctx context.Context, projectId uuid.UUI
 	return supervisors, nil
 }
 
-func (s *PostgresqlStore) GetExecutionSupervisions(ctx context.Context, executionId uuid.UUID) ([]sentinel.Supervision, error) {
+func (s *PostgresqlStore) GetExecutionSupervisions(ctx context.Context, executionId uuid.UUID) ([]sentinel.SupervisionChain, error) {
 	// First get all supervision request IDs for this execution
+	// Order by chain number and then by request ID, e.g. if there are two chains, the first will be all requests with chain 0 and the second will be all requests with chain 1, and inside each chain the requests will be in order.
 	query := `
-        SELECT id 
-        FROM supervisionrequest 
-        WHERE execution_id = $1`
-
+		SELECT sr.id, rts.chain
+		FROM supervisionrequest sr
+		INNER JOIN execution e ON sr.execution_id = e.id
+		INNER JOIN run ON run.id = e.run_id
+		INNER JOIN run_tool_supervisor rts ON rts.run_id = run.id AND rts.supervisor_id = sr.supervisor_id AND rts.tool_id = e.tool_id
+		WHERE sr.execution_id = $1
+		ORDER BY rts.chain ASC, rts.id ASC`
 	rows, err := s.db.QueryContext(ctx, query, executionId)
 	if err != nil {
 		return nil, fmt.Errorf("error getting supervision request IDs: %w", err)
 	}
 	defer rows.Close()
 
-	var requestIds []uuid.UUID
+	chains := make(map[int][]uuid.UUID)
 	for rows.Next() {
 		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
+		var chain int
+		if err := rows.Scan(&id, &chain); err != nil {
 			return nil, fmt.Errorf("error scanning supervision request ID: %w", err)
 		}
-		requestIds = append(requestIds, id)
+		chains[chain] = append(chains[chain], id)
 	}
 
 	// Now get each supervision request using the existing method
-	var supervisions []sentinel.Supervision
-	for _, id := range requestIds {
-		var supervision sentinel.Supervision
+	supervisionChains := make(map[int][]sentinel.Supervision)
+	for chain, ids := range chains {
+		for _, id := range ids {
+			var supervision sentinel.Supervision
 
-		request, err := s.GetSupervisionRequest(ctx, id)
-		if err != nil {
-			return nil, fmt.Errorf("error getting supervision request %s: %w", id, err)
+			request, err := s.GetSupervisionRequest(ctx, id)
+			if err != nil {
+				return nil, fmt.Errorf("error getting supervision request %s: %w", id, err)
+			}
+			if request == nil {
+				return nil, fmt.Errorf("supervision request %s not found", id)
+			}
+
+			supervision.Request = *request
+
+			results, err := s.GetSupervisionResults(ctx, id)
+			if err != nil {
+				return nil, fmt.Errorf("error getting supervision results for request %s: %w", id, err)
+			}
+
+			if len(results) > 0 {
+				supervision.Result = results[0]
+			}
+
+			// XXX: Can't understand why this would be anything other than 0 or 1
+			if len(results) > 1 {
+				return nil, fmt.Errorf("multiple supervision results found for request %s", id)
+			}
+
+			statuses, err := s.GetSupervisionStatusesForRequest(ctx, id)
+			if err != nil {
+				return nil, fmt.Errorf("error getting supervision statuses for request %s: %w", id, err)
+			}
+			supervision.Statuses = statuses
+
+			supervisionChains[chain] = append(supervisionChains[chain], supervision)
 		}
-		if request == nil {
-			return nil, fmt.Errorf("supervision request %s not found", id)
-		}
-
-		supervision.Request = *request
-
-		results, err := s.GetSupervisionResults(ctx, id)
-		if err != nil {
-			return nil, fmt.Errorf("error getting supervision results for request %s: %w", id, err)
-		}
-
-		if len(results) > 0 {
-			supervision.Result = results[0]
-		}
-
-		// XXX: Can't understand why this would be anything other than 0 or 1
-		if len(results) > 1 {
-			return nil, fmt.Errorf("multiple supervision results found for request %s", id)
-		}
-
-		statuses, err := s.GetSupervisionStatusesForRequest(ctx, id)
-		if err != nil {
-			return nil, fmt.Errorf("error getting supervision statuses for request %s: %w", id, err)
-		}
-		supervision.Statuses = statuses
-
-		supervisions = append(supervisions, supervision)
 	}
 
-	if len(supervisions) != len(requestIds) {
+	if len(supervisionChains) != len(chains) {
 		return nil, fmt.Errorf("some supervision requests were not found for execution %s", executionId)
 	}
 
-	return supervisions, nil
+	converted := convertSupervisionMapToChains(supervisionChains)
+
+	return converted, nil
+}
+
+func convertSupervisionMapToChains(supervisionChains map[int][]sentinel.Supervision) []sentinel.SupervisionChain {
+	var chains []sentinel.SupervisionChain
+	for _, chain := range supervisionChains {
+		chains = append(chains, chain)
+	}
+	return chains
 }
 
 func (s *PostgresqlStore) GetSupervisionStatusesForRequest(ctx context.Context, requestId uuid.UUID) ([]sentinel.SupervisionStatus, error) {

@@ -1,4 +1,4 @@
-import { Decision, Execution, ExecutionSupervisions, Supervision, SupervisionRequest, SupervisionResult, SupervisionStatus, Tool, useGetExecutionSupervisions, useGetRunExecutions, useGetRunTools } from '@/types';
+import { Decision, Execution, ExecutionSupervisions, Supervision, SupervisionChain, SupervisionRequest, SupervisionResult, SupervisionStatus, Tool, useGetExecutionSupervisions, useGetRunExecutions, useGetRunTools } from '@/types';
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Page from './page';
@@ -10,7 +10,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './
 import { FileJsonIcon, GitPullRequestIcon, MessagesSquareIcon, PickaxeIcon, PinIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { CreatedAgo } from './created_ago';
-import ToolRequestDisplay from './tool_request';
+import { Link1Icon } from '@radix-ui/react-icons';
 
 
 // TODO allow execution supervision to be passed in
@@ -36,8 +36,7 @@ export default function ExecutionComponent() {
       title="Supervision requests & results"
       subtitle={
         <span>
-          {supervisions.supervisions.length} supervision requests have been made so far for execution <UUIDDisplay uuid={executionId} /> which is currently in status {` `}
-          <ExecutionStatusBadge statuses={supervisions.supervisions.map(s => s.statuses[0])} />
+          {supervisions.supervisions.length} supervision chains with {supervisions.supervisions.map(s => s.length).reduce((a, b) => a + b, 0)} requests have been made so far for execution <UUIDDisplay uuid={executionId} /> which is currently in status {` `}
         </span>
       }
       icon={<GitPullRequestIcon className="w-6 h-6" />}
@@ -50,12 +49,12 @@ export default function ExecutionComponent() {
       )}
       <div className="col-span-3 flex flex-col space-y-4">
         <div>
-          {supervisions.supervisions[0].request.tool_requests && (
-            <ToolBadge toolId={supervisions.supervisions[0].request.tool_requests[0].tool_id} />
+          {supervisions.supervisions[0][0].request.tool_requests && (
+            <ToolBadge toolId={supervisions.supervisions[0][0].request.tool_requests[0].tool_id} />
           )}
         </div>
         <div>
-          <SupervisionResultsForExecution supervisions={supervisions} />
+          <SupervisionResultsForExecution executionSupervisions={supervisions} />
         </div>
       </div >
     </Page >
@@ -69,32 +68,86 @@ export function SupervisionsForExecution({ executionId }: { executionId: string 
     return <p>No supervisions found</p>
   }
 
-  return <SupervisionResultsForExecution supervisions={data.data} />
+  return (
+    <>
+      {isLoading && <p>Loading</p>}
+      {isError && <p>Error</p>}
+      <SupervisionResultsForExecution executionSupervisions={data.data} />
+    </>
+  )
 }
 
-export function SupervisionResultsForExecution({ supervisions }: { supervisions: ExecutionSupervisions }) {
+export function SupervisionResultsForExecution({ executionSupervisions }: { executionSupervisions: ExecutionSupervisions }) {
   return (
-    <div>
+
+    <div className="w-full">
       {
-        supervisions.supervisions.map((supervision, index) => (
+        executionSupervisions.supervisions.map((chain, index) => (
+          <div>
+            <SupervisionChainCard chain={chain} chainNumber={index + 1} />
+          </div>
+        ))
+      }
+    </div>
+  )
+}
+
+function SupervisionResultCard({ result, supervisorId }: { result: SupervisionResult | undefined, supervisorId: string }) {
+  if (!result) {
+    return <p>No result has yet been recorded for this request</p>
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          Supervision Result: <SupervisorBadge supervisorId={supervisorId} /> returned <DecisionBadge decision={result.decision} />
+        </CardTitle>
+        <CardDescription>
+          <CreatedAgo datetime={result.created_at} label="Supervision result occurred" />. ID is <UUIDDisplay uuid={result.id} />
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <p>Reasoning: {result.reasoning != "" ? result.reasoning : "No reasoning given"}</p>
+        {result.toolrequest && (
+          <div className="">
+            <JsonDisplay json={result.toolrequest} />
+          </div>
+        )}
+      </CardContent>
+    </Card>
+
+  )
+}
+
+function SupervisionChainCard({ chain, chainNumber }: { chain: SupervisionChain, chainNumber: number }) {
+  return (
+    <div className="w-full space-y-4 bg-muted/50 rounded-md px-4 flex flex-row items-center justify-between gap-4">
+      <div className="flex flex-row items-center justify-center gap-2">
+        <Link1Icon className="w-4 h-4" />
+        <p className="text-xs text-center text-gray-500">{chainNumber}</p>
+      </div>
+      <div className="w-full">
+        {chain.map((supervision, index) => (
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="hub-stats" className="border border-gray-200 rounded-md mb-4">
               <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
                 <div className="flex flex-row w-full justify-between">
                   <div className="flex flex-row gap-2">
-
-                    <span className="text-sm text-gray-500">Supervision Request #{index + 1} to supervisor</span>
-                    <SupervisorBadge supervisorId={supervision.request.supervisor_id || ''} />
-                    is in status
-                    {supervision.statuses && (
-                      <StatusBadge statuses={supervision.statuses} />
-                    )}
-                    {supervision.result && (
-                      <>
-                        because supervisor decided to
-                        <DecisionBadge decision={supervision.result?.decision} />
-                      </>
-                    )}
+                    <>
+                      <span className="text-sm">Supervision Request #{index + 1} to supervisor</span>
+                      <SupervisorBadge supervisorId={supervision.request.supervisor_id || ''} />
+                      is in status
+                      {supervision.statuses && (
+                        <StatusBadge statuses={supervision.statuses} />
+                      )}
+                      {supervision.result && (
+                        <>
+                          because supervisor decided to
+                          <DecisionBadge decision={supervision.result?.decision} />
+                        </>
+                      )}
+                    </>
                   </div>
 
 
@@ -105,7 +158,6 @@ export function SupervisionResultsForExecution({ supervisions }: { supervisions:
               </AccordionTrigger>
               <AccordionContent className="p-4 bg-white rounded-md space-y-4">
                 <p className="text-xs text-gray-500">
-
                   Supervision info for request <UUIDDisplay uuid={supervision.request.id} /> as part of execution <UUIDDisplay uuid={supervision.request.execution_id} />
                 </p>
 
@@ -158,37 +210,8 @@ export function SupervisionResultsForExecution({ supervisions }: { supervisions:
               </AccordionContent>
             </AccordionItem>
           </Accordion>
-
-        ))
-      }
+        ))}
+      </div>
     </div>
-  )
-}
-
-function SupervisionResultCard({ result, supervisorId }: { result: SupervisionResult | undefined, supervisorId: string }) {
-  if (!result) {
-    return <p>No result has yet been recorded for this request</p>
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          Supervision Result: <SupervisorBadge supervisorId={supervisorId} /> returned <DecisionBadge decision={result.decision} />
-        </CardTitle>
-        <CardDescription>
-          <CreatedAgo datetime={result.created_at} label="Supervision result occurred" />. ID is <UUIDDisplay uuid={result.id} />
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <p>Reasoning: {result.reasoning != "" ? result.reasoning : "No reasoning given"}</p>
-        {result.toolrequest && (
-          <div className="">
-            <JsonDisplay json={result.toolrequest} />
-          </div>
-        )}
-      </CardContent>
-    </Card>
-
   )
 }

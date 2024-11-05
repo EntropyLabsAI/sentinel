@@ -12,7 +12,7 @@ import { Button } from './ui/button';
 import { ArrowRightIcon, EyeIcon, InspectIcon, ScanEyeIcon, UsersIcon } from 'lucide-react';
 import { SupervisorTypeBadge } from './status_badge';
 import { DecisionBadge } from './status_badge';
-import Loading from './loading';
+import LoadingSpinner from './loading';
 
 const SupervisorSelection: React.FC = () => {
   const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
@@ -44,7 +44,7 @@ const SupervisorSelection: React.FC = () => {
   return (
     <Page title="Supervisors" subtitle={`${supervisors.length} supervisors registered against runs in ${projectData?.data.name}`} icon={<ScanEyeIcon className="w-6 h-6" />}>
       {isLoading && (
-        <Loading />
+        <LoadingSpinner />
       )}
       {error && (
         <div>Error loading supervisors: {error.message}</div>

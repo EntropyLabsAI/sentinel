@@ -1276,9 +1276,10 @@ components:
           type: string
           format: uuid
         supervisions:
+          description: A list of supervision chains. Each chain is a list of supervisions that took place in a chain.
           type: array
           items:
-            $ref: "#/components/schemas/Supervision"
+            $ref: "#/components/schemas/SupervisionChain"
       required:
         - execution_id
         - supervisions
@@ -1331,3 +1332,8 @@ components:
           type: string
       required:
         - error
+
+    SupervisionChain:
+      type: array
+      items:
+        $ref: "#/components/schemas/Supervision"

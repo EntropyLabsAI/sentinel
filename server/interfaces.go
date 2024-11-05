@@ -29,7 +29,7 @@ type ExecutionStore interface {
 	CreateExecution(ctx context.Context, runId uuid.UUID, toolId uuid.UUID) (uuid.UUID, error)
 	GetExecution(ctx context.Context, id uuid.UUID) (*Execution, error)
 	GetRunExecutions(ctx context.Context, runId uuid.UUID) ([]Execution, error)
-	GetExecutionSupervisions(ctx context.Context, id uuid.UUID) ([]Supervision, error)
+	GetExecutionSupervisions(ctx context.Context, id uuid.UUID) ([]SupervisionChain, error)
 }
 
 type ProjectStore interface {

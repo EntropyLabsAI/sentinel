@@ -31,10 +31,10 @@ export default function ExecutionTable({ executions }: { executions: Execution[]
       <TableHeader>
         <TableRow>
           <TableHead className="w-[100px]">Execution ID</TableHead>
-          <TableHead>Tool</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead className="text-right">Created</TableHead>
-          <TableHead className="w-[50px]"></TableHead>
+          <TableHead className="w-[20px]">Tool</TableHead>
+          <TableHead className="w-[120px]">Status</TableHead>
+          <TableHead className="w-[120px] text-right">Created</TableHead>
+          <TableHead className="w-[150px]"></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>

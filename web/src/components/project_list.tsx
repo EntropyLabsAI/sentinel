@@ -11,7 +11,7 @@ import { useProject } from "@/contexts/project_context";
 import { UUIDDisplay } from "./uuid_display";
 import { CreatedAgo } from "./created_ago";
 import { Building2 } from "lucide-react";
-import Loading from "./loading";
+import LoadingSpinner from "./loading";
 
 export default function ProjectList() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -35,7 +35,7 @@ export default function ProjectList() {
   return (
     <Page title="Projects" icon={<Building2 className="w-6 h-6" />} subtitle={projects.length === 0 && <div>No projects found. To register a project, check out the <Link to="/api" className="text-blue-500">docs</Link>.</div>}>
       {isLoading && (
-        <Loading />
+        <LoadingSpinner />
       )}
 
       {projects.map((project) => (
