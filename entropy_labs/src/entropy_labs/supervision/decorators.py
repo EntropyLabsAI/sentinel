@@ -92,7 +92,7 @@ def supervise(
                         all_decisions.append(decision)
                         break
                     elif decision.decision == SupervisionDecisionType.REJECT:
-                        return f"Execution of {func.__qualname__} was rejected. Explanation: {decision.explanation}"
+                        return f"The agent requested to execute {func.__qualname__} but it was rejected. Explanation: {decision.explanation}\n This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior."
                     elif decision.decision == SupervisionDecisionType.ESCALATE:
                         continue
                         #continue  # Proceed to the next supervisor
@@ -100,10 +100,10 @@ def supervise(
                         all_decisions.append(decision)
                         break
                     elif decision.decision == SupervisionDecisionType.TERMINATE:
-                        return f"Execution of {func.__qualname__} was terminated. Explanation: {decision.explanation}"
+                        return f"Execution of {func.__qualname__} should be terminated. Explanation: {decision.explanation}\n This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior."
                     else:
                         print(f"Unknown decision: {decision.decision}. Cancelling execution.")
-                        return f"Execution of {func.__qualname__} was cancelled due to an unknown supervision decision."
+                        return f"Execution of {func.__qualname__} was cancelled due to an unknown supervision decision.\n This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior."
 
             # Check decisions and apply modifications if any
             if all(decision.decision in [SupervisionDecisionType.APPROVE, SupervisionDecisionType.MODIFY] for decision in all_decisions):
@@ -135,7 +135,7 @@ def supervise(
                 # Call the function with modified arguments
                 return func(*final_args, **final_kwargs)
             else:
-                return "All supervisors escalated without approval."
+                return "The agent requested to execute a function but it was rejected by all supervisors.\n This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior."
         return wrapper
     return decorator
 

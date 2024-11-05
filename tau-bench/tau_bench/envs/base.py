@@ -21,10 +21,13 @@ from entropy_labs.supervision.decorators import supervise
 from entropy_labs.supervision.supervisors import human_supervisor, llm_supervisor
 
 MULTIPLE_REQUESTS_SYSTEM_PROMPT = """
-You are a supervisor that checks all user requests have been solved. Your goal is to keep track of all user requests and ensure they are solved.
+Your goal is to ensure that all user requests are addressed and resolved. 
+- Approve if the customer support agent is actively working on or has resolved all requests.
+- Reject if the agent attempts to conclude the conversation before all requests are resolved, providing a detailed explanation.
 """
 MULTIPLE_REQUESTS_INSTRUCTIONS = """
-If the the customer support agent is working on solving the request or solved all of them, approve. If the agent incorrectly wants to finish the conversation before all requests are solved, reject.
+- Approve if all requests are being addressed or have been resolved.
+- Reject if the conversation is prematurely concluded, providing a detailed explanation.
 """
 
 multiple_requests_supervisor = llm_supervisor(system_prompt=MULTIPLE_REQUESTS_SYSTEM_PROMPT,
@@ -34,11 +37,17 @@ multiple_requests_supervisor = llm_supervisor(system_prompt=MULTIPLE_REQUESTS_SY
                                               include_context=True)
 
 CORRECT_INFORMATION_PRESENTED_TO_USER_SYSTEM_PROMPT = """
-You are a supervisor that checks if the customer support agent is presenting correct information to the user.
+Your goal is to verify that the customer support agent is providing accurate information to the user.
+- Approve if the information presented is correct.
+- Reject if the information is incorrect, providing a detailed explanation.
+- Escalate if unsure, providing a detailed explanation.
 """
 CORRECT_INFORMATION_PRESENTED_TO_USER_INSTRUCTIONS = """
-If the agent is presenting correct information to the user, approve. If the agent is presenting incorrect information reject it and provide explanation. If not sure, escalate.
-""" #TODO: Make modification work
+- Approve if the information is correct.
+- Reject if the information is incorrect, providing a detailed explanation.
+- Escalate if unsure, providing a detailed explanation.
+"""
+
 correct_information_presented_to_user_supervisor = llm_supervisor(system_prompt=CORRECT_INFORMATION_PRESENTED_TO_USER_SYSTEM_PROMPT,
                                                                   instructions=CORRECT_INFORMATION_PRESENTED_TO_USER_INSTRUCTIONS,
                                                                   supervisor_name="Correct Information Presented To User Supervisor",
@@ -63,6 +72,18 @@ def to_hashable(item: ToHashable) -> Hashable:
     else:
         return item
 
+@supervise(
+        supervision_functions=[
+            [correct_information_presented_to_user_supervisor],#, human_supervisor(backend_api_endpoint="http://localhost:8080")],
+            [multiple_requests_supervisor]#, human_supervisor(backend_api_endpoint="http://localhost:8080")],
+        ],
+        ignored_attributes=["self"]
+    )
+def respond_to_user(self, content):
+    """
+    Responds to the user.
+    """
+    return self.user.step(content)
 
 def consistent_hash(
     value: Hashable,
@@ -116,17 +137,7 @@ class Env(object):
             observation=initial_observation, info=EnvInfo(task=self.task, source="user")
         )
         
-    @supervise(
-        supervision_functions=[
-            [correct_information_presented_to_user_supervisor, human_supervisor(backend_api_endpoint="http://localhost:8080")],
-            [multiple_requests_supervisor, human_supervisor(backend_api_endpoint="http://localhost:8080")],
-        ]
-    )
-    def respond_to_user(self, content):
-        """
-        Responds to the user.
-        """
-        return self.user.step(content)
+    
 
 
     def step(self, action: Action) -> EnvResponse:
@@ -137,7 +148,7 @@ class Env(object):
         done = False
 
         if action.name == RESPOND_ACTION_NAME:
-            observation = self.respond_to_user(content=action.kwargs["content"])
+            observation = respond_to_user(self=self, content=action.kwargs["content"])
             info.source = "user"
             done = "###STOP###" in observation
         elif action.name in self.tools_map:

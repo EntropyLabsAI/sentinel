@@ -60,18 +60,21 @@ def llm_supervisor(
     description: Optional[str] = None,
     openai_model: str = PREFERRED_LLM_MODEL,
     system_prompt: Optional[str] = None,
-    include_context: bool = False,
-    decision: Optional[SupervisionDecision] = None
+    include_context: bool = False
 ) -> Supervisor:
     """
     Create a supervisor function that uses an LLM to make a supervision decision.
     """
     if system_prompt is None:
-        system_prompt = (
-            "Your goal is to review the agent's function call based on the provided policies, rules, and context. "
-            "You need to decide whether the function call should be approved, rejected, escalated, terminated, or modified. "
-            "Provide your decision along with a clear explanation."
-        )
+        system_prompt = """
+Your goal is to review the agent's function call based on the provided policies, rules, and context. 
+You need to decide whether the function call should be approved, rejected, escalated, terminated, or modified. 
+Provide your decision along with a clear explanation. If you choose to modify the function call, specify the modified arguments in the following format:
+
+ModifiedData:
+- tool_args: [list of modified positional arguments]
+- tool_kwargs: {dictionary of modified keyword arguments}
+"""
 
     def supervisor(
         func: Callable,
@@ -114,9 +117,6 @@ def llm_supervisor(
         if decision is not None:
             instructions_content += "\n\nDecision made by the previous supervisor:\nDecision: " + decision.decision + "\nExplanation: " + decision.explanation
 
-
-        
-
         if include_context and supervision_context:
             # Convert SupervisionContext into a textual description
             context_description = supervision_context.to_text()
@@ -140,7 +140,11 @@ Function Implementation:
 Arguments Passed to the Function:
 {arguments_str}
 
-Given the context and your specific instructions, you need to decide whether the function call should be **approved**, **rejected**, **escalated**, **terminated**, or **modified**. Provide your decision along with a clear and concise explanation. If you choose to modify the function call, specify the modified arguments.
+Given the context and your specific instructions, you need to decide whether the function call should be **approved**, **rejected**, **escalated**, **terminated**, or **modified**. Provide your decision along with a clear and concise explanation. If you choose to modify the function call, specify the modified arguments in the following format:
+
+ModifiedData:
+- tool_args: [List[Any]
+- tool_kwargs: [Dict[str, Any]]
 """
 
         # Prepare messages
