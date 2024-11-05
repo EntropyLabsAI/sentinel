@@ -37,11 +37,12 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({
       // Use functional update to ensure we have the latest state
       setHumanReviewDataList((prevList) => {
         const newList = [...prevList, data];
+        // If this is the first item, select it
+        if (newList.length === 1) {
+          setSelectedRequestId(data.id || null);
+        }
         return newList;
       });
-
-      // If no review is selected, automatically select the first one in the list
-      setSelectedRequestId(humanReviewDataList[0]?.id || null);
     };
 
     ws.onclose = () => {
@@ -90,10 +91,17 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({
       };
       socket.send(JSON.stringify(response));
 
-      // Remove the handled review request from the list
-      setHumanReviewDataList((prevList) => prevList.filter((req) => req.id !== requestId));
-      // If the selected review request was the one that was handled, select the first one in the list
-      setSelectedRequestId(humanReviewDataList[0]?.id || null);
+      // Remove the handled review request and select the next one in a single update
+      setHumanReviewDataList((prevList) => {
+        const newList = prevList.filter((req) => req.id !== requestId);
+        // Select the first item in the filtered list if it exists
+        if (newList.length > 0) {
+          setSelectedRequestId(newList[0].id || null);
+        } else {
+          setSelectedRequestId(null);
+        }
+        return newList;
+      });
     }
   };
 
@@ -102,14 +110,10 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({
     setSelectedRequestId(requestId);
   };
 
-  // Find the selected review request
-  const selectedReviewRequest = humanReviewDataList.find(
-    (req) => req.id === selectedRequestId
-  );
-
-  useEffect(() => {
-    console.log(selectedReviewRequest)
-  }, [selectedReviewRequest])
+  // Find the selected review request only when needed for rendering
+  const selectedReviewRequest = selectedRequestId
+    ? humanReviewDataList.find((req) => req.id === selectedRequestId)
+    : null;
 
   return (
     <div>
