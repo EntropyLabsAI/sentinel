@@ -243,6 +243,9 @@ func (s *PostgresqlStore) GetRunExecutions(ctx context.Context, runId uuid.UUID)
 		WHERE run_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, query, runId)
+	if errors.Is(err, sql.ErrNoRows) {
+		return []sentinel.Execution{}, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("error getting run executions: %w", err)
 	}
@@ -1310,13 +1313,13 @@ func (s *PostgresqlStore) GetExecutionSupervisions(ctx context.Context, executio
 	// First get all supervision request IDs for this execution
 	// Order by chain number and then by request ID, e.g. if there are two chains, the first will be all requests with chain 0 and the second will be all requests with chain 1, and inside each chain the requests will be in order.
 	query := `
-		SELECT sr.id, rts.chain
-		FROM supervisionrequest sr
-		INNER JOIN execution e ON sr.execution_id = e.id
-		INNER JOIN run ON run.id = e.run_id
-		INNER JOIN run_tool_supervisor rts ON rts.run_id = run.id AND rts.supervisor_id = sr.supervisor_id AND rts.tool_id = e.tool_id
-		WHERE sr.execution_id = $1
-		ORDER BY rts.chain ASC, rts.id ASC`
+SELECT sr.id, rts.chain
+FROM supervisionrequest sr
+INNER JOIN execution e ON sr.execution_id = e.id
+INNER JOIN run ON run.id = e.run_id
+INNER JOIN run_tool_supervisor rts ON rts.run_id = run.id AND rts.supervisor_id = sr.supervisor_id AND rts.tool_id = e.tool_id
+WHERE sr.execution_id = $1
+ORDER BY rts.chain ASC, rts.id ASC`
 	rows, err := s.db.QueryContext(ctx, query, executionId)
 	if err != nil {
 		return nil, fmt.Errorf("error getting supervision request IDs: %w", err)

@@ -41,3 +41,5 @@ examples/inspect_example/inspect_ai
 .env
 
 logs/
+
+.logs
