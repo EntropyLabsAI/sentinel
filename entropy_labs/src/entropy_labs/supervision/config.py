@@ -464,7 +464,7 @@ def convert_openai_message_to_chat_message(openai_msg: Dict[str, Any]) -> ChatMe
     """
     role = openai_msg.get('role')
     content = openai_msg.get('content', '')
-    function_call = openai_msg.get('function_call', None)
+    tool_calls = openai_msg.get('tool_calls', None)
 
     # Ensure content is not None
     if content is None:
@@ -472,10 +472,10 @@ def convert_openai_message_to_chat_message(openai_msg: Dict[str, Any]) -> ChatMe
 
     if role == 'assistant':
         # Handle assistant message with potential tool calls
-        if function_call:
+        if tool_calls:
             # Convert function call to ToolCall
-            tool_call = convert_openai_tool_call(function_call)
-            return ChatMessageAssistant(content=content, tool_calls=[tool_call])
+            tool_calls = [convert_openai_tool_call(tool_call) for tool_call in tool_calls]
+            return ChatMessageAssistant(content=content, tool_calls=tool_calls)
         else:
             return ChatMessageAssistant(content=content)
     elif role == 'user':
