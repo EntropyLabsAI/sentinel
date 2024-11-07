@@ -40,7 +40,7 @@ def supervise(
                 raise Exception(f"Tool ID for function {func.__name__} not found in the registry.")
             
             execution_id = create_execution(tool_id, run_id, client)
-            supervisors_list = get_supervisors_for_tool(tool_id, run_id, client)
+            supervisors_chains = get_supervisors_for_tool(tool_id, run_id, client)
 
             # Determine effective mock policy
             effective_mock_policy = (
@@ -58,11 +58,11 @@ def supervise(
                 print(f"No supervisors found for function {func.__name__}. Executing function.")
                 return func(*tool_args, **tool_kwargs)
             all_decisions = []
-            for supervisor_chain in supervisors_list:
+            for supervisor_chain in supervisors_chains:
                 # We send supervision request to the API
                 supervisors = supervisor_chain.supervisors
                 for supervisor in supervisors:
-                    review_id = send_supervision_request(supervisor, func, supervision_context, execution_id, tool_id, tool_args=tool_args, tool_kwargs=tool_kwargs)
+                    review_id = send_supervision_request(supervisor, supervision_context, execution_id, tool_id, tool_args=tool_args, tool_kwargs=tool_kwargs)
 
                     decision = None
                     supervisor_func = supervision_config.get_supervisor_by_id(supervisor.id)
@@ -115,14 +115,7 @@ def supervise(
                 # Apply modifications while respecting ignored_attributes
                 for decision in all_decisions:
                     if decision.decision == SupervisionDecisionType.MODIFY and decision.modified:
-                        # Update positional arguments
-                        # if decision.modified.tool_args:
-                        #     for idx, value in enumerate(decision.modified.tool_args):
-                        #         param_name = func.__code__.co_varnames[idx]
-                        #         if ignored_attributes and param_name in ignored_attributes:
-                        #             continue
-                        #         final_args[idx] = value
-                        #TODO: Fix this - make it work
+                        #TODO: Make sure this works correctly
                         tool_args = decision.modified.tool_args
                         # Update keyword arguments
                         if decision.modified.tool_kwargs:

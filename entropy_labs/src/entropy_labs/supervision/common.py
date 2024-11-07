@@ -241,7 +241,7 @@ async def human_supervisor_wrapper(task_state: TaskState, call: ToolCall, timeou
     if not backend_api_endpoint:
         supervisor_decision = prompt_user_cli_approval(task_state=task_state, tool_call=call, use_inspect_ai=use_inspect_ai, n=n)
     else:
-        # Use backend API for supervision
+        # Use backend API for supervision 
         supervisor_decision = await get_human_supervision_decision_api(review_id=review_id, client=client, timeout=timeout, use_inspect_ai=use_inspect_ai)
     return supervisor_decision
 

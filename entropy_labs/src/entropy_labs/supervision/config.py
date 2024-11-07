@@ -174,6 +174,13 @@ class SupervisionContext:
     def get_supervised_function_entry(self, func: Callable) -> Optional[Dict[str, Any]]:
         with self.lock:
             return self.supervised_functions_registry.get(func)
+        
+    def get_supervised_function_entry_by_name(self, func_name: str) -> Optional[Dict[str, Any]]:
+        with self.lock:
+            for func, entry in self.supervised_functions_registry.items():
+                if func.__name__ == func_name:
+                    return entry
+            return None
 
     def update_tool_id(self, func: Callable, tool_id: UUID):
         with self.lock:
@@ -412,6 +419,9 @@ def convert_message(msg: ChatMessage) -> Message:
     if isinstance(msg, ChatMessageTool):
         tool_call_id = msg.tool_call_id
         function = msg.function
+        content_str = f"Function {function} has been executed. Tool call ID: {tool_call_id}"
+        if msg.error:
+            content_str = f"Function {function} has been executed with error: {msg.error}"
     else:
         tool_call_id = UNSET
         function = UNSET
