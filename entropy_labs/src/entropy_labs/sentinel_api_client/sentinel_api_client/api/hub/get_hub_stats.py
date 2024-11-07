@@ -5,6 +5,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.error_response import ErrorResponse
 from ...models.hub_stats import HubStats
 from ...types import Response
 
@@ -18,7 +19,13 @@ def _get_kwargs() -> Dict[str, Any]:
     return _kwargs
 
 
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[HubStats]:
+def _parse_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Optional[Union[ErrorResponse, HubStats]]:
+    if response.status_code == 400:
+        response_400 = ErrorResponse.from_dict(response.json())
+
+        return response_400
     if response.status_code == 200:
         response_200 = HubStats.from_dict(response.json())
 
@@ -29,7 +36,9 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
         return None
 
 
-def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[HubStats]:
+def _build_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[Union[ErrorResponse, HubStats]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -41,7 +50,7 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 def sync_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Response[HubStats]:
+) -> Response[Union[ErrorResponse, HubStats]]:
     """Get hub stats
 
     Raises:
@@ -49,7 +58,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HubStats]
+        Response[Union[ErrorResponse, HubStats]]
     """
 
     kwargs = _get_kwargs()
@@ -64,7 +73,7 @@ def sync_detailed(
 def sync(
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Optional[HubStats]:
+) -> Optional[Union[ErrorResponse, HubStats]]:
     """Get hub stats
 
     Raises:
@@ -72,7 +81,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HubStats
+        Union[ErrorResponse, HubStats]
     """
 
     return sync_detailed(
@@ -83,7 +92,7 @@ def sync(
 async def asyncio_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Response[HubStats]:
+) -> Response[Union[ErrorResponse, HubStats]]:
     """Get hub stats
 
     Raises:
@@ -91,7 +100,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HubStats]
+        Response[Union[ErrorResponse, HubStats]]
     """
 
     kwargs = _get_kwargs()
@@ -104,7 +113,7 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Optional[HubStats]:
+) -> Optional[Union[ErrorResponse, HubStats]]:
     """Get hub stats
 
     Raises:
@@ -112,7 +121,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HubStats
+        Union[ErrorResponse, HubStats]
     """
 
     return (

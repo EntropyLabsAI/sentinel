@@ -6,6 +6,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.error_response import ErrorResponse
 from ...models.supervisor import Supervisor
 from ...types import UNSET, Response
 
@@ -32,7 +33,11 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[List["Supervisor"]]:
+) -> Optional[Union[ErrorResponse, List["Supervisor"]]]:
+    if response.status_code == 400:
+        response_400 = ErrorResponse.from_dict(response.json())
+
+        return response_400
     if response.status_code == 200:
         response_200 = []
         _response_200 = response.json()
@@ -50,7 +55,7 @@ def _parse_response(
 
 def _build_response(
     *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[List["Supervisor"]]:
+) -> Response[Union[ErrorResponse, List["Supervisor"]]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -63,7 +68,7 @@ def sync_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     project_id: UUID,
-) -> Response[List["Supervisor"]]:
+) -> Response[Union[ErrorResponse, List["Supervisor"]]]:
     """List all supervisors available for a project
 
     Args:
@@ -74,7 +79,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[List['Supervisor']]
+        Response[Union[ErrorResponse, List['Supervisor']]]
     """
 
     kwargs = _get_kwargs(
@@ -92,7 +97,7 @@ def sync(
     *,
     client: Union[AuthenticatedClient, Client],
     project_id: UUID,
-) -> Optional[List["Supervisor"]]:
+) -> Optional[Union[ErrorResponse, List["Supervisor"]]]:
     """List all supervisors available for a project
 
     Args:
@@ -103,7 +108,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        List['Supervisor']
+        Union[ErrorResponse, List['Supervisor']]
     """
 
     return sync_detailed(
@@ -116,7 +121,7 @@ async def asyncio_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     project_id: UUID,
-) -> Response[List["Supervisor"]]:
+) -> Response[Union[ErrorResponse, List["Supervisor"]]]:
     """List all supervisors available for a project
 
     Args:
@@ -127,7 +132,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[List['Supervisor']]
+        Response[Union[ErrorResponse, List['Supervisor']]]
     """
 
     kwargs = _get_kwargs(
@@ -143,7 +148,7 @@ async def asyncio(
     *,
     client: Union[AuthenticatedClient, Client],
     project_id: UUID,
-) -> Optional[List["Supervisor"]]:
+) -> Optional[Union[ErrorResponse, List["Supervisor"]]]:
     """List all supervisors available for a project
 
     Args:
@@ -154,7 +159,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        List['Supervisor']
+        Union[ErrorResponse, List['Supervisor']]
     """
 
     return (

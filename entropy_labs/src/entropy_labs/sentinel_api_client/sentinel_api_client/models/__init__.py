@@ -6,6 +6,7 @@ from .choice import Choice
 from .create_execution_body import CreateExecutionBody
 from .create_supervision_result import CreateSupervisionResult
 from .decision import Decision
+from .error_response import ErrorResponse
 from .execution import Execution
 from .execution_supervisions import ExecutionSupervisions
 from .hub_stats import HubStats
@@ -51,6 +52,7 @@ __all__ = (
     "CreateExecutionBody",
     "CreateSupervisionResult",
     "Decision",
+    "ErrorResponse",
     "Execution",
     "ExecutionSupervisions",
     "HubStats",

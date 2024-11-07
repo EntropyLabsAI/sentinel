@@ -16,11 +16,12 @@ class ExecutionSupervisions:
     """
     Attributes:
         execution_id (UUID):
-        supervisions (List['Supervision']):
+        supervisions (List[List['Supervision']]): A list of supervision chains. Each chain is a list of supervisions
+            that took place in a chain.
     """
 
     execution_id: UUID
-    supervisions: List["Supervision"]
+    supervisions: List[List["Supervision"]]
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -28,7 +29,11 @@ class ExecutionSupervisions:
 
         supervisions = []
         for supervisions_item_data in self.supervisions:
-            supervisions_item = supervisions_item_data.to_dict()
+            supervisions_item = []
+            for componentsschemas_supervision_chain_item_data in supervisions_item_data:
+                componentsschemas_supervision_chain_item = componentsschemas_supervision_chain_item_data.to_dict()
+                supervisions_item.append(componentsschemas_supervision_chain_item)
+
             supervisions.append(supervisions_item)
 
         field_dict: Dict[str, Any] = {}
@@ -52,7 +57,14 @@ class ExecutionSupervisions:
         supervisions = []
         _supervisions = d.pop("supervisions")
         for supervisions_item_data in _supervisions:
-            supervisions_item = Supervision.from_dict(supervisions_item_data)
+            supervisions_item = []
+            _supervisions_item = supervisions_item_data
+            for componentsschemas_supervision_chain_item_data in _supervisions_item:
+                componentsschemas_supervision_chain_item = Supervision.from_dict(
+                    componentsschemas_supervision_chain_item_data
+                )
+
+                supervisions_item.append(componentsschemas_supervision_chain_item)
 
             supervisions.append(supervisions_item)
 

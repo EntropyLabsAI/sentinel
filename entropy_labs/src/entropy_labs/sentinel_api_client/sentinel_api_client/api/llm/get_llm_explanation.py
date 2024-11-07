@@ -5,6 +5,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.error_response import ErrorResponse
 from ...models.llm_explanation_request import LLMExplanationRequest
 from ...models.llm_explanation_response import LLMExplanationResponse
 from ...types import Response
@@ -32,7 +33,11 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[LLMExplanationResponse]:
+) -> Optional[Union[ErrorResponse, LLMExplanationResponse]]:
+    if response.status_code == 400:
+        response_400 = ErrorResponse.from_dict(response.json())
+
+        return response_400
     if response.status_code == 200:
         response_200 = LLMExplanationResponse.from_dict(response.json())
 
@@ -45,7 +50,7 @@ def _parse_response(
 
 def _build_response(
     *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[LLMExplanationResponse]:
+) -> Response[Union[ErrorResponse, LLMExplanationResponse]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -58,7 +63,7 @@ def sync_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     body: LLMExplanationRequest,
-) -> Response[LLMExplanationResponse]:
+) -> Response[Union[ErrorResponse, LLMExplanationResponse]]:
     """Get LLM explanation
 
     Args:
@@ -69,7 +74,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[LLMExplanationResponse]
+        Response[Union[ErrorResponse, LLMExplanationResponse]]
     """
 
     kwargs = _get_kwargs(
@@ -87,7 +92,7 @@ def sync(
     *,
     client: Union[AuthenticatedClient, Client],
     body: LLMExplanationRequest,
-) -> Optional[LLMExplanationResponse]:
+) -> Optional[Union[ErrorResponse, LLMExplanationResponse]]:
     """Get LLM explanation
 
     Args:
@@ -98,7 +103,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        LLMExplanationResponse
+        Union[ErrorResponse, LLMExplanationResponse]
     """
 
     return sync_detailed(
@@ -111,7 +116,7 @@ async def asyncio_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     body: LLMExplanationRequest,
-) -> Response[LLMExplanationResponse]:
+) -> Response[Union[ErrorResponse, LLMExplanationResponse]]:
     """Get LLM explanation
 
     Args:
@@ -122,7 +127,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[LLMExplanationResponse]
+        Response[Union[ErrorResponse, LLMExplanationResponse]]
     """
 
     kwargs = _get_kwargs(
@@ -138,7 +143,7 @@ async def asyncio(
     *,
     client: Union[AuthenticatedClient, Client],
     body: LLMExplanationRequest,
-) -> Optional[LLMExplanationResponse]:
+) -> Optional[Union[ErrorResponse, LLMExplanationResponse]]:
     """Get LLM explanation
 
     Args:
@@ -149,7 +154,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        LLMExplanationResponse
+        Union[ErrorResponse, LLMExplanationResponse]
     """
 
     return (

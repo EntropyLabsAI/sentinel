@@ -1,5 +1,9 @@
 import asyncio
-from entropy_labs.supervision.config import SupervisionDecision, SupervisionDecisionType, supervision_config
+from entropy_labs.supervision.config import (
+    SupervisionDecision,
+    SupervisionDecisionType,
+    supervision_config,
+)
 from entropy_labs.supervision.inspect_ai._config import FRONTEND_URL
 from entropy_labs.supervision.supervisors import auto_approve_supervisor
 from rich.console import Console
@@ -12,23 +16,25 @@ from entropy_labs.sentinel_api_client.sentinel_api_client.api.reviews.get_superv
 from entropy_labs.sentinel_api_client.sentinel_api_client.api.reviews.get_supervision_results import (
     sync_detailed as get_supervision_results_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervision_result import SupervisionResult
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervision_result import (
+    SupervisionResult,
+)
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.status import Status
 from entropy_labs.sentinel_api_client.sentinel_api_client.types import UNSET
-from entropy_labs.sentinel_api_client.sentinel_api_client import Client
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_type import SupervisorType
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.projects.create_project import sync_detailed as create_project_sync_detailed
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.runs.create_run import sync_detailed as create_run_sync_detailed
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.project_create import ProjectCreate
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_attributes import ToolAttributes
-from entropy_labs.utils.utils import get_function_code
-from typing import List, Optional, Any
-from uuid import UUID
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.tools.create_tool import sync_detailed as create_tool_sync_detailed
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_type import (
+    SupervisorType,
+)
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.tools.create_tool import (
+    sync_detailed as create_tool_sync_detailed,
+)
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool import Tool
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervisors.create_supervisor import sync_detailed as create_supervisor_sync_detailed
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervisors.create_supervisor import (
+    sync_detailed as create_supervisor_sync_detailed,
+)
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor import Supervisor
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervisors.create_run_tool_supervisors import sync_detailed as create_run_tool_supervisors_sync_detailed
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervisors.create_run_tool_supervisors import (
+    sync_detailed as create_run_tool_supervisors_sync_detailed,
+)
 from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervisors.get_run_tool_supervisors import (
     sync_detailed as get_run_tool_supervisors_sync,
 )
@@ -38,81 +44,52 @@ from entropy_labs.sentinel_api_client.sentinel_api_client.api.executions.create_
 from entropy_labs.sentinel_api_client.sentinel_api_client.api.reviews.create_supervision_request import (
     sync_detailed as create_supervision_request_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.reviews.get_supervision_status import (
-    sync_detailed as get_supervision_status_sync_detailed,
-)
 from entropy_labs.sentinel_api_client.sentinel_api_client.api.reviews.create_supervision_result import (
     sync_detailed as create_supervision_result_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.projects.get_projects import sync_detailed as get_projects_sync_detailed
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.create_supervision_result import CreateSupervisionResult
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervision_result import SupervisionResult
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.projects.get_projects import (
+    sync_detailed as get_projects_sync_detailed,
+)
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.create_supervision_result import (
+    CreateSupervisionResult,
+)
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.decision import Decision
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request import ToolRequest
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request_arguments import ToolRequestArguments
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.create_execution_body import CreateExecutionBody
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor import Supervisor
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervision_request import SupervisionRequest
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_attributes import (
+    ToolAttributes,
+)
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request import (
+    ToolRequest,
+)
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request_arguments import (
+    ToolRequestArguments,
+)
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.create_execution_body import (
+    CreateExecutionBody,
+)
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervision_request import (
+    SupervisionRequest,
+)
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.task_state import TaskState
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_type import SupervisorType
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_attributes import SupervisorAttributes
-from entropy_labs.sentinel_api_client.sentinel_api_client.client import Client
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_attributes import (
+    SupervisorAttributes,
+)
 from uuid import uuid4, UUID
 from datetime import datetime, timezone
-from entropy_labs.supervision.config import (
-    SupervisionDecision,
-    SupervisionDecisionType,
-)
 import inspect
+from entropy_labs.utils.utils import get_function_code
+from typing import List, Optional, Any, Callable
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.executions.get_run_executions import (
+    sync_detailed as get_executions_sync_detailed,
+)
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.execution import Execution
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervisors.get_run_tool_supervisors import (
+    sync_detailed as get_run_tool_supervisors_sync_detailed,
+)
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_chain import SupervisorChain
 
 
 # Create an asyncio.Lock to prevent concurrent console access
 _console_lock = asyncio.Lock()
-
-def register_project(client: Client, project_name: str) -> UUID:
-    """
-    Registers a new project using the Sentinel API.
-
-    Args:
-        client (Client): The Sentinel API client.
-        project_name (str): The name of the project to create.
-
-    Returns:
-        UUID: The project ID.
-    """
-    
-    # Create new project if it doesn't exist or overwrite_old_project is True
-    project_data = ProjectCreate(
-        name=project_name,
-    )
-    response = create_project_sync_detailed(
-        client=client,
-        body=project_data,
-    )
-    if response.status_code == 200 and response.parsed is not None and response.parsed.id is not None:
-        return response.parsed.id
-    else:
-        raise Exception(f"Failed to create project. Status code: {response.status_code}")
-
-def create_run(client: Client, project_id: UUID) -> UUID:
-    """
-    Creates a new run for a project using the Sentinel API.
-
-    Args:
-        client (Client): The Sentinel API client.
-        project_id (UUID): The ID of the project.
-
-    Returns:
-        UUID: The run ID.
-    """
-    response = create_run_sync_detailed(
-        project_id=project_id,
-        client=client,
-    )
-    if response.status_code == 200 and response.parsed is not None and response.parsed.id is not None:
-        return response.parsed.id
-    else:
-       raise Exception(f"Failed to create run. Status code: {response.status_code}")
 
 def register_tools_and_supervisors(client: Client, run_id: UUID):
     # Access the registries from the context
@@ -177,9 +154,9 @@ def register_tools_and_supervisors(client: Client, run_id: UUID):
                 for supervisor_func in supervisor_func_list:
                     supervisor_info: dict[str, Any] = {
                         'func': supervisor_func,
-                        'name': getattr(supervisor_func, '__name__', 'supervisor_name'),
-                        'description': getattr(supervisor_func, '__doc__', 'supervisor_description'),
-                        'type': SupervisorType.HUMAN_SUPERVISOR if getattr(supervisor_func, '__name__', 'supervisor_name') == 'human_supervisor' else SupervisorType.CLIENT_SUPERVISOR,
+                        'name': getattr(supervisor_func, '__name__', None) or 'supervisor_name',
+                        'description': getattr(supervisor_func, '__doc__', None) or 'supervisor_description',
+                        'type': SupervisorType.HUMAN_SUPERVISOR if getattr(supervisor_func, '__name__', 'supervisor_name') in ['human_supervisor', 'human_approver'] else SupervisorType.CLIENT_SUPERVISOR,
                         'code': get_function_code(supervisor_func),
                         'supervisor_attributes': getattr(supervisor_func, 'supervisor_attributes', {})
                     }
@@ -340,6 +317,27 @@ def create_execution(tool_id: UUID, run_id: UUID, client: Client) -> Optional[UU
     
     return None
 
+def get_executions(run_id: UUID, client: Client) -> List[Execution]:
+    """
+    Retrieve a list of executions for the specified run ID.
+    """
+    executions_list: List[Execution] = []
+    try:
+        response = get_executions_sync_detailed(
+            run_id=run_id,
+            client=client,
+        )
+        if response.status_code == 200 and response.parsed:
+            executions_list = response.parsed
+            print(f"Retrieved {len(executions_list)} executions for run ID {run_id}")
+        elif response.status_code == 200:
+            print(f"No executions found for run ID {run_id}")
+        else:
+            print(f"Failed to retrieve executions for run ID {run_id}. Status code: {response.status_code}")
+    except Exception as e:
+        print(f"Error retrieving executions: {e}")
+    return executions_list
+
 def get_supervisors_for_tool(tool_id: UUID, run_id: UUID, client: Client) -> List[Supervisor]:
     # Get the list of supervisors using run_id and tool_id from the API
     supervisors_list: List[Supervisor] = []
@@ -360,7 +358,7 @@ def get_supervisors_for_tool(tool_id: UUID, run_id: UUID, client: Client) -> Lis
     return supervisors_list
 
 
-def send_supervision_request(supervisor, func, supervision_context, execution_id, tool_id, tool_args, tool_kwargs):
+def send_supervision_request(supervisor: Supervisor, supervision_context, execution_id: UUID, tool_id: UUID, tool_args: list[Any], tool_kwargs: dict[str, Any]) -> UUID:
     client = supervision_config.client
     run_id = supervision_config.run_id
 
@@ -507,6 +505,39 @@ def register_supervisor(client: Client, supervisor_info: dict, supervision_conte
         return supervisor_id
     else:
         raise Exception(f"Failed to register supervisor '{supervisor_info['name']}'. Status code: {supervisor_response.status_code}")
+    
+    
+def get_tool_supervisors(run_id: UUID, tool_id: UUID, client: Client) -> List[SupervisorChain]:
+    """
+    Retrieves the supervisors assigned to a tool, grouped by chain, for a specific run.
+
+    Args:
+        run_id (UUID): The ID of the run.
+        tool_id (UUID): The ID of the tool.
+        client (Client): The API client instance.
+
+    Returns:
+        List[SupervisorChain]: A list of supervisor chains.
+    """
+    try:
+        response = get_run_tool_supervisors_sync_detailed(
+            run_id=run_id,
+            tool_id=tool_id,
+            client=client,
+        )
+        if response.status_code == 200 and response.parsed:
+            supervisor_chains = response.parsed
+            print(f"Retrieved {len(supervisor_chains)} supervisor chains for run ID {run_id} and tool ID {tool_id}")
+            return supervisor_chains
+        else:
+            print(
+                f"Failed to retrieve supervisor chains for run ID {run_id} and tool ID {tool_id}. "
+                f"Status code: {response.status_code}"
+            )
+            return []
+    except Exception as e:
+        print(f"Error retrieving supervisor chains: {e}")
+        return []
 
 def _serialize_arguments(tool_args: list[Any], tool_kwargs: dict[str, Any]) -> dict[str, Any]:
     """

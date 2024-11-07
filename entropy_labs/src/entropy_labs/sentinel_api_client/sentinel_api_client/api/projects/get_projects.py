@@ -5,6 +5,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.error_response import ErrorResponse
 from ...models.project import Project
 from ...types import Response
 
@@ -20,7 +21,11 @@ def _get_kwargs() -> Dict[str, Any]:
 
 def _parse_response(
     *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[List["Project"]]:
+) -> Optional[Union[ErrorResponse, List["Project"]]]:
+    if response.status_code == 400:
+        response_400 = ErrorResponse.from_dict(response.json())
+
+        return response_400
     if response.status_code == 200:
         response_200 = []
         _response_200 = response.json()
@@ -38,7 +43,7 @@ def _parse_response(
 
 def _build_response(
     *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[List["Project"]]:
+) -> Response[Union[ErrorResponse, List["Project"]]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -50,7 +55,7 @@ def _build_response(
 def sync_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Response[List["Project"]]:
+) -> Response[Union[ErrorResponse, List["Project"]]]:
     """List all projects
 
     Raises:
@@ -58,7 +63,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[List['Project']]
+        Response[Union[ErrorResponse, List['Project']]]
     """
 
     kwargs = _get_kwargs()
@@ -73,7 +78,7 @@ def sync_detailed(
 def sync(
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Optional[List["Project"]]:
+) -> Optional[Union[ErrorResponse, List["Project"]]]:
     """List all projects
 
     Raises:
@@ -81,7 +86,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        List['Project']
+        Union[ErrorResponse, List['Project']]
     """
 
     return sync_detailed(
@@ -92,7 +97,7 @@ def sync(
 async def asyncio_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Response[List["Project"]]:
+) -> Response[Union[ErrorResponse, List["Project"]]]:
     """List all projects
 
     Raises:
@@ -100,7 +105,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[List['Project']]
+        Response[Union[ErrorResponse, List['Project']]]
     """
 
     kwargs = _get_kwargs()
@@ -113,7 +118,7 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Optional[List["Project"]]:
+) -> Optional[Union[ErrorResponse, List["Project"]]]:
     """List all projects
 
     Raises:
@@ -121,7 +126,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        List['Project']
+        Union[ErrorResponse, List['Project']]
     """
 
     return (
