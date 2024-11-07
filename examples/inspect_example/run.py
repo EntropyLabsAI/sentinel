@@ -4,6 +4,7 @@ from inspect_ai import Task, eval, task
 from inspect_ai.dataset import Sample
 from inspect_ai.solver import generate, system_message, use_tools
 from inspect_ai.tool import bash, python
+from entropy_labs.api.project_registration import register_project, create_run, register_inspect_approvals
 import random
 import logging
 
@@ -64,5 +65,13 @@ def approval_demo() -> Task:
 
 
 if __name__ == "__main__":
-    approval = (Path(__file__).parent / "approval_human.yaml").as_posix()
-    eval(approval_demo(), approval=approval, trace=True, model="openai/gpt-4o")    
+    approval_file_name = "approval_escalation.yaml"
+    approval = (Path(__file__).parent / approval_file_name).as_posix()
+    
+    # Register the project and create the run with Entropy Labs
+    project_id = register_project(project_name="inspect-example", entropy_labs_backend_url="http://localhost:8080")
+    run_id = create_run(project_id=project_id)
+    register_inspect_approvals(run_id=run_id, approval_file=approval)    
+    
+    eval(approval_demo(), approval=approval, trace=True, model="openai/gpt-4o-mini")
+    

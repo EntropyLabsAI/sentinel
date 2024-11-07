@@ -54,7 +54,7 @@ def supervise(
                 print(f"Mocking function execution. Mock result: {mock_result}")
                 return mock_result
             # Supervision logic
-            if not supervisors_list:
+            if not supervisors_chains:
                 print(f"No supervisors found for function {func.__name__}. Executing function.")
                 return func(*tool_args, **tool_kwargs)
             all_decisions = []

@@ -1,10 +1,8 @@
-from entropy_labs.supervision.config import supervision_config
 from entropy_labs.supervision.langchain.supervisors import human_supervisor
 from entropy_labs.supervision.supervisors import llm_supervisor
 from entropy_labs.supervision.langchain.logging import EntropyLabsCallbackHandler
 from entropy_labs.supervision.decorators import supervise
-from entropy_labs.api.sentinel_api_client_helper import register_project, create_run, register_tools_and_supervisors
-from entropy_labs.sentinel_api_client.sentinel_api_client import Client
+from entropy_labs.api.project_registration import register_project, create_run
 from entropy_labs.supervision.supervisors import Supervisor
 from langchain_openai import ChatOpenAI
 from langchain.tools import tool
@@ -113,15 +111,11 @@ def run_agent(llm_with_tools, messages, callbacks):
             break
 
 if __name__ == "__main__":
-    client = Client(base_url="http://localhost:8080") #TODO: Move this inside registration functions
-
-    supervision_config.client = client #TODO: Move this somewhere else
+    entropy_labs_backend_url = "http://localhost:8080"
+    
     # Register the project and create a run
-    project_id = register_project(client, "langchain-example")
-    run_id = create_run(client, project_id)
-
-    # Automatically register tools and supervisors
-    register_tools_and_supervisors(client, run_id)
+    project_id = register_project(project_name="langchain-example", entropy_labs_backend_url=entropy_labs_backend_url)
+    run_id = create_run(project_id=project_id, register_tools_and_supervisors_on_success=True)
 
     # Initialize tools and logging
     tools = [add, divide, upload_api]
