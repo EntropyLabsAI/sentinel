@@ -178,7 +178,7 @@ def register_tools_and_supervisors(client: Client, run_id: UUID):
             if association_response.status_code == 200:
                 print(f"Supervisors assigned to tool '{tool_name}' for run ID {run_id}")
             else:
-                raise Exception(f"Failed to assign supervisors to tool '{tool_name}'. Status code: {association_response.status_code}")
+                raise Exception(f"Failed to assign supervisors to tool '{tool_name}'. Response: {association_response}")
         else:
             print(f"No supervisors to assign to tool '{tool_name}'")
 
@@ -202,7 +202,7 @@ def wait_for_human_decision(review_id: UUID, client: Client, timeout: int = 300)
                 else:
                     print("Waiting for human supervisor decision...")
             else:
-                print(f"Unexpected response while polling for supervision status: {response.status_code}")
+                print(f"Unexpected response while polling for supervision status: {response}")
         except Exception as e:
             print(f"Error while polling for supervision status: {e}")
 
@@ -311,7 +311,7 @@ def create_execution(tool_id: UUID, run_id: UUID, client: Client) -> Optional[UU
             print(f"Execution created with ID: {execution_id}")
             return execution_id
         else:
-            raise Exception(f"Failed to create execution. Status code: {execution_response.status_code}")
+            raise Exception(f"Failed to create execution. Response: {execution_response}")
     except Exception as e:
         print(f"Error creating execution: {e}")
     
@@ -333,7 +333,7 @@ def get_executions(run_id: UUID, client: Client) -> List[Execution]:
         elif response.status_code == 200:
             print(f"No executions found for run ID {run_id}")
         else:
-            print(f"Failed to retrieve executions for run ID {run_id}. Status code: {response.status_code}")
+            print(f"Failed to retrieve executions for run ID {run_id}. Response: {response}")
     except Exception as e:
         print(f"Error retrieving executions: {e}")
     return executions_list
@@ -398,7 +398,7 @@ def send_supervision_request(supervisor: Supervisor, supervision_context, execut
             print(f"Created supervision request with ID: {review_id}")
             return review_id
         else:
-            raise Exception(f"Failed to create supervision request. Status code: {supervision_status_response.status_code}")
+            raise Exception(f"Failed to create supervision request. Response: {supervision_status_response}")
     except Exception as e:
         print(f"Error creating supervision request: {e}")
         raise
@@ -504,7 +504,7 @@ def register_supervisor(client: Client, supervisor_info: dict, supervision_conte
         print(f"Supervisor '{supervisor_info['name']}' registered with ID: {supervisor_id}")
         return supervisor_id
     else:
-        raise Exception(f"Failed to register supervisor '{supervisor_info['name']}'. Status code: {supervisor_response.status_code}")
+        raise Exception(f"Failed to register supervisor '{supervisor_info['name']}'. Response: {supervisor_response}")
     
     
 def get_tool_supervisors(run_id: UUID, tool_id: UUID, client: Client) -> List[SupervisorChain]:
@@ -532,7 +532,7 @@ def get_tool_supervisors(run_id: UUID, tool_id: UUID, client: Client) -> List[Su
         else:
             print(
                 f"Failed to retrieve supervisor chains for run ID {run_id} and tool ID {tool_id}. "
-                f"Status code: {response.status_code}"
+                f"Response: {response}"
             )
             return []
     except Exception as e:
