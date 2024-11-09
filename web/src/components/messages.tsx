@@ -1,4 +1,4 @@
-import { Message } from "@/types";
+import { Message, StateMessage } from "@/types";
 import React, { useRef, useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { MessageSquare } from "lucide-react";
@@ -37,7 +37,7 @@ export function MessagesDisplay({ messages }: { messages: Message[] }) {
 }
 
 interface MessageDisplayProps {
-  message: Message;
+  message: StateMessage;
   index: number;
 }
 

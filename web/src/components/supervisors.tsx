@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { Badge } from './ui/badge';
 import { Link } from 'react-router-dom';
 import { Decision, Supervisor, useGetProject } from '@/types';
 import { useGetSupervisors } from '@/types';
@@ -18,9 +17,7 @@ const SupervisorSelection: React.FC = () => {
   const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
   const { selectedProject } = useProject();
 
-  const { data, isLoading, error } = useGetSupervisors(
-    { projectId: selectedProject! }
-  );
+  const { data, isLoading, error } = useGetSupervisors(selectedProject!);
 
   const { data: projectData } = useGetProject(selectedProject!);
 

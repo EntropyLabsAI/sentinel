@@ -11,14 +11,14 @@ import {
 } from "@/components/ui/table"
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import React from "react"
-import { Execution, Status } from "@/types"
+import { ToolRequestGroup, Status } from "@/types"
 import { UUIDDisplay } from "@/components/uuid_display"
 import { CreatedAgo } from "@/components/created_ago"
 import { StatusBadge, ToolBadge } from "./status_badge"
 import { useProject } from "@/contexts/project_context"
-import { SupervisionResultsForExecution, SupervisionsForExecution } from "./execution"
+// import { SupervisionResultsForExecution, SupervisionsForExecution } from "./execution_old"
 
-export default function ExecutionTable({ executions }: { executions: Execution[] }) {
+export default function ExecutionTable({ executions }: { executions: ToolRequestGroup[] }) {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
   const { selectedProject } = useProject()
 
@@ -37,11 +37,11 @@ export default function ExecutionTable({ executions }: { executions: Execution[]
           <TableHead className="w-[150px]"></TableHead>
         </TableRow>
       </TableHeader>
-      <TableBody>
-        {executions?.map((execution, index) => (
+      {/* <TableBody> */}
+      {/* {executions?.map((execution, index) => (
           <>
             <TableRow key={execution.id} className="">
-              <TableCell className="font-medium"><UUIDDisplay uuid={execution.id} href={`/projects/${selectedProject}/runs/${execution.run_id}/executions/${execution.id}`} /></TableCell>
+              <TableCell className="font-medium"><UUIDDisplay uuid={execution.id} href={`/projects/${selectedProject}/runs/${execution.requestgroup_id}/executions/${execution.id}`} /></TableCell>
               <TableCell>
                 <ToolBadge toolId={execution.tool_id || ''} />
               </TableCell>
@@ -79,7 +79,7 @@ export default function ExecutionTable({ executions }: { executions: Execution[]
           </>
         ))
         }
-      </TableBody >
+      </TableBody > */}
       <TableFooter>
         <TableRow>
           <TableCell className="text-xs text-muted-foreground" colSpan={5}>{executions.length} tool executions were found for this run</TableCell>

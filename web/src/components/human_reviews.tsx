@@ -76,16 +76,16 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({
     );
 
     // Check if the tool args of the tool the user chose is not the same was it was originally
-    if (selectedReviewRequest && toolChoiceModified(selectedReviewRequest.tool_requests, toolChoice)) {
-      decision = Decision.modify;
-    }
+    // if (selectedReviewRequest && toolChoiceModified(selectedReviewRequest.tool_requests, toolChoice)) {
+    //   decision = Decision.modify;
+    // }
 
     if (socket && socket.readyState === WebSocket.OPEN) {
       const response: SupervisionResult = {
         id: requestId,
         decision: decision,
         reasoning: "Human decided via interface",
-        toolrequest: toolChoice,
+        // toolrequest: toolChoice,
         created_at: new Date().toISOString(),
         supervision_request_id: requestId,
       };
@@ -134,11 +134,11 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({
                     }`}
                   onClick={() => selectReviewRequest(req.id || '')}
                 >
-                  <div className="font-semibold">Agent <UUIDDisplay className="hover:bg-gray-300" uuid={req.run_id} /></div>
+                  {/* <div className="font-semibold">Agent <UUIDDisplay className="hover:bg-gray-300" uuid={req.run_id} /></div>
                   <div className="text-sm">Request <UUIDDisplay className="hover:bg-gray-300" uuid={req.id} /></div>
                   {req.tool_requests && (
                     <div className="text-xs italic mt-1">Tool: {req.tool_requests[0].id}</div>
-                  )}
+                  )} */}
                 </li>
               ))}
             </ul>

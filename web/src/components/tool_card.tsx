@@ -1,14 +1,9 @@
-import { Supervisor, SupervisorChain, Tool, useGetRunToolSupervisors } from "@/types";
-import { Link } from "react-router-dom";
+import { SupervisorChain, Tool, useGetToolSupervisorChains } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
-import { Badge } from "./ui/badge";
-import { Button } from "./ui/button";
 import React, { useEffect, useState } from "react";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
-import { UUIDDisplay } from "./uuid_display";
 import { SupervisorBadge, SupervisorTypeBadge, ToolBadge } from "./status_badge";
 import { ToolAttributes } from "./tool_attributes";
-import JsonDisplay from "./json_display";
 
 type ToolCardProps = {
   tool: Tool;
@@ -28,7 +23,6 @@ export function ToolCard({ tool, runId }: ToolCardProps) {
         </CardDescription>
       </CardHeader>
       <CardContent className="    flex flex-col gap-2">
-        {tool.created_at}
         <p className="text-sm font-semibold">Attributes</p>
         {tool.attributes && <ToolAttributes attributes={tool.attributes || ''} ignoredAttributes={tool.ignored_attributes || []} />}
         {runId && tool.id && <RunToolSupervisors runId={runId} toolId={tool.id} />}
@@ -39,7 +33,7 @@ export function ToolCard({ tool, runId }: ToolCardProps) {
 
 function RunToolSupervisors({ runId, toolId }: { runId: string, toolId: string }) {
   const [supervisorChain, setSupervisorChain] = useState<SupervisorChain[]>([]);
-  const { data, isLoading, error } = useGetRunToolSupervisors(runId, toolId);
+  const { data, isLoading, error } = useGetToolSupervisorChains(toolId);
 
   useEffect(() => {
     if (data) {

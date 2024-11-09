@@ -1,4 +1,4 @@
-import { useGetProjects, Project, Execution, useGetRunExecutions, useGetProjectRuns, Run, useGetProject, useGetSupervisor, Supervisor, SupervisorType } from "@/types";
+import { useGetProjects, Project, useGetProjectRuns, Run, useGetProject, useGetSupervisor, Supervisor, SupervisorType } from "@/types";
 import React, { useEffect, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import Page from "./page";
@@ -11,8 +11,6 @@ import JsonDisplay from "./json_display";
 export default function SupervisorDetails() {
   const [supervisor, setSupervisor] = useState<Supervisor>();
   const { supervisorId } = useParams();
-
-  // const { selectedProject, setSelectedProject } = useProject();
 
   const { data: supervisorData, isLoading: supervisorLoading, error: supervisorError } = useGetSupervisor(supervisorId || '');
 

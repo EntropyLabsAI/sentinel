@@ -1,4 +1,4 @@
-import { Message, Tool, ToolChoice, ToolRequest, ToolRequestArguments, useGetTool } from "@/types";
+import { Message, Tool, ToolChoice, ToolRequest, Arguments, useGetTool } from "@/types";
 import { Code, Code2, Link, X, MessageSquare } from "lucide-react"
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -31,11 +31,11 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
   const [showMessage, setShowMessage] = useState(false);
   const [tool, setTool] = useState<Tool>();
 
-  const [args, setArgs] = useState<ToolRequestArguments>(toolChoice.arguments);
+  const [args, setArgs] = useState<Arguments>(toolChoice.arguments);
 
-  const [hiddenArgs, setHiddenArgs] = useState<Partial<ToolRequestArguments>>({});
+  const [hiddenArgs, setHiddenArgs] = useState<Partial<Arguments>>({});
 
-  const getVisibleArgs = (fullArgs: ToolRequestArguments): ToolRequestArguments => {
+  const getVisibleArgs = (fullArgs: Arguments): Arguments => {
     if (!tool?.ignored_attributes) return fullArgs;
 
     const visibleArgs = { ...fullArgs };
@@ -62,7 +62,7 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
           acc[key] = toolChoice.arguments[key];
         }
         return acc;
-      }, {} as Partial<ToolRequestArguments>);
+      }, {} as Partial<Arguments>);
 
       setHiddenArgs(hidden);
       setArgs(getVisibleArgs(toolChoice.arguments));
@@ -71,7 +71,7 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
 
   function handleCodeChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const newArgs = e.target.value;
-    const newVisibleArgs: ToolRequestArguments = JSON.parse(newArgs);
+    const newVisibleArgs: Arguments = JSON.parse(newArgs);
 
     setArgs(newVisibleArgs);
 

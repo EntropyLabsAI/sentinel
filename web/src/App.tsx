@@ -10,7 +10,7 @@ import Executions from './components/run';
 import Tools from './components/tools';
 import ToolDetails from './components/tool';
 import SupervisorDetails from './components/supervisor_details';
-import Execution from './components/execution';
+import Execution from './components/execution_old';
 
 const App: React.FC = () => {
   return (

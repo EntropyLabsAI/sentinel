@@ -1,4 +1,4 @@
-import { useGetProjects, Project, Execution, useGetRunExecutions, useGetProjectRuns, Run, useGetProject, useGetRunTools, Tool } from "@/types";
+import { useGetProjects, Project, useGetProjectRuns, Run, useGetProject, useGetRunTools, Tool, useGetRunRequestGroups } from "@/types";
 import React, { useEffect, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import Page from "./page";
@@ -136,7 +136,7 @@ function ToolsBadgeList({ runId }: { runId: string }) {
 }
 
 function ExecutionsCount({ runId }: { runId: string }) {
-  const { data: executionsData, isLoading: executionsLoading, error: executionsError } = useGetRunExecutions(runId || '');
+  const { data: executionsData, isLoading: executionsLoading, error: executionsError } = useGetRunRequestGroups(runId || '');
   return (
     <>
       {executionsLoading && <p>Loading...</p>}

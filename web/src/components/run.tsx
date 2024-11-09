@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { useGetProjects, Project, Execution, useGetRunExecutions, useGetRunTools, Tool } from "@/types";
+import { useGetRunRequestGroups, Tool, ToolRequestGroup, useGetRunTools } from "@/types";
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Page from "./page";
@@ -12,10 +12,10 @@ import { EyeIcon, ListOrderedIcon, PickaxeIcon, PyramidIcon } from "lucide-react
 
 export default function Run() {
   const { runId } = useParams();
-  const [executions, setExecutions] = useState<Execution[]>([]);
+  const [executions, setExecutions] = useState<ToolRequestGroup[]>([]);
   const [tools, setTools] = useState<Tool[]>([]);
 
-  const { data, isLoading, error } = useGetRunExecutions(runId || '');
+  const { data, isLoading, error } = useGetRunRequestGroups(runId || '');
   const { data: toolsData, isLoading: toolsLoading } = useGetRunTools(runId || '');
 
   useEffect(() => {
