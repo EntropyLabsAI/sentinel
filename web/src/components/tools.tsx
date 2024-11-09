@@ -1,4 +1,4 @@
-import { Tool, useGetProject, useGetTools } from "@/types";
+import { Tool, useGetProject, useGetProjectTools } from "@/types";
 import React, { useEffect, useState } from "react";
 import Page from "./page";
 import { ToolsList } from "@/components/tools_list";
@@ -12,8 +12,8 @@ export default function Tools() {
   const { selectedProject } = useProject();
   const { data: projectData, isLoading: projectLoading, error: projectError } = useGetProject(selectedProject || '');
 
-  const { data, isLoading, error } = useGetTools(
-    { projectId: selectedProject! },
+  const { data, isLoading, error } = useGetProjectTools(
+    selectedProject || '',
   );
 
   useEffect(() => {
