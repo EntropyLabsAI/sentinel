@@ -180,7 +180,8 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Tool"
+                type: string
+                format: uuid
       tags:
         - Tool
 
@@ -235,30 +236,21 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                description:
-                  type: string
-                type:
-                  type: string
-                  enum:
-                    ["human_supervisor", "client_supervisor", "no_supervisor"]
-                code:
-                  type: string
-                attributes:
-                  type: object
-              required:
-                - name
-                - type
+              $ref: "#/components/schemas/Supervisor"
       responses:
         "201":
           description: Supervisor created
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Supervisor"
+                type: string
+                format: uuid
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
       tags:
         - Supervisor
 
@@ -298,6 +290,13 @@ paths:
       responses:
         "201":
           description: Chains created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  format: uuid
       tags:
         - Supervisor
 
@@ -331,6 +330,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - RequestGroup
+
+  /api/run/{runId}/request_groups:
+    parameters:
+      - name: runId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get all request groups for a run
+      operationId: GetRunRequestGroups
+      responses:
+        "200":
+          description: List of request groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ToolRequestGroup"
+
       tags:
         - RequestGroup
 
@@ -432,7 +455,7 @@ paths:
           type: string
           format: uuid
     post:
-      summary: Create a supervision request for a
+      summary: Create a supervision request for a supervisor in a chain on a request group
       operationId: CreateSupervisionRequest
       requestBody:
         required: true
@@ -666,7 +689,7 @@ components:
       type: object
       properties:
         role:
-          type: string
+          $ref: "#/components/schemas/MessageRole"
         content:
           type: string
       required:
@@ -928,3 +951,7 @@ components:
         - completed_reviews_count
         - pending_reviews_count
         - assigned_reviews_count
+
+    MessageRole:
+      type: string
+      enum: [system, user, assistant]
