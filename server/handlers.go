@@ -67,7 +67,7 @@ func apiCreateProjectHandler(w http.ResponseWriter, r *http.Request, store Proje
 
 	// Send the response
 	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, project)
+	respondJSON(w, id.String())
 }
 
 func apiCreateProjectRunHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store RunStore) {
@@ -358,6 +358,18 @@ func apiGetSupervisorsHandler(w http.ResponseWriter, r *http.Request, projectId 
 	respondJSON(w, supervisors)
 }
 
+func apiGetProjectToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store ToolStore) {
+	ctx := r.Context()
+
+	tools, err := store.GetProjectTools(ctx, id)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting project tools", err.Error())
+		return
+	}
+
+	respondJSON(w, tools)
+}
+
 func apiGetToolHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store ToolStore) {
 	ctx := r.Context()
 
@@ -378,18 +390,6 @@ func apiGetToolHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, sto
 		sendErrorResponse(w, http.StatusInternalServerError, "error encoding tool", err.Error())
 		return
 	}
-}
-
-func apiGetToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store ToolStore) {
-	ctx := r.Context()
-
-	tools, err := store.GetProjectTools(ctx, id)
-	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "error getting tools", err.Error())
-		return
-	}
-
-	respondJSON(w, tools)
 }
 
 func apiGetSupervisionRequestStatusHandler(w http.ResponseWriter, r *http.Request, reviewID uuid.UUID, store Store) {

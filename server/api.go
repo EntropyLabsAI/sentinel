@@ -161,7 +161,7 @@ func (s Server) GetRequestGroup(w http.ResponseWriter, r *http.Request, requestG
 
 // GetProjectTools
 func (s Server) GetProjectTools(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiGetToolsHandler(w, r, id, s.Store)
+	apiGetProjectToolsHandler(w, r, id, s.Store)
 }
 
 // GetTool
