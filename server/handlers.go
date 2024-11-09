@@ -44,6 +44,7 @@ func apiCreateProjectHandler(w http.ResponseWriter, r *http.Request, store Proje
 	}
 
 	if existingProject != nil {
+		w.WriteHeader(http.StatusOK)
 		respondJSON(w, existingProject)
 		return
 	}
@@ -166,7 +167,7 @@ func apiCreateToolSupervisorChainsHandler(w http.ResponseWriter, r *http.Request
 	var request []ChainRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
+		sendErrorResponse(w, http.StatusBadRequest, "invalid JSON format", err.Error())
 		return
 	}
 
@@ -190,7 +191,7 @@ func apiCreateSupervisorHandler(w http.ResponseWriter, r *http.Request, _ uuid.U
 
 	var request Supervisor
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
+		sendErrorResponse(w, http.StatusBadRequest, "invalid JSON format", err.Error())
 		return
 	}
 
@@ -272,7 +273,7 @@ func apiCreateToolRequestGroupHandler(w http.ResponseWriter, r *http.Request, to
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, trg)
+	respondJSON(w, trg.Id)
 }
 
 func apiGetRequestGroupHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store Store) {

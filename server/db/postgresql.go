@@ -463,10 +463,11 @@ func (s *PostgresqlStore) GetRequestGroup(ctx context.Context, id uuid.UUID) (*s
 	for rows.Next() {
 		var toolRequest sentinel.ToolRequest
 		var taskStateJSON []byte
+		var argumentsJSON []byte
 		if err := rows.Scan(
 			&toolRequest.Id,
 			&toolRequest.ToolId,
-			&toolRequest.Arguments,
+			&argumentsJSON,
 			&taskStateJSON,
 			&toolRequest.RequestgroupId,
 			&toolRequest.Message.Role,
@@ -480,6 +481,13 @@ func (s *PostgresqlStore) GetRequestGroup(ctx context.Context, id uuid.UUID) (*s
 		if len(taskStateJSON) > 0 {
 			if err := json.Unmarshal(taskStateJSON, &toolRequest.TaskState); err != nil {
 				return nil, fmt.Errorf("error parsing task state: %w", err)
+			}
+		}
+
+		// Parse the arguments JSON if it exists
+		if len(argumentsJSON) > 0 {
+			if err := json.Unmarshal(argumentsJSON, &toolRequest.Arguments); err != nil {
+				return nil, fmt.Errorf("error parsing tool request arguments: %w", err)
 			}
 		}
 
