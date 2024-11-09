@@ -23,6 +23,25 @@ import json
 
 
 PREFERRED_LLM_MODEL = "gpt-4o"
+DEFAULT_RUN_NAME = "default"
+
+class Run(BaseModel):
+    run_id: UUID
+    run_name: str
+
+
+class Task(BaseModel):
+    task_id: UUID
+    task_name: str
+    runs: Dict[str, Run] = {}  # Mapping from run_name to Run
+
+
+class Project(BaseModel):
+    project_id: UUID
+    project_name: str
+    tasks: Dict[str, Task] = {}  # Mapping from task_name to Task
+
+
 
 class SupervisionDecisionType(str, Enum):
     APPROVE = "approve"
@@ -37,6 +56,11 @@ class ModifiedData(BaseModel):
 
     tool_kwargs: Optional[Dict[str, Any]] = None
     """Modified keyword arguments for the tool/function."""
+    
+    original_inspect_ai_call: Optional[ToolCall] = None
+    """Original InspectAI call that was modified."""
+    
+    #TODO: Update to support changing the tool call itself
 
 class SupervisionDecision(BaseModel):
     decision: SupervisionDecisionType
@@ -49,6 +73,9 @@ class SupervisionDecision(BaseModel):
     """Explanation for decision."""
 
 class SupervisionContext:
+    """
+    Context for supervision decisions. This is used to store the context of the currently active project including all tasks/runs.
+    """
     def __init__(self):
         self.langchain_events: List[dict] = []  # List to store all logged events
         self.lock = Lock()  # Ensure thread safety
@@ -57,7 +84,7 @@ class SupervisionContext:
         self.openai_messages: List[Dict[str, Any]] = []
 
         # Registries
-        self.supervised_functions_registry: Dict[Callable, Dict[str, Any]] = {}
+        self.supervised_functions_registry: Dict[str, Dict[str, Any]] = {}
         self.registered_supervisors: Dict[str, UUID] = {}
         self.tool_ids: Dict[str, UUID] = {}
         self.supervisor_ids: Dict[str, UUID] = {}
@@ -161,32 +188,32 @@ class SupervisionContext:
     # Methods to manage the registries
     def add_supervised_function(self, func: Callable, supervision_functions: List[List[Callable]], ignored_attributes: List[str]):
         with self.lock:
-            if func in self.supervised_functions_registry:
+            if func.__qualname__ in self.supervised_functions_registry:
                 print(f"Function '{func.__qualname__}' is already registered. Skipping.")
                 return  # Skip adding the duplicate
 
-            self.supervised_functions_registry[func] = {
+            self.supervised_functions_registry[func.__qualname__] = {
                 'supervision_functions': supervision_functions or [],
-                'ignored_attributes': ignored_attributes or []
+                'ignored_attributes': ignored_attributes or [],
+                'function': func
             }
             print(f"Registered function '{func.__qualname__}'")
 
     def get_supervised_function_entry(self, func: Callable) -> Optional[Dict[str, Any]]:
         with self.lock:
-            return self.supervised_functions_registry.get(func)
-        
-    def get_supervised_function_entry_by_name(self, func_name: str) -> Optional[Dict[str, Any]]:
-        with self.lock:
-            for func, entry in self.supervised_functions_registry.items():
-                if func.__name__ == func_name:
-                    return entry
-            return None
+            return self.supervised_functions_registry.get(func.__qualname__)
 
     def update_tool_id(self, func: Callable, tool_id: UUID):
         with self.lock:
-            if func in self.supervised_functions_registry:
-                self.supervised_functions_registry[func]['tool_id'] = tool_id
+            if func.__qualname__ in self.supervised_functions_registry:
+                self.supervised_functions_registry[func.__qualname__]['tool_id'] = tool_id
                 print(f"Updated tool ID for '{func.__qualname__}' to {tool_id}")
+
+    def add_run_id_to_supervised_function(self, func: Callable, run_id: UUID):
+        with self.lock:
+            if func.__qualname__ in self.supervised_functions_registry:
+                self.supervised_functions_registry[func.__qualname__]['run_id'] = run_id
+                print(f"Updated run ID for '{func.__qualname__}' to {run_id}")
 
     def add_supervisor_id(self, supervisor_name: str, supervisor_id: UUID):
         with self.lock:
@@ -273,9 +300,11 @@ class SupervisionConfig:
         self.function_supervisors: Dict[str, List[Callable]] = {}  # Function-specific supervision chains
         self.llm = None
         self.context = SupervisionContext()
-        self.run_id: Optional[UUID] = None
-        self.client = None # Sentinel API client
+        self.client = None  # Sentinel API client
         self.local_supervisors_by_id: Dict[UUID, Callable] = {}
+
+        # Hierarchical projects structure
+        self.projects: Dict[str, Project] = {}  # Mapping from project_name to Project
 
     def set_global_supervision_functions(self, functions: List[Callable]):
         self.global_supervision_functions = functions
@@ -313,9 +342,6 @@ class SupervisionConfig:
 
     def set_mock_policy(self, mock_policy: MockPolicy):
         self.global_mock_policy = mock_policy
-
-    def set_run_id(self, run_id: UUID):
-        self.run_id = run_id
 
     def load_previous_execution_log(self, log_file_path: str, log_format='langchain'):
         """Load and process a previous execution log."""
@@ -355,6 +381,114 @@ class SupervisionConfig:
     def get_supervisor_by_id(self, supervisor_id: UUID) -> Optional[Callable]:
         """Retrieve a supervisor function by its ID."""
         return self.local_supervisors_by_id.get(supervisor_id)
+
+    # Project methods
+    def add_project(self, project_name: str, project_id: UUID):
+        """Add a new project."""
+        if project_name in self.projects:
+            raise ValueError(f"Project '{project_name}' already exists.")
+        project = Project(project_id=project_id, project_name=project_name)
+        self.projects[project_name] = project
+
+    def get_project(self, project_name: str) -> Optional[Project]:
+        """Retrieve a project by its name."""
+        return self.projects.get(project_name)
+
+    def get_project_by_id(self, project_id: UUID) -> Optional[Project]:
+        """Retrieve a project by its ID."""
+        for project in self.projects.values():
+            if project.project_id == project_id:
+                return project
+        return None
+
+    # Task methods
+    def add_task(self, project_name: str, task_name: str, task_id: UUID):
+        """Add a new task to a project."""
+        project = self.get_project(project_name)
+        if not project:
+            raise ValueError(f"Project '{project_name}' does not exist.")
+        if task_name in project.tasks:
+            raise ValueError(f"Task '{task_name}' already exists under project '{project_name}'.")
+        task = Task(task_id=task_id, task_name=task_name)
+        project.tasks[task_name] = task
+
+    def get_task(self, project_name: str, task_name: str) -> Optional[Task]:
+        """Retrieve a task by its name under a project."""
+        project = self.get_project(project_name)
+        if project:
+            return project.tasks.get(task_name)
+        return None
+
+    def get_task_by_id(self, task_id: UUID) -> Optional[Task]:
+        """Retrieve a task by its ID."""
+        for project in self.projects.values():
+            for task in project.tasks.values():
+                if task.task_id == task_id:
+                    return task
+        return None
+
+    # Run methods
+    def add_run(self, project_name: str, task_name: str, run_name: str, run_id: UUID):
+        """Add a new run to a task under a project."""
+        task = self.get_task(project_name, task_name)
+        if not task:
+            raise ValueError(f"Task '{task_name}' does not exist under project '{project_name}'.")
+        if run_name in task.runs:
+            raise ValueError(f"Run '{run_name}' already exists under task '{task_name}' in project '{project_name}'.")
+        run = Run(run_id=run_id, run_name=run_name)
+        task.runs[run_name] = run
+
+    def get_run(self, project_name: str, task_name: str, run_name: str) -> Optional[Run]:
+        """Retrieve a run by its name under a task and project."""
+        task = self.get_task(project_name, task_name)
+        if task:
+            return task.runs.get(run_name)
+        return None
+
+    def get_run_by_id(self, run_id: UUID) -> Optional[Run]:
+        """Retrieve a run by its ID."""
+        for project in self.projects.values():
+            for task in project.tasks.values():
+                for run in task.runs.values():
+                    if run.run_id == run_id:
+                        return run
+        return None
+
+    # Optional editing methods
+    def update_project_id(self, project_name: str, new_project_id: UUID):
+        """Update the project ID for a given project name."""
+        project = self.projects.get(project_name)
+        if project:
+            project.project_id = new_project_id
+        else:
+            raise ValueError(f"Project '{project_name}' does not exist.")
+
+    def update_task_id(self, project_name: str, task_name: str, new_task_id: UUID):
+        """Update the task ID for a given task name under a project."""
+        project = self.projects.get(project_name)
+        if project:
+            task = project.tasks.get(task_name)
+            if task:
+                task.task_id = new_task_id
+            else:
+                raise ValueError(f"Task '{task_name}' does not exist under project '{project_name}'.")
+        else:
+            raise ValueError(f"Project '{project_name}' does not exist.")
+
+    def update_run_id(self, project_name: str, task_name: str, run_name: str, new_run_id: UUID):
+        """Update the run ID for a given run name under a task and project."""
+        project = self.projects.get(project_name)
+        if project:
+            task = project.tasks.get(task_name)
+            if task:
+                if run_name in task.runs:
+                    task.runs[run_name].run_id = new_run_id
+                else:
+                    raise ValueError(f"Run '{run_name}' does not exist under task '{task_name}' and project '{project_name}'.")
+            else:
+                raise ValueError(f"Task '{task_name}' does not exist under project '{project_name}'.")
+        else:
+            raise ValueError(f"Project '{project_name}' does not exist.")
 
 # Global instance of SupervisionConfig
 # TODO: Update this
@@ -519,3 +653,4 @@ def convert_openai_tool_call(tool_call_dict: Dict[str, Any]) -> ToolCall:
     type_ = tool_call_dict.get('type', '')
 
     return ToolCall(id=id_, function=function_name, arguments=arguments, type=type_)
+

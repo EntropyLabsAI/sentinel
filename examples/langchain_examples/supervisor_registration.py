@@ -2,7 +2,7 @@ from entropy_labs.supervision.langchain.supervisors import human_supervisor
 from entropy_labs.supervision.supervisors import llm_supervisor
 from entropy_labs.supervision.langchain.logging import EntropyLabsCallbackHandler
 from entropy_labs.supervision.decorators import supervise
-from entropy_labs.api.project_registration import register_project, create_run
+from entropy_labs.api.project_registration import register_project, create_run, register_task
 from entropy_labs.supervision.supervisors import Supervisor
 from langchain_openai import ChatOpenAI
 from langchain.tools import tool
@@ -112,13 +112,19 @@ def run_agent(llm_with_tools, messages, callbacks):
 
 if __name__ == "__main__":
     entropy_labs_backend_url = "http://localhost:8080"
+    tools = [add, divide, upload_api]
     
     # Register the project and create a run
     project_id = register_project(project_name="langchain-example", entropy_labs_backend_url=entropy_labs_backend_url)
-    run_id = create_run(project_id=project_id, register_tools_and_supervisors_on_success=True)
+    task_id = register_task(project_id=project_id, task_name="supervisor-registration-example")
+    
+    
+    # By default, tools with @supervise() decorators are registered for all runs in the execution environment.
+    # If you want to register tools and supervisors for a specific run, you can specifically pass the tools to create_run.
+    run_id = create_run(project_id=project_id, task_id=task_id, tools=tools)
 
+    
     # Initialize tools and logging
-    tools = [add, divide, upload_api]
     log_directory = ".logs/supervisor_registration_example"
 
     # First run: Create logs

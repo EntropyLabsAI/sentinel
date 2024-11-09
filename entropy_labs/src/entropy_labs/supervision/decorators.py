@@ -8,7 +8,7 @@ from ..utils.utils import create_random_value
 from .llm_sampling import sample_from_llm
 from entropy_labs.api.sentinel_api_client_helper import create_execution, get_supervisors_for_tool, send_supervision_request, send_review_result
 import random
-from uuid import UUID
+from uuid import UUID, uuid4
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_type import SupervisorType
 def supervise(
     mock_policy: Optional[MockPolicy] = None,
@@ -23,7 +23,6 @@ def supervise(
         @wraps(func)
         def wrapper(*tool_args, **tool_kwargs):
             supervision_context = supervision_config.context
-            run_id = supervision_config.run_id
             client = supervision_config.client  # Get the Sentinel API client
 
             print(f"\n--- Supervision ---")
@@ -36,6 +35,7 @@ def supervise(
             if entry:
                 tool_id = entry['tool_id']
                 ignored_attributes = entry['ignored_attributes']
+                run_id = entry['run_id']
             else:
                 raise Exception(f"Tool ID for function {func.__name__} not found in the registry.")
             
@@ -62,7 +62,7 @@ def supervise(
                 # We send supervision request to the API
                 supervisors = supervisor_chain.supervisors
                 for supervisor in supervisors:
-                    review_id = send_supervision_request(supervisor, supervision_context, execution_id, tool_id, tool_args=tool_args, tool_kwargs=tool_kwargs)
+                    review_id = send_supervision_request(supervisor, supervision_context, run_id, execution_id, tool_id, tool_args=tool_args, tool_kwargs=tool_kwargs)
 
                     decision = None
                     supervisor_func = supervision_config.get_supervisor_by_id(supervisor.id)

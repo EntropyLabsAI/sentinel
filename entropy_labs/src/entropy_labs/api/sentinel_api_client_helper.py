@@ -4,6 +4,7 @@ from entropy_labs.supervision.config import (
     SupervisionDecisionType,
     supervision_config,
 )
+from langchain_core.tools.structured import StructuredTool
 from entropy_labs.supervision.inspect_ai._config import FRONTEND_URL
 from entropy_labs.supervision.supervisors import auto_approve_supervisor
 from rich.console import Console
@@ -91,15 +92,36 @@ from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_chai
 # Create an asyncio.Lock to prevent concurrent console access
 _console_lock = asyncio.Lock()
 
-def register_tools_and_supervisors(client: Client, run_id: UUID):
+def register_tools_and_supervisors(run_id: UUID, tools: Optional[List[Callable | StructuredTool]] = None):
+    """
+    Registers tools and supervisors with the backend API.
+    """
     # Access the registries from the context
     supervision_context = supervision_config.context
+    client = supervision_config.client
+    
+    if tools is None: #TODO: Make sure this is correct
+        # If no tools are provided, register all tools and supervisors
+        supervised_functions = supervision_context.supervised_functions_registry
+    else:
+        # If list of tools is provided, only register the tools and supervisors for the provided tools  
+        supervised_functions = {}
+        for tool in tools:
+            # Check if tool is StructuredTool
+            if isinstance(tool, StructuredTool):
+                supervised_functions[tool.func.__qualname__] = supervision_context.supervised_functions_registry[tool.func.__qualname__]
+            else:
+                supervised_functions[tool.__qualname__] = supervision_context.supervised_functions_registry[tool.__qualname__]
 
-    for func, data in supervision_context.supervised_functions_registry.items():
+
+    for tool_name, data in supervised_functions.items():
         supervision_functions = data['supervision_functions']
         ignored_attributes = data['ignored_attributes']
+        func = data['function']
+        
+        # Add the run_id to the supervised function
+        supervision_context.add_run_id_to_supervised_function(func, run_id)
 
-        tool_name = func.__qualname__
         # Extract function arguments using inspect
         func_signature = inspect.signature(func)
         func_arguments = {
@@ -167,7 +189,7 @@ def register_tools_and_supervisors(client: Client, run_id: UUID):
         if tool_id is UNSET or not isinstance(tool_id, UUID):
             raise ValueError("Invalid tool_id: Expected UUID")
 
-        # Associate supervisors with the tool for the given run
+        print(f"Associating supervisors with tool '{tool_name}' for run ID {run_id}")
         if supervisor_ids:
             association_response = create_run_tool_supervisors_sync_detailed(
                 run_id=run_id,
@@ -180,7 +202,7 @@ def register_tools_and_supervisors(client: Client, run_id: UUID):
             else:
                 raise Exception(f"Failed to assign supervisors to tool '{tool_name}'. Response: {association_response}")
         else:
-            print(f"No supervisors to assign to tool '{tool_name}'")
+                print(f"No supervisors to assign to tool '{tool_name}'")
 
 
 
@@ -305,6 +327,7 @@ def create_execution(tool_id: UUID, run_id: UUID, client: Client) -> Optional[UU
         if (
             execution_response.status_code == 200 and
             execution_response.parsed is not None and
+            isinstance(execution_response.parsed, Execution) and
             execution_response.parsed.id is not None
         ):
             execution_id = execution_response.parsed.id
@@ -358,13 +381,8 @@ def get_supervisors_for_tool(tool_id: UUID, run_id: UUID, client: Client) -> Lis
     return supervisors_list
 
 
-def send_supervision_request(supervisor: Supervisor, supervision_context, execution_id: UUID, tool_id: UUID, tool_args: list[Any], tool_kwargs: dict[str, Any]) -> UUID:
+def send_supervision_request(supervisor: Supervisor, supervision_context, run_id: UUID, execution_id: UUID, tool_id: UUID, tool_args: list[Any], tool_kwargs: dict[str, Any]) -> UUID:
     client = supervision_config.client
-    run_id = supervision_config.run_id
-
-    # Prepare the SupervisionRequest with additional information
-    if run_id is None:
-        raise ValueError("Run ID is required to create a supervision request.")
 
     # Use the helper function to serialize arguments
     arguments_dict = _serialize_arguments(tool_args, tool_kwargs)

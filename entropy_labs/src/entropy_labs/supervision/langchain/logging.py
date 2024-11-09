@@ -37,9 +37,8 @@ class EntropyLabsCallbackHandler(BaseCallbackHandler):
         self.trace_logs: Dict[UUID, Any] = {}
         # Map of run_id to trace_id
         self.run_trace_ids: Dict[UUID, UUID] = {}
+        self.run_id = run_id
         
-        if run_id: #TODO: Think whether this is the best place for this
-            supervision_config.set_run_id(run_id)
 
     def _get_log_file(self, trace_id: UUID):
         if self.single_log_file:
