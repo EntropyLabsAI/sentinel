@@ -271,6 +271,7 @@ func apiCreateToolRequestGroupHandler(w http.ResponseWriter, r *http.Request, to
 		return
 	}
 
+	w.WriteHeader(http.StatusCreated)
 	respondJSON(w, trg)
 }
 
@@ -501,8 +502,7 @@ func apiCreateSupervisionRequestHandler(
 		CreatedAt:            t,
 	}
 
-	// Respond immediately with 200 OK.
-	// The client will receive and ID they can use to poll the status of their supervisor
+	w.WriteHeader(http.StatusCreated)
 	respondJSON(w, response)
 }
 
@@ -530,6 +530,7 @@ func apiCreateSupervisionResultHandler(
 
 	result.Id = id
 
+	w.WriteHeader(http.StatusCreated)
 	respondJSON(w, result)
 }
 
