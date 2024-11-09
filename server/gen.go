@@ -179,6 +179,12 @@ type Supervisor struct {
 	Type SupervisorType `json:"type"`
 }
 
+// SupervisorChain defines model for SupervisorChain.
+type SupervisorChain struct {
+	ChainId     openapi_types.UUID `json:"chain_id"`
+	Supervisors []Supervisor       `json:"supervisors"`
+}
+
 // SupervisorType The type of supervisor. ClientSupervisor means that the supervision is done client side and the server is merely informed. Other supervisor types are handled serverside, e.g. HumanSupervisor means that a human will review the request via the Sentinel UI.
 type SupervisorType string
 
@@ -234,12 +240,6 @@ type ToolRequest struct {
 type ToolRequestGroup struct {
 	Id           *openapi_types.UUID `json:"id,omitempty"`
 	ToolRequests []ToolRequest       `json:"tool_requests"`
-}
-
-// ToolSupervisorChain defines model for ToolSupervisorChain.
-type ToolSupervisorChain struct {
-	ChainId     openapi_types.UUID `json:"chain_id"`
-	Supervisors []Supervisor       `json:"supervisors"`
 }
 
 // Usage defines model for Usage.
@@ -315,6 +315,9 @@ type ServerInterface interface {
 	// Get all tools for a project
 	// (GET /api/project/{projectId}/tools)
 	GetProjectTools(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
+	// Get a request group
+	// (GET /api/request_group/{requestGroupId})
+	GetRequestGroup(w http.ResponseWriter, r *http.Request, requestGroupId openapi_types.UUID)
 	// Create a supervision request for a supervisor in a chain on a request group
 	// (POST /api/request_group/{requestGroupId}/chain/{chainId}/supervisor/{supervisorId}/supervision_request)
 	CreateSupervisionRequest(w http.ResponseWriter, r *http.Request, requestGroupId openapi_types.UUID, chainId openapi_types.UUID, supervisorId openapi_types.UUID)
@@ -330,9 +333,15 @@ type ServerInterface interface {
 	// Get hub stats
 	// (GET /api/stats)
 	GetHubStats(w http.ResponseWriter, r *http.Request)
+	// Get a supervision result
+	// (GET /api/supervision_request/{supervisionRequestId}/result)
+	GetSupervisionResult(w http.ResponseWriter, r *http.Request, supervisionRequestId openapi_types.UUID)
 	// Create a supervision result for a supervision request
 	// (POST /api/supervision_request/{supervisionRequestId}/result)
 	CreateSupervisionResult(w http.ResponseWriter, r *http.Request, supervisionRequestId openapi_types.UUID)
+	// Get a supervision request status
+	// (GET /api/supervision_request/{supervisionRequestId}/status)
+	GetSupervisionRequestStatus(w http.ResponseWriter, r *http.Request, supervisionRequestId openapi_types.UUID)
 	// Get a supervisor
 	// (GET /api/supervisor/{supervisorId})
 	GetSupervisor(w http.ResponseWriter, r *http.Request, supervisorId openapi_types.UUID)
@@ -554,6 +563,31 @@ func (siw *ServerInterfaceWrapper) GetProjectTools(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// GetRequestGroup operation middleware
+func (siw *ServerInterfaceWrapper) GetRequestGroup(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "requestGroupId" -------------
+	var requestGroupId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "requestGroupId", r.PathValue("requestGroupId"), &requestGroupId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "requestGroupId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRequestGroup(w, r, requestGroupId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CreateSupervisionRequest operation middleware
 func (siw *ServerInterfaceWrapper) CreateSupervisionRequest(w http.ResponseWriter, r *http.Request) {
 
@@ -686,6 +720,31 @@ func (siw *ServerInterfaceWrapper) GetHubStats(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// GetSupervisionResult operation middleware
+func (siw *ServerInterfaceWrapper) GetSupervisionResult(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "supervisionRequestId" -------------
+	var supervisionRequestId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "supervisionRequestId", r.PathValue("supervisionRequestId"), &supervisionRequestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "supervisionRequestId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSupervisionResult(w, r, supervisionRequestId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CreateSupervisionResult operation middleware
 func (siw *ServerInterfaceWrapper) CreateSupervisionResult(w http.ResponseWriter, r *http.Request) {
 
@@ -702,6 +761,31 @@ func (siw *ServerInterfaceWrapper) CreateSupervisionResult(w http.ResponseWriter
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateSupervisionResult(w, r, supervisionRequestId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSupervisionRequestStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetSupervisionRequestStatus(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "supervisionRequestId" -------------
+	var supervisionRequestId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "supervisionRequestId", r.PathValue("supervisionRequestId"), &supervisionRequestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "supervisionRequestId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSupervisionRequestStatus(w, r, supervisionRequestId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -979,12 +1063,15 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("GET "+options.BaseURL+"/api/project/{projectId}/supervisor", wrapper.GetSupervisors)
 	m.HandleFunc("POST "+options.BaseURL+"/api/project/{projectId}/supervisor", wrapper.CreateSupervisor)
 	m.HandleFunc("GET "+options.BaseURL+"/api/project/{projectId}/tools", wrapper.GetProjectTools)
+	m.HandleFunc("GET "+options.BaseURL+"/api/request_group/{requestGroupId}", wrapper.GetRequestGroup)
 	m.HandleFunc("POST "+options.BaseURL+"/api/request_group/{requestGroupId}/chain/{chainId}/supervisor/{supervisorId}/supervision_request", wrapper.CreateSupervisionRequest)
 	m.HandleFunc("GET "+options.BaseURL+"/api/run/{runId}/request_groups", wrapper.GetRunRequestGroups)
 	m.HandleFunc("GET "+options.BaseURL+"/api/run/{runId}/tool", wrapper.GetRunTools)
 	m.HandleFunc("POST "+options.BaseURL+"/api/run/{runId}/tool", wrapper.CreateRunTool)
 	m.HandleFunc("GET "+options.BaseURL+"/api/stats", wrapper.GetHubStats)
+	m.HandleFunc("GET "+options.BaseURL+"/api/supervision_request/{supervisionRequestId}/result", wrapper.GetSupervisionResult)
 	m.HandleFunc("POST "+options.BaseURL+"/api/supervision_request/{supervisionRequestId}/result", wrapper.CreateSupervisionResult)
+	m.HandleFunc("GET "+options.BaseURL+"/api/supervision_request/{supervisionRequestId}/status", wrapper.GetSupervisionRequestStatus)
 	m.HandleFunc("GET "+options.BaseURL+"/api/supervisor/{supervisorId}", wrapper.GetSupervisor)
 	m.HandleFunc("GET "+options.BaseURL+"/api/swagger-ui", wrapper.GetSwaggerDocs)
 	m.HandleFunc("GET "+options.BaseURL+"/api/tool/{toolId}", wrapper.GetTool)
@@ -998,45 +1085,46 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

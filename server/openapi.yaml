@@ -273,7 +273,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/ToolSupervisorChain"
+                  $ref: "#/components/schemas/SupervisorChain"
       tags:
         - Supervisor
     post:
@@ -353,7 +353,27 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ToolRequestGroup"
+      tags:
+        - RequestGroup
 
+  /api/request_group/{requestGroupId}:
+    parameters:
+      - name: requestGroupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get a request group
+      operationId: GetRequestGroup
+      responses:
+        "200":
+          description: Request group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolRequestGroup"
       tags:
         - RequestGroup
 
@@ -485,6 +505,27 @@ paths:
       tags:
         - Supervision
 
+  /api/supervision_request/{supervisionRequestId}/status:
+    parameters:
+      - name: supervisionRequestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get a supervision request status
+      operationId: GetSupervisionRequestStatus
+      responses:
+        "200":
+          description: Get the supervision request status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupervisionStatus"
+      tags:
+        - Supervision
+
   /api/supervision_request/{supervisionRequestId}/result:
     parameters:
       - name: supervisionRequestId
@@ -493,6 +534,18 @@ paths:
         schema:
           type: string
           format: uuid
+    get:
+      summary: Get a supervision result
+      operationId: GetSupervisionResult
+      responses:
+        "200":
+          description: Get the supervision result for a supervision request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupervisionResult"
+      tags:
+        - Supervision
     post:
       summary: Create a supervision result for a supervision request
       operationId: CreateSupervisionResult
@@ -634,7 +687,7 @@ components:
             format: uuid
           description: Array of supervisor IDs to create chains with
 
-    ToolSupervisorChain:
+    SupervisorChain:
       type: object
       properties:
         chain_id:

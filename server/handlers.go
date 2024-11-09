@@ -105,35 +105,6 @@ func apiGetProjectRunsHandler(w http.ResponseWriter, r *http.Request, id uuid.UU
 	respondJSON(w, runs)
 }
 
-func apiGetRunsHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, store RunStore) {
-	ctx := r.Context()
-
-	runs, err := store.GetRuns(ctx, projectId)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	respondJSON(w, runs)
-}
-
-func apiGetRunHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store RunStore) {
-	ctx := r.Context()
-
-	run, err := store.GetRun(ctx, id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if run == nil {
-		http.Error(w, "Run not found", http.StatusNotFound)
-		return
-	}
-
-	respondJSON(w, run)
-}
-
 func apiCreateRunToolHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store ToolStore) {
 	ctx := r.Context()
 
@@ -201,7 +172,7 @@ func apiCreateToolSupervisorChainsHandler(w http.ResponseWriter, r *http.Request
 	// TODO do we want to return the chains here?
 	chainIds := make([]uuid.UUID, 0)
 	for _, chain := range request {
-		chainId, err := store.CreateToolSupervisorChain(ctx, toolId, chain)
+		chainId, err := store.CreateSupervisorChain(ctx, toolId, chain)
 		if err != nil {
 			sendErrorResponse(w, http.StatusInternalServerError, "error creating supervisor chain", err.Error())
 			return
@@ -250,7 +221,7 @@ func apiGetToolSupervisorChainsHandler(w http.ResponseWriter, r *http.Request, t
 		return
 	}
 
-	chains, err := store.GetToolSupervisorChains(ctx, toolId)
+	chains, err := store.GetSupervisorChains(ctx, toolId)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool supervisor chains", err.Error())
 		return
@@ -300,6 +271,42 @@ func apiCreateToolRequestGroupHandler(w http.ResponseWriter, r *http.Request, to
 	}
 
 	respondJSON(w, trg)
+}
+
+func apiGetRequestGroupHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	requestGroup, err := store.GetRequestGroup(ctx, requestGroupId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting request group", err.Error())
+		return
+	}
+
+	respondJSON(w, requestGroup)
+}
+
+func apiGetSupervisionResultHandler(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	// Check that the supervision request exists
+	supervisionRequest, err := store.GetSupervisionRequest(ctx, supervisionRequestId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision request", err.Error())
+		return
+	}
+
+	if supervisionRequest == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Supervision request not found", "")
+		return
+	}
+
+	supervisionResult, err := store.GetSupervisionResult(ctx, supervisionRequestId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision result", err.Error())
+		return
+	}
+
+	respondJSON(w, supervisionResult)
 }
 
 func apiGetRunRequestGroupsHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
@@ -383,8 +390,31 @@ func apiGetToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, st
 	respondJSON(w, tools)
 }
 
-// TODO FIX
-func apiCreateSupervisionRequestHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, chainId uuid.UUID, supervisorId uuid.UUID, store Store) {
+func apiGetSupervisionRequestStatusHandler(w http.ResponseWriter, r *http.Request, reviewID uuid.UUID, store Store) {
+	ctx := r.Context()
+	// Use the reviewID directly
+	supervisor, err := store.GetSupervisionRequest(ctx, reviewID)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisor", err.Error())
+		return
+	}
+
+	if supervisor == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Supervisor not found", "")
+		return
+	}
+
+	respondJSON(w, supervisor.Status)
+}
+
+func apiCreateSupervisionRequestHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+	requestGroupId uuid.UUID,
+	chainId uuid.UUID,
+	supervisorId uuid.UUID,
+	store Store,
+) {
 	ctx := r.Context()
 
 	t := time.Now()
@@ -397,11 +427,65 @@ func apiCreateSupervisionRequestHandler(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	// TODO:
-	// - check that the request, chain and supervisor exist
-	// - check that the supervisor is associated with the tool/request/chain
-	// - find the chain execution that this request should be part of
-	// - think about the tools in the group. If there are more than one reject unless this is a sample_n_supervisor
+	// Check that the request, chain and supervisor exist
+	requestGroup, err := store.GetRequestGroup(ctx, requestGroupId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting request group", err.Error())
+		return
+	}
+
+	if requestGroup == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Request group not found", "")
+		return
+	}
+
+	if len(requestGroup.ToolRequests) > 1 {
+		sendErrorResponse(w, http.StatusBadRequest, "Request group must contain only one tool request", "")
+		return
+	}
+
+	chain, err := store.GetSupervisorChain(ctx, chainId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisor chain", err.Error())
+		return
+	}
+
+	if chain == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Supervisor chain not found", "")
+		return
+	}
+
+	supervisor, err := store.GetSupervisor(ctx, supervisorId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisor", err.Error())
+		return
+	}
+
+	if supervisor == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Supervisor not found", "")
+		return
+	}
+
+	// Check that the supervisor is associated with the tool/request/chain
+	found := false
+	pos := -1
+	for i, chainSupervisor := range chain.Supervisors {
+		if chainSupervisor.Id.String() == supervisorId.String() {
+			found = true
+			pos = i
+			break
+		}
+	}
+
+	if !found {
+		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Supervisor %s not associated with chain %s", supervisorId, chainId), "")
+		return
+	}
+
+	if pos != request.PositionInChain {
+		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Supervisor %s is not in the correct position in chain %s", supervisorId, chainId), "")
+		return
+	}
 
 	// Store the supervision in the database
 	reviewID, err := store.CreateSupervisionRequest(ctx, request)
@@ -487,6 +571,18 @@ func apiGetProjectHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, 
 
 	respondJSON(w, project)
 }
+
+// func apiGetSupervisionRequestHandler(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID, store Store) {
+// 	ctx := r.Context()
+
+// 	supervisionRequest, err := store.GetSupervisionRequest(ctx, supervisionRequestId)
+// 	if err != nil {
+// 		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision request", err.Error())
+// 		return
+// 	}
+
+// 	respondJSON(w, supervisionRequest)
+// }
 
 // apiGetExecutionSupervisionsHandler handles the GET /api/executions/{executionId}/supervisions endpoint
 // func apiGetExecutionSupervisionsHandler(w http.ResponseWriter, r *http.Request, executionId uuid.UUID, store Store) {
@@ -687,24 +783,6 @@ func apiGetProjectHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, 
 // 	respondJSON(w, results)
 // }
 
-// apiSupervisionStatusHandler checks the status of a supervisor request
-// func apiSupervisionStatusHandler(w http.ResponseWriter, r *http.Request, reviewID uuid.UUID, store Store) {
-// 	ctx := r.Context()
-// 	// Use the reviewID directly
-// 	supervisor, err := store.GetSupervisionRequest(ctx, reviewID)
-// 	if err != nil {
-// 		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisor", err.Error())
-// 		return
-// 	}
-
-// 	if supervisor == nil {
-// 		sendErrorResponse(w, http.StatusNotFound, "Supervisor not found", "")
-// 		return
-// 	}
-
-// 	respondJSON(w, supervisor.Status)
-// }
-
 // // apiLLMExplanationHandler receives a code snippet and returns an explanation and a danger score by calling an LLM
 // func apiLLMExplanationHandler(w http.ResponseWriter, r *http.Request) {
 // 	ctx := r.Context()
@@ -732,4 +810,33 @@ func apiGetProjectHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, 
 // 		sendErrorResponse(w, http.StatusInternalServerError, "Failed to get explanation from LLM", err.Error())
 // 		return
 // 	}
+// }
+
+// func apiGetRunsHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, store RunStore) {
+// 	ctx := r.Context()
+
+// 	runs, err := store.GetRuns(ctx, projectId)
+// 	if err != nil {
+// 		http.Error(w, err.Error(), http.StatusInternalServerError)
+// 		return
+// 	}
+
+// 	respondJSON(w, runs)
+// }
+
+// func apiGetRunHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store RunStore) {
+// 	ctx := r.Context()
+
+// 	run, err := store.GetRun(ctx, id)
+// 	if err != nil {
+// 		http.Error(w, err.Error(), http.StatusInternalServerError)
+// 		return
+// 	}
+
+// 	if run == nil {
+// 		http.Error(w, "Run not found", http.StatusNotFound)
+// 		return
+// 	}
+
+// 	respondJSON(w, run)
 // }

@@ -13,14 +13,26 @@ type Store interface {
 	ToolStore
 	ToolRequestStore
 	SupervisorStore
-	SupervisorRequestStore
-	SupervisorResultsStore
-	SupervisorStatusStore
+	SupervisionStore
 }
 
-type SupervisorStatusStore interface {
+type SupervisionStore interface {
+	// Requests
+	CreateSupervisionRequest(ctx context.Context, request SupervisionRequest) (*uuid.UUID, error)
+	GetSupervisionRequest(ctx context.Context, id uuid.UUID) (*SupervisionRequest, error)
+	GetSupervisionRequestsForStatus(ctx context.Context, status Status) ([]SupervisionRequest, error)
+
+	// Results
+	GetSupervisionResult(ctx context.Context, id uuid.UUID) (*SupervisionResult, error)
+	CreateSupervisionResult(ctx context.Context, result SupervisionResult, requestId uuid.UUID) (*uuid.UUID, error)
+
+	// Statuses
 	CreateSupervisionStatus(ctx context.Context, requestID uuid.UUID, status SupervisionStatus) error
+
+	// Util
 	CountSupervisionRequests(ctx context.Context, status Status) (int, error)
+
+	// GetSupervisionRequests(ctx context.Context) ([]SupervisionRequest, error)
 	// GetSupervisionStatusesForRequest(ctx context.Context, requestId uuid.UUID) ([]SupervisionStatus, error)
 }
 
@@ -29,24 +41,12 @@ type ProjectStore interface {
 	GetProject(ctx context.Context, id uuid.UUID) (*Project, error)
 	GetProjectFromName(ctx context.Context, name string) (*Project, error)
 	GetProjects(ctx context.Context) ([]Project, error)
-	GetProjectRuns(ctx context.Context, id uuid.UUID) ([]Run, error)
-}
-
-type SupervisorRequestStore interface {
-	CreateSupervisionRequest(ctx context.Context, request SupervisionRequest) (*uuid.UUID, error)
-	GetSupervisionRequest(ctx context.Context, id uuid.UUID) (*SupervisionRequest, error)
-	// GetSupervisionRequests(ctx context.Context) ([]SupervisionRequest, error)
-	GetSupervisionRequestsForStatus(ctx context.Context, status Status) ([]SupervisionRequest, error)
-}
-
-type SupervisorResultsStore interface {
-	// GetSupervisionResults(ctx context.Context, id uuid.UUID) ([]*SupervisionResult, error)
-	CreateSupervisionResult(ctx context.Context, result SupervisionResult, requestId uuid.UUID) (*uuid.UUID, error)
 }
 
 type ToolRequestStore interface {
 	CreateToolRequestGroup(ctx context.Context, toolId uuid.UUID, request ToolRequestGroup) (*ToolRequestGroup, error)
 	GetRunRequestGroups(ctx context.Context, runId uuid.UUID) ([]ToolRequestGroup, error)
+	GetRequestGroup(ctx context.Context, id uuid.UUID) (*ToolRequestGroup, error)
 }
 
 type ToolStore interface {
@@ -58,12 +58,13 @@ type ToolStore interface {
 }
 
 type SupervisorStore interface {
+	CreateSupervisor(ctx context.Context, supervisor Supervisor) (uuid.UUID, error)
 	GetSupervisor(ctx context.Context, id uuid.UUID) (*Supervisor, error)
 	GetSupervisorFromValues(ctx context.Context, code string, name string, desc string, t SupervisorType, attributes map[string]interface{}) (*Supervisor, error)
 	GetSupervisors(ctx context.Context, projectId uuid.UUID) ([]Supervisor, error)
-	CreateSupervisor(ctx context.Context, supervisor Supervisor) (uuid.UUID, error)
-	CreateToolSupervisorChain(ctx context.Context, toolId uuid.UUID, chain ChainRequest) (*uuid.UUID, error)
-	GetToolSupervisorChains(ctx context.Context, toolId uuid.UUID) ([]ToolSupervisorChain, error)
+	CreateSupervisorChain(ctx context.Context, toolId uuid.UUID, chain ChainRequest) (*uuid.UUID, error)
+	GetSupervisorChains(ctx context.Context, toolId uuid.UUID) ([]SupervisorChain, error)
+	GetSupervisorChain(ctx context.Context, id uuid.UUID) (*SupervisorChain, error)
 }
 
 type RunStore interface {

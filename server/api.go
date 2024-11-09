@@ -154,6 +154,11 @@ func (s Server) GetRunRequestGroups(w http.ResponseWriter, r *http.Request, runI
 	apiGetRunRequestGroupsHandler(w, r, runId, s.Store)
 }
 
+// GetRequestGroup
+func (s Server) GetRequestGroup(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID) {
+	apiGetRequestGroupHandler(w, r, requestGroupId, s.Store)
+}
+
 // GetProjectTools
 func (s Server) GetProjectTools(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	apiGetToolsHandler(w, r, id, s.Store)
@@ -169,9 +174,19 @@ func (s Server) CreateSupervisionRequest(w http.ResponseWriter, r *http.Request,
 	apiCreateSupervisionRequestHandler(w, r, requestGroupId, chainId, supervisorId, s.Store)
 }
 
+// GetSupervisionRequestStatus
+func (s Server) GetSupervisionRequestStatus(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID) {
+	apiGetSupervisionRequestStatusHandler(w, r, supervisionRequestId, s.Store)
+}
+
 // CreateSupervisionResult
 func (s Server) CreateSupervisionResult(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID) {
 	apiCreateSupervisionResultHandler(w, r, supervisionRequestId, s.Store)
+}
+
+// GetSupervisionResult
+func (s Server) GetSupervisionResult(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID) {
+	apiGetSupervisionResultHandler(w, r, supervisionRequestId, s.Store)
 }
 
 // GetHubStats
