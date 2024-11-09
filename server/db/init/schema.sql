@@ -3,7 +3,6 @@ DROP TABLE IF EXISTS supervisionresult CASCADE;
 DROP TABLE IF EXISTS supervisionrequest_status CASCADE;
 DROP TABLE IF EXISTS supervisionrequest CASCADE;
 DROP TABLE IF EXISTS chainexecution CASCADE;
-DROP TABLE IF EXISTS toolrequest_requestgroup CASCADE;
 DROP TABLE IF EXISTS toolrequest CASCADE;
 DROP TABLE IF EXISTS chain_tool CASCADE;
 DROP TABLE IF EXISTS chain_supervisor CASCADE;
@@ -29,7 +28,8 @@ CREATE TABLE project (
 );
 
 CREATE TABLE requestgroup (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE supervisor (
@@ -96,15 +96,9 @@ CREATE TABLE toolrequest (
     requestgroup_id UUID REFERENCES requestgroup(id) NULL
 );
 
-CREATE TABLE toolrequest_requestgroup (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    requestgroup_id UUID REFERENCES requestgroup(id),
-    toolrequest_id UUID REFERENCES toolrequest(id)
-);
-
 CREATE TABLE chainexecution (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    toolrequest_requestgroup_id UUID REFERENCES toolrequest_requestgroup(id),
+    requestgroup_id UUID REFERENCES requestgroup(id),
     chain_id UUID REFERENCES chain(id),
     supervisor_id UUID REFERENCES supervisor(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

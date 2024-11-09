@@ -438,13 +438,16 @@ func (s *PostgresqlStore) CreateToolRequestGroup(ctx context.Context, toolId uui
 
 func (s *PostgresqlStore) GetRequestGroup(ctx context.Context, id uuid.UUID) (*sentinel.ToolRequestGroup, error) {
 	query := `
-		SELECT tr.id, tr.tool_id, tr.arguments, tr.task_state, tr.requestgroup_id, m.role, m.content
+		SELECT tr.id, tr.tool_id, tr.arguments, tr.task_state, tr.requestgroup_id, m.role, m.content, rg.created_at
 		FROM toolrequest tr
 		INNER JOIN message m ON tr.message_id = m.id
+		INNER JOIN requestgroup rg ON tr.requestgroup_id = rg.id
 		WHERE tr.requestgroup_id = $1`
 
+	var createdAt time.Time
 	toolRequestGroup := sentinel.ToolRequestGroup{
 		Id:           &id,
+		CreatedAt:    &createdAt,
 		ToolRequests: make([]sentinel.ToolRequest, 0),
 	}
 
@@ -468,6 +471,7 @@ func (s *PostgresqlStore) GetRequestGroup(ctx context.Context, id uuid.UUID) (*s
 			&toolRequest.RequestgroupId,
 			&toolRequest.Message.Role,
 			&toolRequest.Message.Content,
+			&createdAt,
 		); err != nil {
 			return nil, fmt.Errorf("error scanning tool request: %w", err)
 		}

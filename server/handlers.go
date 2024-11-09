@@ -66,6 +66,7 @@ func apiCreateProjectHandler(w http.ResponseWriter, r *http.Request, store Proje
 	}
 
 	// Send the response
+	w.WriteHeader(http.StatusCreated)
 	respondJSON(w, project)
 }
 

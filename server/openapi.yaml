@@ -707,6 +707,9 @@ components:
         id:
           type: string
           format: uuid
+        created_at:
+          type: string
+          format: date-time
         tool_requests:
           type: array
           items:
