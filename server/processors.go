@@ -68,11 +68,11 @@ func (p *Processor) processReview(ctx context.Context, supervisionRequest Superv
 	}
 
 	switch supervisor.Type {
-	case HumanSupervisor:
+	case SupervisorTypeHumanSupervisor:
 		return p.processHumanReview(ctx, supervisionRequest)
-	case ClientSupervisor:
+	case SupervisorTypeClientSupervisor:
 		return p.processClientReview(ctx, supervisionRequest)
-	case NoSupervisor:
+	case SupervisorTypeNoSupervisor:
 		return p.processNoSupervisionReview(ctx, supervisionRequest)
 	default:
 		return fmt.Errorf("unknown supervisor type: %s", supervisor.Type)

@@ -85,116 +85,93 @@ func (s Server) GetOpenAPI(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "openapi.yaml")
 }
 
-func (s Server) CreateSupervisionRequest(w http.ResponseWriter, r *http.Request) {
-	apiCreateSupervisionRequestHandler(w, r, s.Store)
+// CreateProject
+func (s Server) CreateProject(w http.ResponseWriter, r *http.Request) {
+	apiCreateProjectHandler(w, r, s.Store)
 }
 
-func (s Server) GetSupervisionRequest(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiGetSupervisionRequestHandler(w, r, id, s.Store)
+// GetProjects
+func (s Server) GetProjects(w http.ResponseWriter, r *http.Request) {
+	apiGetProjectsHandler(w, r, s.Store)
 }
 
-func (s Server) GetSupervisionRequests(w http.ResponseWriter, r *http.Request, params GetSupervisionRequestsParams) {
-	apiGetSupervisionRequestsHandler(w, r, params, s.Store)
+// GetProjectById
+func (s Server) GetProject(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetProjectHandler(w, r, id, s.Store)
 }
 
-func (s Server) CreateSupervisionResult(w http.ResponseWriter, r *http.Request, supervisorRequestId uuid.UUID) {
-	apiCreateSupervisionResultHandler(w, r, supervisorRequestId, s.Store)
+// CreateProjectRun
+func (s Server) CreateProjectRun(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiCreateProjectRunHandler(w, r, id, s.Store)
 }
 
-func (s Server) CreateRun(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiCreateRunHandler(w, r, id, s.Store)
-}
-
-func (s Server) CreateTool(w http.ResponseWriter, r *http.Request) {
-	apiCreateToolHandler(w, r, s.Store)
-}
-
+// GetProjectRuns
 func (s Server) GetProjectRuns(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	apiGetProjectRunsHandler(w, r, id, s.Store)
 }
 
-func (s Server) GetRuns(w http.ResponseWriter, r *http.Request, projectId uuid.UUID) {
-	apiGetRunsHandler(w, r, projectId, s.Store)
+// GetRunTools
+func (s Server) GetRunTools(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetRunToolsHandler(w, r, id, s.Store)
 }
 
-func (s Server) GetRun(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiGetRunHandler(w, r, id, s.Store)
+// CreateRunTool
+func (s Server) CreateRunTool(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiCreateRunToolHandler(w, r, id, s.Store)
 }
 
-func (s Server) GetRunTools(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
-	apiGetRunToolsHandler(w, r, runId, s.Store)
+// CreateSupervisor
+func (s Server) CreateSupervisor(w http.ResponseWriter, r *http.Request, projectId uuid.UUID) {
+	apiCreateSupervisorHandler(w, r, projectId, s.Store)
 }
 
-func (s Server) CreateRunToolSupervisors(w http.ResponseWriter, r *http.Request, toolId uuid.UUID, runId uuid.UUID) {
-	apiCreateRunToolSupervisorsHandler(w, r, toolId, runId, s.Store)
-}
-
-func (s Server) GetTool(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiGetToolHandler(w, r, id, s.Store)
-}
-
-func (s Server) GetTools(w http.ResponseWriter, r *http.Request, params GetToolsParams) {
-	apiGetToolsHandler(w, r, params, s.Store)
-}
-
-func (s Server) GetRunToolSupervisors(w http.ResponseWriter, r *http.Request, runId uuid.UUID, toolId uuid.UUID) {
-	apiGetRunToolSupervisorsHandler(w, r, runId, toolId, s.Store)
-}
-
-func (s Server) GetProject(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiGetProjectByIdHandler(w, r, id, s.Store)
-}
-
-func (s Server) GetSupervisionResults(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiGetSupervisionResultsHandler(w, r, id, s.Store)
-}
-
-func (s Server) GetReviewToolRequests(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiGetReviewToolRequestsHandler(w, r, id, s.Store)
+// GetSupervisors
+func (s Server) GetSupervisors(w http.ResponseWriter, r *http.Request, projectId uuid.UUID) {
+	apiGetSupervisorsHandler(w, r, projectId, s.Store)
 }
 
 func (s Server) GetSupervisor(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	apiGetSupervisorHandler(w, r, id, s.Store)
 }
 
-func (s Server) GetSupervisors(w http.ResponseWriter, r *http.Request, params GetSupervisorsParams) {
-	apiGetSupervisorsHandler(w, r, params, s.Store)
+// CreateToolSupervisorChains
+func (s Server) CreateToolSupervisorChains(w http.ResponseWriter, r *http.Request, toolId uuid.UUID) {
+	apiCreateToolSupervisorChainsHandler(w, r, toolId, s.Store)
 }
 
-func (s Server) CreateSupervisor(w http.ResponseWriter, r *http.Request) {
-	apiCreateSupervisorHandler(w, r, s.Store)
+// GetToolSupervisorChains
+func (s Server) GetToolSupervisorChains(w http.ResponseWriter, r *http.Request, toolId uuid.UUID) {
+	apiGetToolSupervisorChainsHandler(w, r, toolId, s.Store)
 }
 
-func (s Server) GetSupervisionStatus(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiSupervisionStatusHandler(w, r, id, s.Store)
+// CreateToolRequestGroup
+func (s Server) CreateToolRequestGroup(w http.ResponseWriter, r *http.Request, toolId uuid.UUID) {
+	apiCreateToolRequestGroupHandler(w, r, toolId, s.Store)
 }
 
+// GetProjectTools
+func (s Server) GetProjectTools(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetToolsHandler(w, r, id, s.Store)
+}
+
+// GetTool
+func (s Server) GetTool(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetToolHandler(w, r, id, s.Store)
+}
+
+// CreateSupervisionRequest
+func (s Server) CreateSupervisionRequest(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, chainId uuid.UUID, supervisorId uuid.UUID) {
+	apiCreateSupervisionRequestHandler(w, r, requestGroupId, chainId, supervisorId, s.Store)
+}
+
+// CreateSupervisionResult
+func (s Server) CreateSupervisionResult(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID) {
+	apiCreateSupervisionResultHandler(w, r, supervisionRequestId, s.Store)
+}
+
+// GetHubStats
 func (s Server) GetHubStats(w http.ResponseWriter, r *http.Request) {
-	apiStatsHandler(s.Hub, w, r)
-}
-
-func (s Server) CreateProject(w http.ResponseWriter, r *http.Request) {
-	apiRegisterProjectHandler(w, r, s.Store)
-}
-
-func (s Server) GetProjects(w http.ResponseWriter, r *http.Request) {
-	apiGetProjectsHandler(w, r, s.Store)
-}
-
-func (s Server) CreateExecution(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
-	apiCreateExecutionHandler(w, r, runId, s.Store)
-}
-
-func (s Server) GetExecution(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiGetExecutionHandler(w, r, id, s.Store)
-}
-
-func (s Server) GetRunExecutions(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
-	apiGetRunExecutionsHandler(w, r, runId, s.Store)
-}
-
-func (s Server) GetExecutionSupervisions(w http.ResponseWriter, r *http.Request, executionId uuid.UUID) {
-	apiGetExecutionSupervisionsHandler(w, r, executionId, s.Store)
+	apiGetHubStatsHandler(w, r, s.Hub)
 }
 
 func enableCorsMiddleware(handler http.Handler) http.Handler {
@@ -213,24 +190,4 @@ func enableCorsMiddleware(handler http.Handler) http.Handler {
 		// Call the next handler
 		handler.ServeHTTP(w, r)
 	})
-}
-
-// func (s Server) GetProjectById(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-// 	apiGetProjectByIdHandler(w, r, id, s.Store)
-// }
-
-// func (s Server) RegisterProjectTool(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-// 	apiRegisterProjectToolHandler(w, r, id, s.Store)
-// }
-
-// func (s Server) GetProjectTools(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-// 	apiGetProjectToolsHandler(w, r, id, s.Store)
-// }
-
-// func (s Server) GetProjectTools(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-// 	apiGetProjectToolsHandler(w, r, id, s.Store)
-// }
-
-func (s Server) GetLLMExplanation(w http.ResponseWriter, r *http.Request) {
-	apiLLMExplanationHandler(w, r)
 }
