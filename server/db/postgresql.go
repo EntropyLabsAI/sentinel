@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 	"time"
 
 	sentinel "github.com/entropylabsai/sentinel/server"
@@ -89,48 +88,6 @@ func (s *PostgresqlStore) GetProjectFromName(ctx context.Context, name string) (
 	}
 
 	return &project, nil
-}
-
-func (s *PostgresqlStore) CreateExecution(ctx context.Context, runId uuid.UUID, toolId uuid.UUID) (uuid.UUID, error) {
-
-	// First check if both the run and tool exist
-	run, err := s.GetRun(ctx, runId)
-	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("error getting run: %w", err)
-	}
-	if run == nil {
-		return uuid.UUID{}, fmt.Errorf("run not found: %s", runId)
-	}
-
-	tool, err := s.GetTool(ctx, toolId)
-	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("error getting tool: %w", err)
-	}
-	if tool == nil {
-		return uuid.UUID{}, fmt.Errorf("tool not found: %s", toolId)
-	}
-
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("error starting transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	id := uuid.New()
-	query := `
-		INSERT INTO execution (id, run_id, tool_id, created_at)
-		VALUES ($1, $2, $3, $4)`
-
-	_, err = tx.ExecContext(ctx, query, id, runId, toolId, time.Now())
-	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("error creating execution: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return uuid.UUID{}, fmt.Errorf("error committing transaction: %w", err)
-	}
-
-	return id, nil
 }
 
 func (s *PostgresqlStore) GetToolFromValues(ctx context.Context, attributes map[string]interface{}, name string, description string, ignoredAttributes []string) (*sentinel.Tool, error) {
@@ -218,82 +175,6 @@ func (s *PostgresqlStore) GetSupervisorFromValues(
 	return &supervisor, nil
 }
 
-func (s *PostgresqlStore) GetExecution(ctx context.Context, id uuid.UUID) (*sentinel.Execution, error) {
-	query := `
-		SELECT id, run_id, tool_id, created_at
-		FROM execution
-		WHERE id = $1`
-
-	var execution sentinel.Execution
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&execution.Id, &execution.RunId, &execution.ToolId, &execution.CreatedAt)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("error getting execution: %w", err)
-	}
-
-	return &execution, nil
-}
-
-func (s *PostgresqlStore) GetRunExecutions(ctx context.Context, runId uuid.UUID) ([]sentinel.Execution, error) {
-	query := `
-		SELECT e.id, e.run_id, e.tool_id, e.created_at
-		FROM execution e
-		WHERE run_id = $1`
-
-	executions := make([]sentinel.Execution, 0)
-	rows, err := s.db.QueryContext(ctx, query, runId)
-	if errors.Is(err, sql.ErrNoRows) {
-		return executions, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("error getting run executions: %w", err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var execution sentinel.Execution
-		if err := rows.Scan(&execution.Id, &execution.RunId, &execution.ToolId, &execution.CreatedAt); err != nil {
-			return nil, fmt.Errorf("error scanning execution: %w", err)
-		}
-		executions = append(executions, execution)
-	}
-
-	// For each execution, get the status. There will be a list of statuses, we want the latest one
-	for i, execution := range executions {
-		status, err := s.GetExecutionStatus(ctx, execution.Id)
-		if err != nil {
-			return nil, fmt.Errorf("error getting execution status: %w", err)
-		}
-		executions[i].Status = &status
-	}
-
-	return executions, nil
-}
-
-func (s *PostgresqlStore) GetExecutionStatus(ctx context.Context, id uuid.UUID) (sentinel.Status, error) {
-	// Get the most recent status for any supervision request associated with this execution
-	query := `
-		SELECT ss.status
-		FROM supervisionrequest_status ss
-		JOIN supervisionrequest sr ON ss.supervisionrequest_id = sr.id
-		WHERE sr.execution_id = $1
-		ORDER BY ss.id DESC
-		LIMIT 1`
-
-	var status sentinel.Status
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&status)
-	if errors.Is(err, sql.ErrNoRows) {
-		return sentinel.Failed, nil
-	}
-	if err != nil {
-		return sentinel.Status(""), fmt.Errorf("error getting execution status: %w", err)
-	}
-
-	return status, nil
-}
-
 func (s *PostgresqlStore) GetProjects(ctx context.Context) ([]sentinel.Project, error) {
 	query := `
 		SELECT id, name, created_at
@@ -301,7 +182,7 @@ func (s *PostgresqlStore) GetProjects(ctx context.Context) ([]sentinel.Project, 
 		ORDER BY created_at DESC`
 
 	rows, err := s.db.QueryContext(ctx, query)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("error listing projects: %w", err)
 	}
 	defer rows.Close()
@@ -350,12 +231,12 @@ func (s *PostgresqlStore) GetProjectRuns(ctx context.Context, id uuid.UUID) ([]s
 		WHERE project_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, query, id)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("error getting project runs: %w", err)
 	}
 	defer rows.Close()
 
-	var runs []sentinel.Run
+	runs := make([]sentinel.Run, 0)
 	for rows.Next() {
 		var run sentinel.Run
 		if err := rows.Scan(&run.Id, &run.ProjectId, &run.CreatedAt); err != nil {
@@ -365,79 +246,209 @@ func (s *PostgresqlStore) GetProjectRuns(ctx context.Context, id uuid.UUID) ([]s
 	}
 
 	// If no rows were found, runs will be empty slice
+	fmt.Printf("runs: %v", runs)
 	return runs, nil
 }
 
-func (s *PostgresqlStore) CreateSupervisionRequest(ctx context.Context, request sentinel.SupervisionRequest) (uuid.UUID, error) {
-	run, err := s.GetRun(ctx, request.RunId)
+func (s *PostgresqlStore) getChainsForTool(ctx context.Context, toolId uuid.UUID) ([]uuid.UUID, error) {
+	query := `
+		SELECT chain_id
+		FROM chain_tool ct
+		WHERE tool_id = $1`
+
+	rows, err := s.db.QueryContext(ctx, query, toolId)
 	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("error getting run: %w", err)
+		return nil, fmt.Errorf("error getting chains: %w", err)
 	}
-	if run == nil {
-		return uuid.UUID{}, fmt.Errorf("run not found: %s", request.RunId)
+	defer rows.Close()
+
+	chainIds := make([]uuid.UUID, 0)
+	for rows.Next() {
+		var chainId uuid.UUID
+		if err := rows.Scan(&chainId); err != nil {
+			return nil, fmt.Errorf("error scanning chain ID: %w", err)
+		}
+		chainIds = append(chainIds, chainId)
 	}
 
-	execution, err := s.GetExecution(ctx, request.ExecutionId)
+	return chainIds, nil
+}
+
+func (s *PostgresqlStore) CreateToolSupervisorChain(ctx context.Context, toolId uuid.UUID, chain sentinel.ChainRequest) (*uuid.UUID, error) {
+	ids := *chain.SupervisorIds
+	if ids == nil {
+		return nil, fmt.Errorf("supervisor IDs are required to make a chain of supervisors")
+	}
+
+	// Start transaction
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("error getting execution: %w", err)
+		return nil, fmt.Errorf("error starting transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// Create new chain
+	chainId := uuid.New()
+	query := `
+		INSERT INTO chain (id)
+		VALUES ($1)`
+
+	_, err = tx.ExecContext(ctx, query, chainId)
+	if err != nil {
+		return nil, fmt.Errorf("error creating chain: %w", err)
+	}
+
+	// Link chain to tool
+	query = `
+		INSERT INTO chain_tool (tool_id, chain_id)
+		VALUES ($1, $2)`
+
+	_, err = tx.ExecContext(ctx, query, toolId, chainId)
+	if err != nil {
+		return nil, fmt.Errorf("error linking tool to chain: %w", err)
+	}
+
+	// Add chain_supervisor entries for each supervisor
+	query = `
+		INSERT INTO chain_supervisor (chain_id, supervisor_id, position_in_chain)
+		VALUES ($1, $2, $3)`
+
+	for i, supervisorId := range ids {
+		_, err = tx.ExecContext(ctx, query, chainId, supervisorId, i)
+		if err != nil {
+			return nil, fmt.Errorf("error adding supervisor to chain: %w", err)
+		}
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("error committing transaction: %w", err)
+	}
+
+	return &chainId, nil
+}
+
+func (s *PostgresqlStore) GetToolSupervisorChains(ctx context.Context, toolId uuid.UUID) ([]sentinel.ToolSupervisorChain, error) {
+	chainIds, err := s.getChainsForTool(ctx, toolId)
+	if err != nil {
+		return nil, fmt.Errorf("error getting chains for tool: %w", err)
+	}
+
+	chains := make([]sentinel.ToolSupervisorChain, 0)
+	for _, chainId := range chainIds {
+		query := `
+			SELECT s.id, s.name, s.description, s.type, s.attributes, s.created_at, s.code
+			FROM chain_supervisor cs
+			INNER JOIN supervisor s ON cs.supervisor_id = s.id
+			WHERE cs.chain_id = $1`
+
+		rows, err := s.db.QueryContext(ctx, query, chainId)
+		if err != nil {
+			return nil, fmt.Errorf("error getting tool supervisor chains: %w", err)
+		}
+		defer rows.Close()
+
+		supervisors := make([]sentinel.Supervisor, 0)
+		for rows.Next() {
+			var supervisor sentinel.Supervisor
+			if err := rows.Scan(&supervisor.Id, &supervisor.Name, &supervisor.Description, &supervisor.Type, &supervisor.Attributes, &supervisor.CreatedAt, &supervisor.Code); err != nil {
+				return nil, fmt.Errorf("error scanning supervisor: %w", err)
+			}
+		}
+
+		chains = append(chains, sentinel.ToolSupervisorChain{
+			ChainId:     chainId,
+			Supervisors: supervisors,
+		})
+	}
+
+	return chains, nil
+}
+
+func (s *PostgresqlStore) CreateToolRequestGroup(ctx context.Context, toolId uuid.UUID, request sentinel.ToolRequestGroup) (*sentinel.ToolRequestGroup, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error starting transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	groupId := uuid.New()
+	trg := sentinel.ToolRequestGroup{
+		Id:           &groupId,
+		ToolRequests: make([]sentinel.ToolRequest, 0, len(request.ToolRequests)),
+	}
+
+	// Create a new requestgroup
+	query := `
+		INSERT INTO requestgroup (id)
+		VALUES ($1)`
+	_, err = tx.ExecContext(ctx, query, groupId)
+	if err != nil {
+		return nil, fmt.Errorf("error creating requestgroup: %w", err)
+	}
+
+	// For each tool request, create a tool request
+	for _, toolRequest := range request.ToolRequests {
+		id := uuid.New()
+		toolRequest.Id = &id
+		toolRequest.RequestgroupId = &groupId
+		err = s.createToolRequest(ctx, tx, toolRequest)
+		if err != nil {
+			return nil, fmt.Errorf("error creating tool request: %w", err)
+		}
+		trg.ToolRequests = append(trg.ToolRequests, toolRequest)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("error committing transaction: %w", err)
+	}
+
+	return &trg, nil
+}
+
+func (s *PostgresqlStore) getChainExecution(ctx context.Context, chainExecutionId uuid.UUID) (*uuid.UUID, error) {
+	query := `
+		SELECT 1
+		FROM chainexecution
+		WHERE id = $1`
+
+	err := s.db.QueryRowContext(ctx, query, chainExecutionId).Scan()
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error getting chain execution: %w", err)
+	}
+
+	return &chainExecutionId, nil
+}
+
+func (s *PostgresqlStore) CreateSupervisionRequest(ctx context.Context, request sentinel.SupervisionRequest) (*uuid.UUID, error) {
+	// Sanity check that we're recording this against a valid chain execution group that already exists
+	execution, err := s.getChainExecution(ctx, request.ChainexecutionId)
+	if err != nil {
+		return nil, fmt.Errorf("error getting execution: %w", err)
 	}
 	if execution == nil {
-		return uuid.UUID{}, fmt.Errorf("execution not found for supervision request: %s", request.ExecutionId)
+		return nil, fmt.Errorf("execution not found for supervision request: %s", request.ChainexecutionId)
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("error starting transaction: %w", err)
+		return nil, fmt.Errorf("error starting transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	// Store the llm_messages first and keep track of the IDs
-	var messageIDs []uuid.UUID
-	for _, message := range request.Messages {
-		messageID := uuid.New()
-		query := `
-			INSERT INTO llm_message (id, role, content)
-			VALUES ($1, $2, $3)`
-		_, err = tx.ExecContext(ctx, query, messageID, message.Role, message.Content)
-		if err != nil {
-			return uuid.UUID{}, fmt.Errorf("error creating llm message: %w", err)
-		}
-		messageIDs = append(messageIDs, messageID)
-	}
-
-	// Store the supervisor request
-	taskStateJSON, err := json.Marshal(request.TaskState)
-	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("error marshalling task state: %w", err)
-	}
-
 	query := `
-		INSERT INTO supervisionrequest (id, execution_id, task_state, supervisor_id)
+		INSERT INTO supervisionrequest (id, supervisor_id, position_in_chain, chainexecution_id)
 		VALUES ($1, $2, $3, $4)`
 
 	requestID := uuid.New()
 	_, err = tx.ExecContext(
-		ctx, query, requestID, request.ExecutionId, taskStateJSON, request.SupervisorId,
+		ctx, query, requestID, request.SupervisorId, request.PositionInChain, request.ChainexecutionId,
 	)
 	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("error creating supervision request: %w", err)
-	}
-
-	// Store the tool requests
-	for i, toolRequest := range request.ToolRequests {
-		toolRequestID := uuid.New()
-		r := sentinel.ToolRequest{
-			Id:                   &toolRequestID,
-			SupervisionRequestId: &requestID,
-			ToolId:               toolRequest.ToolId,
-			MessageId:            &messageIDs[i],
-			Arguments:            toolRequest.Arguments,
-		}
-
-		err = s.createToolRequest(ctx, tx, r)
-		if err != nil {
-			return uuid.UUID{}, fmt.Errorf("error creating tool request: %w", err)
-		}
+		return nil, fmt.Errorf("error creating supervision request: %w", err)
 	}
 
 	status := sentinel.SupervisionStatus{
@@ -448,25 +459,46 @@ func (s *PostgresqlStore) CreateSupervisionRequest(ctx context.Context, request 
 	// Store a supervisor status pending
 	err = s.createSupervisionStatus(ctx, requestID, status, tx)
 	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("error creating supervisor status: %w", err)
+		return nil, fmt.Errorf("error creating supervisor status: %w", err)
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("error committing transaction: %w", err)
+		return nil, fmt.Errorf("error committing transaction: %w", err)
 	}
 
-	return requestID, nil
+	return &requestID, nil
+}
+
+func (s *PostgresqlStore) createMessage(ctx context.Context, tx *sql.Tx, message sentinel.Message) (*uuid.UUID, error) {
+	query := `
+		INSERT INTO message (id, role, content)
+		VALUES ($1, $2, $3)`
+
+	id := uuid.New()
+	_, err := tx.ExecContext(ctx, query, id, message.Role, message.Content)
+	if err != nil {
+		return nil, fmt.Errorf("error creating message: %w", err)
+	}
+
+	return &id, nil
 }
 
 func (s *PostgresqlStore) createToolRequest(ctx context.Context, tx *sql.Tx, request sentinel.ToolRequest) error {
-	if request.SupervisionRequestId == nil {
-		return fmt.Errorf("supervision request ID is required to create a tool request")
-	}
 
 	query := `
-		INSERT INTO toolrequest (id, supervisionrequest_id, tool_id, message_id, arguments)
-		VALUES ($1, $2, $3, $4, $5)`
+		INSERT INTO toolrequest (id, tool_id, message_id, arguments, task_state, requestgroup_id)
+		VALUES ($1, $2, $3, $4, $5, $6)`
+
+	messageID, err := s.createMessage(ctx, tx, request.Message)
+	if err != nil {
+		return fmt.Errorf("error creating message: %w", err)
+	}
+
+	taskStateJSON, err := json.Marshal(request.TaskState)
+	if err != nil {
+		return fmt.Errorf("error marshalling task state: %w", err)
+	}
 
 	argumentsJSON, err := json.Marshal(request.Arguments)
 	if err != nil {
@@ -474,7 +506,7 @@ func (s *PostgresqlStore) createToolRequest(ctx context.Context, tx *sql.Tx, req
 	}
 
 	_, err = tx.ExecContext(
-		ctx, query, request.Id, request.SupervisionRequestId, request.ToolId, request.MessageId, argumentsJSON,
+		ctx, query, request.Id, request.ToolId, messageID, argumentsJSON, taskStateJSON, request.RequestgroupId,
 	)
 	if err != nil {
 		return fmt.Errorf("error creating tool request: %w", err)
@@ -516,272 +548,9 @@ func (s *PostgresqlStore) createSupervisionStatus(ctx context.Context, requestID
 	return nil
 }
 
-func (s *PostgresqlStore) GetSupervisionRequest(ctx context.Context, id uuid.UUID) (*sentinel.SupervisionRequest, error) {
-	query := `
-		SELECT sr.id, sr.execution_id, e.run_id, sr.supervisor_id, sr.task_state, ss.id, ss.status, ss.created_at
-		FROM supervisionrequest sr
-		INNER JOIN execution e ON sr.execution_id = e.id
-		INNER JOIN supervisionrequest_status ss ON sr.id = ss.supervisionrequest_id
-		WHERE sr.id = $1
-		ORDER BY ss.created_at DESC
-		LIMIT 1`
-
-	var supervisorRequest sentinel.SupervisionRequest
-	var status sentinel.SupervisionStatus
-	var taskStateJSON []byte // Add temporary variable for JSON data
-	err := s.db.QueryRowContext(ctx, query, id).Scan(
-		&supervisorRequest.Id,
-		&supervisorRequest.ExecutionId,
-		&supervisorRequest.RunId,
-		&supervisorRequest.SupervisorId,
-		&taskStateJSON,
-		&status.Id,
-		&status.Status,
-		&status.CreatedAt,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("error getting supervisor: %w", err)
-	}
-
-	// Parse the JSON task state
-	if err := json.Unmarshal(taskStateJSON, &supervisorRequest.TaskState); err != nil {
-		return nil, fmt.Errorf("error parsing task state: %w", err)
-	}
-
-	supervisorRequest.Status = &status
-
-	// Get the tool requests
-	toolRequests, err := s.GetSupervisionToolRequests(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("error getting tool requests: %w", err)
-	}
-	supervisorRequest.ToolRequests = toolRequests
-
-	// Get the messages
-	messages, err := s.GetSupervisionMessages(ctx, id)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	} else if err != nil {
-		return nil, fmt.Errorf("error getting messages: %w", err)
-	}
-	supervisorRequest.Messages = messages
-
-	return &supervisorRequest, nil
-}
-
-func (s *PostgresqlStore) GetSupervisionMessages(ctx context.Context, id uuid.UUID) ([]sentinel.LLMMessage, error) {
-	query := `
-		SELECT m.id, m.role, m.content
-		FROM llm_message m
-		INNER JOIN toolrequest tr ON m.id = tr.message_id
-		WHERE tr.supervisionrequest_id = $1`
-
-	rows, err := s.db.QueryContext(ctx, query, id)
-	if errors.Is(err, sql.ErrNoRows) {
-		return []sentinel.LLMMessage{}, nil
-	} else if err != nil {
-		return nil, fmt.Errorf("error getting messages: %w", err)
-	}
-	defer rows.Close()
-
-	var messages []sentinel.LLMMessage
-	for rows.Next() {
-		var message sentinel.LLMMessage
-		if err := rows.Scan(&message.Id, &message.Role, &message.Content); err != nil {
-			return nil, fmt.Errorf("error scanning message: %w", err)
-		}
-		messages = append(messages, message)
-	}
-
-	return messages, nil
-}
-
-func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result sentinel.SupervisionResult) error {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("error starting transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	// Sanity check that we're not creating a result for a review that already has a result
-	existingResults, err := s.GetSupervisionResults(ctx, result.SupervisionRequestId)
-	if err != nil {
-		return fmt.Errorf("error getting existing results: %w", err)
-	}
-	if len(existingResults) > 0 {
-		return fmt.Errorf("result for supervision request %s already exists", result.SupervisionRequestId)
-	}
-
-	query := `
-		INSERT INTO supervisionresult (id, supervisionrequest_id, created_at, decision, reasoning, toolrequest_id)
-		VALUES ($1, $2, $3, $4, $5, $6)`
-
-	_, err = tx.ExecContext(
-		ctx, query, result.Id, result.SupervisionRequestId, result.CreatedAt, result.Decision, result.Reasoning, result.Toolrequest.Id,
-	)
-	if err != nil {
-		return fmt.Errorf("error creating supervisor result: %w", err)
-	}
-
-	// Log the supervisionrequest_status entry for the supervision request
-	rs := sentinel.SupervisionStatus{Status: sentinel.Completed, CreatedAt: time.Now()}
-	err = s.createSupervisionStatus(ctx, result.SupervisionRequestId, rs, tx)
-	if err != nil {
-		return fmt.Errorf("error creating supervisor status: %w", err)
-	}
-
-	if result.Decision == sentinel.Approve {
-		// Check that the tool request is one of the approved tool requests
-		toolRequests, err := s.GetSupervisionToolRequests(ctx, result.SupervisionRequestId)
-		if err != nil {
-			return fmt.Errorf("error getting approved tool requests: %w", err)
-		}
-
-		valid := false
-		for _, toolRequest := range toolRequests {
-			if toolRequest.ToolId.String() == result.Toolrequest.ToolId.String() && reflect.DeepEqual(toolRequest.Arguments, result.Toolrequest.Arguments) {
-				valid = true
-				break
-			}
-		}
-		if !valid {
-			return fmt.Errorf("tool request %s is not one of the approved tool requests (%v)", result.Toolrequest.Id, toolRequests)
-		}
-	}
-
-	// If the user decided not to go with any of the initially sent tool requests and instead
-	// has modified the tool request, we need to store the new tool request, associate it with
-	// the supervision request, and store this new ID in the supervisionresult record.
-	if result.Decision == sentinel.Modify {
-		toolRequestID := uuid.New()
-		r := sentinel.ToolRequest{
-			Id:                   &toolRequestID,
-			SupervisionRequestId: &result.SupervisionRequestId,
-			ToolId:               result.Toolrequest.ToolId,
-			MessageId:            result.Toolrequest.MessageId,
-			Arguments:            result.Toolrequest.Arguments,
-		}
-
-		err = s.createToolRequest(ctx, tx, r)
-		if err != nil {
-			return fmt.Errorf("error creating tool request: %w", err)
-		}
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return fmt.Errorf("error committing transaction: %w", err)
-	}
-
-	return nil
-}
-
-func (s *PostgresqlStore) GetSupervisionResults(ctx context.Context, id uuid.UUID) ([]*sentinel.SupervisionResult, error) {
-	query := `
-SELECT sr.id, sr.supervisionrequest_id, sr.created_at, sr.decision, sr.reasoning, sr.toolrequest_id, tr.tool_id, tr.message_id, tr.arguments FROM supervisionresult sr LEFT JOIN toolrequest tr ON sr.toolrequest_id = tr.id WHERE sr.supervisionrequest_id = $1`
-
-	rows, err := s.db.QueryContext(ctx, query, id)
-	if err != nil {
-		return nil, fmt.Errorf("error getting supervisor results: %w", err)
-	}
-	defer rows.Close()
-
-	var results []*sentinel.SupervisionResult
-	for rows.Next() {
-		var result sentinel.SupervisionResult
-		var tr sentinel.ToolRequest
-		var argumentsJSON []byte
-
-		if err := rows.Scan(
-			&result.Id,
-			&result.SupervisionRequestId,
-			&result.CreatedAt,
-			&result.Decision,
-			&result.Reasoning,
-			&tr.Id,
-			&tr.ToolId,
-			&tr.MessageId,
-			&argumentsJSON,
-		); err != nil {
-			return nil, fmt.Errorf("error scanning supervisor result: %w", err)
-		}
-
-		// Parse the JSON arguments if they exist
-		if len(argumentsJSON) > 0 {
-			if err := json.Unmarshal(argumentsJSON, &tr.Arguments); err != nil {
-				return nil, fmt.Errorf("error parsing tool request arguments: %w", err)
-			}
-		}
-
-		result.Toolrequest = tr
-
-		results = append(results, &result)
-	}
-
-	if len(results) > 1 {
-		return nil, fmt.Errorf("multiple supervision results found for supervision request %s", id)
-	}
-
-	return results, nil
-}
-
-func (s *PostgresqlStore) GetSupervisionRequests(ctx context.Context) ([]sentinel.SupervisionRequest, error) {
-	// Get a list of all supervision request IDs then pass them to GetSupervisionRequest
-	query := `SELECT id FROM supervisionrequest`
-	rows, err := s.db.QueryContext(ctx, query)
-	if err != nil {
-		return nil, fmt.Errorf("error getting supervision requests: %w", err)
-	}
-	defer rows.Close()
-
-	var ids []uuid.UUID
-	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
-			return nil, fmt.Errorf("error scanning supervision request ID: %w", err)
-		}
-		ids = append(ids, id)
-	}
-
-	var supervisorRequests []sentinel.SupervisionRequest
-	for _, id := range ids {
-		supervisorRequest, err := s.GetSupervisionRequest(ctx, id)
-		if err != nil {
-			return nil, fmt.Errorf("error getting supervision request: %w", err)
-		}
-		supervisorRequests = append(supervisorRequests, *supervisorRequest)
-	}
-
-	return supervisorRequests, nil
-}
-
-func (s *PostgresqlStore) CountSupervisionRequests(ctx context.Context, status sentinel.Status) (int, error) {
-	query := `
-        SELECT COUNT(*)
-        FROM (
-            SELECT DISTINCT ON (sr.id) sr.id
-            FROM supervisionrequest sr
-            JOIN supervisionrequest_status ss ON sr.id = ss.supervisionrequest_id
-            WHERE NOT EXISTS (
-                SELECT 1 
-                FROM supervisionrequest_status newer
-                WHERE newer.supervisionrequest_id = sr.id 
-                AND newer.created_at > ss.created_at
-            )
-            AND ss.status = $1
-        ) as latest_requests`
-
-	var count int
-	err := s.db.QueryRowContext(ctx, query, status).Scan(&count)
-	return count, err
-}
-
 func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*sentinel.Tool, error) {
 	query := `
-		SELECT id, name, description, attributes, ignored_attributes
+		SELECT id, run_id, name, description, attributes, ignored_attributes
 		FROM tool
 		WHERE id = $1`
 
@@ -790,6 +559,7 @@ func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*sentinel.
 	var ignoredAttributes []string
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&tool.Id,
+		&tool.RunId,
 		&tool.Name,
 		&tool.Description,
 		&attributesJSON,
@@ -817,7 +587,7 @@ func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*sentinel.
 
 func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UUID) ([]sentinel.Tool, error) {
 	query := `
-		SELECT DISTINCT ON (t.id) t.id, t.name, t.description, t.attributes, t.ignored_attributes
+		SELECT DISTINCT ON (t.id) t.id, t.run_id, t.name, t.description, t.attributes, t.ignored_attributes
 		FROM tool t
 		INNER JOIN run_tool_supervisor rts ON t.id = rts.tool_id
 		INNER JOIN run r ON rts.run_id = r.id
@@ -836,6 +606,7 @@ func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UU
 		var ignoredAttributes []string
 		if err := rows.Scan(
 			&tool.Id,
+			&tool.RunId,
 			&tool.Name,
 			&tool.Description,
 			&attributesJSON,
@@ -863,6 +634,45 @@ func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UU
 	return tools, nil
 }
 
+func (s *PostgresqlStore) CountSupervisionRequests(ctx context.Context, status sentinel.Status) (int, error) {
+	query := `
+        SELECT COUNT(*)
+        FROM (
+            SELECT DISTINCT ON (sr.id) sr.id
+            FROM supervisionrequest sr
+            JOIN supervisionrequest_status ss ON sr.id = ss.supervisionrequest_id
+            WHERE NOT EXISTS (
+                SELECT 1 
+                FROM supervisionrequest_status newer
+                WHERE newer.supervisionrequest_id = sr.id 
+                AND newer.created_at > ss.created_at
+            )
+            AND ss.status = $1
+        ) as latest_requests`
+
+	var count int
+	err := s.db.QueryRowContext(ctx, query, status).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("error counting supervision requests: %w", err)
+	}
+
+	return count, nil
+}
+
+func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result sentinel.SupervisionResult, requestId uuid.UUID) (*uuid.UUID, error) {
+	query := `
+		INSERT INTO supervisionresult (id, supervisionrequest_id, created_at, decision, reasoning)
+		VALUES ($1, $2, $3, $4, $5)`
+
+	id := uuid.New()
+	_, err := s.db.ExecContext(ctx, query, id, requestId, result.CreatedAt, result.Decision, result.Reasoning)
+	if err != nil {
+		return nil, fmt.Errorf("error creating supervision result: %w", err)
+	}
+
+	return &id, nil
+}
+
 func (s *PostgresqlStore) GetSupervisionRequestsForStatus(ctx context.Context, status sentinel.Status) ([]sentinel.SupervisionRequest, error) {
 	// Get IDs of supervision requests with the given status (excluding client supervisors)
 	query := `
@@ -877,7 +687,7 @@ func (s *PostgresqlStore) GetSupervisionRequestsForStatus(ctx context.Context, s
 		JOIN supervisionrequest_status srs ON srs.id = latest.latest_status_id
 		WHERE s.type != $1 AND srs.status = $2
 	`
-	rows, err := s.db.QueryContext(ctx, query, sentinel.ClientSupervisor, status)
+	rows, err := s.db.QueryContext(ctx, query, sentinel.SupervisorTypeClientSupervisor, status)
 	if err != nil {
 		return nil, fmt.Errorf("error getting supervision request IDs: %w", err)
 	}
@@ -914,6 +724,29 @@ func (s *PostgresqlStore) GetSupervisionRequestsForStatus(ctx context.Context, s
 	}
 
 	return requests, nil
+}
+
+func (s *PostgresqlStore) GetSupervisionRequest(ctx context.Context, id uuid.UUID) (*sentinel.SupervisionRequest, error) {
+	query := `
+		SELECT id, supervisor_id, position_in_chain, chainexecution_id
+		FROM supervisionrequest
+		WHERE id = $1`
+
+	var request sentinel.SupervisionRequest
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
+		&request.Id,
+		&request.SupervisorId,
+		&request.PositionInChain,
+		&request.ChainexecutionId,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error getting supervision request: %w", err)
+	}
+
+	return &request, nil
 }
 
 func (s *PostgresqlStore) CreateSupervisor(ctx context.Context, supervisor sentinel.Supervisor) (uuid.UUID, error) {
@@ -968,71 +801,41 @@ func (s *PostgresqlStore) CreateRun(ctx context.Context, run sentinel.Run) (uuid
 	return id, nil
 }
 
-func (s *PostgresqlStore) CreateTool(ctx context.Context, tool sentinel.Tool) (uuid.UUID, error) {
+func (s *PostgresqlStore) CreateTool(
+	ctx context.Context,
+	runId uuid.UUID,
+	attributes map[string]interface{},
+	name string,
+	description string,
+	ignoredAttributes []string,
+) (uuid.UUID, error) {
 	// Convert attributes to JSON if it's not already
-	attributesJSON, err := json.Marshal(tool.Attributes)
+	attributesJSON, err := json.Marshal(attributes)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("error marshaling tool attributes: %w", err)
 	}
 
-	if tool.IgnoredAttributes == nil {
-		tool.IgnoredAttributes = &[]string{}
+	if ignoredAttributes == nil {
+		ignoredAttributes = []string{}
 	}
 
 	query := `
-		INSERT INTO tool (name, description, attributes, ignored_attributes)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO tool (run_id, name, description, attributes, ignored_attributes)
+		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id`
 
 	var id uuid.UUID
 	err = s.db.QueryRowContext(ctx, query,
-		tool.Name,
-		tool.Description,
+		runId,
+		name,
+		description,
 		attributesJSON, // Use the JSON-encoded attributes
-		pq.Array(tool.IgnoredAttributes),
+		pq.Array(ignoredAttributes),
 	).Scan(&id)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("error creating tool: %w", err)
 	}
 	return id, nil
-}
-
-func (s *PostgresqlStore) GetSupervisionToolRequests(ctx context.Context, id uuid.UUID) ([]sentinel.ToolRequest, error) {
-	query := `
-		SELECT id, supervisionrequest_id, tool_id, message_id, arguments
-		FROM toolrequest
-		WHERE supervisionrequest_id = $1`
-
-	rows, err := s.db.QueryContext(ctx, query, id)
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("no tool requests found for supervisor request %s, there should be at least one", id)
-	} else if err != nil {
-		return nil, fmt.Errorf("error getting supervisor tool requests: %w", err)
-	}
-	defer rows.Close()
-
-	var toolRequests []sentinel.ToolRequest
-	for rows.Next() {
-		var toolRequest sentinel.ToolRequest
-		var argumentsJSON []byte
-		if err := rows.Scan(
-			&toolRequest.Id,
-			&toolRequest.SupervisionRequestId,
-			&toolRequest.ToolId,
-			&toolRequest.MessageId,
-			&argumentsJSON,
-		); err != nil {
-			return nil, fmt.Errorf("error scanning tool request: %w", err)
-		}
-
-		// Parse the JSON arguments
-		if err := json.Unmarshal(argumentsJSON, &toolRequest.Arguments); err != nil {
-			return nil, fmt.Errorf("error parsing tool request arguments: %w", err)
-		}
-
-		toolRequests = append(toolRequests, toolRequest)
-	}
-	return toolRequests, nil
 }
 
 func (s *PostgresqlStore) GetRun(ctx context.Context, id uuid.UUID) (*sentinel.Run, error) {
@@ -1053,99 +856,9 @@ func (s *PostgresqlStore) GetRun(ctx context.Context, id uuid.UUID) (*sentinel.R
 	return &run, nil
 }
 
-// AssignSupervisorsToTool assigns a list of supervisors to a tool for a run.
-// The supervisors are assigned to the tool in the order they are provided in the chains array.
-// The chains array is an array of arrays, where each sub-array is a chain of supervisors to be called in parallel.
-// The supervisors in each chain are called in order
-// Example:
-// chain_1: [supervisor_1, supervisor_2]
-// chain_2: [supervisor_3]
-// chain_3: [supervisor_1, supervisor_3, supervisor_6, supervisor_7]
-func (s *PostgresqlStore) AssignSupervisorsToTool(ctx context.Context, runId uuid.UUID, toolID uuid.UUID, chains sentinel.SupervisorChainAssignment) error {
-	// Start a transaction
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("error starting transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	// First, we need to get the highest chain number already assigned to this run/tool pair
-	query := `
-		SELECT COALESCE(MAX(chain), 0)
-		FROM run_tool_supervisor
-		WHERE run_id = $1 AND tool_id = $2`
-
-	var highestChain int
-	err = tx.QueryRowContext(ctx, query, runId, toolID).Scan(&highestChain)
-	if err != nil {
-		return fmt.Errorf("error getting highest chain number: %w", err)
-	}
-
-	// Iterate over each chain of supervisors
-	for i, chain := range chains {
-		// Iterate over each supervisor in the chain
-		for _, supervisorID := range chain {
-			// Check if the supervisor exists
-			supervisor, err := s.GetSupervisor(ctx, supervisorID)
-			if err != nil {
-				return fmt.Errorf("error getting supervisor: %w", err)
-			}
-			if supervisor == nil {
-				return fmt.Errorf("supervisor %s not found", supervisorID)
-			}
-
-			// Check if the tool exists
-			tool, err := s.GetTool(ctx, toolID)
-			if err != nil {
-				return fmt.Errorf("error getting tool: %w", err)
-			}
-			if tool == nil {
-				return fmt.Errorf("tool %s not found", toolID)
-			}
-
-			// Check if the supervisor is already assigned to the tool
-			query := `
-				SELECT 1
-				FROM run_tool_supervisor
-				WHERE run_id = $1 
-				AND tool_id = $2 
-				AND supervisor_id = $3 
-				AND chain = $4`
-
-			var exists bool
-			err = tx.QueryRowContext(ctx, query, runId, toolID, supervisorID, i).Scan(&exists)
-			if err != nil && err != sql.ErrNoRows {
-				return fmt.Errorf("error checking if supervisor is already assigned to tool: %w", err)
-			}
-
-			if exists {
-				return fmt.Errorf("supervisor %s is already assigned to tool %s in chain %d", supervisorID, toolID, i)
-			}
-
-			t := time.Now()
-			query = `
-				INSERT INTO run_tool_supervisor (run_id, tool_id, supervisor_id, chain, created_at)
-				VALUES ($1, $2, $3, $4, $5)`
-
-			// If the supervisor is not assigned to the tool, assign them
-			_, err = tx.ExecContext(ctx, query, runId, toolID, supervisorID, i+highestChain, t)
-			if err != nil {
-				return fmt.Errorf("error assigning supervisor to tool: %w", err)
-			}
-		}
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return fmt.Errorf("error committing transaction: %w", err)
-	}
-
-	return nil
-}
-
 func (s *PostgresqlStore) GetRunTools(ctx context.Context, runId uuid.UUID) ([]sentinel.Tool, error) {
 	query := `
-		SELECT tool.id, tool.name, tool.description, tool.attributes, COALESCE(tool.ignored_attributes, '{}') as ignored_attributes
+		SELECT tool.id, tool.run_id, tool.name, tool.description, tool.attributes, COALESCE(tool.ignored_attributes, '{}') as ignored_attributes
 		FROM run_tool_supervisor
 		INNER JOIN tool ON run_tool_supervisor.tool_id = tool.id
 		WHERE run_tool_supervisor.run_id = $1`
@@ -1164,6 +877,7 @@ func (s *PostgresqlStore) GetRunTools(ctx context.Context, runId uuid.UUID) ([]s
 
 		if err := rows.Scan(
 			&tool.Id,
+			&tool.RunId,
 			&tool.Name,
 			&tool.Description,
 			&attributesJSON,
@@ -1188,61 +902,6 @@ func (s *PostgresqlStore) GetRunTools(ctx context.Context, runId uuid.UUID) ([]s
 	}
 
 	return tools, nil
-}
-
-func (s *PostgresqlStore) GetRunToolSupervisors(ctx context.Context, runId uuid.UUID, toolId uuid.UUID) (sentinel.SupervisorChains, error) {
-	query := `
-		SELECT s.id, s.name, s.description, s.created_at, s.type, rts.created_at, s.attributes, rts.chain
-		FROM run_tool_supervisor rts
-		INNER JOIN supervisor s ON rts.supervisor_id = s.id
-		WHERE rts.run_id = $1 AND rts.tool_id = $2
-		ORDER BY rts.id ASC`
-
-	rows, err := s.db.QueryContext(ctx, query, runId, toolId)
-	if err != nil {
-		return nil, fmt.Errorf("error getting run tools: %w", err)
-	}
-	defer rows.Close()
-
-	// Chains is a map from chain number to a list of supervisors
-	chains := make(map[int][]sentinel.Supervisor)
-
-	// TODO this is returning the created_at of the run_tool_supervisor record, not the supervisor
-	for rows.Next() {
-		var supervisor sentinel.Supervisor
-		var attributesJSON []byte
-		var chain int
-		if err := rows.Scan(
-			&supervisor.Id,
-			&supervisor.Name,
-			&supervisor.Description,
-			&supervisor.CreatedAt,
-			&supervisor.Type,
-			&supervisor.CreatedAt,
-			&attributesJSON,
-			&chain,
-		); err != nil {
-			return nil, fmt.Errorf("error scanning supervisor: %w", err)
-		}
-
-		// Parse the JSON attributes if they exist
-		if len(attributesJSON) > 0 {
-			if err := json.Unmarshal(attributesJSON, &supervisor.Attributes); err != nil {
-				return nil, fmt.Errorf("error parsing supervisor attributes: %w", err)
-			}
-		}
-		chains[chain] = append(chains[chain], supervisor)
-	}
-
-	return convertSupervisorMapToChains(chains), nil
-}
-
-func convertSupervisorMapToChains(chains map[int][]sentinel.Supervisor) sentinel.SupervisorChains {
-	var supervisorChains sentinel.SupervisorChains
-	for _, chain := range chains {
-		supervisorChains = append(supervisorChains, sentinel.SupervisorChain{Supervisors: chain})
-	}
-	return supervisorChains
 }
 
 func (s *PostgresqlStore) GetSupervisor(ctx context.Context, id uuid.UUID) (*sentinel.Supervisor, error) {
@@ -1306,90 +965,6 @@ func (s *PostgresqlStore) GetSupervisors(ctx context.Context, projectId uuid.UUI
 	return supervisors, nil
 }
 
-func (s *PostgresqlStore) GetExecutionSupervisions(ctx context.Context, executionId uuid.UUID) ([]sentinel.SupervisionChain, error) {
-	// First get all supervision request IDs for this execution
-	// Order by chain number and then by request ID, e.g. if there are two chains, the first will be all requests with chain 0 and the second will be all requests with chain 1, and inside each chain the requests will be in order.
-	query := `
-SELECT sr.id, rts.chain
-FROM supervisionrequest sr
-INNER JOIN execution e ON sr.execution_id = e.id
-INNER JOIN run ON run.id = e.run_id
-INNER JOIN run_tool_supervisor rts ON rts.run_id = run.id AND rts.supervisor_id = sr.supervisor_id AND rts.tool_id = e.tool_id
-WHERE sr.execution_id = $1
-ORDER BY rts.chain ASC, rts.id ASC`
-	rows, err := s.db.QueryContext(ctx, query, executionId)
-	if err != nil {
-		return nil, fmt.Errorf("error getting supervision request IDs: %w", err)
-	}
-	defer rows.Close()
-
-	chains := make(map[int][]uuid.UUID)
-	for rows.Next() {
-		var id uuid.UUID
-		var chain int
-		if err := rows.Scan(&id, &chain); err != nil {
-			return nil, fmt.Errorf("error scanning supervision request ID: %w", err)
-		}
-		chains[chain] = append(chains[chain], id)
-	}
-
-	// Now get each supervision request using the existing method
-	supervisionChains := make(map[int][]sentinel.Supervision)
-	for chain, ids := range chains {
-		for _, id := range ids {
-			var supervision sentinel.Supervision
-
-			request, err := s.GetSupervisionRequest(ctx, id)
-			if err != nil {
-				return nil, fmt.Errorf("error getting supervision request %s: %w", id, err)
-			}
-			if request == nil {
-				return nil, fmt.Errorf("supervision request %s not found", id)
-			}
-
-			supervision.Request = *request
-
-			results, err := s.GetSupervisionResults(ctx, id)
-			if err != nil {
-				return nil, fmt.Errorf("error getting supervision results for request %s: %w", id, err)
-			}
-
-			if len(results) > 0 {
-				supervision.Result = results[0]
-			}
-
-			// XXX: Can't understand why this would be anything other than 0 or 1
-			if len(results) > 1 {
-				return nil, fmt.Errorf("multiple supervision results found for request %s", id)
-			}
-
-			statuses, err := s.GetSupervisionStatusesForRequest(ctx, id)
-			if err != nil {
-				return nil, fmt.Errorf("error getting supervision statuses for request %s: %w", id, err)
-			}
-			supervision.Statuses = statuses
-
-			supervisionChains[chain] = append(supervisionChains[chain], supervision)
-		}
-	}
-
-	if len(supervisionChains) != len(chains) {
-		return nil, fmt.Errorf("some supervision requests were not found for execution %s", executionId)
-	}
-
-	converted := convertSupervisionMapToChains(supervisionChains)
-
-	return converted, nil
-}
-
-func convertSupervisionMapToChains(supervisionChains map[int][]sentinel.Supervision) []sentinel.SupervisionChain {
-	var chains []sentinel.SupervisionChain
-	for _, chain := range supervisionChains {
-		chains = append(chains, chain)
-	}
-	return chains
-}
-
 func (s *PostgresqlStore) GetSupervisionStatusesForRequest(ctx context.Context, requestId uuid.UUID) ([]sentinel.SupervisionStatus, error) {
 	query := `
         SELECT ss.id, ss.supervisionrequest_id, ss.status, ss.created_at
@@ -1414,12 +989,12 @@ func (s *PostgresqlStore) GetSupervisionStatusesForRequest(ctx context.Context, 
 	return statuses, nil
 }
 
-func (s *PostgresqlStore) GetSupervisionResultsForExecution(ctx context.Context, executionId uuid.UUID) ([]sentinel.SupervisionResult, error) {
+func (s *PostgresqlStore) GetSupervisionResultsForChainExecution(ctx context.Context, executionId uuid.UUID) ([]sentinel.SupervisionResult, error) {
 	query := `
         SELECT sr.id, sr.supervisionrequest_id, sr.created_at, sr.decision, sr.reasoning
         FROM supervisionresult sr
         INNER JOIN supervisionrequest sreq ON sr.supervisionrequest_id = sreq.id
-        WHERE sreq.execution_id = $1`
+        WHERE sreq.chainexecution_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, query, executionId)
 	if err != nil {
@@ -1447,12 +1022,12 @@ func (s *PostgresqlStore) GetSupervisionResultsForExecution(ctx context.Context,
 	return results, nil
 }
 
-func (s *PostgresqlStore) GetSupervisionStatusesForExecution(ctx context.Context, executionId uuid.UUID) ([]sentinel.SupervisionStatus, error) {
+func (s *PostgresqlStore) GetSupervisionStatusesForChainExecution(ctx context.Context, executionId uuid.UUID) ([]sentinel.SupervisionStatus, error) {
 	query := `
         SELECT ss.id, ss.supervisionrequest_id, ss.status, ss.created_at
         FROM supervisionrequest_status ss
         INNER JOIN supervisionrequest sr ON ss.supervisionrequest_id = sr.id
-        WHERE sr.execution_id = $1`
+        WHERE sr.chainexecution_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, query, executionId)
 	if err != nil {

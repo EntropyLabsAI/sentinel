@@ -3,17 +3,17 @@ DROP TABLE IF EXISTS supervisionresult CASCADE;
 DROP TABLE IF EXISTS supervisionrequest_status CASCADE;
 DROP TABLE IF EXISTS supervisionrequest CASCADE;
 DROP TABLE IF EXISTS chainexecution CASCADE;
-DROP TABLE IF EXISTS toolrequest_group CASCADE;
+DROP TABLE IF EXISTS toolrequest_requestgroup CASCADE;
 DROP TABLE IF EXISTS toolrequest CASCADE;
-DROP TABLE IF EXISTS tool_supervisorchain CASCADE;
-DROP TABLE IF EXISTS supervisorchain_supervisor CASCADE;
+DROP TABLE IF EXISTS chain_tool CASCADE;
+DROP TABLE IF EXISTS chain_supervisor CASCADE;
 DROP TABLE IF EXISTS message CASCADE;
 DROP TABLE IF EXISTS user_project CASCADE;
 DROP TABLE IF EXISTS tool CASCADE;
 DROP TABLE IF EXISTS run CASCADE;
-DROP TABLE IF EXISTS supervisorchain CASCADE;
+DROP TABLE IF EXISTS chain CASCADE;
 DROP TABLE IF EXISTS supervisor CASCADE;
-DROP TABLE IF EXISTS "group" CASCADE;
+DROP TABLE IF EXISTS requestgroup CASCADE;
 DROP TABLE IF EXISTS project CASCADE;
 DROP TABLE IF EXISTS sentinel_user CASCADE;
 
@@ -28,7 +28,7 @@ CREATE TABLE project (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE "group" (
+CREATE TABLE requestgroup (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid()
 );
 
@@ -42,7 +42,7 @@ CREATE TABLE supervisor (
     attributes JSONB DEFAULT '{}' NOT NULL
 );
 
-CREATE TABLE supervisorchain (
+CREATE TABLE chain (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -74,46 +74,46 @@ CREATE TABLE user_project (
     PRIMARY KEY (user_id, project_id)
 );
 
-CREATE TABLE supervisorchain_supervisor (
+CREATE TABLE chain_supervisor (
     supervisor_id UUID REFERENCES supervisor(id),
-    supervisorchain_id UUID REFERENCES supervisorchain(id),
-    PRIMARY KEY (supervisor_id, supervisorchain_id)
+    chain_id UUID REFERENCES chain(id),
+    position_in_chain INTEGER,
+    PRIMARY KEY (supervisor_id, chain_id)
 );
 
-CREATE TABLE tool_supervisorchain (
+CREATE TABLE chain_tool (
     tool_id UUID REFERENCES tool(id),
-    supervisorchain_id UUID REFERENCES supervisorchain(id),
-    PRIMARY KEY (tool_id, supervisorchain_id)
+    chain_id UUID REFERENCES chain(id),
+    PRIMARY KEY (tool_id, chain_id)
 );
 
 CREATE TABLE toolrequest (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tool_id UUID REFERENCES tool(id),
-    run_id UUID REFERENCES run(id),
     message_id UUID REFERENCES message(id) NULL,
-    arguments JSONB DEFAULT '{}' NOT NULL
+    arguments JSONB DEFAULT '{}' NOT NULL,
+    task_state JSONB DEFAULT '{}' NOT NULL,
+    requestgroup_id UUID REFERENCES requestgroup(id) NULL
 );
 
-CREATE TABLE toolrequest_group (
-    group_id UUID REFERENCES "group"(id),
-    toolrequest_id UUID REFERENCES toolrequest(id),
-    PRIMARY KEY (group_id, toolrequest_id)
+CREATE TABLE toolrequest_requestgroup (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    requestgroup_id UUID REFERENCES requestgroup(id),
+    toolrequest_id UUID REFERENCES toolrequest(id)
 );
 
 CREATE TABLE chainexecution (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    run_id UUID REFERENCES run(id),
-    toolrequest_group_id UUID REFERENCES toolrequest_group(id),
-    supervisorchain_id UUID REFERENCES supervisorchain(id),
+    toolrequest_requestgroup_id UUID REFERENCES toolrequest_requestgroup(id),
+    chain_id UUID REFERENCES chain(id),
+    supervisor_id UUID REFERENCES supervisor(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE supervisionrequest (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     chainexecution_id UUID REFERENCES chainexecution(id),
-    supervisor_id UUID REFERENCES supervisor(id),
-    position_in_chain INTEGER,
-    task_state JSONB DEFAULT '{}' NOT NULL
+    supervisor_id UUID REFERENCES supervisor(id)
 );
 
 CREATE TABLE supervisionrequest_status (

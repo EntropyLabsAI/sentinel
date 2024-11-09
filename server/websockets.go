@@ -249,16 +249,16 @@ func (c *Client) ReadPump() {
 		}
 
 		// Handle the response
-		err = c.Hub.Store.CreateSupervisionResult(context.Background(), response)
+		_, err = c.Hub.Store.CreateSupervisionResult(context.Background(), response, response.SupervisionRequestId)
 		if err != nil {
 			log.Printf("Error creating supervisionresult entry for supervisionResult.RequestId %s: %v", response.Id, err)
 			// Mark the review as pending again so it can be reassigned
 			status := SupervisionStatus{
 				Status:               Pending,
 				CreatedAt:            time.Now(),
-				SupervisionRequestId: &response.Id,
+				SupervisionRequestId: response.Id,
 			}
-			if err := c.Hub.Store.CreateSupervisionStatus(context.Background(), response.Id, status); err != nil {
+			if err := c.Hub.Store.CreateSupervisionStatus(context.Background(), *response.Id, status); err != nil {
 				log.Printf("Error resetting supervision status: %v", err)
 			}
 		}
