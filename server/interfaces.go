@@ -46,6 +46,7 @@ type SupervisorResultsStore interface {
 
 type ToolRequestStore interface {
 	CreateToolRequestGroup(ctx context.Context, toolId uuid.UUID, request ToolRequestGroup) (*ToolRequestGroup, error)
+	GetRunRequestGroups(ctx context.Context, runId uuid.UUID) ([]ToolRequestGroup, error)
 }
 
 type ToolStore interface {

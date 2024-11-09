@@ -172,15 +172,8 @@ func apiCreateRunToolHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 		return
 	}
 
-	tool := Tool{
-		Id:                &toolId,
-		Attributes:        &t.Attributes,
-		Name:              &t.Name,
-		Description:       &t.Description,
-		IgnoredAttributes: &t.IgnoredAttributes,
-	}
-
-	respondJSON(w, tool)
+	w.WriteHeader(http.StatusCreated)
+	respondJSON(w, toolId)
 }
 
 func apiGetSupervisorHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store SupervisorStore) {
@@ -206,16 +199,18 @@ func apiCreateToolSupervisorChainsHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	// TODO do we want to return the chains here?
+	chainIds := make([]uuid.UUID, 0)
 	for _, chain := range request {
-		_, err := store.CreateToolSupervisorChain(ctx, toolId, chain)
+		chainId, err := store.CreateToolSupervisorChain(ctx, toolId, chain)
 		if err != nil {
 			sendErrorResponse(w, http.StatusInternalServerError, "error creating supervisor chain", err.Error())
 			return
 		}
+		chainIds = append(chainIds, *chainId)
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, nil)
+	respondJSON(w, chainIds)
 }
 
 func apiCreateSupervisorHandler(w http.ResponseWriter, r *http.Request, _ uuid.UUID, store SupervisorStore) {
@@ -235,11 +230,25 @@ func apiCreateSupervisorHandler(w http.ResponseWriter, r *http.Request, _ uuid.U
 	}
 
 	request.Id = &supervisorId
+
+	w.WriteHeader(http.StatusCreated)
 	respondJSON(w, request)
 }
 
-func apiGetToolSupervisorChainsHandler(w http.ResponseWriter, r *http.Request, toolId uuid.UUID, store SupervisorStore) {
+func apiGetToolSupervisorChainsHandler(w http.ResponseWriter, r *http.Request, toolId uuid.UUID, store Store) {
 	ctx := r.Context()
+
+	// First check if tool exists
+	tool, err := store.GetTool(ctx, toolId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool", err.Error())
+		return
+	}
+
+	if tool == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Tool not found", "")
+		return
+	}
 
 	chains, err := store.GetToolSupervisorChains(ctx, toolId)
 	if err != nil {
@@ -293,8 +302,43 @@ func apiCreateToolRequestGroupHandler(w http.ResponseWriter, r *http.Request, to
 	respondJSON(w, trg)
 }
 
-func apiGetSupervisorsHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, store SupervisorStore) {
+func apiGetRunRequestGroupsHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
 	ctx := r.Context()
+
+	run, err := store.GetRun(ctx, runId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting run", err.Error())
+		return
+	}
+
+	if run == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Run not found", "")
+		return
+	}
+
+	requestGroups, err := store.GetRunRequestGroups(ctx, runId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting run request groups", err.Error())
+		return
+	}
+
+	respondJSON(w, requestGroups)
+}
+
+func apiGetSupervisorsHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	// First check if project exists
+	project, err := store.GetProject(ctx, projectId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting project", err.Error())
+		return
+	}
+
+	if project == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Project not found", "")
+		return
+	}
 
 	supervisors, err := store.GetSupervisors(ctx, projectId)
 	if err != nil {
@@ -404,7 +448,7 @@ func apiCreateSupervisionResultHandler(
 	respondJSON(w, result)
 }
 
-func apiGetHubStatsHandler(w http.ResponseWriter, r *http.Request, hub *Hub) {
+func apiGetHubStatsHandler(w http.ResponseWriter, _ *http.Request, hub *Hub) {
 	stats, err := hub.getStats()
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting stats", err.Error())

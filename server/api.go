@@ -149,6 +149,11 @@ func (s Server) CreateToolRequestGroup(w http.ResponseWriter, r *http.Request, t
 	apiCreateToolRequestGroupHandler(w, r, toolId, s.Store)
 }
 
+// GetRunRequestGroups
+func (s Server) GetRunRequestGroups(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
+	apiGetRunRequestGroupsHandler(w, r, runId, s.Store)
+}
+
 // GetProjectTools
 func (s Server) GetProjectTools(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	apiGetToolsHandler(w, r, id, s.Store)

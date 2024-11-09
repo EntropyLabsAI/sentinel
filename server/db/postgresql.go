@@ -246,7 +246,6 @@ func (s *PostgresqlStore) GetProjectRuns(ctx context.Context, id uuid.UUID) ([]s
 	}
 
 	// If no rows were found, runs will be empty slice
-	fmt.Printf("runs: %v", runs)
 	return runs, nil
 }
 
@@ -350,10 +349,31 @@ func (s *PostgresqlStore) GetToolSupervisorChains(ctx context.Context, toolId uu
 
 		supervisors := make([]sentinel.Supervisor, 0)
 		for rows.Next() {
+			// Parse out the attributes bytes into json
+			var attributesJSON []byte
 			var supervisor sentinel.Supervisor
-			if err := rows.Scan(&supervisor.Id, &supervisor.Name, &supervisor.Description, &supervisor.Type, &supervisor.Attributes, &supervisor.CreatedAt, &supervisor.Code); err != nil {
+			if err := rows.Scan(
+				&supervisor.Id,
+				&supervisor.Name,
+				&supervisor.Description,
+				&supervisor.Type,
+				&attributesJSON,
+				&supervisor.CreatedAt,
+				&supervisor.Code,
+			); err != nil {
 				return nil, fmt.Errorf("error scanning supervisor: %w", err)
 			}
+
+			// Parse theSupervisorTypeNoSupervisor JSON attributes if they exist
+			var attributes map[string]interface{}
+			if len(attributesJSON) > 0 {
+				if err := json.Unmarshal(attributesJSON, &attributes); err != nil {
+					return nil, fmt.Errorf("error parsing supervisor attributes: %w", err)
+				}
+				supervisor.Attributes = attributes
+			}
+
+			supervisors = append(supervisors, supervisor)
 		}
 
 		chains = append(chains, sentinel.ToolSupervisorChain{
@@ -404,6 +424,59 @@ func (s *PostgresqlStore) CreateToolRequestGroup(ctx context.Context, toolId uui
 	}
 
 	return &trg, nil
+}
+
+func (s *PostgresqlStore) GetRequestGroup(ctx context.Context, id uuid.UUID) (*sentinel.ToolRequestGroup, error) {
+	query := `
+		SELECT tr.id, tr.tool_id, tr.message_id, tr.arguments, tr.task_state, tr.requestgroup_id, m.role, m.content
+		FROM toolrequest tr
+		INNER JOIN message m ON tr.message_id = m.id
+		WHERE tr.requestgroup_id = $1`
+
+	toolRequestGroup := sentinel.ToolRequestGroup{
+		Id:           &id,
+		ToolRequests: make([]sentinel.ToolRequest, 0),
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error getting request group: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var toolRequest sentinel.ToolRequest
+		var taskStateJSON []byte
+		if err := rows.Scan(
+			&toolRequest.Id,
+			&toolRequest.ToolId,
+			&toolRequest.Arguments,
+			&taskStateJSON,
+			&toolRequest.RequestgroupId,
+			&toolRequest.Message.Role,
+			&toolRequest.Message.Content,
+		); err != nil {
+			return nil, fmt.Errorf("error scanning tool request: %w", err)
+		}
+
+		// Parse the task state JSON if it exists
+		if len(taskStateJSON) > 0 {
+			if err := json.Unmarshal(taskStateJSON, &toolRequest.TaskState); err != nil {
+				return nil, fmt.Errorf("error parsing task state: %w", err)
+			}
+		}
+
+		toolRequestGroup.ToolRequests = append(toolRequestGroup.ToolRequests, toolRequest)
+	}
+
+	return &toolRequestGroup, nil
+}
+
+func (s *PostgresqlStore) GetRunRequestGroups(ctx context.Context, runId uuid.UUID) ([]sentinel.ToolRequestGroup, error) {
+	return nil, nil
 }
 
 func (s *PostgresqlStore) getChainExecution(ctx context.Context, chainExecutionId uuid.UUID) (*uuid.UUID, error) {
@@ -587,11 +660,7 @@ func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*sentinel.
 
 func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UUID) ([]sentinel.Tool, error) {
 	query := `
-		SELECT DISTINCT ON (t.id) t.id, t.run_id, t.name, t.description, t.attributes, t.ignored_attributes
-		FROM tool t
-		INNER JOIN run_tool_supervisor rts ON t.id = rts.tool_id
-		INNER JOIN run r ON rts.run_id = r.id
-		WHERE r.project_id = $1`
+		SELECT id FROM run WHERE project_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, query, projectId)
 	if err != nil {
@@ -599,36 +668,21 @@ func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UU
 	}
 	defer rows.Close()
 
-	var tools []sentinel.Tool
+	tools := make([]sentinel.Tool, 0)
 	for rows.Next() {
-		var tool sentinel.Tool
-		var attributesJSON []byte
-		var ignoredAttributes []string
+		var id uuid.UUID
 		if err := rows.Scan(
-			&tool.Id,
-			&tool.RunId,
-			&tool.Name,
-			&tool.Description,
-			&attributesJSON,
-			pq.Array(&ignoredAttributes),
+			&id,
 		); err != nil {
 			return nil, fmt.Errorf("error scanning tool: %w", err)
 		}
 
-		// Initialize the attributes map
-		t := make(map[string]interface{})
-
-		// Parse the JSON attributes if they exist
-		if len(attributesJSON) > 0 {
-			if err := json.Unmarshal(attributesJSON, &t); err != nil {
-				return nil, fmt.Errorf("error parsing tool attributes: %w", err)
-			}
+		runTools, err := s.GetRunTools(ctx, id)
+		if err != nil {
+			return nil, fmt.Errorf("error getting run tools for project: %w", err)
 		}
 
-		tool.IgnoredAttributes = &ignoredAttributes
-		tool.Attributes = &t
-
-		tools = append(tools, tool)
+		tools = append(tools, runTools...)
 	}
 
 	return tools, nil
@@ -687,7 +741,7 @@ func (s *PostgresqlStore) GetSupervisionRequestsForStatus(ctx context.Context, s
 		JOIN supervisionrequest_status srs ON srs.id = latest.latest_status_id
 		WHERE s.type != $1 AND srs.status = $2
 	`
-	rows, err := s.db.QueryContext(ctx, query, sentinel.SupervisorTypeClientSupervisor, status)
+	rows, err := s.db.QueryContext(ctx, query, sentinel.ClientSupervisor, status)
 	if err != nil {
 		return nil, fmt.Errorf("error getting supervision request IDs: %w", err)
 	}
@@ -819,22 +873,23 @@ func (s *PostgresqlStore) CreateTool(
 		ignoredAttributes = []string{}
 	}
 
+	id := uuid.New()
 	query := `
-		INSERT INTO tool (run_id, name, description, attributes, ignored_attributes)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id`
+		INSERT INTO tool (id, run_id, name, description, attributes, ignored_attributes)
+		VALUES ($1, $2, $3, $4, $5, $6)`
 
-	var id uuid.UUID
-	err = s.db.QueryRowContext(ctx, query,
+	_, err = s.db.ExecContext(ctx, query,
+		id,
 		runId,
 		name,
 		description,
 		attributesJSON, // Use the JSON-encoded attributes
 		pq.Array(ignoredAttributes),
-	).Scan(&id)
+	)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("error creating tool: %w", err)
 	}
+
 	return id, nil
 }
 
@@ -859,17 +914,16 @@ func (s *PostgresqlStore) GetRun(ctx context.Context, id uuid.UUID) (*sentinel.R
 func (s *PostgresqlStore) GetRunTools(ctx context.Context, runId uuid.UUID) ([]sentinel.Tool, error) {
 	query := `
 		SELECT tool.id, tool.run_id, tool.name, tool.description, tool.attributes, COALESCE(tool.ignored_attributes, '{}') as ignored_attributes
-		FROM run_tool_supervisor
-		INNER JOIN tool ON run_tool_supervisor.tool_id = tool.id
-		WHERE run_tool_supervisor.run_id = $1`
+		FROM tool 
+		WHERE run_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, query, runId)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("error getting run tools: %w", err)
 	}
 	defer rows.Close()
 
-	var tools []sentinel.Tool
+	tools := make([]sentinel.Tool, 0)
 	for rows.Next() {
 		var tool sentinel.Tool
 		var attributesJSON []byte
@@ -933,9 +987,12 @@ func (s *PostgresqlStore) GetSupervisor(ctx context.Context, id uuid.UUID) (*sen
 func (s *PostgresqlStore) GetSupervisors(ctx context.Context, projectId uuid.UUID) ([]sentinel.Supervisor, error) {
 	query := `
 		SELECT s.id, s.description, s.name, s.code, s.created_at, s.type, s.attributes
-		FROM supervisor s
-		INNER JOIN run_tool_supervisor rts ON s.id = rts.supervisor_id
-		INNER JOIN run r ON rts.run_id = r.id
+		FROM supervisor s 
+		INNER JOIN chain_supervisor cs ON s.id = cs.supervisor_id
+		INNER JOIN chain c ON cs.chain_id = c.id
+		INNER JOIN chain_tool ct ON c.id = ct.chain_id
+		INNER JOIN tool t ON ct.tool_id = t.id
+		INNER JOIN run r ON t.run_id = r.id
 		WHERE r.project_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, query, projectId)
@@ -944,11 +1001,19 @@ func (s *PostgresqlStore) GetSupervisors(ctx context.Context, projectId uuid.UUI
 	}
 	defer rows.Close()
 
-	var supervisors []sentinel.Supervisor
+	supervisors := make([]sentinel.Supervisor, 0)
 	for rows.Next() {
 		var supervisor sentinel.Supervisor
 		var attributesJSON []byte
-		if err := rows.Scan(&supervisor.Id, &supervisor.Description, &supervisor.Name, &supervisor.Code, &supervisor.CreatedAt, &supervisor.Type, &attributesJSON); err != nil {
+		if err := rows.Scan(
+			&supervisor.Id,
+			&supervisor.Description,
+			&supervisor.Name,
+			&supervisor.Code,
+			&supervisor.CreatedAt,
+			&supervisor.Type,
+			&attributesJSON,
+		); err != nil {
 			return nil, fmt.Errorf("error scanning supervisor: %w", err)
 		}
 
