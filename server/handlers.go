@@ -298,6 +298,26 @@ func apiGetRequestGroupHandler(w http.ResponseWriter, r *http.Request, requestGr
 	respondJSON(w, requestGroup)
 }
 
+func apiCreateToolRequestHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store ToolRequestStore) {
+	ctx := r.Context()
+
+	var request ToolRequest
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
+		return
+	}
+
+	toolRequestId, err := store.CreateToolRequest(ctx, requestGroupId, request)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error creating tool request", err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	respondJSON(w, toolRequestId)
+}
+
 func apiGetSupervisionResultHandler(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID, store Store) {
 	ctx := r.Context()
 
@@ -522,6 +542,13 @@ func apiCreateSupervisionResultHandler(
 	if err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
 		return
+	}
+
+	if result.Decision == Modify || result.Decision == Approve {
+		if result.ChosenToolrequestId == nil {
+			sendErrorResponse(w, http.StatusBadRequest, "Chosen tool request ID is required if you wish to modify or approve a given tool request", "")
+			return
+		}
 	}
 
 	// Check that the group, chain and supervisor, and request exist

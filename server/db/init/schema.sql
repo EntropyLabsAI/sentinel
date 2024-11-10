@@ -122,5 +122,6 @@ CREATE TABLE supervisionresult (
     supervisionrequest_id UUID REFERENCES supervisionrequest(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     decision TEXT DEFAULT 'reject' CHECK (decision IN ('approve', 'reject', 'terminate', 'modify', 'escalate')),
-    reasoning TEXT DEFAULT ''
+    reasoning TEXT DEFAULT '',
+    chosen_toolrequest_id UUID REFERENCES toolrequest(id) NULL
 );

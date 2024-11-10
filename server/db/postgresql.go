@@ -608,6 +608,40 @@ func (s *PostgresqlStore) createMessage(ctx context.Context, tx *sql.Tx, message
 	return &id, nil
 }
 
+// CreateToolRequest
+func (s *PostgresqlStore) CreateToolRequest(ctx context.Context, requestGroupId uuid.UUID, request sentinel.ToolRequest) (*uuid.UUID, error) {
+	if requestGroupId == uuid.Nil {
+		return nil, fmt.Errorf("request group ID is required")
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error starting transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if request.RequestgroupId == nil {
+		request.RequestgroupId = &requestGroupId
+	}
+
+	if request.Id == nil {
+		id := uuid.New()
+		request.Id = &id
+	}
+
+	err = s.createToolRequest(ctx, tx, request)
+	if err != nil {
+		return nil, fmt.Errorf("error creating tool request: %w", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, fmt.Errorf("error committing transaction: %w", err)
+	}
+
+	return request.Id, nil
+}
+
 func (s *PostgresqlStore) createToolRequest(ctx context.Context, tx *sql.Tx, request sentinel.ToolRequest) error {
 
 	query := `

@@ -394,6 +394,34 @@ paths:
       tags:
         - RequestGroup
 
+  /api/request_group/{requestGroupId}/tool_requests:
+    parameters:
+      - name: requestGroupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      summary: Create a new tool request for a request group
+      operationId: CreateToolRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToolRequest"
+      responses:
+        "201":
+          description: Tool request added to request group
+          content:
+            application/json:
+              schema:
+                type: string
+                format: uuid
+      tags:
+        - RequestGroup
+
   /api/tool/{toolId}:
     parameters:
       - name: toolId
@@ -885,6 +913,9 @@ components:
           type: string
           format: uuid
         supervision_request_id:
+          type: string
+          format: uuid
+        chosen_toolrequest_id:
           type: string
           format: uuid
         created_at:
