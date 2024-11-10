@@ -1,15 +1,10 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { MessageSquare, Info, Hammer, Text, Code, Check, X, SkullIcon } from "lucide-react"
-import { LLMMessage, TaskState, SupervisionRequest, Tool, ToolRequest, Decision, Output } from "@/types"
+import { Check, X, SkullIcon } from "lucide-react"
+import { SupervisionRequest, ToolRequest, Decision } from "@/types"
 import ToolChoiceDisplay from "./tool_call"
 import React, { useState, useEffect, useRef } from "react"
-import { Button } from "./ui/button"
-import CopyButton from "./copy_button"
-import { MessagesDisplay } from "./messages"
-import ContextDisplay from "./context_display"
-import JsonDisplay from "./util/json_display"
+import { Button } from "@/components/ui/button"
+import ContextDisplay from "@/components/context_display"
+import JsonDisplay from "@/components/util/json_display"
 
 interface ReviewRequestProps {
   reviewRequest: SupervisionRequest;
@@ -54,7 +49,7 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
             variant="default"
             size="sm"
             className="flex-1 bg-green-500 hover:bg-green-600 text-white"
-            onClick={() => handleSendResponse('approve')}
+            onClick={() => handleSendResponse(Decision.approve)}
           >
             <Check className="mr-2 h-4 w-4" /> Approve
           </Button>
@@ -62,7 +57,7 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
             variant="default"
             size="sm"
             className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white"
-            onClick={() => handleSendResponse('reject')}
+            onClick={() => handleSendResponse(Decision.reject)}
           >
             <X className="mr-2 h-4 w-4" /> Reject
           </Button>
@@ -70,7 +65,7 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
             variant="default"
             size="sm"
             className="flex-1 bg-red-500 hover:bg-red-600 text-white"
-            onClick={() => handleSendResponse('terminate')}
+            onClick={() => handleSendResponse(Decision.terminate)}
           >
             <SkullIcon className="mr-2 h-4 w-4" /> Kill Agent
           </Button>

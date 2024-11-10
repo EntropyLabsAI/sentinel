@@ -36,6 +36,18 @@ export type CreateProjectBody = {
   name: string;
 };
 
+/**
+ * Contains all the information needed for a human reviewer to make a supervision decision
+ */
+export interface ReviewPayload {
+  /** The state of the entire supervision chain, including previous supervision results */
+  chain_state: ChainExecutionState;
+  /** The tool request group being supervised */
+  request_group: ToolRequestGroup;
+  /** The current supervision request being reviewed */
+  supervision_request: SupervisionRequest;
+}
+
 export type MessageRole = typeof MessageRole[keyof typeof MessageRole];
 
 
@@ -163,6 +175,7 @@ export const Status = {
 } as const;
 
 export interface SupervisionResult {
+  chosen_toolrequest_id?: string;
   created_at: string;
   decision: Decision;
   id?: string;
@@ -178,7 +191,7 @@ export interface SupervisionStatus {
 }
 
 export interface SupervisionRequest {
-  chainexecution_id: string;
+  chainexecution_id?: string;
   id?: string;
   position_in_chain: number;
   status?: SupervisionStatus;
@@ -258,13 +271,21 @@ export interface SupervisionRequestState {
   supervision_request: SupervisionRequest;
 }
 
-export interface ChainState {
+export interface ChainExecution {
+  chain_id: string;
+  created_at: string;
+  id: string;
+  request_group_id: string;
+}
+
+export interface ChainExecutionState {
   chain: SupervisorChain;
+  chain_execution: ChainExecution;
   supervision_requests: SupervisionRequestState[];
 }
 
 export interface RunExecution {
-  chains: ChainState[];
+  chains: ChainExecutionState[];
   request_group: ToolRequestGroup;
 }
 
@@ -1093,7 +1114,7 @@ export const useCreateToolSupervisorChains = <TError = AxiosError<unknown>,
 export const createToolRequestGroup = (
     toolId: string,
     toolRequestGroup: ToolRequestGroup, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<string>> => {
+ ): Promise<AxiosResponse<ToolRequestGroup>> => {
     
     return axios.post(
       `/api/tool/${toolId}/request_group`,
@@ -1261,6 +1282,62 @@ export const useGetRequestGroup = <TData = Awaited<ReturnType<typeof getRequestG
 
 
 
+/**
+ * @summary Create a new tool request for a request group
+ */
+export const createToolRequest = (
+    requestGroupId: string,
+    toolRequest: ToolRequest, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<string>> => {
+    
+    return axios.post(
+      `/api/request_group/${requestGroupId}/tool_requests`,
+      toolRequest,options
+    );
+  }
+
+
+
+export const getCreateToolRequestMutationOptions = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createToolRequest>>, TError,{requestGroupId: string;data: ToolRequest}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof createToolRequest>>, TError,{requestGroupId: string;data: ToolRequest}, TContext> => {
+const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createToolRequest>>, {requestGroupId: string;data: ToolRequest}> = (props) => {
+          const {requestGroupId,data} = props ?? {};
+
+          return  createToolRequest(requestGroupId,data,axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateToolRequestMutationResult = NonNullable<Awaited<ReturnType<typeof createToolRequest>>>
+    export type CreateToolRequestMutationBody = ToolRequest
+    export type CreateToolRequestMutationError = AxiosError<unknown>
+
+    /**
+ * @summary Create a new tool request for a request group
+ */
+export const useCreateToolRequest = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createToolRequest>>, TError,{requestGroupId: string;data: ToolRequest}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationResult<
+        Awaited<ReturnType<typeof createToolRequest>>,
+        TError,
+        {requestGroupId: string;data: ToolRequest},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateToolRequestMutationOptions(options);
+
+      return useMutation(mutationOptions);
+    }
+    
 /**
  * @summary Get a tool
  */
@@ -1561,7 +1638,7 @@ export const useGetSupervisionResult = <TData = Awaited<ReturnType<typeof getSup
 export const createSupervisionResult = (
     supervisionRequestId: string,
     supervisionResult: SupervisionResult, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<SupervisionResult>> => {
+ ): Promise<AxiosResponse<string>> => {
     
     return axios.post(
       `/api/supervision_request/${supervisionRequestId}/result`,
@@ -1718,6 +1795,65 @@ export const useGetHubStats = <TData = Awaited<ReturnType<typeof getHubStats>>, 
   ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
 
   const queryOptions = getGetHubStatsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Get the review payload for a supervision request
+ */
+export const getSupervisionReviewPayload = (
+    supervisionRequestId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<ReviewPayload>> => {
+    
+    return axios.get(
+      `/api/supervision_request/${supervisionRequestId}/review_payload`,options
+    );
+  }
+
+
+export const getGetSupervisionReviewPayloadQueryKey = (supervisionRequestId: string,) => {
+    return [`/api/supervision_request/${supervisionRequestId}/review_payload`] as const;
+    }
+
+    
+export const getGetSupervisionReviewPayloadQueryOptions = <TData = Awaited<ReturnType<typeof getSupervisionReviewPayload>>, TError = AxiosError<ErrorResponse>>(supervisionRequestId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSupervisionReviewPayload>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSupervisionReviewPayloadQueryKey(supervisionRequestId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSupervisionReviewPayload>>> = ({ signal }) => getSupervisionReviewPayload(supervisionRequestId, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(supervisionRequestId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSupervisionReviewPayload>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSupervisionReviewPayloadQueryResult = NonNullable<Awaited<ReturnType<typeof getSupervisionReviewPayload>>>
+export type GetSupervisionReviewPayloadQueryError = AxiosError<ErrorResponse>
+
+/**
+ * @summary Get the review payload for a supervision request
+ */
+export const useGetSupervisionReviewPayload = <TData = Awaited<ReturnType<typeof getSupervisionReviewPayload>>, TError = AxiosError<ErrorResponse>>(
+ supervisionRequestId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSupervisionReviewPayload>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetSupervisionReviewPayloadQueryOptions(supervisionRequestId,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
