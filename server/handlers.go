@@ -106,8 +106,20 @@ func apiGetProjectRunsHandler(w http.ResponseWriter, r *http.Request, id uuid.UU
 	respondJSON(w, runs)
 }
 
-func apiCreateRunToolHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store ToolStore) {
+func apiCreateRunToolHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
 	ctx := r.Context()
+
+	// Check that the run exists
+	run, err := store.GetRun(ctx, runId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting run", err.Error())
+		return
+	}
+
+	if run == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Run not found", "")
+		return
+	}
 
 	var t struct {
 		Attributes        map[string]interface{} `json:"attributes"`
@@ -115,7 +127,7 @@ func apiCreateRunToolHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 		Description       string                 `json:"description"`
 		IgnoredAttributes []string               `json:"ignoredAttributes"`
 	}
-	err := json.NewDecoder(r.Body).Decode(&t)
+	err = json.NewDecoder(r.Body).Decode(&t)
 	if err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
 		return
