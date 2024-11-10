@@ -538,6 +538,9 @@ func (s *PostgresqlStore) GetExecutionFromChainId(ctx context.Context, chainId u
 
 	var id uuid.UUID
 	err := s.db.QueryRowContext(ctx, query, chainId).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("error getting execution from chain ID: %w", err)
 	}
