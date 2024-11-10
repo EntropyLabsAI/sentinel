@@ -572,7 +572,8 @@ func (s *PostgresqlStore) chainExecutionExists(ctx context.Context, chainExecuti
 		FROM chainexecution
 		WHERE id = $1`
 
-	err := s.db.QueryRowContext(ctx, query, chainExecutionId).Scan()
+	var exists bool
+	err := s.db.QueryRowContext(ctx, query, chainExecutionId).Scan(&exists)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
