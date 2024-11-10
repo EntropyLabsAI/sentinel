@@ -606,7 +606,8 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SupervisionResult"
+                type: string
+                format: uuid
       tags:
         - Supervision
 
