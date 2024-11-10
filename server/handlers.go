@@ -45,7 +45,7 @@ func apiCreateProjectHandler(w http.ResponseWriter, r *http.Request, store Proje
 
 	if existingProject != nil {
 		w.WriteHeader(http.StatusOK)
-		respondJSON(w, existingProject)
+		respondJSON(w, existingProject.Id.String())
 		return
 	}
 
