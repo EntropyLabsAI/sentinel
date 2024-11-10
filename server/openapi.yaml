@@ -576,6 +576,27 @@ paths:
       tags:
         - Supervision
 
+  /api/run/{runId}/state:
+    parameters:
+      - name: runId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get the state of a run
+      operationId: GetRunState
+      responses:
+        "200":
+          description: Run state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunState"
+      tags:
+        - Run
+
   /api/stats:
     get:
       summary: Get hub stats
@@ -607,6 +628,50 @@ components:
           type: string
       required:
         - error
+
+    RunState:
+      type: array
+      items:
+        $ref: "#/components/schemas/RunExecution"
+
+    RunExecution:
+      type: object
+      properties:
+        request_group:
+          $ref: "#/components/schemas/ToolRequestGroup"
+        chains:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChainState"
+      required:
+        - request_group
+        - chains
+
+    ChainState:
+      type: object
+      properties:
+        chain:
+          $ref: "#/components/schemas/SupervisorChain"
+        supervision_requests:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupervisionRequestState"
+      required:
+        - chain
+        - supervision_requests
+
+    SupervisionRequestState:
+      type: object
+      properties:
+        supervision_request:
+          $ref: "#/components/schemas/SupervisionRequest"
+        status:
+          $ref: "#/components/schemas/SupervisionStatus"
+        result:
+          $ref: "#/components/schemas/SupervisionResult"
+      required:
+        - supervision_request
+        - status
 
     Project:
       type: object

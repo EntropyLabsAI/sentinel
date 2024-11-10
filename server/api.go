@@ -194,6 +194,11 @@ func (s Server) GetHubStats(w http.ResponseWriter, r *http.Request) {
 	apiGetHubStatsHandler(w, r, s.Hub)
 }
 
+// GetRunState
+func (s Server) GetRunState(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
+	apiGetRunStateHandler(w, r, runId, s.Store)
+}
+
 func enableCorsMiddleware(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Set CORS headers

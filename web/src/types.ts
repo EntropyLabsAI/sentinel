@@ -207,6 +207,11 @@ export interface ToolRequestGroup {
   tool_requests: ToolRequest[];
 }
 
+export interface SupervisorChain {
+  chain_id: string;
+  supervisors: Supervisor[];
+}
+
 export interface ChainRequest {
   /** Array of supervisor IDs to create chains with */
   supervisor_ids?: string[];
@@ -222,11 +227,6 @@ export interface Supervisor {
   id?: string;
   name: string;
   type: SupervisorType;
-}
-
-export interface SupervisorChain {
-  chain_id: string;
-  supervisors: Supervisor[];
 }
 
 export type ToolAttributes = { [key: string]: unknown };
@@ -251,6 +251,24 @@ export interface Project {
   id: string;
   name: string;
 }
+
+export interface SupervisionRequestState {
+  result?: SupervisionResult;
+  status: SupervisionStatus;
+  supervision_request: SupervisionRequest;
+}
+
+export interface ChainState {
+  chain: SupervisorChain;
+  supervision_requests: SupervisionRequestState[];
+}
+
+export interface RunExecution {
+  chains: ChainState[];
+  request_group: ToolRequestGroup;
+}
+
+export type RunState = RunExecution[];
 
 export interface ErrorResponse {
   details?: string;
@@ -443,7 +461,7 @@ export const useGetProjects = <TData = Awaited<ReturnType<typeof getProjects>>, 
  */
 export const createProject = (
     createProjectBody: CreateProjectBody, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<Project>> => {
+ ): Promise<AxiosResponse<string>> => {
     
     return axios.post(
       `/api/project`,
@@ -616,7 +634,7 @@ export const useGetProjectRuns = <TData = Awaited<ReturnType<typeof getProjectRu
  */
 export const createProjectRun = (
     projectId: string, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<Run>> => {
+ ): Promise<AxiosResponse<string>> => {
     
     return axios.post(
       `/api/project/${projectId}/run`,undefined,options
@@ -1075,7 +1093,7 @@ export const useCreateToolSupervisorChains = <TError = AxiosError<unknown>,
 export const createToolRequestGroup = (
     toolId: string,
     toolRequestGroup: ToolRequestGroup, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<ToolRequestGroup>> => {
+ ): Promise<AxiosResponse<string>> => {
     
     return axios.post(
       `/api/tool/${toolId}/request_group`,
@@ -1369,7 +1387,7 @@ export const createSupervisionRequest = (
     chainId: string,
     supervisorId: string,
     supervisionRequest: SupervisionRequest, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<SupervisionRequest>> => {
+ ): Promise<AxiosResponse<string>> => {
     
     return axios.post(
       `/api/request_group/${requestGroupId}/chain/${chainId}/supervisor/${supervisorId}/supervision_request`,
@@ -1593,6 +1611,65 @@ export const useCreateSupervisionResult = <TError = AxiosError<unknown>,
       return useMutation(mutationOptions);
     }
     
+/**
+ * @summary Get the state of a run
+ */
+export const getRunState = (
+    runId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<RunState>> => {
+    
+    return axios.get(
+      `/api/run/${runId}/state`,options
+    );
+  }
+
+
+export const getGetRunStateQueryKey = (runId: string,) => {
+    return [`/api/run/${runId}/state`] as const;
+    }
+
+    
+export const getGetRunStateQueryOptions = <TData = Awaited<ReturnType<typeof getRunState>>, TError = AxiosError<unknown>>(runId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunState>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRunStateQueryKey(runId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRunState>>> = ({ signal }) => getRunState(runId, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(runId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRunState>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRunStateQueryResult = NonNullable<Awaited<ReturnType<typeof getRunState>>>
+export type GetRunStateQueryError = AxiosError<unknown>
+
+/**
+ * @summary Get the state of a run
+ */
+export const useGetRunState = <TData = Awaited<ReturnType<typeof getRunState>>, TError = AxiosError<unknown>>(
+ runId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunState>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetRunStateQueryOptions(runId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
 /**
  * @summary Get hub stats
  */

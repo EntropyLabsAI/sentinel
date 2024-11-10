@@ -90,6 +90,7 @@ func apiCreateProjectRunHandler(w http.ResponseWriter, r *http.Request, id uuid.
 
 	log.Printf("created run with ID: %s", run.Id)
 
+	w.WriteHeader(http.StatusCreated)
 	respondJSON(w, runID)
 }
 
@@ -831,3 +832,95 @@ func apiGetProjectHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, 
 
 // 	respondJSON(w, run)
 // }
+
+func apiGetRunStateHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	// First verify the run exists
+	run, err := store.GetRun(ctx, runId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting run", err.Error())
+		return
+	}
+	if run == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Run not found", "")
+		return
+	}
+
+	// Get all request groups for this run
+	requestGroups, err := store.GetRunRequestGroups(ctx, runId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting request groups", err.Error())
+		return
+	}
+
+	// Build the run state
+	runState := make([]RunExecution, 0)
+
+	// For each request group
+	for _, requestGroup := range requestGroups {
+		execution := RunExecution{
+			RequestGroup: requestGroup,
+			Chains:       make([]ChainState, 0),
+		}
+
+		// Get all tools from this request group
+		for _, toolRequest := range requestGroup.ToolRequests {
+			// Get all chains for this tool
+			chains, err := store.GetSupervisorChains(ctx, toolRequest.ToolId)
+			if err != nil {
+				sendErrorResponse(w, http.StatusInternalServerError, "error getting chains", err.Error())
+				return
+			}
+
+			// For each chain
+			for _, chain := range chains {
+				chainState := ChainState{
+					Chain:               chain,
+					SupervisionRequests: make([]SupervisionRequestState, 0),
+				}
+
+				// Get all supervision requests for this chain
+				supervisionRequests, err := store.GetChainSupervisionRequests(ctx, chain.ChainId)
+				if err != nil {
+					sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision requests", err.Error())
+					return
+				}
+
+				// For each supervision request
+				for _, request := range supervisionRequests {
+					// Get the status
+					status, err := store.GetSupervisionRequestStatus(ctx, *request.Id)
+					if err != nil {
+						sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision status", err.Error())
+						return
+					}
+
+					// Get the result if it exists
+					var result *SupervisionResult
+					if status.Status == "completed" {
+						result, err = store.GetSupervisionResult(ctx, *request.Id)
+						if err != nil {
+							sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision result", err.Error())
+							return
+						}
+					}
+
+					requestState := SupervisionRequestState{
+						SupervisionRequest: request,
+						Status:             *status,
+						Result:             result,
+					}
+
+					chainState.SupervisionRequests = append(chainState.SupervisionRequests, requestState)
+				}
+
+				execution.Chains = append(execution.Chains, chainState)
+			}
+		}
+
+		runState = append(runState, execution)
+	}
+
+	respondJSON(w, runState)
+}
