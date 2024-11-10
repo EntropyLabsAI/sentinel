@@ -214,10 +214,8 @@ func apiCreateSupervisorHandler(w http.ResponseWriter, r *http.Request, _ uuid.U
 		return
 	}
 
-	request.Id = &supervisorId
-
 	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, request)
+	respondJSON(w, supervisorId)
 }
 
 func apiGetToolSupervisorChainsHandler(w http.ResponseWriter, r *http.Request, toolId uuid.UUID, store Store) {
