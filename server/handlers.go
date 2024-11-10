@@ -283,7 +283,7 @@ func apiCreateToolRequestGroupHandler(w http.ResponseWriter, r *http.Request, to
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, trg.Id)
+	respondJSON(w, trg)
 }
 
 func apiGetRequestGroupHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store Store) {
@@ -584,7 +584,7 @@ func apiCreateSupervisionResultHandler(
 		}
 
 		if toolRequest == nil {
-			sendErrorResponse(w, http.StatusNotFound, "Tool request not found", "")
+			sendErrorResponse(w, http.StatusNotFound, fmt.Sprintf("Tool request %s not found", *result.ChosenToolrequestId), "")
 			return
 		}
 	}
