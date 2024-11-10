@@ -1175,7 +1175,7 @@ func (s *PostgresqlStore) GetSupervisionStatusesForRequest(ctx context.Context, 
 
 func (s *PostgresqlStore) GetSupervisionResultsForChainExecution(ctx context.Context, executionId uuid.UUID) ([]sentinel.SupervisionResult, error) {
 	query := `
-        SELECT sr.id, sr.supervisionrequest_id, sr.created_at, sr.decision, sr.reasoning
+        SELECT sr.id, sr.supervisionrequest_id, sr.created_at, sr.decision, sr.reasoning, sr.chosen_toolrequest_id
         FROM supervisionresult sr
         INNER JOIN supervisionrequest sreq ON sr.supervisionrequest_id = sreq.id
         WHERE sreq.chainexecution_id = $1`
@@ -1195,6 +1195,7 @@ func (s *PostgresqlStore) GetSupervisionResultsForChainExecution(ctx context.Con
 			&result.CreatedAt,
 			&result.Decision,
 			&result.Reasoning,
+			&result.ChosenToolrequestId,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning supervision result: %w", err)
