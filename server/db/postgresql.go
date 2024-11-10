@@ -641,16 +641,16 @@ func (s *PostgresqlStore) CreateSupervisionRequest(
 	defer func() { _ = tx.Rollback() }()
 
 	// Sanity check that we're recording this against a valid chain execution group that already exists
-	if request.ChainexecutionId == nil && request.PositionInChain > 0 {
-		return nil, fmt.Errorf("chain execution ID is required when creating a supervision request for a non-zero position in the chain")
-	} else if request.ChainexecutionId != nil && request.PositionInChain == 0 {
-		// Create a new chain execution
+	if request.ChainexecutionId == nil && request.PositionInChain == 0 {
+		// Create a new chain execution for the first supervisor in the chain
 		ceId, err := s.createChainExecution(ctx, chainId, requestGroupId, tx)
 		if err != nil {
 			return nil, fmt.Errorf("error creating chain execution: %w", err)
 		}
 
 		request.ChainexecutionId = ceId
+	} else if request.ChainexecutionId == nil && request.PositionInChain > 0 {
+		return nil, fmt.Errorf("chain execution ID is required when creating a supervision request for a non-zero position in the chain")
 	}
 
 	query := `
