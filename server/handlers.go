@@ -690,11 +690,14 @@ func apiGetRunStateHandler(w http.ResponseWriter, r *http.Request, runId uuid.UU
 					return
 				}
 
+				var supervisionRequests []SupervisionRequest
 				// Get all supervision requests for this chain
-				supervisionRequests, err := store.GetChainExecutionSupervisionRequests(ctx, *chainExecutionId)
-				if err != nil {
-					sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision requests", err.Error())
-					return
+				if chainExecutionId != nil {
+					supervisionRequests, err = store.GetChainExecutionSupervisionRequests(ctx, *chainExecutionId)
+					if err != nil {
+						sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision requests", err.Error())
+						return
+					}
 				}
 
 				// For each supervision request
