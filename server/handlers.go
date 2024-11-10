@@ -425,19 +425,14 @@ func apiGetToolHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, sto
 
 func apiGetSupervisionRequestStatusHandler(w http.ResponseWriter, r *http.Request, reviewID uuid.UUID, store Store) {
 	ctx := r.Context()
-	// Use the reviewID directly
-	supervisor, err := store.GetSupervisionRequest(ctx, reviewID)
+
+	status, err := store.GetSupervisionRequestStatus(ctx, reviewID)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisor", err.Error())
 		return
 	}
 
-	if supervisor == nil {
-		sendErrorResponse(w, http.StatusNotFound, "Supervisor not found", "")
-		return
-	}
-
-	respondJSON(w, supervisor.Status)
+	respondJSON(w, status)
 }
 
 func apiCreateSupervisionRequestHandler(
