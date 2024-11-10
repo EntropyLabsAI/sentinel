@@ -555,7 +555,7 @@ func (s *PostgresqlStore) CreateChainExecution(
 ) (*uuid.UUID, error) {
 	query := `
 		INSERT INTO chainexecution (id, chain_id, requestgroup_id)
-		VALUES ($1, $2)`
+		VALUES ($1, $2, $3)`
 
 	id := uuid.New()
 	_, err := s.db.ExecContext(ctx, query, id, chainId, requestGroupId)
