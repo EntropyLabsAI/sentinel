@@ -18,7 +18,7 @@ type Store interface {
 
 type SupervisionStore interface {
 	// Requests
-	CreateSupervisionRequest(ctx context.Context, request SupervisionRequest) (*uuid.UUID, error)
+	CreateSupervisionRequest(ctx context.Context, request SupervisionRequest, chainId uuid.UUID, requestGroupId uuid.UUID) (*uuid.UUID, error)
 	GetSupervisionRequest(ctx context.Context, id uuid.UUID) (*SupervisionRequest, error)
 	GetSupervisionRequestsForStatus(ctx context.Context, status Status) ([]SupervisionRequest, error)
 

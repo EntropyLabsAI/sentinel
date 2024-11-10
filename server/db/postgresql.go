@@ -627,19 +627,23 @@ func (s *PostgresqlStore) chainExecutionExists(ctx context.Context, chainExecuti
 	return true, nil
 }
 
-func (s *PostgresqlStore) CreateSupervisionRequest(ctx context.Context, request sentinel.SupervisionRequest) (*uuid.UUID, error) {
+func (s *PostgresqlStore) CreateSupervisionRequest(
+	ctx context.Context,
+	request sentinel.SupervisionRequest,
+	chainId uuid.UUID,
+	requestGroupId uuid.UUID,
+) (*uuid.UUID, error) {
 	// Sanity check that we're recording this against a valid chain execution group that already exists
 	ce := request.ChainexecutionId
-	if ce != nil {
-		exists, err := s.chainExecutionExists(ctx, *ce)
+	if ce == nil && request.PositionInChain > 0 {
+		return nil, fmt.Errorf("chain execution ID is required when creating a supervision request for a non-zero position in the chain")
+	} else if ce != nil && request.PositionInChain == 0 {
+		// Create a new chain execution
+		ceId, err := s.CreateChainExecution(ctx, chainId, requestGroupId)
 		if err != nil {
-			return nil, fmt.Errorf("error checking if chain execution exists: %w", err)
+			return nil, fmt.Errorf("error creating chain execution: %w", err)
 		}
-		if !exists {
-			return nil, fmt.Errorf("chain execution does not exist: %s", *ce)
-		}
-	} else {
-		return nil, fmt.Errorf("chain execution ID is required when creating a supervision request")
+		ce = ceId
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)

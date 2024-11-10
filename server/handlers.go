@@ -513,36 +513,36 @@ func apiCreateSupervisionRequestHandler(
 	}
 
 	// Check that the chainexecution entry exists
-	executionId, err := store.GetExecutionFromChainId(ctx, chainId)
+	foundExecutionId, err := store.GetExecutionFromChainId(ctx, chainId)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting execution from chain ID", err.Error())
 		return
 	}
 
 	// Sanity check: this is the first supervisor in the chain, we shouldn't have already created a chain execution
-	if executionId != nil && pos == 0 {
+	if foundExecutionId != nil && pos == 0 {
 		sendErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("chain execution already exists for chain %s, yet supervisor is position 0. Curious.", chainId), "")
 		return
-	} else {
-		request.ChainexecutionId = executionId
 	}
 
-	if executionId == nil && pos == 0 {
-		// This is the first supervisor in the chain, so we need to create a new chain execution
-		id, err := store.CreateChainExecution(ctx, chainId, requestGroupId)
-		if err != nil {
-			sendErrorResponse(w, http.StatusInternalServerError, "error creating chain execution", err.Error())
-			return
-		}
-
-		request.ChainexecutionId = id
-	} else if executionId == nil && pos > 0 {
+	if foundExecutionId == nil && pos > 0 {
 		sendErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("no ongoing chain execution found for chain %s, yet supervisor allegedly not a position 0. Curious.", chainId), "")
 		return
 	}
 
+	if request.ChainexecutionId != nil && foundExecutionId != nil {
+		if *request.ChainexecutionId != *foundExecutionId {
+			sendErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("chain execution ID mismatch for chain %s, request group %s, and supervisor %s", chainId, requestGroupId, supervisorId), "")
+			return
+		}
+	}
+
+	if foundExecutionId != nil && request.ChainexecutionId == nil {
+		request.ChainexecutionId = foundExecutionId
+	}
+
 	// Store the supervision in the database
-	reviewID, err := store.CreateSupervisionRequest(ctx, request)
+	reviewID, err := store.CreateSupervisionRequest(ctx, request, chainId, requestGroupId)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error creating supervision request", err.Error())
 		return

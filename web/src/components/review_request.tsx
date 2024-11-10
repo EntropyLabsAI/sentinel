@@ -1,39 +1,31 @@
 import { Check, X, SkullIcon } from "lucide-react"
-import { SupervisionRequest, ToolRequest, Decision } from "@/types"
+import { ReviewPayload, ToolRequest, Decision } from "@/types"
 import ToolChoiceDisplay from "./tool_call"
-import React, { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import ContextDisplay from "@/components/context_display"
-import JsonDisplay from "@/components/util/json_display"
 
 interface ReviewRequestProps {
-  reviewRequest: SupervisionRequest;
+  reviewPayload: ReviewPayload;
   sendResponse: (decision: Decision, toolChoice: ToolRequest) => void;
 }
 
-export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: ReviewRequestProps) {
-  const [updatedReviewRequest, setUpdatedReviewRequest] = useState(reviewRequest);
-  const [selectedToolIndex, setSelectedToolIndex] = useState(0); // Added state for selected tool
+export default function ReviewRequestDisplay({ reviewPayload, sendResponse }: ReviewRequestProps) {
+  const { supervision_request, request_group, chain_state } = reviewPayload;
+  const [selectedToolIndex, setSelectedToolIndex] = useState(0);
 
   useEffect(() => {
-    setUpdatedReviewRequest(reviewRequest);
     setSelectedToolIndex(0); // Initialize the first tool as selected
-  }, [reviewRequest]);
+  }, [reviewPayload]);
+
+  const toolRequests = request_group.tool_requests || [];
 
   function handleToolChoiceChange(updatedToolChoice: ToolRequest, index: number) {
-    const updatedToolChoices = [...(updatedReviewRequest.tool_requests || [])];
-    updatedToolChoices[index] = updatedToolChoice;
-
-    const updatedReview = {
-      ...updatedReviewRequest,
-      tool_choices: updatedToolChoices,
-    };
-
-    setUpdatedReviewRequest(updatedReview);
+    // Here you can handle any changes to the tool choice if your UI allows editing
   }
 
   function handleSendResponse(decision: Decision) {
-    const selectedToolChoice = updatedReviewRequest.tool_requests?.[selectedToolIndex];
+    const selectedToolChoice = toolRequests[selectedToolIndex];
     sendResponse(decision, selectedToolChoice);
   }
 
@@ -42,7 +34,8 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
       {/* Action Buttons */}
       <div className="w-full flex-shrink-0">
         <h2 className="text-2xl mb-4">
-          Agent #<code>{updatedReviewRequest?.run_id}</code> is requesting approval
+          Agent{' '}
+          <code>{supervision_request.chainexecution_id}</code> is requesting approval
         </h2>
         <div className="my-4 flex flex-wrap gap-2">
           <Button
@@ -73,26 +66,25 @@ export default function ReviewRequestDisplay({ reviewRequest, sendResponse }: Re
 
         {/* Tool Choices */}
         <div className="space-y-4">
-          {updatedReviewRequest.tool_requests &&
-            updatedReviewRequest.messages &&
-            updatedReviewRequest.tool_requests.map((toolChoice, index) => (
-              <ToolChoiceDisplay
-                key={index}
-                toolChoice={toolChoice}
-                lastMessage={updatedReviewRequest.messages[index]}
-                onToolChoiceChange={(updatedToolChoice) => handleToolChoiceChange(updatedToolChoice, index)}
-                isSelected={selectedToolIndex === index}
-                onSelect={() => setSelectedToolIndex(index)}
-                index={index + 1}
-              />
-            ))}
+          {toolRequests.map((toolChoice, index) => (
+            <ToolChoiceDisplay
+              key={index}
+              toolChoice={toolChoice}
+              lastMessage={toolChoice.message}
+              onToolChoiceChange={(updatedToolChoice) =>
+                handleToolChoiceChange(updatedToolChoice, index)
+              }
+              isSelected={selectedToolIndex === index}
+              onSelect={() => setSelectedToolIndex(index)}
+              index={index + 1}
+            />
+          ))}
         </div>
       </div>
 
       {/* Context Display */}
       <div className="w-full flex-grow overflow-auto">
-        <ContextDisplay context={updatedReviewRequest.task_state} />
-        <JsonDisplay json={updatedReviewRequest} />
+        <ContextDisplay context={toolRequests[selectedToolIndex].task_state} />
       </div>
     </div>
   )

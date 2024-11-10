@@ -1,48 +1,72 @@
 import React, { useState, useEffect } from 'react';
-import { SupervisionResult, ToolRequest, Decision, SupervisionRequest } from '@/types';
+import {
+  SupervisionResult,
+  ToolRequest,
+  Decision,
+  ReviewPayload,
+  SupervisionRequest,
+  useGetSupervisionReviewPayload
+} from '@/types';
 import ReviewRequestDisplay from '@/components/review_request';
 import { HubStatsAccordion } from './util/hub_stats';
 import { useConfig } from '@/contexts/config_context';
-import { UUIDDisplay } from './util/uuid_display';
+import axios from 'axios';
 
-interface ReviewSectionProps {
-}
+interface ReviewSectionProps { }
 
-const HumanReviews: React.FC<ReviewSectionProps> = ({
-}) => {
-  const [humanReviewDataList, setHumanReviewDataList] = useState<SupervisionRequest[]>([]);
-  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+// Map the review request to the payload
+type ReviewPayloadMap = {
+  [key: string]: ReviewPayload;
+};
+
+const HumanReviews: React.FC<ReviewSectionProps> = ({ }) => {
+  const { API_BASE_URL, WEBSOCKET_BASE_URL } = useConfig();
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
 
-  const { API_BASE_URL, WEBSOCKET_BASE_URL } = useConfig();
+  // Queue for incoming requests that need their payloads fetched
+  const [requestQueue, setRequestQueue] = useState<string[]>([]);
+  // Map of request ID to review payload
+  const [reviews, setReviews] = useState<ReviewPayloadMap>({});
+  // Currently selected request ID
+  const [selectedRequestId, setSelectedRequestId] = useState<string>();
 
-  // Initialize WebSocket connection
+  // Hook to fetch payload for the next request in queue
+  const nextRequestId = requestQueue[0];
+  const { data: nextReviewPayload } = useGetSupervisionReviewPayload(nextRequestId || '');
+
+  // Process the next item in the queue when payload is received
+  useEffect(() => {
+    if (nextReviewPayload && nextRequestId) {
+      // Add the new review to the map
+      setReviews(prev => ({
+        ...prev,
+        [nextRequestId]: nextReviewPayload.data
+      }));
+      // Remove the processed request from queue
+      setRequestQueue(prev => prev.slice(1));
+    }
+  }, [nextReviewPayload, nextRequestId]);
+
+  // WebSocket initialization
   useEffect(() => {
     const ws = new WebSocket(WEBSOCKET_BASE_URL);
     setSocket(ws);
 
     ws.onopen = () => {
-      console.log('WebSocket connection opened');
+      setIsSocketConnected(true);
     };
 
     ws.onmessage = (event) => {
       const data: SupervisionRequest = JSON.parse(event.data);
-
       if (!data.id) {
         console.error('Received a message with no ID');
         return;
       }
-
-      // Use functional update to ensure we have the latest state
-      setHumanReviewDataList((prevList) => {
-        const newList = [...prevList, data];
-        // If this is the first item, select it
-        if (newList.length === 1) {
-          setSelectedRequestId(data.id || null);
-        }
-        return newList;
-      });
+      // Add new request to queue
+      if (data.id) {
+        setRequestQueue(prev => [...prev, data.id || '']);
+      }
     };
 
     ws.onclose = () => {
@@ -58,49 +82,32 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({
     return () => {
       ws.close();
       // Wipe the review data list. The reviews will be reloaded from the server when the connection is re-established
-      setHumanReviewDataList([]);
+      setReviews({});
     };
-  }, [WEBSOCKET_BASE_URL, setIsSocketConnected]);
+  }, [WEBSOCKET_BASE_URL, API_BASE_URL]);
 
-  // toolChoiceModified is a helper function to check if the tool choice has been modified
-  const toolChoiceModified = (allToolChoices: ToolRequest[], toolChoice: ToolRequest) => {
-    const originalToolChoice = allToolChoices.find(t => t.id === toolChoice.id);
-    const modified = originalToolChoice && originalToolChoice.arguments !== toolChoice.arguments;
-    return modified;
-  };
-
-  // Send a response to the API with the decision and the tool choice
+  // Send response and remove the review
   const sendResponse = (decision: Decision, requestId: string, toolChoice: ToolRequest) => {
-    const selectedReviewRequest = humanReviewDataList.find(
-      (req) => req.id === requestId
-    );
-
-    // Check if the tool args of the tool the user chose is not the same was it was originally
-    // if (selectedReviewRequest && toolChoiceModified(selectedReviewRequest.tool_requests, toolChoice)) {
-    //   decision = Decision.modify;
-    // }
-
-    if (socket && socket.readyState === WebSocket.OPEN) {
+    if (socket?.readyState === WebSocket.OPEN) {
       const response: SupervisionResult = {
-        id: requestId,
         decision: decision,
-        reasoning: "Human decided via interface",
-        // toolrequest: toolChoice,
+        reasoning: 'Human decided via interface',
         created_at: new Date().toISOString(),
         supervision_request_id: requestId,
+        chosen_toolrequest_id: toolChoice.id,
       };
       socket.send(JSON.stringify(response));
 
-      // Remove the handled review request and select the next one in a single update
-      setHumanReviewDataList((prevList) => {
-        const newList = prevList.filter((req) => req.id !== requestId);
-        // Select the first item in the filtered list if it exists
-        if (newList.length > 0) {
-          setSelectedRequestId(newList[0].id || null);
-        } else {
-          setSelectedRequestId(null);
-        }
-        return newList;
+      // Remove the handled review and update selection
+      setReviews(prev => {
+        const newReviews = { ...prev };
+        delete newReviews[requestId];
+
+        // Update selection to next available review if exists
+        const remainingIds = Object.keys(newReviews);
+        setSelectedRequestId(remainingIds.length > 0 ? remainingIds[0] : undefined);
+
+        return newReviews;
       });
     }
   };
@@ -110,9 +117,9 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({
     setSelectedRequestId(requestId);
   };
 
-  // Find the selected review request only when needed for rendering
-  const selectedReviewRequest = selectedRequestId
-    ? humanReviewDataList.find((req) => req.id === selectedRequestId)
+  // Find the selected review payload only when needed for rendering
+  const selectedReviewPayload = selectedRequestId
+    ? reviews[selectedRequestId]
     : null;
 
   return (
@@ -121,33 +128,41 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({
         {/* Sidebar */}
         <div className="w-full md:w-1/4 pr-4 border-r">
           <h2 className="text-xl font-semibold mb-4">Review Requests</h2>
-          {humanReviewDataList.length === 0 ? (
+          {Object.keys(reviews).length === 0 ? (
             <p>No review requests at the moment.</p>
           ) : (
             <ul className="space-y-2">
-              {humanReviewDataList.map((req) => (
-                <li
-                  key={req.id}
-                  className={`cursor-pointer p-2 rounded-md ${req.id === selectedRequestId
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-800'
-                    }`}
-                  onClick={() => selectReviewRequest(req.id || '')}
-                >
-                  {/* <div className="font-semibold">Agent <UUIDDisplay className="hover:bg-gray-300" uuid={req.run_id} /></div>
-                  <div className="text-sm">Request <UUIDDisplay className="hover:bg-gray-300" uuid={req.id} /></div>
-                  {req.tool_requests && (
-                    <div className="text-xs italic mt-1">Tool: {req.tool_requests[0].id}</div>
-                  )} */}
-                </li>
-              ))}
+              {Object.keys(reviews).map((id) => {
+                const payload = reviews[id];
+                return (
+                  <li
+                    key={id}
+                    className={`cursor-pointer p-2 rounded-md ${payload.supervision_request.id === selectedRequestId
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-100 text-gray-800'
+                      }`}
+                    onClick={() =>
+                      selectReviewRequest(payload.supervision_request.id || '')
+                    }
+                  >
+                    <div className="font-semibold">
+                      Agent{' '}
+                      <code>{payload.supervision_request.chainexecution_id}</code>
+                    </div>
+                    <div className="text-sm">
+                      Request{' '}
+                      <code>{payload.supervision_request.id}</code>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
 
         {/* Main Content */}
         <div className="w-full md:w-3/4 pl-4">
-          {!selectedReviewRequest ? (
+          {!selectedReviewPayload ? (
             <div id="loading" className="text-left">
               <p className="text-lg">Select a review request from the sidebar.</p>
             </div>
@@ -155,9 +170,13 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({
             <>
               <div id="content" className="space-y-6">
                 <ReviewRequestDisplay
-                  reviewRequest={selectedReviewRequest}
+                  reviewPayload={selectedReviewPayload}
                   sendResponse={(decision: Decision, toolChoice: ToolRequest) =>
-                    sendResponse(decision, selectedReviewRequest.id || '', toolChoice)
+                    sendResponse(
+                      decision,
+                      selectedReviewPayload.supervision_request.id || '',
+                      toolChoice
+                    )
                   }
                 />
               </div>

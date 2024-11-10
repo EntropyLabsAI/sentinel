@@ -238,27 +238,34 @@ func (c *Client) ReadPump() {
 		_, message, err := c.Conn.ReadMessage()
 		if err != nil {
 			log.Println("Read error:", err)
-			break // This will trigger the deferred cleanup
+			break
 		}
 
 		var response SupervisionResult
 		if err := json.Unmarshal(message, &response); err != nil {
 			log.Printf("Error unmarshaling reviewer response: %v. Message: %s", err, string(message))
-			// Could add logic here to notify the client of the error
+			continue
+		}
+
+		// Check for nil pointers before proceeding
+		if response.SupervisionRequestId == uuid.Nil {
+			log.Printf("Received response with nil ID fields: %+v", response)
 			continue
 		}
 
 		// Handle the response
 		_, err = c.Hub.Store.CreateSupervisionResult(context.Background(), response, response.SupervisionRequestId)
 		if err != nil {
-			log.Printf("Error creating supervisionresult entry for supervisionResult.RequestId %s: %v", response.Id, err)
+			log.Printf("Error creating supervisionresult entry for supervisionResult.RequestId %s: %v",
+				response.SupervisionRequestId.String(), err)
+
 			// Mark the review as pending again so it can be reassigned
 			status := SupervisionStatus{
 				Status:               Pending,
 				CreatedAt:            time.Now(),
-				SupervisionRequestId: response.Id,
+				SupervisionRequestId: &response.SupervisionRequestId,
 			}
-			if err := c.Hub.Store.CreateSupervisionStatus(context.Background(), *response.Id, status); err != nil {
+			if err := c.Hub.Store.CreateSupervisionStatus(context.Background(), response.SupervisionRequestId, status); err != nil {
 				log.Printf("Error resetting supervision status: %v", err)
 			}
 		}
@@ -266,7 +273,7 @@ func (c *Client) ReadPump() {
 		// Always remove the review from assigned reviews, whether it succeeded or failed
 		c.Hub.AssignedReviewsMutex.Lock()
 		if _, exists := c.Hub.AssignedReviews[c]; exists {
-			delete(c.Hub.AssignedReviews[c], response.Id.String())
+			delete(c.Hub.AssignedReviews[c], response.SupervisionRequestId.String())
 		}
 		c.Hub.AssignedReviewsMutex.Unlock()
 	}
