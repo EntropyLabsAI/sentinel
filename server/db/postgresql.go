@@ -641,16 +641,16 @@ func (s *PostgresqlStore) CreateSupervisionRequest(
 	defer func() { _ = tx.Rollback() }()
 
 	// Sanity check that we're recording this against a valid chain execution group that already exists
-	ce := request.ChainexecutionId
-	if ce == nil && request.PositionInChain > 0 {
+	if request.ChainexecutionId == nil && request.PositionInChain > 0 {
 		return nil, fmt.Errorf("chain execution ID is required when creating a supervision request for a non-zero position in the chain")
-	} else if ce != nil && request.PositionInChain == 0 {
+	} else if request.ChainexecutionId != nil && request.PositionInChain == 0 {
 		// Create a new chain execution
 		ceId, err := s.createChainExecution(ctx, chainId, requestGroupId, tx)
 		if err != nil {
 			return nil, fmt.Errorf("error creating chain execution: %w", err)
 		}
-		ce = ceId
+
+		request.ChainexecutionId = ceId
 	}
 
 	query := `
@@ -659,7 +659,7 @@ func (s *PostgresqlStore) CreateSupervisionRequest(
 
 	requestID := uuid.New()
 	_, err = tx.ExecContext(
-		ctx, query, requestID, request.SupervisorId, request.PositionInChain, *ce,
+		ctx, query, requestID, request.SupervisorId, request.PositionInChain, request.ChainexecutionId,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error creating supervision request: %w", err)
@@ -1539,6 +1539,9 @@ func (s *PostgresqlStore) GetChainExecutionFromChainAndRequestGroup(ctx context.
 
 	var executionId uuid.UUID
 	err := s.db.QueryRowContext(ctx, query, chainId, requestGroupId).Scan(&executionId)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain execution from chain and request group: %w", err)
 	}
