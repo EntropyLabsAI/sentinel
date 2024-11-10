@@ -1,10 +1,10 @@
 import { Tool, useGetTool } from "@/types";
 import React, { useEffect, useState } from "react";
-import Page from "./page";
+import Page from "./util/page";
 import { useParams } from "react-router-dom";
 import { ToolCard } from "./tool_card";
 import { PickaxeIcon } from "lucide-react";
-import LoadingSpinner from "./loading";
+import LoadingSpinner from "./util/loading";
 
 export default function ToolDetails() {
   const { toolId } = useParams();

@@ -2,7 +2,7 @@ import { SupervisorChain, Tool, useGetToolSupervisorChains } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import React, { useEffect, useState } from "react";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
-import { SupervisorBadge, SupervisorTypeBadge, ToolBadge } from "./status_badge";
+import { SupervisorBadge, SupervisorTypeBadge, ToolBadge } from "./util/status_badge";
 import { ToolAttributes } from "./tool_attributes";
 
 type ToolCardProps = {

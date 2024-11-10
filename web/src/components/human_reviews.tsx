@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { SupervisionResult, ToolRequest, Decision, SupervisionRequest } from '@/types';
 import ReviewRequestDisplay from '@/components/review_request';
-import { HubStatsAccordion } from './hub_stats';
+import { HubStatsAccordion } from './util/hub_stats';
 import { useConfig } from '@/contexts/config_context';
-import { UUIDDisplay } from './uuid_display';
+import { UUIDDisplay } from './util/uuid_display';
 
 interface ReviewSectionProps {
 }

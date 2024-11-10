@@ -9,7 +9,7 @@ import { Button } from "./ui/button"
 import CopyButton from "./copy_button"
 import { MessagesDisplay } from "./messages"
 import ContextDisplay from "./context_display"
-import JsonDisplay from "./json_display"
+import JsonDisplay from "./util/json_display"
 
 interface ReviewRequestProps {
   reviewRequest: SupervisionRequest;

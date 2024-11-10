@@ -4,9 +4,9 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { useGetRunRequestGroups, Tool, ToolRequestGroup, useGetRunTools, RunState, useGetRunState } from "@/types";
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import Page from "./page";
+import Page from "./util/page";
 import { ToolsList } from "@/components/tools_list";
-import { UUIDDisplay } from "@/components/uuid_display";
+import { UUIDDisplay } from "@/components/util/uuid_display";
 import ExecutionTable from "./execution_table";
 import { EyeIcon, ListOrderedIcon, PickaxeIcon, PyramidIcon } from "lucide-react";
 

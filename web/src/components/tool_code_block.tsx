@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Code, X, AlertTriangle, AlertCircle, CheckCircle } from "lucide-react";
-import { Textarea } from "./ui/textarea";
-import { Button } from "./ui/button";
-import CopyButton from "./copy_button";
-import ExplainButton from "./ask_lm";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import CopyButton from "@/components/util/copy_button";
+import ExplainButton from "@/components/util/ask_lm";
 
 interface ToolCodeBlockProps {
   code: string;

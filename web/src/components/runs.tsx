@@ -1,12 +1,12 @@
 import { useGetProjects, Project, useGetProjectRuns, Run, useGetProject, useGetRunTools, Tool, useGetRunRequestGroups } from "@/types";
 import React, { useEffect, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import Page from "./page";
+import Page from "./util/page";
 import { useProject } from "@/contexts/project_context";
-import { UUIDDisplay } from "./uuid_display";
+import { UUIDDisplay } from "./util/uuid_display";
 import { Button } from "./ui/button";
 import { ArrowRightIcon, RailSymbol } from "lucide-react";
-import { CreatedAgo } from "./created_ago";
+import { CreatedAgo } from "./util/created_ago";
 import {
   Table,
   TableBody,
@@ -16,7 +16,7 @@ import {
   TableRow,
   TableFooter,
 } from "@/components/ui/table"
-import { ToolBadge } from "./status_badge";
+import { ToolBadge } from "./util/status_badge";
 
 export default function Runs() {
   const [runs, setRuns] = useState<Run[]>([]);

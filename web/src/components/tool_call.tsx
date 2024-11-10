@@ -2,12 +2,12 @@ import { Message, Tool, ToolChoice, ToolRequest, Arguments, useGetTool } from "@
 import { Code, Code2, Link, X, MessageSquare } from "lucide-react"
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import CopyButton from "./copy_button"
-import { Button } from "./ui/button";
-import ToolCodeBlock from "./tool_code_block";
-import { MessageDisplay } from "./messages";
-import { UUIDDisplay } from "./uuid_display";
-import { ToolBadge } from "./status_badge";
+import CopyButton from "@/components/util/copy_button"
+import { Button } from "@/components/ui/button";
+import ToolCodeBlock from "@/components/tool_code_block";
+import { MessageDisplay } from "@/components/messages";
+import { UUIDDisplay } from "@/components/util/uuid_display";
+import { ToolBadge } from "@/components/util/status_badge";
 
 interface ToolChoiceDisplayProps {
   toolChoice: ToolRequest;

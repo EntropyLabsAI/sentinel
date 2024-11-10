@@ -4,14 +4,14 @@ import { Decision, Supervisor, useGetProject } from '@/types';
 import { useGetSupervisors } from '@/types';
 import { useProject } from '@/contexts/project_context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import Page from './page';
-import { UUIDDisplay } from './uuid_display';
-import { CreatedAgo } from './created_ago';
+import Page from './util/page';
+import { UUIDDisplay } from './util/uuid_display';
+import { CreatedAgo } from './util/created_ago';
 import { Button } from './ui/button';
 import { ArrowRightIcon, EyeIcon, InspectIcon, ScanEyeIcon, UsersIcon } from 'lucide-react';
-import { SupervisorTypeBadge } from './status_badge';
-import { DecisionBadge } from './status_badge';
-import LoadingSpinner from './loading';
+import { SupervisorTypeBadge } from './util/status_badge';
+import { DecisionBadge } from './util/status_badge';
+import LoadingSpinner from './util/loading';
 
 const SupervisorSelection: React.FC = () => {
   const [supervisors, setSupervisors] = useState<Supervisor[]>([]);

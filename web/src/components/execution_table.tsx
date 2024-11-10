@@ -10,15 +10,15 @@ import {
 } from "@/components/ui/table"
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import { RunState, Status } from "@/types"
-import { UUIDDisplay } from "@/components/uuid_display"
-import { CreatedAgo } from "@/components/created_ago"
-import { DecisionBadge, StatusBadge, SupervisorBadge, ToolBadge } from "./status_badge"
+import { UUIDDisplay } from "@/components/util/uuid_display"
+import { CreatedAgo } from "@/components/util/created_ago"
+import { DecisionBadge, StatusBadge, SupervisorBadge, ToolBadge } from "./util/status_badge"
 import { useProject } from "@/contexts/project_context"
 import React from "react"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { FileJsonIcon, MessagesSquareIcon, PickaxeIcon, LinkIcon } from 'lucide-react'
-import JsonDisplay from './json_display'
+import JsonDisplay from './util/json_display'
 import ContextDisplay from './context_display'
 
 export default function ExecutionTable({ runState }: { runState: RunState }) {

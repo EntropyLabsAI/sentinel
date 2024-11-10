@@ -1,12 +1,12 @@
 import { useGetProjects, Project, useGetProjectRuns, Run, useGetProject, useGetSupervisor, Supervisor, SupervisorType } from "@/types";
 import React, { useEffect, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import Page from "./page";
+import Page from "./util/page";
 import { useProject } from "@/contexts/project_context";
-import { UUIDDisplay } from "./uuid_display";
+import { UUIDDisplay } from "./util/uuid_display";
 import HumanReviews from "./human_reviews";
 import { EyeIcon } from "lucide-react";
-import JsonDisplay from "./json_display";
+import JsonDisplay from "./util/json_display";
 
 export default function SupervisorDetails() {
   const [supervisor, setSupervisor] = useState<Supervisor>();

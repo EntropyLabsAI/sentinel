@@ -5,13 +5,13 @@ import { useGetProjects, Project } from "@/types";
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Executions from "./run";
-import Page from "./page";
+import Page from "./util/page";
 import { Button } from "./ui/button";
 import { useProject } from "@/contexts/project_context";
-import { UUIDDisplay } from "./uuid_display";
-import { CreatedAgo } from "./created_ago";
+import { UUIDDisplay } from "./util/uuid_display";
+import { CreatedAgo } from "./util/created_ago";
 import { Building2 } from "lucide-react";
-import LoadingSpinner from "./loading";
+import LoadingSpinner from "./util/loading";
 
 export default function ProjectList() {
   const [projects, setProjects] = useState<Project[]>([]);

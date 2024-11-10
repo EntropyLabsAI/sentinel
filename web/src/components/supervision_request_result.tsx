@@ -3,9 +3,9 @@ import { Badge } from "./ui/badge";
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "./ui/card";
-import { UUIDDisplay } from './uuid_display';
-import { CreatedAgo } from "./created_ago";
-import { DecisionBadge } from "./status_badge";
+import { UUIDDisplay } from './util/uuid_display';
+import { CreatedAgo } from "./util/created_ago";
+import { DecisionBadge } from "./util/status_badge";
 
 export function SupervisionPairCard({ request, result }: { request: SupervisionRequest, result?: SupervisionResult }) {
   const [supervisor, setSupervisor] = useState<Supervisor | null>(null);

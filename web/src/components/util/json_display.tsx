@@ -1,10 +1,6 @@
-import { SupervisionRequest, SupervisionResult } from '@/types'
 import { ScrollArea } from '@radix-ui/react-scroll-area'
-import { Code } from 'lucide-react'
 import React, { useState } from 'react'
-import CopyButton from './copy_button'
-import { Card, CardHeader, CardTitle, CardContent } from './ui/card'
-import { Button } from '@/components/ui/button'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 
 
 export default function JsonDisplay({ json }: { json: any }) {

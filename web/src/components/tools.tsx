@@ -1,10 +1,10 @@
 import { Tool, useGetProject, useGetProjectTools } from "@/types";
 import React, { useEffect, useState } from "react";
-import Page from "./page";
+import Page from "./util/page";
 import { ToolsList } from "@/components/tools_list";
 import { useProject } from '@/contexts/project_context';
-import { UUIDDisplay } from "./uuid_display";
-import LoadingSpinner from "./loading";
+import { UUIDDisplay } from "./util/uuid_display";
+import LoadingSpinner from "./util/loading";
 import { PickaxeIcon } from "lucide-react";
 
 export default function Tools() {
@@ -31,7 +31,7 @@ export default function Tools() {
 
   return (
     <Page title={`Tools`} subtitle={<span>{tools.length} tool{tools.length === 1 ? '' : 's'} found for project {projectData?.data?.name} (<UUIDDisplay uuid={projectData?.data?.id} />)</span>} icon={<PickaxeIcon className="w-6 h-6" />}>
-      <div className="col-span-3">
+      <div className="col-span-1">
 
         {isLoading && (
           <LoadingSpinner />

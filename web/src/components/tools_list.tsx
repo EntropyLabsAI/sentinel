@@ -4,8 +4,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "./ui/badge";
 import React from "react";
 import { ToolCard } from "./tool_card";
-import { UUIDDisplay } from "./uuid_display";
-import { ToolBadge } from "./status_badge";
+import { UUIDDisplay } from "./util/uuid_display";
+import { ToolBadge } from "./util/status_badge";
 
 interface ToolsListProps {
   tools: Tool[] | string[];
