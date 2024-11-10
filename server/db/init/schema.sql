@@ -107,7 +107,8 @@ CREATE TABLE chainexecution (
 CREATE TABLE supervisionrequest (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     chainexecution_id UUID REFERENCES chainexecution(id),
-    supervisor_id UUID REFERENCES supervisor(id)
+    supervisor_id UUID REFERENCES supervisor(id),
+    position_in_chain INTEGER
 );
 
 CREATE TABLE supervisionrequest_status (
