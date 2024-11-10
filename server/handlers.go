@@ -134,6 +134,7 @@ func apiCreateRunToolHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 	}
 
 	if existingTool != nil {
+		w.WriteHeader(http.StatusOK)
 		respondJSON(w, existingTool)
 		return
 	}

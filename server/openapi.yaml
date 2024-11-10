@@ -184,6 +184,13 @@ paths:
               required:
                 - name
       responses:
+        "200":
+          description: Tool found
+          content:
+            application/json:
+              schema:
+                type: string
+                format: uuid
         "201":
           description: Tool created
           content:
