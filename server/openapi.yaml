@@ -134,7 +134,8 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Run"
+                type: string
+                format: uuid
       tags:
         - Run
 
@@ -498,7 +499,8 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SupervisionRequest"
+                type: string
+                format: uuid
         "400":
           description: Bad request
           content:

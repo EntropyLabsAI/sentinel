@@ -88,11 +88,9 @@ func apiCreateProjectRunHandler(w http.ResponseWriter, r *http.Request, id uuid.
 		return
 	}
 
-	run.Id = runID
-
 	log.Printf("created run with ID: %s", run.Id)
 
-	respondJSON(w, run)
+	respondJSON(w, runID)
 }
 
 func apiGetProjectRunsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store RunStore) {
@@ -497,14 +495,8 @@ func apiCreateSupervisionRequestHandler(
 		return
 	}
 
-	response := SupervisionStatus{
-		SupervisionRequestId: reviewID,
-		Status:               Pending,
-		CreatedAt:            t,
-	}
-
 	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, response)
+	respondJSON(w, reviewID)
 }
 
 func apiCreateSupervisionResultHandler(
@@ -529,10 +521,8 @@ func apiCreateSupervisionResultHandler(
 		return
 	}
 
-	result.Id = id
-
 	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, result)
+	respondJSON(w, id)
 }
 
 func apiGetHubStatsHandler(w http.ResponseWriter, _ *http.Request, hub *Hub) {
