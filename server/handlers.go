@@ -529,6 +529,8 @@ func apiCreateSupervisionRequestHandler(
 	if executionId != nil && pos == 0 {
 		sendErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("chain execution already exists for chain %s, yet supervisor is position 0. Curious.", chainId), "")
 		return
+	} else {
+		request.ChainexecutionId = executionId
 	}
 
 	if executionId == nil && pos == 0 {
