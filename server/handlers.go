@@ -418,8 +418,6 @@ func apiCreateSupervisionRequestHandler(
 ) {
 	ctx := r.Context()
 
-	t := time.Now()
-
 	var request SupervisionRequest
 
 	err := json.NewDecoder(r.Body).Decode(&request)
