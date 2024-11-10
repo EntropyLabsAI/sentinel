@@ -884,12 +884,18 @@ func (s *PostgresqlStore) CountSupervisionRequests(ctx context.Context, status s
 }
 
 func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result sentinel.SupervisionResult, requestId uuid.UUID) (*uuid.UUID, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error starting transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
 	query := `
 		INSERT INTO supervisionresult (id, supervisionrequest_id, created_at, decision, reasoning, chosen_toolrequest_id)
 		VALUES ($1, $2, $3, $4, $5, $6)`
 
 	id := uuid.New()
-	_, err := s.db.ExecContext(
+	_, err = tx.ExecContext(
 		ctx,
 		query,
 		id,
@@ -901,6 +907,20 @@ func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result se
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error creating supervision result: %w", err)
+	}
+
+	// Create a supervisionrequest_status
+	err = s.createSupervisionStatus(ctx, requestId, sentinel.SupervisionStatus{
+		Status:    sentinel.Completed,
+		CreatedAt: result.CreatedAt,
+	}, tx)
+	if err != nil {
+		return nil, fmt.Errorf("error creating supervision status for result: %w", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, fmt.Errorf("error committing transaction: %w", err)
 	}
 
 	return &id, nil
