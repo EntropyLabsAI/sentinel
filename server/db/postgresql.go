@@ -1024,6 +1024,13 @@ func (s *PostgresqlStore) GetSupervisionRequest(ctx context.Context, id uuid.UUI
 		return nil, fmt.Errorf("error getting supervision request: %w", err)
 	}
 
+	// Get the latest status for the request
+	status, err := s.GetSupervisionRequestStatus(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("error getting supervision request status: %w", err)
+	}
+	request.Status = status
+
 	return &request, nil
 }
 
@@ -1344,18 +1351,18 @@ func (s *PostgresqlStore) GetSupervisionStatusesForChainExecution(ctx context.Co
 	return statuses, nil
 }
 
-// GetChainSupervisionRequests gets all supervision requests for a specific chain
-func (s *PostgresqlStore) GetChainSupervisionRequests(ctx context.Context, chainId uuid.UUID) ([]sentinel.SupervisionRequest, error) {
+// GetChainExecutionSupervisionRequests gets all supervision requests for a specific chain execution
+func (s *PostgresqlStore) GetChainExecutionSupervisionRequests(ctx context.Context, chainExecutionId uuid.UUID) ([]sentinel.SupervisionRequest, error) {
 	query := `
         SELECT sr.id, sr.supervisor_id, sr.chainexecution_id
         FROM supervisionrequest sr
         JOIN chainexecution ce ON sr.chainexecution_id = ce.id
-        WHERE ce.chain_id = $1
+        WHERE ce.id = $1
         ORDER BY sr.id`
 
-	rows, err := s.db.QueryContext(ctx, query, chainId)
+	rows, err := s.db.QueryContext(ctx, query, chainExecutionId)
 	if err != nil {
-		return nil, fmt.Errorf("error getting chain supervision requests: %w", err)
+		return nil, fmt.Errorf("error getting chain execution supervision requests: %w", err)
 	}
 	defer rows.Close()
 
@@ -1399,4 +1406,137 @@ func (s *PostgresqlStore) GetSupervisionRequestStatus(ctx context.Context, reque
 	}
 
 	return &status, nil
+}
+
+func (s *PostgresqlStore) GetChainExecution(ctx context.Context, executionId uuid.UUID) (*uuid.UUID, *uuid.UUID, error) {
+	query := `SELECT chain_id, requestgroup_id FROM chainexecution WHERE id = $1`
+
+	var chainId, requestGroupId uuid.UUID
+	err := s.db.QueryRowContext(ctx, query, executionId).Scan(&chainId, &requestGroupId)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, nil
+	}
+	if err != nil {
+		return nil, nil, fmt.Errorf("error getting chain ID from execution ID: %w", err)
+	}
+
+	return &chainId, &requestGroupId, nil
+}
+
+// GetChainExecutionState returns the chain state for a given chain execution ID
+func (s *PostgresqlStore) GetChainExecutionState(ctx context.Context, executionId uuid.UUID) (*sentinel.ChainExecutionState, error) {
+	// First, get the chain execution record
+	fmt.Printf("getting chain execution state for execution ID: %s\n", executionId)
+	var chainExecution sentinel.ChainExecution
+	err := s.db.QueryRowContext(ctx, `
+        SELECT id, requestgroup_id, chain_id, created_at
+        FROM chainexecution
+        WHERE id = $1
+    `, executionId).Scan(
+		&chainExecution.Id,
+		&chainExecution.RequestGroupId,
+		&chainExecution.ChainId,
+		&chainExecution.CreatedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain execution: %w", err)
+	}
+
+	fmt.Printf("chainExecution: %+v\n", chainExecution)
+
+	// Get the supervisor chain
+	supervisorChain, err := s.GetSupervisorChain(ctx, chainExecution.ChainId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get supervisor chain: %w", err)
+	}
+
+	fmt.Printf("supervisorChain: %+v\n", supervisorChain)
+
+	// Get all supervision requests for this chain execution
+	supervisionRequests, err := s.GetChainExecutionSupervisionRequests(ctx, chainExecution.Id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get supervision requests: %w", err)
+	}
+
+	fmt.Printf("requests: %+v\n", len(supervisionRequests))
+
+	// For each supervision request, get the latest status and result
+	var supervisionRequestStates []sentinel.SupervisionRequestState
+	for _, request := range supervisionRequests {
+		// Get the latest status
+		var status sentinel.SupervisionStatus
+		err := s.db.QueryRowContext(ctx, `
+            SELECT id, supervisionrequest_id, created_at, status
+            FROM supervisionrequest_status
+            WHERE supervisionrequest_id = $1
+            ORDER BY created_at DESC
+            LIMIT 1
+        `, request.Id).Scan(
+			&status.Id,
+			&status.SupervisionRequestId,
+			&status.CreatedAt,
+			&status.Status,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get supervision request status: %w", err)
+		}
+
+		// Get the result, if any
+		result := &sentinel.SupervisionResult{}
+		err = s.db.QueryRowContext(ctx, `
+            SELECT id, supervisionrequest_id, created_at, decision, reasoning, chosen_toolrequest_id
+            FROM supervisionresult
+            WHERE supervisionrequest_id = $1
+        `, request.Id).Scan(
+			&result.Id,
+			&result.SupervisionRequestId,
+			&result.CreatedAt,
+			&result.Decision,
+			&result.Reasoning,
+			&result.ChosenToolrequestId,
+		)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				result = nil // No result yet
+			} else {
+				return nil, fmt.Errorf("failed to get supervision result: %w", err)
+			}
+		}
+
+		supervisionRequestState := sentinel.SupervisionRequestState{
+			SupervisionRequest: request,
+			Status:             status,
+			Result:             result,
+		}
+		supervisionRequestStates = append(supervisionRequestStates, supervisionRequestState)
+	}
+
+	// Build and return the ChainExecutionState
+	state := sentinel.ChainExecutionState{
+		Chain:               *supervisorChain,
+		ChainExecution:      chainExecution,
+		SupervisionRequests: supervisionRequestStates,
+	}
+
+	return &state, nil
+}
+
+// GetChainExecutionFromChainAndRequestGroup gets the chain execution ID for a given chain ID and request group ID
+func (s *PostgresqlStore) GetChainExecutionFromChainAndRequestGroup(ctx context.Context, chainId uuid.UUID, requestGroupId uuid.UUID) (*uuid.UUID, error) {
+	query := `
+        SELECT id FROM chainexecution
+        WHERE chain_id = $1 
+				AND requestgroup_id = $2
+    `
+
+	var executionId uuid.UUID
+	err := s.db.QueryRowContext(ctx, query, chainId, requestGroupId).Scan(&executionId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain execution from chain and request group: %w", err)
+	}
+
+	return &executionId, nil
 }

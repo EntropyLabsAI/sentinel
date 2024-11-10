@@ -652,6 +652,52 @@ paths:
       tags:
         - Stats
 
+  /api/supervision_request/{supervisionRequestId}/review_payload:
+    parameters:
+      - name: supervisionRequestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get the review payload for a supervision request
+      operationId: GetSupervisionReviewPayload
+      responses:
+        "200":
+          description: Review payload for the supervision request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewPayload"
+        "404":
+          description: Supervision request not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - Supervision
+
+  # /api/chain_execution/{chainExecutionId}:
+  #   parameters:
+  #     - name: chainExecutionId
+  #       in: path
+  #       required: true
+  #       schema:
+  #         type: string
+  #         format: uuid
+  #   get:
+  #     summary: Get the state of a chain execution
+  #     operationId: GetChainExecutionState
+  #     responses:
+  #       "200":
+  #         description: Chain execution state
+  #         content:
+  #           application/json:
+  #             schema:
+  #               $ref: "#/components/schemas/ChainExecutionState"
+
 components:
   schemas:
     ErrorResponse:
@@ -677,16 +723,18 @@ components:
         chains:
           type: array
           items:
-            $ref: "#/components/schemas/ChainState"
+            $ref: "#/components/schemas/ChainExecutionState"
       required:
         - request_group
         - chains
 
-    ChainState:
+    ChainExecutionState:
       type: object
       properties:
         chain:
           $ref: "#/components/schemas/SupervisorChain"
+        chain_execution:
+          $ref: "#/components/schemas/ChainExecution"
         supervision_requests:
           type: array
           items:
@@ -694,6 +742,28 @@ components:
       required:
         - chain
         - supervision_requests
+        - chain_execution
+
+    ChainExecution:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        request_group_id:
+          type: string
+          format: uuid
+        chain_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - request_group_id
+        - chain_id
+        - created_at
 
     SupervisionRequestState:
       type: object
@@ -1123,3 +1193,21 @@ components:
     MessageRole:
       type: string
       enum: [system, user, assistant]
+
+    ReviewPayload:
+      type: object
+      description: Contains all the information needed for a human reviewer to make a supervision decision
+      properties:
+        supervision_request:
+          $ref: "#/components/schemas/SupervisionRequest"
+          description: The current supervision request being reviewed
+        chain_state:
+          $ref: "#/components/schemas/ChainExecutionState"
+          description: The state of the entire supervision chain, including previous supervision results
+        request_group:
+          $ref: "#/components/schemas/ToolRequestGroup"
+          description: The tool request group being supervised
+      required:
+        - supervision_request
+        - chain_state
+        - request_group

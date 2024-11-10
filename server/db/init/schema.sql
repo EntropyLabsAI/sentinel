@@ -100,7 +100,6 @@ CREATE TABLE chainexecution (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     requestgroup_id UUID REFERENCES requestgroup(id),
     chain_id UUID REFERENCES chain(id),
-    supervisor_id UUID REFERENCES supervisor(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

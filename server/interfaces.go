@@ -35,12 +35,14 @@ type SupervisionStore interface {
 	// GetSupervisionRequests(ctx context.Context) ([]SupervisionRequest, error)
 	// GetSupervisionStatusesForRequest(ctx context.Context, requestId uuid.UUID) ([]SupervisionStatus, error)
 
-	// New methods from Claude
-	GetChainSupervisionRequests(ctx context.Context, chainId uuid.UUID) ([]SupervisionRequest, error)
+	GetChainExecutionSupervisionRequests(ctx context.Context, chainExecutionId uuid.UUID) ([]SupervisionRequest, error)
 	GetSupervisionRequestStatus(ctx context.Context, requestId uuid.UUID) (*SupervisionStatus, error)
 
 	GetExecutionFromChainId(ctx context.Context, chainId uuid.UUID) (*uuid.UUID, error)
 	CreateChainExecution(ctx context.Context, chainId uuid.UUID, requestGroupId uuid.UUID) (*uuid.UUID, error)
+	GetChainExecution(ctx context.Context, executionId uuid.UUID) (*uuid.UUID, *uuid.UUID, error)
+	GetChainExecutionFromChainAndRequestGroup(ctx context.Context, chainId uuid.UUID, requestGroupId uuid.UUID) (*uuid.UUID, error)
+	GetChainExecutionState(ctx context.Context, executionId uuid.UUID) (*ChainExecutionState, error)
 }
 
 type ProjectStore interface {

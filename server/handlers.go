@@ -425,7 +425,6 @@ func apiGetToolHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, sto
 
 func apiGetSupervisionRequestStatusHandler(w http.ResponseWriter, r *http.Request, reviewID uuid.UUID, store Store) {
 	ctx := r.Context()
-
 	status, err := store.GetSupervisionRequestStatus(ctx, reviewID)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisor", err.Error())
@@ -637,275 +636,6 @@ func apiGetProjectHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, 
 	respondJSON(w, project)
 }
 
-// func apiGetSupervisionRequestHandler(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID, store Store) {
-// 	ctx := r.Context()
-
-// 	supervisionRequest, err := store.GetSupervisionRequest(ctx, supervisionRequestId)
-// 	if err != nil {
-// 		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision request", err.Error())
-// 		return
-// 	}
-
-// 	respondJSON(w, supervisionRequest)
-// }
-
-// apiGetExecutionSupervisionsHandler handles the GET /api/executions/{executionId}/supervisions endpoint
-// func apiGetExecutionSupervisionsHandler(w http.ResponseWriter, r *http.Request, executionId uuid.UUID, store Store) {
-// 	ctx := r.Context()
-
-// 	// First check if execution exists
-// 	execution, err := store.GetExecution(ctx, executionId)
-// 	if err != nil {
-// 		sendErrorResponse(w, http.StatusInternalServerError, "error getting execution", err.Error())
-// 		return
-// 	}
-
-// 	if execution == nil {
-// 		sendErrorResponse(w, http.StatusNotFound, fmt.Sprintf("Execution not found for ID %s", executionId), "")
-// 		return
-// 	}
-
-// 	supervisions, err := store.GetExecutionSupervisions(ctx, executionId)
-// 	if err != nil {
-// 		sendErrorResponse(w, http.StatusInternalServerError, "error getting execution supervisions", err.Error())
-// 		return
-// 	}
-
-// 	// Combine the data into ExecutionSupervisions response
-// 	response := &ExecutionSupervisions{
-// 		ExecutionId:  executionId,
-// 		Supervisions: supervisions,
-// 	}
-
-// 	respondJSON(w, response)
-// }
-
-// func apiCreateSupervisorChainHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store SupervisorStore) {
-// 	ctx := r.Context()
-
-// 	var request CreateSupervisorChainRequest
-// 	err := json.NewDecoder(r.Body).Decode(&request)
-// 	if err != nil {
-// 		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
-// 		return
-// 	}
-
-// 	supervisorChainId, err := store.CreateSupervisorChain(ctx, runId, request.SupervisorIds)
-// 	if err != nil {
-// 		sendErrorResponse(w, http.StatusInternalServerError, "error creating supervisor chain", err.Error())
-// 		return
-// 	}
-
-// 	respondJSON(w, supervisorChainId)
-// }
-
-// func apiGetRunToolSupervisorChainsHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, toolId uuid.UUID, store SupervisorStore) {
-// 	ctx := r.Context()
-
-// 	supervisorChains, err := store.GetRunToolSupervisorChains(ctx, runId, toolId)
-// 	if err != nil {
-// 		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisor chains", err.Error())
-// 		return
-// 	}
-
-// 	respondJSON(w, supervisorChains)
-// }
-
-// func apiGetRunExecutionsHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
-// 	ctx := r.Context()
-
-// 	run, err := store.GetRun(ctx, runId)
-// 	if err != nil {
-// 		sendErrorResponse(w, http.StatusInternalServerError, "error getting run", err.Error())
-// 		return
-// 	}
-
-// 	if run == nil {
-// 		sendErrorResponse(w, http.StatusNotFound, "Run not found", "")
-// 		return
-// 	}
-
-// 	executions, err := store.GetRunExecutions(ctx, runId)
-// 	if err != nil {
-// 		sendErrorResponse(w, http.StatusInternalServerError, "error getting run executions", err.Error())
-// 		return
-// 	}
-
-// 	respondJSON(w, executions)
-// }
-
-// func apiCreateExecutionHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
-// 	ctx := r.Context()
-
-// 	var request struct {
-// 		ToolId uuid.UUID `json:"toolId"`
-// 	}
-
-// 	err := json.NewDecoder(r.Body).Decode(&request)
-// 	if err != nil {
-// 		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
-// 		return
-// 	}
-
-// 	executionId, err := store.CreateExecution(ctx, runId, request.ToolId)
-// 	if err != nil {
-// 		sendErrorResponse(w, http.StatusInternalServerError, "error creating execution", err.Error())
-// 		return
-// 	}
-
-// 	execution, err := store.GetExecution(ctx, executionId)
-// 	if err != nil {
-// 		sendErrorResponse(w, http.StatusInternalServerError, "error getting execution", err.Error())
-// 		return
-// 	}
-
-// 	if execution == nil {
-// 		sendErrorResponse(w, http.StatusInternalServerError, "Something went wrong, execution not found", "")
-// 		return
-// 	}
-
-// 	respondJSON(w, execution)
-// }
-
-// apiGetSupervisionRequestHandler handles the GET /api/supervisor/{id} endpoint
-// func apiGetSupervisionRequestHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
-// 	ctx := r.Context()
-
-// 	supervisor, err := store.GetSupervisionRequest(ctx, id)
-// 	if err != nil {
-// 		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisor", err.Error())
-// 		return
-// 	}
-
-// 	if supervisor == nil {
-// 		sendErrorResponse(w, http.StatusNotFound, "Supervisor not found", "")
-// 		return
-// 	}
-
-// 	respondJSON(w, supervisor)
-// }
-
-// apiGetSupervisionRequestsHandler handles the GET /api/supervisor endpoint
-// func apiGetSupervisionRequestsHandler(w http.ResponseWriter, r *http.Request, store Store) {
-// 	ctx := r.Context()
-
-// 	reviews, err := store.GetSupervisionRequests(ctx)
-// 	if err != nil {
-// 		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision requests", err.Error())
-// 		return
-// 	}
-
-// 	respondJSON(w, reviews)
-// }
-
-// apiGetSupervisionResultsHandler handles the GET /api/supervisor/{id}/results endpoint
-// func apiGetSupervisionResultsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
-// 	ctx := r.Context()
-
-// 	// First check if supervisor exists
-// 	supervisor, err := store.GetSupervisionRequest(ctx, id)
-// 	if err != nil {
-// 		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisor", err.Error())
-// 		return
-// 	}
-
-// 	if supervisor == nil {
-// 		sendErrorResponse(w, http.StatusNotFound, "Supervisor not found", "")
-// 		return
-// 	}
-
-// 	results, err := store.GetSupervisionResults(ctx, id)
-// 	if err != nil {
-// 		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision results", err.Error())
-// 		return
-// 	}
-
-// 	respondJSON(w, results)
-// }
-
-// apiGetReviewToolRequestsHandler handles the GET /api/supervisor/{id}/toolrequests endpoint
-// func apiGetReviewToolRequestsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
-// 	ctx := r.Context()
-
-// 	// First check if supervisor exists
-// 	supervisor, err := store.GetSupervisionRequest(ctx, id)
-// 	if err != nil {
-// 		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisor", err.Error())
-// 		return
-// 	}
-
-// 	if supervisor == nil {
-// 		sendErrorResponse(w, http.StatusNotFound, "Supervisor not found", "")
-// 		return
-// 	}
-
-// 	results, err := store.GetSupervisionToolRequests(ctx, id)
-// 	if err != nil {
-// 		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisor tool requests", err.Error())
-// 		return
-// 	}
-
-// 	respondJSON(w, results)
-// }
-
-// // apiLLMExplanationHandler receives a code snippet and returns an explanation and a danger score by calling an LLM
-// func apiLLMExplanationHandler(w http.ResponseWriter, r *http.Request) {
-// 	ctx := r.Context()
-
-// 	var request struct {
-// 		Text string `json:"text"`
-// 	}
-
-// 	err := json.NewDecoder(r.Body).Decode(&request)
-// 	if err != nil {
-// 		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
-// 		return
-// 	}
-
-// 	explanation, score, err := getExplanationFromLLM(ctx, request.Text)
-// 	if err != nil {
-// 		fmt.Printf("error: %v\n", err)
-// 		sendErrorResponse(w, http.StatusInternalServerError, "Failed to get explanation from LLM", err.Error())
-// 		return
-// 	}
-
-// 	w.Header().Set("Content-Type", "application/json")
-// 	err = json.NewEncoder(w).Encode(map[string]string{"explanation": explanation, "score": score})
-// 	if err != nil {
-// 		sendErrorResponse(w, http.StatusInternalServerError, "Failed to get explanation from LLM", err.Error())
-// 		return
-// 	}
-// }
-
-// func apiGetRunsHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, store RunStore) {
-// 	ctx := r.Context()
-
-// 	runs, err := store.GetRuns(ctx, projectId)
-// 	if err != nil {
-// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-// 		return
-// 	}
-
-// 	respondJSON(w, runs)
-// }
-
-// func apiGetRunHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store RunStore) {
-// 	ctx := r.Context()
-
-// 	run, err := store.GetRun(ctx, id)
-// 	if err != nil {
-// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-// 		return
-// 	}
-
-// 	if run == nil {
-// 		http.Error(w, "Run not found", http.StatusNotFound)
-// 		return
-// 	}
-
-// 	respondJSON(w, run)
-// }
-
 func apiGetRunStateHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
 	ctx := r.Context()
 
@@ -934,7 +664,7 @@ func apiGetRunStateHandler(w http.ResponseWriter, r *http.Request, runId uuid.UU
 	for _, requestGroup := range requestGroups {
 		execution := RunExecution{
 			RequestGroup: requestGroup,
-			Chains:       make([]ChainState, 0),
+			Chains:       make([]ChainExecutionState, 0),
 		}
 
 		// Get all tools from this request group
@@ -948,13 +678,20 @@ func apiGetRunStateHandler(w http.ResponseWriter, r *http.Request, runId uuid.UU
 
 			// For each chain
 			for _, chain := range chains {
-				chainState := ChainState{
+				chainState := ChainExecutionState{
 					Chain:               chain,
 					SupervisionRequests: make([]SupervisionRequestState, 0),
 				}
 
+				// Get the chain execution from the chain ID + request group ID
+				chainExecutionId, err := store.GetChainExecutionFromChainAndRequestGroup(ctx, chain.ChainId, *requestGroup.Id)
+				if err != nil {
+					sendErrorResponse(w, http.StatusInternalServerError, "error getting chain execution", err.Error())
+					return
+				}
+
 				// Get all supervision requests for this chain
-				supervisionRequests, err := store.GetChainSupervisionRequests(ctx, chain.ChainId)
+				supervisionRequests, err := store.GetChainExecutionSupervisionRequests(ctx, *chainExecutionId)
 				if err != nil {
 					sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision requests", err.Error())
 					return
@@ -996,4 +733,49 @@ func apiGetRunStateHandler(w http.ResponseWriter, r *http.Request, runId uuid.UU
 	}
 
 	respondJSON(w, runState)
+}
+
+func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	// Get the supervision request
+	supervisionRequest, err := store.GetSupervisionRequest(ctx, supervisionRequestId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision request", err.Error())
+		return
+	}
+	if supervisionRequest == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Supervision request not found", "")
+		return
+	}
+
+	// Get the chain execution
+	_, requestGroupId, err := store.GetChainExecution(ctx, *supervisionRequest.ChainexecutionId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting chain execution", err.Error())
+		return
+	}
+
+	// Get the request group
+	requestGroup, err := store.GetRequestGroup(ctx, *requestGroupId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting request group", err.Error())
+		return
+	}
+
+	// Get the chain state (all supervision requests and results for this chain execution)
+	chainState, err := store.GetChainExecutionState(ctx, *supervisionRequest.ChainexecutionId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting chain state", err.Error())
+		return
+	}
+
+	// Build the review payload
+	reviewPayload := ReviewPayload{
+		SupervisionRequest: *supervisionRequest,
+		ChainState:         *chainState,
+		RequestGroup:       *requestGroup,
+	}
+
+	respondJSON(w, reviewPayload)
 }

@@ -204,6 +204,11 @@ func (s Server) CreateToolRequest(w http.ResponseWriter, r *http.Request, reques
 	apiCreateToolRequestHandler(w, r, requestGroupId, s.Store)
 }
 
+// GetSupervisionReviewPayload
+func (s Server) GetSupervisionReviewPayload(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID) {
+	apiGetSupervisionReviewPayloadHandler(w, r, supervisionRequestId, s.Store)
+}
+
 func enableCorsMiddleware(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Set CORS headers
