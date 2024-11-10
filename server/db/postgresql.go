@@ -436,6 +436,49 @@ func (s *PostgresqlStore) CreateToolRequestGroup(ctx context.Context, toolId uui
 	return &trg, nil
 }
 
+func (s *PostgresqlStore) GetToolRequest(ctx context.Context, id uuid.UUID) (*sentinel.ToolRequest, error) {
+	query := `
+		SELECT tr.id, tr.tool_id, m.role, m.content, tr.arguments, tr.task_state, tr.requestgroup_id
+		FROM toolrequest tr 
+		INNER JOIN message m ON tr.message_id = m.id
+		WHERE tr.id = $1`
+
+	var toolRequest sentinel.ToolRequest
+	var taskStateJSON []byte
+	var argumentsJSON []byte
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
+		&toolRequest.Id,
+		&toolRequest.ToolId,
+		&toolRequest.Message.Role,
+		&toolRequest.Message.Content,
+		&argumentsJSON,
+		&taskStateJSON,
+		&toolRequest.RequestgroupId,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error getting tool request: %w", err)
+	}
+
+	// Parse the arguments JSON if it exists
+	if len(argumentsJSON) > 0 {
+		if err := json.Unmarshal(argumentsJSON, &toolRequest.Arguments); err != nil {
+			return nil, fmt.Errorf("error parsing tool request arguments: %w", err)
+		}
+	}
+
+	// Parse the task state JSON if it exists
+	if len(taskStateJSON) > 0 {
+		if err := json.Unmarshal(taskStateJSON, &toolRequest.TaskState); err != nil {
+			return nil, fmt.Errorf("error parsing tool request task state: %w", err)
+		}
+	}
+
+	return &toolRequest, nil
+}
+
 func (s *PostgresqlStore) GetRequestGroup(ctx context.Context, id uuid.UUID) (*sentinel.ToolRequestGroup, error) {
 	query := `
 		SELECT tr.id, tr.tool_id, tr.arguments, tr.task_state, tr.requestgroup_id, m.role, m.content, rg.created_at

@@ -576,6 +576,17 @@ func apiCreateSupervisionResultHandler(
 			sendErrorResponse(w, http.StatusBadRequest, "Chosen tool request ID is required if you wish to modify or approve a given tool request", "")
 			return
 		}
+
+		toolRequest, err := store.GetToolRequest(ctx, *result.ChosenToolrequestId)
+		if err != nil {
+			sendErrorResponse(w, http.StatusInternalServerError, "error getting tool request", err.Error())
+			return
+		}
+
+		if toolRequest == nil {
+			sendErrorResponse(w, http.StatusNotFound, "Tool request not found", "")
+			return
+		}
 	}
 
 	// Check that the group, chain and supervisor, and request exist

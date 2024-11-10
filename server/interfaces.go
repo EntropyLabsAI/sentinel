@@ -55,6 +55,7 @@ type ToolRequestStore interface {
 	GetRunRequestGroups(ctx context.Context, runId uuid.UUID) ([]ToolRequestGroup, error)
 	GetRequestGroup(ctx context.Context, id uuid.UUID) (*ToolRequestGroup, error)
 	CreateToolRequest(ctx context.Context, requestGroupId uuid.UUID, request ToolRequest) (*uuid.UUID, error)
+	GetToolRequest(ctx context.Context, id uuid.UUID) (*ToolRequest, error)
 }
 
 type ToolStore interface {
