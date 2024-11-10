@@ -6,10 +6,16 @@ from .config import supervision_config, SupervisionDecisionType, SupervisionDeci
 from ..mocking.policies import MockPolicy
 from ..utils.utils import create_random_value
 from .llm_sampling import sample_from_llm
-from entropy_labs.api.sentinel_api_client_helper import create_execution, get_supervisors_for_tool, send_supervision_request, send_review_result
+from entropy_labs.api.sentinel_api_client_helper import create_tool_request_group, get_supervisor_chains_for_tool, send_supervision_request, send_supervision_result, _serialize_arguments
 import random
 from uuid import UUID, uuid4
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_type import SupervisorType
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request import ToolRequest
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.arguments import Arguments
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.message import Message
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.task_state import TaskState
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request_group import ToolRequestGroup
+
 def supervise(
     mock_policy: Optional[MockPolicy] = None,
     mock_responses: Optional[List[Any]] = None,
@@ -39,8 +45,15 @@ def supervise(
             else:
                 raise Exception(f"Tool ID for function {func.__name__} not found in the registry.")
             
-            execution_id = create_execution(tool_id, run_id, client)
-            supervisors_chains = get_supervisors_for_tool(tool_id, run_id, client)
+            # TODO if n > 1, it would be handled here
+            arguments_dict = _serialize_arguments(tool_args, tool_kwargs)
+            
+            tool_requests = [ToolRequest(tool_id=tool_id, 
+                                         message=supervision_context.get_api_messages()[-1],
+                                         arguments=Arguments.from_dict(arguments_dict),                                         task_state=supervision_context.to_task_state())]
+            tool_request_group = create_tool_request_group(tool_id, tool_requests, client)
+            tool_request = tool_request_group.tool_requests[0] #TODO: Fix for n > 1
+            supervisors_chains = get_supervisor_chains_for_tool(tool_id, client)
 
             # Determine effective mock policy
             effective_mock_policy = (
@@ -61,8 +74,9 @@ def supervise(
             for supervisor_chain in supervisors_chains:
                 # We send supervision request to the API
                 supervisors = supervisor_chain.supervisors
-                for supervisor in supervisors:
-                    review_id = send_supervision_request(supervisor, supervision_context, run_id, execution_id, tool_id, tool_args=tool_args, tool_kwargs=tool_kwargs)
+                supervisor_chain_id = supervisor_chain.chain_id
+                for position_in_chain, supervisor in enumerate(supervisors):
+                    supervision_request_id = send_supervision_request(supervisor_chain_id=supervisor_chain_id, supervisor_id=supervisor.id, request_group_id=tool_request_group.id, position_in_chain=position_in_chain)
 
                     decision = None
                     supervisor_func = supervision_config.get_supervisor_by_id(supervisor.id)
@@ -71,19 +85,19 @@ def supervise(
                         return None  # Continue to next supervisor
 
                     # Execute supervisor function
-                    decision = call_supervisor_function(supervisor_func, func, supervision_context, review_id=review_id, ignored_attributes=ignored_attributes, tool_args=tool_args, tool_kwargs=tool_kwargs)
+                    decision = call_supervisor_function(supervisor_func, func, supervision_context, supervision_request_id=supervision_request_id, ignored_attributes=ignored_attributes, tool_args=tool_args, tool_kwargs=tool_kwargs)
                     print(f"Supervisor decision: {decision.decision}")
 
                     if supervisor.type != SupervisorType.HUMAN_SUPERVISOR:
                         # We send the decision to the API
-                        send_review_result(
-                            review_id=review_id,
-                            execution_id=execution_id,
-                            run_id=run_id,
+                        send_supervision_result(
+                            supervision_request_id=supervision_request_id,
+                            request_group_id=tool_request_group.id,
                             tool_id=tool_id,
                             supervisor_id=supervisor.id,
                             decision=decision,
                             client=client,
+                            tool_request=tool_request, #TODO: Fix for n > 1
                             tool_args=tool_args, #TODO: If modified, send modified args and kwargs
                             tool_kwargs=tool_kwargs
                     )
@@ -133,14 +147,14 @@ def supervise(
     return decorator
 
 
-def call_supervisor_function(supervisor_func, func, supervision_context, review_id: UUID, ignored_attributes: List[str], tool_args: List[Any], tool_kwargs: dict[str, Any], decision: Optional[SupervisionDecision] = None):
+def call_supervisor_function(supervisor_func, func, supervision_context, supervision_request_id: UUID, ignored_attributes: List[str], tool_args: List[Any], tool_kwargs: dict[str, Any], decision: Optional[SupervisionDecision] = None):
     if asyncio.iscoroutinefunction(supervisor_func):
         decision = asyncio.run(supervisor_func(
-            func, supervision_context=supervision_context, review_id=review_id, ignored_attributes=ignored_attributes, tool_args=tool_args, tool_kwargs=tool_kwargs, decision=decision
+            func, supervision_context=supervision_context, supervision_request_id=supervision_request_id, ignored_attributes=ignored_attributes, tool_args=tool_args, tool_kwargs=tool_kwargs, decision=decision
         ))
     else:
         decision = supervisor_func(
-            func, supervision_context=supervision_context, review_id=review_id, ignored_attributes=ignored_attributes, tool_args=tool_args, tool_kwargs=tool_kwargs, decision=decision
+            func, supervision_context=supervision_context, supervision_request_id=supervision_request_id, ignored_attributes=ignored_attributes, tool_args=tool_args, tool_kwargs=tool_kwargs, decision=decision
         )
     return decision
 

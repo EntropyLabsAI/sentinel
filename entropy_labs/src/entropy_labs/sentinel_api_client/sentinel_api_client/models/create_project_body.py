@@ -3,28 +3,43 @@ from typing import Any, Dict, List, Type, TypeVar
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-T = TypeVar("T", bound="Arguments")
+T = TypeVar("T", bound="CreateProjectBody")
 
 
 @_attrs_define
-class Arguments:
-    """ """
+class CreateProjectBody:
+    """
+    Attributes:
+        name (str):
+    """
 
+    name: str
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
+        name = self.name
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
+        field_dict.update(
+            {
+                "name": name,
+            }
+        )
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         d = src_dict.copy()
-        arguments = cls()
+        name = d.pop("name")
 
-        arguments.additional_properties = d
-        return arguments
+        create_project_body = cls(
+            name=name,
+        )
+
+        create_project_body.additional_properties = d
+        return create_project_body
 
     @property
     def additional_keys(self) -> List[str]:

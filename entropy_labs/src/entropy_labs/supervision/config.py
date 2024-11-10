@@ -19,6 +19,7 @@ from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_call_argum
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool import Tool as ApiTool
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.output import Output as ApiOutput
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.message import Message
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.assistant_message import AssistantMessage
 import json
 
 
@@ -281,7 +282,7 @@ class SupervisionContext:
             # No messages available
             return []
         
-    def get_api_messages(self) -> List[Message]:
+    def get_api_messages(self) -> List[AssistantMessage]:
         """Get the messages from the supervision context in the API client's Message model."""
         return [convert_message(msg) for msg in self.get_messages()]
         
@@ -537,9 +538,9 @@ def convert_task_state(task_state: TaskState) -> APITaskState:
         tool_choice=tool_choice,
     )
 
-def convert_message(msg: ChatMessage) -> Message:
+def convert_message(msg: ChatMessage) -> AssistantMessage:
     """
-    Converts a ChatMessage to a Message in the API model.
+    Converts a ChatMessage to a AssistantMessage in the API model.
     """
 
     # Convert content to a string
@@ -565,13 +566,13 @@ def convert_message(msg: ChatMessage) -> Message:
     else:
         tool_calls = UNSET
 
-    return Message(
+    return AssistantMessage( 
         source=msg.source,
         role=msg.role if msg.role != 'tool' else 'assistant',
         content=content_str,
         tool_calls=tool_calls,
-        tool_call_id=tool_call_id,
-        function=function
+        # tool_call_id=tool_call_id,
+        # function=function
     )
 
 

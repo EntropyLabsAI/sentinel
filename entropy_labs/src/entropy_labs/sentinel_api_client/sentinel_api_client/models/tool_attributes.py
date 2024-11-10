@@ -8,7 +8,7 @@ T = TypeVar("T", bound="ToolAttributes")
 
 @_attrs_define
 class ToolAttributes:
-    """Attributes of the tool that requests to this tool will have"""
+    """ """
 
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 

@@ -7,10 +7,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.llm_message import LLMMessage
     from ..models.supervision_status import SupervisionStatus
-    from ..models.task_state import TaskState
-    from ..models.tool_request import ToolRequest
 
 
 T = TypeVar("T", bound="SupervisionRequest")
@@ -20,48 +17,32 @@ T = TypeVar("T", bound="SupervisionRequest")
 class SupervisionRequest:
     """
     Attributes:
-        run_id (UUID):
-        execution_id (UUID):
         supervisor_id (UUID):
-        task_state (TaskState):
-        tool_requests (List['ToolRequest']):
-        messages (List['LLMMessage']):
+        position_in_chain (int):
         id (Union[Unset, UUID]):
+        chainexecution_id (Union[Unset, UUID]):
         status (Union[Unset, SupervisionStatus]):
     """
 
-    run_id: UUID
-    execution_id: UUID
     supervisor_id: UUID
-    task_state: "TaskState"
-    tool_requests: List["ToolRequest"]
-    messages: List["LLMMessage"]
+    position_in_chain: int
     id: Union[Unset, UUID] = UNSET
+    chainexecution_id: Union[Unset, UUID] = UNSET
     status: Union[Unset, "SupervisionStatus"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
-        run_id = str(self.run_id)
-
-        execution_id = str(self.execution_id)
-
         supervisor_id = str(self.supervisor_id)
 
-        task_state = self.task_state.to_dict()
-
-        tool_requests = []
-        for tool_requests_item_data in self.tool_requests:
-            tool_requests_item = tool_requests_item_data.to_dict()
-            tool_requests.append(tool_requests_item)
-
-        messages = []
-        for messages_item_data in self.messages:
-            messages_item = messages_item_data.to_dict()
-            messages.append(messages_item)
+        position_in_chain = self.position_in_chain
 
         id: Union[Unset, str] = UNSET
         if not isinstance(self.id, Unset):
             id = str(self.id)
+
+        chainexecution_id: Union[Unset, str] = UNSET
+        if not isinstance(self.chainexecution_id, Unset):
+            chainexecution_id = str(self.chainexecution_id)
 
         status: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.status, Unset):
@@ -71,16 +52,14 @@ class SupervisionRequest:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "run_id": run_id,
-                "execution_id": execution_id,
                 "supervisor_id": supervisor_id,
-                "task_state": task_state,
-                "tool_requests": tool_requests,
-                "messages": messages,
+                "position_in_chain": position_in_chain,
             }
         )
         if id is not UNSET:
             field_dict["id"] = id
+        if chainexecution_id is not UNSET:
+            field_dict["chainexecution_id"] = chainexecution_id
         if status is not UNSET:
             field_dict["status"] = status
 
@@ -88,33 +67,12 @@ class SupervisionRequest:
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
-        from ..models.llm_message import LLMMessage
         from ..models.supervision_status import SupervisionStatus
-        from ..models.task_state import TaskState
-        from ..models.tool_request import ToolRequest
 
         d = src_dict.copy()
-        run_id = UUID(d.pop("run_id"))
-
-        execution_id = UUID(d.pop("execution_id"))
-
         supervisor_id = UUID(d.pop("supervisor_id"))
 
-        task_state = TaskState.from_dict(d.pop("task_state"))
-
-        tool_requests = []
-        _tool_requests = d.pop("tool_requests")
-        for tool_requests_item_data in _tool_requests:
-            tool_requests_item = ToolRequest.from_dict(tool_requests_item_data)
-
-            tool_requests.append(tool_requests_item)
-
-        messages = []
-        _messages = d.pop("messages")
-        for messages_item_data in _messages:
-            messages_item = LLMMessage.from_dict(messages_item_data)
-
-            messages.append(messages_item)
+        position_in_chain = d.pop("position_in_chain")
 
         _id = d.pop("id", UNSET)
         id: Union[Unset, UUID]
@@ -122,6 +80,13 @@ class SupervisionRequest:
             id = UNSET
         else:
             id = UUID(_id)
+
+        _chainexecution_id = d.pop("chainexecution_id", UNSET)
+        chainexecution_id: Union[Unset, UUID]
+        if isinstance(_chainexecution_id, Unset):
+            chainexecution_id = UNSET
+        else:
+            chainexecution_id = UUID(_chainexecution_id)
 
         _status = d.pop("status", UNSET)
         status: Union[Unset, SupervisionStatus]
@@ -131,13 +96,10 @@ class SupervisionRequest:
             status = SupervisionStatus.from_dict(_status)
 
         supervision_request = cls(
-            run_id=run_id,
-            execution_id=execution_id,
             supervisor_id=supervisor_id,
-            task_state=task_state,
-            tool_requests=tool_requests,
-            messages=messages,
+            position_in_chain=position_in_chain,
             id=id,
+            chainexecution_id=chainexecution_id,
             status=status,
         )
 

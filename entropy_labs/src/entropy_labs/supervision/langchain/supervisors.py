@@ -5,7 +5,7 @@ from entropy_labs.sentinel_api_client.sentinel_api_client.client import Client
 from uuid import UUID
 
 def human_supervisor(backend_api_endpoint: Optional[str] = None, agent_id: str = "default_agent", timeout: int = 300, n: int = 1):
-    async def supervisor(func: Callable, supervision_context: SupervisionContext, review_id: Optional[UUID] = None, ignored_attributes: List[str] = [], 
+    async def supervisor(func: Callable, supervision_context: SupervisionContext, supervision_request_id: Optional[UUID] = None, ignored_attributes: List[str] = [], 
                          tool_args: List[Any] = [], tool_kwargs: dict[str, Any] = {}, decision: Optional[SupervisionDecision] = None) -> SupervisionDecision:
         """
         Human supervisor that requests approval via backend API or CLI.
@@ -22,7 +22,7 @@ def human_supervisor(backend_api_endpoint: Optional[str] = None, agent_id: str =
         tool_call = ToolCall(id=id,function=func.__name__, arguments=tool_kwargs, type='function')
         client = supervision_config.client
         
-        supervisor_decision = await human_supervisor_wrapper(task_state=task_state, call=tool_call, backend_api_endpoint=backend_api_endpoint, timeout=timeout, use_inspect_ai=False, n=n, review_id=review_id, client=client)
+        supervisor_decision = await human_supervisor_wrapper(task_state=task_state, call=tool_call, backend_api_endpoint=backend_api_endpoint, timeout=timeout, use_inspect_ai=False, n=n, supervision_request_id=supervision_request_id, client=client)
 
         return supervisor_decision
 

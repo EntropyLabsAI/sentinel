@@ -28,7 +28,7 @@ class Supervisor(Protocol):
         ignored_attributes: list[str],
         tool_args: list[Any],
         tool_kwargs: dict[str, Any],
-        review_id: Optional[UUID],
+        supervision_request_id: Optional[UUID],
         decision: Optional[SupervisionDecision] = None,
         **kwargs
     ) -> SupervisionDecision:
@@ -42,6 +42,7 @@ class Supervisor(Protocol):
             ignored_attributes (List[str]): Attributes to ignore.
             tool_args (List[Any]): Positional arguments for the function.
             tool_kwargs (dict[str, Any]): Keyword arguments for the function.
+            supervision_request_id (Optional[UUID]): ID of the supervision request.
             decision (Optional[SupervisionDecision]): Decision made by the previous supervisor that escalated to this Supervisor.
         Returns:
             SupervisionDecision: The decision made by the supervisor.
@@ -239,7 +240,7 @@ def human_supervisor(
         ignored_attributes: list[str],
         tool_args: list[Any],
         tool_kwargs: dict[str, Any],
-        review_id: UUID,
+        supervision_request_id: UUID,
         **kwargs
     ) -> SupervisionDecision:
         """
@@ -279,7 +280,7 @@ def human_supervisor(
             timeout=timeout,
             use_inspect_ai=False,
             n=n,
-            review_id=review_id,
+            supervision_request_id=supervision_request_id,
             client=client
         )
 

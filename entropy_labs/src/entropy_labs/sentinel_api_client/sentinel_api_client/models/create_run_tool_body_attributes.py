@@ -3,11 +3,11 @@ from typing import Any, Dict, List, Type, TypeVar
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-T = TypeVar("T", bound="Arguments")
+T = TypeVar("T", bound="CreateRunToolBodyAttributes")
 
 
 @_attrs_define
-class Arguments:
+class CreateRunToolBodyAttributes:
     """ """
 
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -21,10 +21,10 @@ class Arguments:
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         d = src_dict.copy()
-        arguments = cls()
+        create_run_tool_body_attributes = cls()
 
-        arguments.additional_properties = d
-        return arguments
+        create_run_tool_body_attributes.additional_properties = d
+        return create_run_tool_body_attributes
 
     @property
     def additional_keys(self) -> List[str]:

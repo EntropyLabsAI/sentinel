@@ -91,7 +91,7 @@ def with_entropy_supervision(supervisor_name_param: Optional[str] = None):
             # Retrieve the tool_id from the registry
             tool_id, _ = get_tool_info(call, supervision_context)
 
-            # Get or create execution_id
+            # Get or create request_group
             execution_id = get_or_create_execution_id(run_id, tool_id, client)
             if not execution_id:
                 raise Exception(f"Failed to get or create execution ID")

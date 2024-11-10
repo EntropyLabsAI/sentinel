@@ -233,7 +233,7 @@ def check_python_code(
 
     return True, "Python code is approved."
 
-async def human_supervisor_wrapper(task_state: TaskState, call: ToolCall, timeout: int = 300, use_inspect_ai: bool = False, n: int = 1, backend_api_endpoint: Optional[str] = None, review_id: Optional[UUID] = None, client: Optional[Client] = None) -> SupervisionDecision:
+async def human_supervisor_wrapper(task_state: TaskState, call: ToolCall, timeout: int = 300, use_inspect_ai: bool = False, n: int = 1, backend_api_endpoint: Optional[str] = None, supervision_request_id: Optional[UUID] = None, client: Optional[Client] = None) -> SupervisionDecision:
     """
     Wrapper for human supervisor that handles both CLI and backend API approval.
     """
@@ -242,7 +242,9 @@ async def human_supervisor_wrapper(task_state: TaskState, call: ToolCall, timeou
         supervisor_decision = prompt_user_cli_approval(task_state=task_state, tool_call=call, use_inspect_ai=use_inspect_ai, n=n)
     else:
         # Use backend API for supervision 
-        supervisor_decision = await get_human_supervision_decision_api(review_id=review_id, client=client, timeout=timeout, use_inspect_ai=use_inspect_ai)
+        assert supervision_request_id is not None
+        assert client is not None
+        supervisor_decision = await get_human_supervision_decision_api(supervision_request_id=supervision_request_id, client=client, timeout=timeout, use_inspect_ai=use_inspect_ai)
     return supervisor_decision
 
 

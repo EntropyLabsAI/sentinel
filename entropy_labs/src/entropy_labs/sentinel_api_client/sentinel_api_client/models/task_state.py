@@ -6,8 +6,8 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.message import Message
     from ..models.output import Output
+    from ..models.state_message import StateMessage
     from ..models.task_state_metadata import TaskStateMetadata
     from ..models.task_state_store import TaskStateStore
     from ..models.tool import Tool
@@ -21,7 +21,7 @@ T = TypeVar("T", bound="TaskState")
 class TaskState:
     """
     Attributes:
-        messages (List['Message']):
+        messages (List['StateMessage']):
         tools (List['Tool']):
         output (Output):
         completed (bool):
@@ -30,7 +30,7 @@ class TaskState:
         metadata (Union[Unset, TaskStateMetadata]):
     """
 
-    messages: List["Message"]
+    messages: List["StateMessage"]
     tools: List["Tool"]
     output: "Output"
     completed: bool
@@ -87,8 +87,8 @@ class TaskState:
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
-        from ..models.message import Message
         from ..models.output import Output
+        from ..models.state_message import StateMessage
         from ..models.task_state_metadata import TaskStateMetadata
         from ..models.task_state_store import TaskStateStore
         from ..models.tool import Tool
@@ -98,7 +98,7 @@ class TaskState:
         messages = []
         _messages = d.pop("messages")
         for messages_item_data in _messages:
-            messages_item = Message.from_dict(messages_item_data)
+            messages_item = StateMessage.from_dict(messages_item_data)
 
             messages.append(messages_item)
 

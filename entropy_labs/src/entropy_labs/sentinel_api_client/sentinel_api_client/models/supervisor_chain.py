@@ -1,4 +1,5 @@
 from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -14,13 +15,17 @@ T = TypeVar("T", bound="SupervisorChain")
 class SupervisorChain:
     """
     Attributes:
+        chain_id (UUID):
         supervisors (List['Supervisor']):
     """
 
+    chain_id: UUID
     supervisors: List["Supervisor"]
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
+        chain_id = str(self.chain_id)
+
         supervisors = []
         for supervisors_item_data in self.supervisors:
             supervisors_item = supervisors_item_data.to_dict()
@@ -30,6 +35,7 @@ class SupervisorChain:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
+                "chain_id": chain_id,
                 "supervisors": supervisors,
             }
         )
@@ -41,6 +47,8 @@ class SupervisorChain:
         from ..models.supervisor import Supervisor
 
         d = src_dict.copy()
+        chain_id = UUID(d.pop("chain_id"))
+
         supervisors = []
         _supervisors = d.pop("supervisors")
         for supervisors_item_data in _supervisors:
@@ -49,6 +57,7 @@ class SupervisorChain:
             supervisors.append(supervisors_item)
 
         supervisor_chain = cls(
+            chain_id=chain_id,
             supervisors=supervisors,
         )
 

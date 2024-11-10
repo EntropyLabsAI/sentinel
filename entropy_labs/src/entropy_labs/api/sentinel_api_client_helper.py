@@ -11,49 +11,50 @@ from rich.console import Console
 from inspect_ai.util._console import input_screen
 import time
 from entropy_labs.sentinel_api_client.sentinel_api_client.client import Client
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.reviews.get_supervision_status import (
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervision.get_supervision_request_status import (
     sync_detailed as get_supervision_status_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.reviews.get_supervision_results import (
-    sync_detailed as get_supervision_results_sync_detailed,
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervision.get_supervision_result import (
+    sync_detailed as get_supervision_result_sync_detailed,
 )
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervision_result import (
-    SupervisionResult,
+    SupervisionResult
 )
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.status import Status
 from entropy_labs.sentinel_api_client.sentinel_api_client.types import UNSET
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_type import (
     SupervisorType,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.tools.create_tool import (
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.tool.create_run_tool import (
     sync_detailed as create_tool_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool import Tool
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervisors.create_supervisor import (
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervisor.create_supervisor import (
     sync_detailed as create_supervisor_sync_detailed,
 )
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor import Supervisor
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervisors.create_run_tool_supervisors import (
-    sync_detailed as create_run_tool_supervisors_sync_detailed,
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervisor.create_tool_supervisor_chains import (
+    sync_detailed as create_tool_supervisor_chains_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervisors.get_run_tool_supervisors import (
-    sync_detailed as get_run_tool_supervisors_sync,
+
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervisor.get_tool_supervisor_chains import (
+    sync_detailed as get_tool_supervisor_chains_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.executions.create_execution import (
-    sync_detailed as create_execution_sync_detailed,
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.request_group.create_tool_request_group import (
+    sync_detailed as create_tool_request_group_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.reviews.create_supervision_request import (
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.request_group.get_run_request_groups import (
+    sync_detailed as get_request_groups_sync_detailed,
+)
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervision.create_supervision_request import (
     sync_detailed as create_supervision_request_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.reviews.create_supervision_result import (
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervision.create_supervision_result import (
     sync_detailed as create_supervision_result_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.projects.get_projects import (
-    sync_detailed as get_projects_sync_detailed,
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.request_group.create_tool_request import (
+    sync_detailed as create_tool_request_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.create_supervision_result import (
-    CreateSupervisionResult,
-)
+
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.decision import Decision
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_attributes import (
     ToolAttributes,
@@ -61,33 +62,31 @@ from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_attributes
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request import (
     ToolRequest,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request_arguments import (
-    ToolRequestArguments,
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request_group import (
+    ToolRequestGroup,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.create_execution_body import (
-    CreateExecutionBody,
+
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.create_run_tool_body import (
+    CreateRunToolBody,
+)
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.create_run_tool_body_attributes import (
+    CreateRunToolBodyAttributes,
 )
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervision_request import (
     SupervisionRequest,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.task_state import TaskState
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_attributes import (
     SupervisorAttributes,
 )
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.chain_request import (
+    ChainRequest,
+)
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_chain import SupervisorChain
 from uuid import uuid4, UUID
 from datetime import datetime, timezone
 import inspect
 from entropy_labs.utils.utils import get_function_code
 from typing import List, Optional, Any, Callable
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.executions.get_run_executions import (
-    sync_detailed as get_executions_sync_detailed,
-)
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.execution import Execution
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervisors.get_run_tool_supervisors import (
-    sync_detailed as get_run_tool_supervisors_sync_detailed,
-)
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_chain import SupervisorChain
-
 
 # Create an asyncio.Lock to prevent concurrent console access
 _console_lock = asyncio.Lock()
@@ -99,6 +98,7 @@ def register_tools_and_supervisors(run_id: UUID, tools: Optional[List[Callable |
     # Access the registries from the context
     supervision_context = supervision_config.context
     client = supervision_config.client
+    project_id = list(supervision_config.projects.values())[0].project_id # TODO: Make sure this is correct, build better check
     
     if tools is None: #TODO: Make sure this is correct
         # If no tools are provided, register all tools and supervisors
@@ -130,34 +130,33 @@ def register_tools_and_supervisors(run_id: UUID, tools: Optional[List[Callable |
         }
 
         # Pass the extracted arguments to ToolAttributes.from_dict
-        attributes = ToolAttributes.from_dict(src_dict=func_arguments)
+        attributes = CreateRunToolBodyAttributes.from_dict(src_dict=func_arguments)
 
         # Register the tool
-        tool_data = Tool(
+        tool_data = CreateRunToolBody(
             name=tool_name,
             description=str(func.__doc__) if func.__doc__ else tool_name,
             attributes=attributes,
-            ignored_attributes=ignored_attributes,
-            created_at=datetime.now(timezone.utc),
+            ignored_attributes=ignored_attributes
         )
         tool_response = create_tool_sync_detailed(
             client=client,
+            run_id=run_id,
             body=tool_data
         )
         if (
-            tool_response.status_code == 200 and
-            tool_response.parsed is not None and
-            tool_response.parsed.id is not None
+            tool_response.status_code in [200, 201] and
+            tool_response.parsed is not None
         ):
             # Update the tool_id in the registry 
-            tool_id = tool_response.parsed.id
+            tool_id = tool_response.parsed
             supervision_context.update_tool_id(func, tool_id)
             print(f"Tool '{tool_name}' registered with ID: {tool_id}")
         else:
             raise Exception(f"Failed to register tool '{tool_name}'. Status code: {tool_response}")
 
         # Register supervisors and associate them with the tool
-        supervisor_ids = []
+        supervisor_chain_ids = []
         if supervision_functions == []:
             supervisor_func = auto_approve_supervisor()
             supervisor_info: dict[str, Any] = {
@@ -168,11 +167,11 @@ def register_tools_and_supervisors(run_id: UUID, tools: Optional[List[Callable |
                     'code': get_function_code(supervisor_func),
                     'supervisor_attributes': {}
             }
-            supervisor_id = register_supervisor(client, supervisor_info, supervision_context)
-            supervisor_ids.append([supervisor_id])
+            supervisor_id = register_supervisor(client, supervisor_info, project_id, supervision_context)
+            supervisor_chain_ids.append([supervisor_id])
         else:
             for idx, supervisor_func_list in enumerate(supervision_functions):
-                supervisor_ids.append([])
+                supervisor_chain_ids.append([])
                 for supervisor_func in supervisor_func_list:
                     supervisor_info: dict[str, Any] = {
                         'func': supervisor_func,
@@ -182,22 +181,22 @@ def register_tools_and_supervisors(run_id: UUID, tools: Optional[List[Callable |
                         'code': get_function_code(supervisor_func),
                         'supervisor_attributes': getattr(supervisor_func, 'supervisor_attributes', {})
                     }
-                    supervisor_id = register_supervisor(client, supervisor_info, supervision_context)
-                    supervisor_ids[idx].append(supervisor_id)
+                    supervisor_id = register_supervisor(client, supervisor_info, project_id, supervision_context)
+                    supervisor_chain_ids[idx].append(supervisor_id)
 
         # Ensure tool_id is a UUID before proceeding
         if tool_id is UNSET or not isinstance(tool_id, UUID):
             raise ValueError("Invalid tool_id: Expected UUID")
 
         print(f"Associating supervisors with tool '{tool_name}' for run ID {run_id}")
-        if supervisor_ids:
-            association_response = create_run_tool_supervisors_sync_detailed(
-                run_id=run_id,
+        if supervisor_chain_ids:
+            chain_requests = [ChainRequest(supervisor_ids=supervisor_ids) for supervisor_ids in supervisor_chain_ids]
+            association_response = create_tool_supervisor_chains_sync_detailed(
                 tool_id=tool_id,
                 client=client,
-                body=supervisor_ids
+                body=chain_requests
             )
-            if association_response.status_code == 200:
+            if association_response.status_code in [200, 201]:
                 print(f"Supervisors assigned to tool '{tool_name}' for run ID {run_id}")
             else:
                 raise Exception(f"Failed to assign supervisors to tool '{tool_name}'. Response: {association_response}")
@@ -206,14 +205,14 @@ def register_tools_and_supervisors(run_id: UUID, tools: Optional[List[Callable |
 
 
 
-def wait_for_human_decision(review_id: UUID, client: Client, timeout: int = 300) -> Status:
+def wait_for_human_decision(supervision_request_id: UUID, client: Client, timeout: int = 300) -> Status:
     start_time = time.time()
 
     while True:
         try:
             response = get_supervision_status_sync_detailed(
                 client=client,
-                review_id=review_id
+                supervision_request_id=supervision_request_id
             )
             if response.status_code == 200 and response.parsed is not None:
                 status = response.parsed.status
@@ -236,7 +235,7 @@ def wait_for_human_decision(review_id: UUID, client: Client, timeout: int = 300)
 
 
 async def get_human_supervision_decision_api(
-    review_id: UUID,
+    supervision_request_id: UUID,
     client: Client,
     timeout: int = 300,
     use_inspect_ai: bool = False) -> SupervisionDecision:
@@ -246,23 +245,21 @@ async def get_human_supervision_decision_api(
         async with _console_lock:
             with input_screen(width=None) as console:
                 console.record = True
-                supervision_status = wait_for_human_decision(review_id=review_id, client=client, timeout=timeout)
+                supervision_status = wait_for_human_decision(supervision_request_id=supervision_request_id, client=client, timeout=timeout)
     else:
         console = Console(record=True)
-        supervision_status = wait_for_human_decision(review_id=review_id, client=client, timeout=timeout)
+        supervision_status = wait_for_human_decision(supervision_request_id=supervision_request_id, client=client, timeout=timeout)
     
     # get supervision results
     if supervision_status == 'completed':
         # Get the decision from the API
-        response = get_supervision_results_sync_detailed(
+        response = get_supervision_result_sync_detailed(
             client=client,
-            review_id=review_id
+            supervision_request_id=supervision_request_id
         )
         if response.status_code == 200 and response.parsed:
-            supervision_results = response.parsed
-            latest_result = supervision_results[-1]  # Get the latest result
-            decision = map_result_to_decision(latest_result)
-            return decision
+            supervision_result = response.parsed
+            return map_result_to_decision(supervision_result)
         else:
             return SupervisionDecision(
                 decision=SupervisionDecisionType.ESCALATE,
@@ -297,7 +294,7 @@ def map_result_to_decision(result: SupervisionResult) -> SupervisionDecision:
     }
     decision_type = decision_map.get(result.decision.value.lower(), SupervisionDecisionType.ESCALATE)
     modified_output = None
-    if decision_type == SupervisionDecisionType.MODIFY and result.toolrequest is not UNSET:
+    if decision_type == SupervisionDecisionType.MODIFY and result.toolrequest is not UNSET:  #TODO: Make the modified output work
         modified_output = result.toolrequest  # Assuming toolrequest contains the modified output
     return SupervisionDecision(
         decision=decision_type,
@@ -315,63 +312,63 @@ def _display_review_sent_message(console: Console, backend_api_endpoint: str, re
     console.print(message)
 
 
-def create_execution(tool_id: UUID, run_id: UUID, client: Client) -> Optional[UUID]:
+def create_tool_request_group(tool_id: UUID, tool_requests: List[ToolRequest], client: Client) -> Optional[ToolRequestGroup]:
     # Call the create_execution API
-    create_execution_body = CreateExecutionBody(tool_id=tool_id)
+    tool_request_group = ToolRequestGroup(tool_requests=tool_requests)
     try:
-        execution_response = create_execution_sync_detailed(
-            run_id=run_id,
+        tool_request_group_response = create_tool_request_group_sync_detailed(
+            tool_id=tool_id,
             client=client,
-            body=create_execution_body
+            body=tool_request_group
         )
         if (
-            execution_response.status_code == 200 and
-            execution_response.parsed is not None and
-            isinstance(execution_response.parsed, Execution) and
-            execution_response.parsed.id is not None
+            tool_request_group_response.status_code in [200, 201] and
+            tool_request_group_response.parsed is not None
         ):
-            execution_id = execution_response.parsed.id
-            print(f"Execution created with ID: {execution_id}")
-            return execution_id
+            tool_request_group = tool_request_group_response.parsed
+            print(f"Tool request group created with ID: {tool_request_group.id}")
+            return tool_request_group
         else:
-            raise Exception(f"Failed to create execution. Response: {execution_response}")
+            raise Exception(f"Failed to create tool request group. Response: {tool_request_group_response}")
     except Exception as e:
-        print(f"Error creating execution: {e}")
+        print(f"Error creating tool request group: {e}")
     
     return None
 
-def get_executions(run_id: UUID, client: Client) -> List[Execution]:
+def get_request_groups(run_id: UUID, client: Client) -> List[ToolRequestGroup]:
     """
-    Retrieve a list of executions for the specified run ID.
+    Retrieve a list of request groups for the specified run ID.
     """
-    executions_list: List[Execution] = []
+    request_groups: List[ToolRequestGroup] = []
     try:
-        response = get_executions_sync_detailed(
+        response = get_request_groups_sync_detailed(
             run_id=run_id,
             client=client,
         )
         if response.status_code == 200 and response.parsed:
-            executions_list = response.parsed
-            print(f"Retrieved {len(executions_list)} executions for run ID {run_id}")
+            request_groups = response.parsed
+            print(f"Retrieved {len(request_groups)} request groups for run ID {run_id}")
         elif response.status_code == 200:
-            print(f"No executions found for run ID {run_id}")
+            print(f"No request groups found for run ID {run_id}")
         else:
-            print(f"Failed to retrieve executions for run ID {run_id}. Response: {response}")
+            print(f"Failed to retrieve request groups for run ID {run_id}. Response: {response}")
     except Exception as e:
-        print(f"Error retrieving executions: {e}")
-    return executions_list
+        print(f"Error retrieving request groups: {e}")
+    return request_groups
 
-def get_supervisors_for_tool(tool_id: UUID, run_id: UUID, client: Client) -> List[Supervisor]:
-    # Get the list of supervisors using run_id and tool_id from the API
-    supervisors_list: List[Supervisor] = []
+def get_supervisor_chains_for_tool(tool_id: UUID, client: Client) -> List[SupervisorChain]:
+    """
+    Retrieve the supervisor chains for a specific tool.
+    """
+    
+    supervisors_list: List[SupervisorChain] = []
     try:
-        supervisors_response = get_run_tool_supervisors_sync(
-            run_id=run_id,
+        supervisors_response = get_tool_supervisor_chains_sync_detailed(
             tool_id=tool_id,
             client=client,
         )
         if supervisors_response is not None and supervisors_response.parsed is not None:
-            supervisors_list = supervisors_response.parsed  # List[Supervisor]
+            supervisors_list = supervisors_response.parsed  # List[SupervisorChain]
             print(f"Retrieved {len(supervisors_list)} supervisor chains from the API.")
         else:
             print("No supervisors found for this tool and run.")
@@ -381,56 +378,49 @@ def get_supervisors_for_tool(tool_id: UUID, run_id: UUID, client: Client) -> Lis
     return supervisors_list
 
 
-def send_supervision_request(supervisor: Supervisor, supervision_context, run_id: UUID, execution_id: UUID, tool_id: UUID, tool_args: list[Any], tool_kwargs: dict[str, Any]) -> UUID:
+def send_supervision_request(supervisor_id: UUID, supervisor_chain_id: UUID, request_group_id: UUID, position_in_chain: int) -> UUID:
     client = supervision_config.client
 
-    # Use the helper function to serialize arguments
-    arguments_dict = _serialize_arguments(tool_args, tool_kwargs)
-
-    tool_requests = [ToolRequest(
-        tool_id=tool_id,
-        arguments=ToolRequestArguments.from_dict(arguments_dict)
-    )]
-
     supervision_request = SupervisionRequest(
-        run_id=run_id,
-        execution_id=execution_id,
-        supervisor_id=supervisor.id,
-        task_state=supervision_context.to_task_state(),  # TODO: Make sure this is the correct format
-        tool_requests=tool_requests,
-        messages=[supervision_context.get_api_messages()[-1]]  # TODO: API otherwise returns Number of tool choices and messages must be the same
+        position_in_chain=position_in_chain,
+        supervisor_id=supervisor_id
     )
 
     # Send the SupervisionRequest to /api/reviews
     try:
-        supervision_status_response = create_supervision_request_sync_detailed(
+        supervision_request_response = create_supervision_request_sync_detailed(
             client=client,
+            request_group_id=request_group_id,
+            chain_id=supervisor_chain_id,
+            supervisor_id=supervisor_id,    
             body=supervision_request
         )
         if (
-            supervision_status_response.status_code == 200 and
-            supervision_status_response.parsed is not None and
-            supervision_status_response.parsed.id is not None
+            supervision_request_response.status_code in [200, 201] and
+            supervision_request_response.parsed is not None
         ):
-            review_id = supervision_status_response.parsed.supervision_request_id
-            print(f"Created supervision request with ID: {review_id}")
-            return review_id
+            supervision_request_id = supervision_request_response.parsed
+            print(f"Created supervision request with ID: {supervision_request_id}")
+            if isinstance(supervision_request_id, UUID):
+                return supervision_request_id
+            else:
+                raise ValueError("Invalid supervision request ID received.")
         else:
-            raise Exception(f"Failed to create supervision request. Response: {supervision_status_response}")
+            raise Exception(f"Failed to create supervision request. Response: {supervision_request_response}")
     except Exception as e:
         print(f"Error creating supervision request: {e}")
         raise
 
-def send_review_result(
-    review_id: UUID,
-    execution_id: UUID,
-    run_id: UUID,
+def send_supervision_result(
+    supervision_request_id: UUID,
+    request_group_id: UUID,
     tool_id: UUID,
     supervisor_id: UUID,
     decision: SupervisionDecision,
     client: Client,
     tool_args: list[Any],
-    tool_kwargs: dict[str, Any]
+    tool_kwargs: dict[str, Any],
+    tool_request: ToolRequest
 ):
     """
     Send the supervision result to the API.
@@ -448,49 +438,47 @@ def send_review_result(
     if not api_decision:
         raise ValueError(f"Unsupported decision type: {decision.decision}")
     
+    if decision.modified is not None:
+        
+        # new_tool_request = copy.deepcopy(tool_request)
+        # new_tool_request.arguments = decision.modified.tool_args
+        # create_tool_request_sync_detailed(request_group_id=request_group_id, client=client, body=decision.modified)
+        # TODO: create the new tool request with new tool id
+        pass
+    # TODO: If modified, send it as well
     # Combine tool_args and tool_kwargs into arguments_dict
-    arguments_dict = _serialize_arguments(tool_args, tool_kwargs)
+    # arguments_dict = _serialize_arguments(tool_args, tool_kwargs)
 
-    tool_request_arguments = ToolRequestArguments.from_dict(arguments_dict)
+    # tool_request_arguments = ToolRequestArguments.from_dict(arguments_dict)
 
-    tool_request = ToolRequest(
-        tool_id=tool_id,
-        arguments=tool_request_arguments
-    )
+    # tool_request = ToolRequest(
+    #     tool_id=tool_id,
+    #     arguments=tool_request_arguments
+    # )
     # Create the SupervisionResult object
     supervision_result = SupervisionResult(
-        id=uuid4(),  # Generate a unique ID 
-        supervision_request_id=review_id, # TODO: Is this review_id?
+        supervision_request_id=supervision_request_id,
         created_at=datetime.now(timezone.utc),
         decision=api_decision,
         reasoning=decision.explanation or "",
-        toolrequest=tool_request,
-    )
-
-    # Create the CreateSupervisionResult object
-    create_supervision_result_body = CreateSupervisionResult(
-        execution_id=execution_id,
-        run_id=run_id,
-        tool_id=tool_id,
-        supervisor_id=supervisor_id,
-        supervision_result=supervision_result,
+        chosen_toolrequest_id=tool_request.id
     )
     # Send the supervision result to the API
     try:
         response = create_supervision_result_sync_detailed(
-            review_id=review_id,
+            supervision_request_id=supervision_request_id,
             client=client,
-            body=create_supervision_result_body
+            body=supervision_result
         )
-        if response.status_code == 200:
-            print(f"Successfully submitted supervision result for review ID: {review_id}")
+        if response.status_code in [200, 201]:
+            print(f"Successfully submitted supervision result for supervision request ID: {supervision_request_id}")
         else:
-            print(f"Failed to submit supervision result. Response: {response}")
+            raise Exception(f"Failed to submit supervision result. Response: {response}")
     except Exception as e:
         print(f"Error submitting supervision result: {e}")
         raise
 
-def register_supervisor(client: Client, supervisor_info: dict, supervision_context) -> UUID:
+def register_supervisor(client: Client, supervisor_info: dict, project_id: UUID, supervision_context) -> UUID:
     """Registers a single supervisor with the API and returns its ID."""
     supervisor_data = Supervisor(
         name=supervisor_info['name'],
@@ -502,16 +490,16 @@ def register_supervisor(client: Client, supervisor_info: dict, supervision_conte
     )
     
     supervisor_response = create_supervisor_sync_detailed(
+        project_id=project_id,
         client=client,
         body=supervisor_data
     )
     
     if (
-        supervisor_response.status_code == 200 and
-        supervisor_response.parsed is not None and
-        supervisor_response.parsed.id is not None
+        supervisor_response.status_code in [200, 201] and
+        supervisor_response.parsed is not None
     ):
-        supervisor_id = supervisor_response.parsed.id
+        supervisor_id = supervisor_response.parsed
         supervision_context.add_supervisor_id(supervisor_info['name'], supervisor_id)
         
         if isinstance(supervisor_id, UUID):
@@ -524,38 +512,6 @@ def register_supervisor(client: Client, supervisor_info: dict, supervision_conte
     else:
         raise Exception(f"Failed to register supervisor '{supervisor_info['name']}'. Response: {supervisor_response}")
     
-    
-def get_tool_supervisors(run_id: UUID, tool_id: UUID, client: Client) -> List[SupervisorChain]:
-    """
-    Retrieves the supervisors assigned to a tool, grouped by chain, for a specific run.
-
-    Args:
-        run_id (UUID): The ID of the run.
-        tool_id (UUID): The ID of the tool.
-        client (Client): The API client instance.
-
-    Returns:
-        List[SupervisorChain]: A list of supervisor chains.
-    """
-    try:
-        response = get_run_tool_supervisors_sync_detailed(
-            run_id=run_id,
-            tool_id=tool_id,
-            client=client,
-        )
-        if response.status_code == 200 and response.parsed:
-            supervisor_chains = response.parsed
-            print(f"Retrieved {len(supervisor_chains)} supervisor chains for run ID {run_id} and tool ID {tool_id}")
-            return supervisor_chains
-        else:
-            print(
-                f"Failed to retrieve supervisor chains for run ID {run_id} and tool ID {tool_id}. "
-                f"Response: {response}"
-            )
-            return []
-    except Exception as e:
-        print(f"Error retrieving supervisor chains: {e}")
-        return []
 
 def _serialize_arguments(tool_args: list[Any], tool_kwargs: dict[str, Any]) -> dict[str, Any]:
     """
