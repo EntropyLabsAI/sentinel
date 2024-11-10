@@ -530,7 +530,7 @@ func (s *PostgresqlStore) GetRunRequestGroups(ctx context.Context, runId uuid.UU
 	return requestGroups, nil
 }
 
-func (s *PostgresqlStore) getChainExecution(ctx context.Context, chainExecutionId uuid.UUID) (*uuid.UUID, error) {
+func (s *PostgresqlStore) chainExecutionExists(ctx context.Context, chainExecutionId uuid.UUID) (bool, error) {
 	query := `
 		SELECT 1
 		FROM chainexecution
@@ -538,23 +538,23 @@ func (s *PostgresqlStore) getChainExecution(ctx context.Context, chainExecutionI
 
 	err := s.db.QueryRowContext(ctx, query, chainExecutionId).Scan()
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
+		return false, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("error getting chain execution: %w", err)
+		return false, fmt.Errorf("error getting chain execution: %w", err)
 	}
 
-	return &chainExecutionId, nil
+	return true, nil
 }
 
 func (s *PostgresqlStore) CreateSupervisionRequest(ctx context.Context, request sentinel.SupervisionRequest) (*uuid.UUID, error) {
 	// Sanity check that we're recording this against a valid chain execution group that already exists
-	execution, err := s.getChainExecution(ctx, request.ChainexecutionId)
+	exists, err := s.chainExecutionExists(ctx, request.ChainexecutionId)
 	if err != nil {
-		return nil, fmt.Errorf("error getting execution: %w", err)
+		return nil, fmt.Errorf("error checking if chain execution exists: %w", err)
 	}
-	if execution == nil {
-		return nil, fmt.Errorf("execution not found for supervision request: %s", request.ChainexecutionId)
+	if !exists {
+		return nil, fmt.Errorf("chain execution does not exist: %s", request.ChainexecutionId)
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -800,11 +800,20 @@ func (s *PostgresqlStore) CountSupervisionRequests(ctx context.Context, status s
 
 func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result sentinel.SupervisionResult, requestId uuid.UUID) (*uuid.UUID, error) {
 	query := `
-		INSERT INTO supervisionresult (id, supervisionrequest_id, created_at, decision, reasoning)
-		VALUES ($1, $2, $3, $4, $5)`
+		INSERT INTO supervisionresult (id, supervisionrequest_id, created_at, decision, reasoning, chosen_toolrequest_id)
+		VALUES ($1, $2, $3, $4, $5, $6)`
 
 	id := uuid.New()
-	_, err := s.db.ExecContext(ctx, query, id, requestId, result.CreatedAt, result.Decision, result.Reasoning)
+	_, err := s.db.ExecContext(
+		ctx,
+		query,
+		id,
+		requestId,
+		result.CreatedAt,
+		result.Decision,
+		result.Reasoning,
+		result.ChosenToolrequestId,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("error creating supervision result: %w", err)
 	}
@@ -867,7 +876,7 @@ func (s *PostgresqlStore) GetSupervisionRequestsForStatus(ctx context.Context, s
 
 func (s *PostgresqlStore) GetSupervisionResult(ctx context.Context, id uuid.UUID) (*sentinel.SupervisionResult, error) {
 	query := `
-		SELECT id, supervisionrequest_id, created_at, decision, reasoning
+		SELECT id, supervisionrequest_id, created_at, decision, reasoning, chosen_toolrequest_id
 		FROM supervisionresult
 		WHERE id = $1`
 
@@ -878,6 +887,7 @@ func (s *PostgresqlStore) GetSupervisionResult(ctx context.Context, id uuid.UUID
 		&result.CreatedAt,
 		&result.Decision,
 		&result.Reasoning,
+		&result.ChosenToolrequestId,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
