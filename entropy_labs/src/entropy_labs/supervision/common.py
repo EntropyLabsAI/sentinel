@@ -233,12 +233,12 @@ def check_python_code(
 
     return True, "Python code is approved."
 
-async def human_supervisor_wrapper(task_state: TaskState, call: ToolCall, timeout: int = 300, use_inspect_ai: bool = False, n: int = 1, backend_api_endpoint: Optional[str] = None, supervision_request_id: Optional[UUID] = None, client: Optional[Client] = None) -> SupervisionDecision:
+async def human_supervisor_wrapper(task_state: TaskState, call: ToolCall, timeout: int = 300, use_inspect_ai: bool = False, n: int = 1, supervision_request_id: Optional[UUID] = None, client: Optional[Client] = None) -> SupervisionDecision:
     """
     Wrapper for human supervisor that handles both CLI and backend API approval.
     """
     
-    if not backend_api_endpoint:
+    if client is None: #TODO: Fix handling of the backend API endpoint, it can be configured at too many places
         supervisor_decision = prompt_user_cli_approval(task_state=task_state, tool_call=call, use_inspect_ai=use_inspect_ai, n=n)
     else:
         # Use backend API for supervision 
@@ -268,7 +268,10 @@ def _transform_entropy_labs_approval_to_inspect_ai_approval(approval_decision: S
     modified = None
     if inspect_ai_decision == "modify" and approval_decision.modified is not None:
         # Create ToolCall instance directly from the modified data
-        modified = ToolCall(**approval_decision.modified)
+        original_call = approval_decision.modified.original_inspect_ai_call
+        # TODO: Figure this one out If the tool was modified, change th call id?
+        # new_tool_call_id = 'call_xx'
+        modified = ToolCall(id=original_call.id, function=original_call.function, arguments=approval_decision.modified.tool_kwargs, type=original_call.type)
 
     return Approval(
         decision=inspect_ai_decision,

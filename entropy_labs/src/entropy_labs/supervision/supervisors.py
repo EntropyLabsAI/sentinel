@@ -219,7 +219,6 @@ ModifiedData:
 
 
 def human_supervisor(
-    backend_api_endpoint: Optional[str] = None,
     timeout: int = 300,
     n: int = 1,
 ) -> Supervisor:
@@ -227,7 +226,6 @@ def human_supervisor(
     Create a supervisor function that requires human approval via backend API or CLI.
 
     Args:
-        backend_api_endpoint (Optional[str]): Endpoint for backend API for human supervision.
         timeout (int): Timeout in seconds for waiting for the human decision.
         n (int): Number of approvals required.
 
@@ -276,7 +274,6 @@ def human_supervisor(
         supervisor_decision = await human_supervisor_wrapper(
             task_state=task_state,
             call=tool_call,
-            backend_api_endpoint=backend_api_endpoint,
             timeout=timeout,
             use_inspect_ai=False,
             n=n,
@@ -287,7 +284,7 @@ def human_supervisor(
         return supervisor_decision
 
     supervisor.__name__ = human_supervisor.__name__
-    supervisor.supervisor_attributes = {"backend_api_endpoint": backend_api_endpoint, "timeout": timeout, "n": n}
+    supervisor.supervisor_attributes = {"timeout": timeout, "n": n}
     return supervisor
 
 

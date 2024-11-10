@@ -4,7 +4,7 @@ from inspect_ai.tool import ToolCall
 from entropy_labs.sentinel_api_client.sentinel_api_client.client import Client
 from uuid import UUID
 
-def human_supervisor(backend_api_endpoint: Optional[str] = None, agent_id: str = "default_agent", timeout: int = 300, n: int = 1):
+def human_supervisor(agent_id: str = "default_agent", timeout: int = 300, n: int = 1):
     async def supervisor(func: Callable, supervision_context: SupervisionContext, supervision_request_id: Optional[UUID] = None, ignored_attributes: List[str] = [], 
                          tool_args: List[Any] = [], tool_kwargs: dict[str, Any] = {}, decision: Optional[SupervisionDecision] = None) -> SupervisionDecision:
         """
@@ -22,12 +22,12 @@ def human_supervisor(backend_api_endpoint: Optional[str] = None, agent_id: str =
         tool_call = ToolCall(id=id,function=func.__name__, arguments=tool_kwargs, type='function')
         client = supervision_config.client
         
-        supervisor_decision = await human_supervisor_wrapper(task_state=task_state, call=tool_call, backend_api_endpoint=backend_api_endpoint, timeout=timeout, use_inspect_ai=False, n=n, supervision_request_id=supervision_request_id, client=client)
+        supervisor_decision = await human_supervisor_wrapper(task_state=task_state, call=tool_call, timeout=timeout, use_inspect_ai=False, n=n, supervision_request_id=supervision_request_id, client=client)
 
         return supervisor_decision
 
     supervisor.__name__ = human_supervisor.__name__
-    supervisor.supervisor_attributes = {"backend_api_endpoint": backend_api_endpoint, "timeout": timeout, "n": n}
+    supervisor.supervisor_attributes = {"timeout": timeout, "n": n}
     return supervisor
 
 def bash_supervisor(

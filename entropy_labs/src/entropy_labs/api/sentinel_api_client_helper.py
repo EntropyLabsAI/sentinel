@@ -335,7 +335,7 @@ def create_tool_request_group(tool_id: UUID, tool_requests: List[ToolRequest], c
     
     return None
 
-def get_request_groups(run_id: UUID, client: Client) -> List[ToolRequestGroup]:
+def get_tool_request_groups(run_id: UUID, client: Client) -> List[ToolRequestGroup]:
     """
     Retrieve a list of request groups for the specified run ID.
     """
@@ -439,22 +439,11 @@ def send_supervision_result(
         raise ValueError(f"Unsupported decision type: {decision.decision}")
     
     if decision.modified is not None:
-        
+        pass
         # new_tool_request = copy.deepcopy(tool_request)
         # new_tool_request.arguments = decision.modified.tool_args
         # create_tool_request_sync_detailed(request_group_id=request_group_id, client=client, body=decision.modified)
         # TODO: create the new tool request with new tool id
-        pass
-    # TODO: If modified, send it as well
-    # Combine tool_args and tool_kwargs into arguments_dict
-    # arguments_dict = _serialize_arguments(tool_args, tool_kwargs)
-
-    # tool_request_arguments = ToolRequestArguments.from_dict(arguments_dict)
-
-    # tool_request = ToolRequest(
-    #     tool_id=tool_id,
-    #     arguments=tool_request_arguments
-    # )
     # Create the SupervisionResult object
     supervision_result = SupervisionResult(
         supervision_request_id=supervision_request_id,

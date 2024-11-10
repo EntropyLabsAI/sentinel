@@ -1,7 +1,7 @@
 from entropy_labs.supervision.langchain.supervisors import human_supervisor
 from entropy_labs.supervision.supervisors import llm_supervisor
 from entropy_labs.supervision.langchain.logging import EntropyLabsCallbackHandler
-from entropy_labs.supervision.decorators import supervise
+from entropy_labs.supervision import supervise
 from entropy_labs.api.project_registration import register_project, create_run, register_task
 from entropy_labs.supervision.supervisors import Supervisor
 from langchain_openai import ChatOpenAI
@@ -75,8 +75,8 @@ class UploadResponse(BaseModel):
 @supervise(
     supervision_functions=[
         [llm_supervisor(instructions="Always escalate."), 
-         human_supervisor(backend_api_endpoint="http://localhost:8080")],
-        [llm_supervisor(instructions='Always approve.'), human_supervisor(backend_api_endpoint="http://localhost:8080")]]
+         human_supervisor()],
+        [llm_supervisor(instructions='Always approve.'), human_supervisor()]]
 )
 def upload_api(input_data: str) -> UploadResponse:
     """Upload the input data to the API and receive a response."""

@@ -495,6 +495,8 @@ class SupervisionConfig:
 # TODO: Update this
 supervision_config = SupervisionConfig()
 
+def get_supervision_context():
+    return supervision_config.context
 def set_global_supervision_functions(functions: List[Callable]):
     supervision_config.set_global_supervision_functions(functions)
 
