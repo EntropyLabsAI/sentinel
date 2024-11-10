@@ -19,7 +19,8 @@ export function ToolCard({ tool, runId }: ToolCardProps) {
         </CardTitle>
         <CardDescription>
           <p className="text-sm font-semibold">Description</p>
-          <textarea className="text-xs bg-muted p-2 rounded w-full resize-none" value={JSON.stringify(tool.description, null, 2)} readOnly rows={10} disabled />
+          {/* <textarea className="text-xs bg-muted p-2 rounded w-full resize-none" value={JSON.stringify(tool.description, null, 2)} readOnly rows={10} disabled /> */}
+          {tool.description && <p className="text-sm">{tool.description}</p>}
         </CardDescription>
       </CardHeader>
       <CardContent className="    flex flex-col gap-2">

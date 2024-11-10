@@ -12,11 +12,16 @@ import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import { RunState, Status } from "@/types"
 import { UUIDDisplay } from "@/components/uuid_display"
 import { CreatedAgo } from "@/components/created_ago"
-import { StatusBadge, ToolBadge } from "./status_badge"
+import { DecisionBadge, StatusBadge, SupervisorBadge, ToolBadge } from "./status_badge"
 import { useProject } from "@/contexts/project_context"
 import React from "react"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
+import { FileJsonIcon, MessagesSquareIcon, PickaxeIcon, LinkIcon } from 'lucide-react'
+import JsonDisplay from './json_display'
+import ContextDisplay from './context_display'
 
-export default function ExecutionTable({ executions }: { executions: RunState }) {
+export default function ExecutionTable({ runState }: { runState: RunState }) {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
   const { selectedProject } = useProject()
 
@@ -60,7 +65,7 @@ export default function ExecutionTable({ executions }: { executions: RunState })
         </TableRow>
       </TableHeader>
       <TableBody>
-        {executions?.map((execution) => (
+        {runState?.map((execution) => (
           <>
             <TableRow key={execution.request_group.id} className="">
               <TableCell className="font-medium">
@@ -111,29 +116,134 @@ export default function ExecutionTable({ executions }: { executions: RunState })
                     </p>
 
                     {execution.chains.map((chain, chainIndex) => (
-                      <div key={chain.chain.chain_id} className="mb-4 last:mb-0">
-                        <h4 className="text-sm font-medium mb-2">Chain {chainIndex + 1}</h4>
-                        <div className="space-y-2">
-                          {chain.supervision_requests.map((request) => (
-                            <div
-                              key={request.supervision_request.id}
-                              className="flex items-center justify-between bg-background p-2 rounded-md"
-                            >
-                              <div className="flex items-center gap-2">
-                                <StatusBadge status={request.status.status} />
-                                <span className="text-sm">
-                                  {request.result ? (
-                                    <span className="text-muted-foreground">
-                                      Decision: {request.result.decision} - {request.result.reasoning}
-                                    </span>
-                                  ) : (
-                                    <span className="text-muted-foreground">Awaiting decision</span>
-                                  )}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
+                      <div key={chain.chain.chain_id} className="w-full space-y-4 bg-muted/50 rounded-md px-4 mb-4">
+                        <div className="flex flex-row items-center gap-2 py-2">
+                          <LinkIcon className="w-4 h-4" />
+                          <p className="text-xs text-gray-500">
+                            Chain {chainIndex + 1} - Supervisors:{' '}
+                            {chain.chain.supervisors?.map((supervisor, idx) => (
+                              <span key={supervisor.id} className="inline-flex items-center gap-1">
+                                {idx > 0 && " → "}
+                                <SupervisorBadge supervisorId={supervisor.id || ''} />
+                              </span>
+                            ))}
+                          </p>
                         </div>
+
+                        {/* Show all supervisors in the chain, with their requests if they exist */}
+                        {chain.chain.supervisors?.map((supervisor, supervisorIndex) => {
+                          const supervisionRequest = chain.supervision_requests.find(
+                            req => req.supervision_request.supervisor_id === supervisor.id
+                          );
+
+                          return (
+                            <Accordion
+                              type="single"
+                              collapsible
+                              className="w-full"
+                              key={supervisor.id}
+                            >
+                              <AccordionItem
+                                value="supervision-details"
+                                className={`border border-gray-200 rounded-md mb-4 ${!supervisionRequest ? 'opacity-50' : ''}`}
+                              >
+                                <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
+                                  <div className="flex flex-row w-full justify-between">
+                                    <div className="flex flex-row gap-2">
+                                      <span className="text-sm">Supervisor #{supervisorIndex + 1}</span>
+                                      <SupervisorBadge supervisorId={supervisor.id || ''} />
+                                      {supervisionRequest ? (
+                                        <>
+                                          is in status
+                                          <StatusBadge status={supervisionRequest.status.status} />
+                                          {supervisionRequest.result && (
+                                            <>
+                                              because supervisor decided to
+                                              <DecisionBadge decision={supervisionRequest.result.decision} />
+                                            </>
+                                          )}
+                                        </>
+                                      ) : (
+                                        <span className="text-muted-foreground">
+                                          (No supervision request yet)
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </AccordionTrigger>
+
+                                <AccordionContent className="p-4 bg-white rounded-md space-y-4">
+                                  {supervisionRequest ? (
+                                    <>
+                                      <p className="text-xs text-gray-500">
+                                        Supervision info for request{" "}
+                                        <UUIDDisplay uuid={supervisionRequest.supervision_request.id || ''} />
+                                      </p>
+
+                                      {/* Tool Requests Section */}
+                                      <Accordion type="single" collapsible className="w-full">
+                                        <AccordionItem value="tool-requests" className="border border-gray-200 rounded-md">
+                                          <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
+                                            <div className="flex flex-row gap-4 text-center">
+                                              <PickaxeIcon className="w-4 h-4" />
+                                              Tool Requests
+                                            </div>
+                                          </AccordionTrigger>
+                                          <AccordionContent className="p-4">
+                                            {execution.request_group.tool_requests.map((tool_request, idx) => (
+                                              <div key={idx} className="px-4">
+                                                <JsonDisplay json={tool_request} />
+                                              </div>
+                                            ))}
+                                          </AccordionContent>
+                                        </AccordionItem>
+                                      </Accordion>
+
+                                      {/* Messages Section */}
+                                      <Accordion type="single" collapsible className="w-full">
+                                        <AccordionItem value="messages" className="border border-gray-200 rounded-md">
+                                          <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
+                                            <div className="flex flex-row gap-4">
+                                              <MessagesSquareIcon className="w-4 h-4" />
+                                              Messages & Task State
+                                            </div>
+                                          </AccordionTrigger>
+                                          <AccordionContent className="p-4">
+                                            <ContextDisplay context={execution.request_group.tool_requests[0]?.task_state} />
+                                          </AccordionContent>
+                                        </AccordionItem>
+                                      </Accordion>
+
+                                      {/* Supervision Result Card */}
+                                      {supervisionRequest.result && (
+                                        <Card>
+                                          <CardHeader>
+                                            <CardTitle>
+                                              Supervision Result:{" "}
+                                              <SupervisorBadge supervisorId={supervisionRequest.supervision_request.supervisor_id} />{" "}
+                                              returned <DecisionBadge decision={supervisionRequest.result.decision} />
+                                            </CardTitle>
+                                            <CardDescription>
+                                              <CreatedAgo datetime={supervisionRequest.result.created_at} label="Supervision result occurred" />.
+                                              ID is <UUIDDisplay uuid={supervisionRequest.result.id || ''} />
+                                            </CardDescription>
+                                          </CardHeader>
+                                          <CardContent>
+                                            <p>Reasoning: {supervisionRequest.result.reasoning || "No reasoning given"}</p>
+                                          </CardContent>
+                                        </Card>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <p className="text-sm text-muted-foreground">
+                                      This supervisor hasn't been called for supervision yet.
+                                    </p>
+                                  )}
+                                </AccordionContent>
+                              </AccordionItem>
+                            </Accordion>
+                          );
+                        })}
                       </div>
                     ))}
                   </div>
@@ -146,7 +256,7 @@ export default function ExecutionTable({ executions }: { executions: RunState })
       <TableFooter>
         <TableRow>
           <TableCell className="text-xs text-muted-foreground" colSpan={5}>
-            {executions?.length || 0} request groups were found for this run
+            {runState?.length || 0} request groups were found for this run
           </TableCell>
         </TableRow>
       </TableFooter>

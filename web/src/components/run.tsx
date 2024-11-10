@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { useGetRunRequestGroups, Tool, ToolRequestGroup, useGetRunTools } from "@/types";
+import { useGetRunRequestGroups, Tool, ToolRequestGroup, useGetRunTools, RunState, useGetRunState } from "@/types";
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Page from "./page";
@@ -12,19 +12,17 @@ import { EyeIcon, ListOrderedIcon, PickaxeIcon, PyramidIcon } from "lucide-react
 
 export default function Run() {
   const { runId } = useParams();
-  const [executions, setExecutions] = useState<ToolRequestGroup[]>([]);
+  const [runState, setRunState] = useState<RunState | null>(null);
   const [tools, setTools] = useState<Tool[]>([]);
 
-  const { data, isLoading, error } = useGetRunRequestGroups(runId || '');
   const { data: toolsData, isLoading: toolsLoading } = useGetRunTools(runId || '');
+  const { data: runStateData, isLoading: runStateLoading } = useGetRunState(runId || '');
 
   useEffect(() => {
-    if (data?.data) {
-      // Sort executions by created_at
-      data.data.sort((a, b) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime());
-      setExecutions(data.data);
+    if (runStateData?.data) {
+      setRunState(runStateData.data);
     }
-  }, [data]);
+  }, [runStateData]);
 
   useEffect(() => {
     if (toolsData?.data) {
@@ -50,7 +48,7 @@ export default function Run() {
         title="Run details"
         subtitle={
           <span>
-            We recorded {executions.length} execution{executions.length === 1 ? "" : "s"} for run{' '}
+            We recorded {runState?.length} execution{runState?.length === 1 ? "" : "s"} for run{' '}
             <UUIDDisplay uuid={runId} />{' '}
             across {tools.length} tool{tools.length === 1 ? "" : "s"}. To see more details for each tool execution, inspect the rows in the table below.
           </span>
@@ -61,15 +59,15 @@ export default function Run() {
 
       <Page
         icon={<PyramidIcon className="h-5 w-5" />}
-        title={`Executions for run`} subtitle={`During this agent run, we recorded ${executions.length} execution${executions.length === 1 ? "" : "s"} of ${tools.length} tool${tools.length === 1 ? "" : "s"}. `}>
+        title={`Executions for run`} subtitle={`During this agent run, we recorded ${runState?.length} execution${runState?.length === 1 ? "" : "s"} of ${tools.length} tool${tools.length === 1 ? "" : "s"}. `}>
         <div className="col-span-3">
-          <ExecutionTable executions={executions} />
+          <ExecutionTable runState={runState || []} />
         </div>
       </Page>
       <Page
         icon={<PickaxeIcon className="h-5 w-5" />}
         title="Tools used in this run" subtitle={`${tools.length} tool${tools.length === 1 ? "" : "s"} used in this run`}>
-        <div className="col-span-3">
+        <div className="col-span-1">
           <ToolsList tools={tools} runId={runId} variant="card" />
         </div>
       </Page>
