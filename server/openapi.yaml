@@ -884,7 +884,6 @@ components:
         status:
           $ref: "#/components/schemas/SupervisionStatus"
       required:
-        - chainexecution_id
         - supervisor_id
         - position_in_chain
 

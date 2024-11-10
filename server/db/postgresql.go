@@ -530,6 +530,39 @@ func (s *PostgresqlStore) GetRunRequestGroups(ctx context.Context, runId uuid.UU
 	return requestGroups, nil
 }
 
+func (s *PostgresqlStore) GetExecutionFromChainId(ctx context.Context, chainId uuid.UUID) (*uuid.UUID, error) {
+	query := `
+		SELECT id
+		FROM chainexecution
+		WHERE chain_id = $1`
+
+	var id uuid.UUID
+	err := s.db.QueryRowContext(ctx, query, chainId).Scan(&id)
+	if err != nil {
+		return nil, fmt.Errorf("error getting execution from chain ID: %w", err)
+	}
+
+	return &id, nil
+}
+
+func (s *PostgresqlStore) CreateChainExecution(
+	ctx context.Context,
+	chainId uuid.UUID,
+	requestGroupId uuid.UUID,
+) (*uuid.UUID, error) {
+	query := `
+		INSERT INTO chainexecution (id, chain_id, requestgroup_id)
+		VALUES ($1, $2)`
+
+	id := uuid.New()
+	_, err := s.db.ExecContext(ctx, query, id, chainId, requestGroupId)
+	if err != nil {
+		return nil, fmt.Errorf("error creating chain execution: %w", err)
+	}
+
+	return &id, nil
+}
+
 func (s *PostgresqlStore) chainExecutionExists(ctx context.Context, chainExecutionId uuid.UUID) (bool, error) {
 	query := `
 		SELECT 1
@@ -549,12 +582,17 @@ func (s *PostgresqlStore) chainExecutionExists(ctx context.Context, chainExecuti
 
 func (s *PostgresqlStore) CreateSupervisionRequest(ctx context.Context, request sentinel.SupervisionRequest) (*uuid.UUID, error) {
 	// Sanity check that we're recording this against a valid chain execution group that already exists
-	exists, err := s.chainExecutionExists(ctx, request.ChainexecutionId)
-	if err != nil {
-		return nil, fmt.Errorf("error checking if chain execution exists: %w", err)
-	}
-	if !exists {
-		return nil, fmt.Errorf("chain execution does not exist: %s", request.ChainexecutionId)
+	ce := request.ChainexecutionId
+	if ce != nil {
+		exists, err := s.chainExecutionExists(ctx, *ce)
+		if err != nil {
+			return nil, fmt.Errorf("error checking if chain execution exists: %w", err)
+		}
+		if !exists {
+			return nil, fmt.Errorf("chain execution does not exist: %s", *ce)
+		}
+	} else {
+		return nil, fmt.Errorf("chain execution ID is required when creating a supervision request")
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -569,7 +607,7 @@ func (s *PostgresqlStore) CreateSupervisionRequest(ctx context.Context, request 
 
 	requestID := uuid.New()
 	_, err = tx.ExecContext(
-		ctx, query, requestID, request.SupervisorId, request.PositionInChain, request.ChainexecutionId,
+		ctx, query, requestID, request.SupervisorId, request.PositionInChain, *ce,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error creating supervision request: %w", err)
