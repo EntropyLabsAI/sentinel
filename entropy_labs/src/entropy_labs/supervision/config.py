@@ -556,9 +556,9 @@ def convert_message(msg: ChatMessage) -> AssistantMessage:
     if isinstance(msg, ChatMessageTool):
         tool_call_id = msg.tool_call_id
         function = msg.function
-        content_str = f"Function {function} has been executed. Tool call ID: {tool_call_id}"
+        content_str = f"Function has been executed. Tool call ID: {tool_call_id}" #TODO: Get the function name right
         if msg.error:
-            content_str = f"Function {function} has been executed with error: {msg.error}"
+            content_str = f"Function has been executed with error: {msg.error}"
     else:
         tool_call_id = UNSET
         function = UNSET

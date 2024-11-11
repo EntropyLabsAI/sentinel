@@ -156,8 +156,9 @@ def register_tools_and_supervisors(run_id: UUID, tools: Optional[List[Callable |
             raise Exception(f"Failed to register tool '{tool_name}'. Status code: {tool_response}")
 
         # Register supervisors and associate them with the tool
-        supervisor_chain_ids = []
+        supervisor_chain_ids: List[List[UUID]] = []
         if supervision_functions == []:
+            supervisor_chain_ids.append([])
             supervisor_func = auto_approve_supervisor()
             supervisor_info: dict[str, Any] = {
                     'func': supervisor_func,
@@ -165,10 +166,10 @@ def register_tools_and_supervisors(run_id: UUID, tools: Optional[List[Callable |
                     'description': getattr(supervisor_func, '__doc__', 'supervisor_description'),
                     'type': SupervisorType.NO_SUPERVISOR,
                     'code': get_function_code(supervisor_func),
-                    'supervisor_attributes': {}
+                    'supervisor_attributes': getattr(supervisor_func, 'supervisor_attributes', {})
             }
             supervisor_id = register_supervisor(client, supervisor_info, project_id, supervision_context)
-            supervisor_chain_ids.append([supervisor_id])
+            supervisor_chain_ids[0] = [supervisor_id]
         else:
             for idx, supervisor_func_list in enumerate(supervision_functions):
                 supervisor_chain_ids.append([])
