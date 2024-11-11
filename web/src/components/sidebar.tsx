@@ -303,7 +303,7 @@ export default function SidebarComponent({ children }: SidebarProps) {
             </Card>
           </div>
         </header>
-        <div className="flex-grow mt-24">
+        <div className="flex-grow">
           {children}
         </div>
       </SidebarInset>

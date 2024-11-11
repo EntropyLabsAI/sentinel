@@ -19,7 +19,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { FileJsonIcon, MessagesSquareIcon, PickaxeIcon, LinkIcon } from 'lucide-react'
 import JsonDisplay from './util/json_display'
-import ContextDisplay from './context_display'
 
 export default function ExecutionTable({ runState }: { runState: RunState }) {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
@@ -209,7 +208,6 @@ export default function ExecutionTable({ runState }: { runState: RunState }) {
                                             </div>
                                           </AccordionTrigger>
                                           <AccordionContent className="p-4">
-                                            <ContextDisplay context={execution.request_group.tool_requests[0]?.task_state} />
                                           </AccordionContent>
                                         </AccordionItem>
                                       </Accordion>

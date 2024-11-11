@@ -30,9 +30,7 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
   const [score, setScore] = useState<string | null>(null);
   const [showMessage, setShowMessage] = useState(false);
   const [tool, setTool] = useState<Tool>();
-
   const [args, setArgs] = useState<Arguments>(toolChoice.arguments);
-
   const [hiddenArgs, setHiddenArgs] = useState<Partial<Arguments>>({});
 
   const getVisibleArgs = (fullArgs: Arguments): Arguments => {
@@ -56,6 +54,7 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
   }
 
   useEffect(() => {
+    console.log("tool choice/tool was updated. updating hidden args")
     if (tool?.ignored_attributes) {
       const hidden = tool.ignored_attributes.reduce((acc, key) => {
         if (key in toolChoice.arguments) {
@@ -65,6 +64,8 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
       }, {} as Partial<Arguments>);
 
       setHiddenArgs(hidden);
+      console.log("hidden args: ", hidden);
+      console.log("visible args: ", getVisibleArgs(toolChoice.arguments));
       setArgs(getVisibleArgs(toolChoice.arguments));
     }
   }, [tool, toolChoice.arguments]);

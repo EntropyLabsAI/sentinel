@@ -3,7 +3,7 @@ import React from "react";
 export default function Page({ children, title, subtitle, icon }: { children: React.ReactNode, title: string, subtitle?: React.ReactNode, icon: React.ReactNode }) {
 
   return (
-    <div className="container mx-auto p-4 flex flex-col gap-6">
+    <div className="px-32 pt-32 flex flex-col gap-6">
       <div className="flex flex-col gap-2">
         <div className="flex flex-row gap-4 items-center">
           {icon}

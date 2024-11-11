@@ -11,15 +11,20 @@ import ReviewRequestDisplay from '@/components/review_request';
 import { HubStatsAccordion } from './util/hub_stats';
 import { useConfig } from '@/contexts/config_context';
 import axios from 'axios';
+import { EyeIcon } from 'lucide-react';
+import { UUIDDisplay } from './util/uuid_display';
+import { Supervisor } from '@/types';
 
-interface ReviewSectionProps { }
+interface ReviewSectionProps {
+  supervisor: Supervisor;
+}
 
 // Map the review request to the payload
 type ReviewPayloadMap = {
   [key: string]: ReviewPayload;
 };
 
-const HumanReviews: React.FC<ReviewSectionProps> = ({ }) => {
+const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
   const { API_BASE_URL, WEBSOCKET_BASE_URL } = useConfig();
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
@@ -123,11 +128,16 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ }) => {
     : null;
 
   return (
-    <div>
-      <div className="container mx-auto px-4 py-8 flex">
+    <div className="p-16 flex flex-col gap-16">
+
+      {/* Main Content */}
+      <div className="flex">
         {/* Sidebar */}
         <div className="w-full md:w-1/4 pr-4 border-r">
-          <h2 className="text-xl font-semibold mb-4">Review Requests</h2>
+          <h2 className="text-xl font-semibold mb-4">
+
+            Review requests for human supervisor <UUIDDisplay uuid={supervisor.id} /> will be displayed here.
+          </h2>
           {Object.keys(reviews).length === 0 ? (
             <p>No review requests at the moment.</p>
           ) : (
@@ -162,11 +172,7 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ }) => {
 
         {/* Main Content */}
         <div className="w-full md:w-3/4 pl-4">
-          {!selectedReviewPayload ? (
-            <div id="loading" className="text-left">
-              <p className="text-lg">Select a review request from the sidebar.</p>
-            </div>
-          ) : (
+          {!selectedReviewPayload ? (<></>) : (
             <>
               <div id="content" className="space-y-6">
                 <ReviewRequestDisplay
@@ -183,8 +189,9 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ }) => {
             </>
           )}
         </div>
+
       </div>
-      <div className="container mx-auto px-4 py-8 flex flex-col">
+      <div className="flex flex-col">
         <HubStatsAccordion API_BASE_URL={API_BASE_URL} />
       </div>
     </div>
