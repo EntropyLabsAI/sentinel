@@ -1,0 +1,12 @@
+[
+  {
+    "task_id": 1,
+    "reward": 0.0,
+    "info": {
+      "error": "'tool_id'",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/david/PycharmProjects/tau-bench/run.py\", line 95, in _run\n    res = agent.solve(\n          ^^^^^^^^^^^^\n  File \"/Users/david/PycharmProjects/tau-bench/tau_bench/agents/tool_calling_agent.py\", line 53, in solve\n    env_response = env.step(action)\n                   ^^^^^^^^^^^^^^^^\n  File \"/Users/david/PycharmProjects/tau-bench/tau_bench/envs/base.py\", line 132, in step\n    observation = respond_to_user(content=action.kwargs[\"content\"])\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/david/PycharmProjects/agent-control-plane/entropy_labs/src/entropy_labs/supervision/decorators.py\", line 37, in wrapper\n    tool_id = entry['tool_id']\n              ~~~~~^^^^^^^^^^^\nKeyError: 'tool_id'\n"
+    },
+    "traj": [],
+    "trial": 0
+  }
+]

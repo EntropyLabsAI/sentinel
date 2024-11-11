@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "agent-control-plane",
+			"path": "../.."
+		},
+		{
+			"name": "tau-bench",
+			"path": "../../../tau-bench"
+		}
+	],
+	"settings": {}
+}
