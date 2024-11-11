@@ -984,14 +984,14 @@ func (s *PostgresqlStore) GetSupervisionRequestsForStatus(ctx context.Context, s
 	return requests, nil
 }
 
-func (s *PostgresqlStore) GetSupervisionResult(ctx context.Context, id uuid.UUID) (*sentinel.SupervisionResult, error) {
+func (s *PostgresqlStore) GetSupervisionResultFromRequestID(ctx context.Context, requestId uuid.UUID) (*sentinel.SupervisionResult, error) {
 	query := `
 		SELECT id, supervisionrequest_id, created_at, decision, reasoning, chosen_toolrequest_id
 		FROM supervisionresult
-		WHERE id = $1`
+		WHERE supervisionrequest_id = $1`
 
 	var result sentinel.SupervisionResult
-	err := s.db.QueryRowContext(ctx, query, id).Scan(
+	err := s.db.QueryRowContext(ctx, query, requestId).Scan(
 		&result.Id,
 		&result.SupervisionRequestId,
 		&result.CreatedAt,

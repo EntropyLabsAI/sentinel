@@ -23,7 +23,7 @@ type SupervisionStore interface {
 	GetSupervisionRequestsForStatus(ctx context.Context, status Status) ([]SupervisionRequest, error)
 
 	// Results
-	GetSupervisionResult(ctx context.Context, id uuid.UUID) (*SupervisionResult, error)
+	GetSupervisionResultFromRequestID(ctx context.Context, requestId uuid.UUID) (*SupervisionResult, error)
 	CreateSupervisionResult(ctx context.Context, result SupervisionResult, requestId uuid.UUID) (*uuid.UUID, error)
 
 	// Statuses

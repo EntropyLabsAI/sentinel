@@ -333,7 +333,7 @@ func apiGetSupervisionResultHandler(w http.ResponseWriter, r *http.Request, supe
 		return
 	}
 
-	supervisionResult, err := store.GetSupervisionResult(ctx, supervisionRequestId)
+	supervisionResult, err := store.GetSupervisionResultFromRequestID(ctx, supervisionRequestId)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision result", err.Error())
 		return
@@ -691,6 +691,7 @@ func apiGetRunStateHandler(w http.ResponseWriter, r *http.Request, runId uuid.UU
 				}
 
 				var supervisionRequests []SupervisionRequest
+
 				// Get all supervision requests for this chain
 				if chainExecutionId != nil {
 					supervisionRequests, err = store.GetChainExecutionSupervisionRequests(ctx, *chainExecutionId)
@@ -712,7 +713,7 @@ func apiGetRunStateHandler(w http.ResponseWriter, r *http.Request, runId uuid.UU
 					// Get the result if it exists
 					var result *SupervisionResult
 					if status.Status == "completed" {
-						result, err = store.GetSupervisionResult(ctx, *request.Id)
+						result, err = store.GetSupervisionResultFromRequestID(ctx, *request.Id)
 						if err != nil {
 							sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision result", err.Error())
 							return
