@@ -29,7 +29,6 @@ export function ToolsList({ tools, variant = "card", runId }: ToolsListProps) {
 
   return (
     <div className="flex flex-col gap-4">
-
       {
         (tools as Tool[]).map((tool) => (
           <ToolCard key={tool.id} tool={tool} runId={runId} />
