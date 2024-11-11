@@ -610,24 +610,6 @@ func (s *PostgresqlStore) createChainExecution(
 	return &id, nil
 }
 
-func (s *PostgresqlStore) chainExecutionExists(ctx context.Context, chainExecutionId uuid.UUID) (bool, error) {
-	query := `
-		SELECT 1
-		FROM chainexecution
-		WHERE id = $1`
-
-	var exists bool
-	err := s.db.QueryRowContext(ctx, query, chainExecutionId).Scan(&exists)
-	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
-	}
-	if err != nil {
-		return false, fmt.Errorf("error getting chain execution: %w", err)
-	}
-
-	return true, nil
-}
-
 func (s *PostgresqlStore) CreateSupervisionRequest(
 	ctx context.Context,
 	request sentinel.SupervisionRequest,

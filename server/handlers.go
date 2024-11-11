@@ -513,7 +513,7 @@ func apiCreateSupervisionRequestHandler(
 	}
 
 	// Check that the chainexecution entry exists
-	foundExecutionId, err := store.GetExecutionFromChainId(ctx, chainId)
+	foundExecutionId, err := store.GetChainExecutionFromChainAndRequestGroup(ctx, chainId, requestGroupId)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting execution from chain ID", err.Error())
 		return
