@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function Page({ children, title, subtitle, icon }: { children: React.ReactNode, title: string, subtitle?: React.ReactNode, icon: React.ReactNode }) {
+export default function Page({ children, title, subtitle, icon, cols = 1 }: { children: React.ReactNode, title: string, subtitle?: React.ReactNode, icon: React.ReactNode, cols?: number }) {
 
   return (
     <div className="px-32 pt-32 flex flex-col gap-6">
@@ -12,7 +12,7 @@ export default function Page({ children, title, subtitle, icon }: { children: Re
         {subtitle && <p className="text-sm text-gray-500">{subtitle}</p>}
 
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-${cols} gap-6`}>
         {children}
       </div>
     </div>

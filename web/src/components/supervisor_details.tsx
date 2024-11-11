@@ -26,11 +26,12 @@ export default function SupervisorDetails() {
       {supervisorError && <div>Error: {supervisorError.message}</div>}
       {supervisor && <>
         <div className="">
-          {/* <div className="flex flex-col space-y-4 col-span-3"> */}
           {supervisor?.type === SupervisorType.human_supervisor && <HumanReviews supervisor={supervisor} />}
           {supervisor?.type !== SupervisorType.human_supervisor && (
             <Page title={`Supervisor "${supervisor?.name}" Details`} subtitle={<span>Details and reviews for supervisor <UUIDDisplay uuid={supervisor?.id} /> will be displayed here</span>} icon={<EyeIcon />}>
-              <JsonDisplay json={supervisor} />
+              <div className="col-span-3">
+                <JsonDisplay json={supervisor} />
+              </div>
             </Page>
           )}
         </div>

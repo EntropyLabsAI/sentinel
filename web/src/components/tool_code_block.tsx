@@ -88,11 +88,9 @@ export default function ToolCodeBlock({
       <div
         className="flex items-center"
       >
-        {/* Left side: $ or Python icon */}
         <div className="flex mr-2">
           <div className="flex items-center">
             <Code className="text-green-400 mr-1" size={18} />
-            <span className="text-green-400">$</span>
           </div>
         </div>
         {/* Middle: Textarea or code display */}

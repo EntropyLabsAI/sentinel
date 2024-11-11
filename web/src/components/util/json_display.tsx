@@ -10,10 +10,8 @@ export default function JsonDisplay({ json }: { json: any }) {
   console.log('josn is', json)
 
   return (
-    <Card className="mt-4 overflow-scroll">
-      <CardHeader>
-      </CardHeader>
-      <CardContent>
+    <Card className="overflow-scroll">
+      <CardContent className="pt-6">
         {showJson && (
           <ScrollArea className="">
             <pre className="text-xs">{jsonString}</pre>

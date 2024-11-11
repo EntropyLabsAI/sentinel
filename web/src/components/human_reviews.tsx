@@ -14,6 +14,7 @@ import axios from 'axios';
 import { EyeIcon } from 'lucide-react';
 import { UUIDDisplay } from './util/uuid_display';
 import { Supervisor } from '@/types';
+import JSONDisplay from './util/json_display';
 
 interface ReviewSectionProps {
   supervisor: Supervisor;
@@ -155,7 +156,7 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
                       selectReviewRequest(payload.supervision_request.id || '')
                     }
                   >
-                    <div className="font-semibold">
+                    <div className="">
                       Agent{' '}
                       <code>{payload.supervision_request.chainexecution_id}</code>
                     </div>
@@ -191,7 +192,14 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
         </div>
 
       </div>
+
       <div className="flex flex-col">
+        <h2 className="text-xl font-semibold mb-4">Supervisor Config</h2>
+        <JSONDisplay json={supervisor} />
+      </div>
+
+      <div className="flex flex-col">
+        <h2 className="text-xl font-semibold mb-4">Hub Stats</h2>
         <HubStatsAccordion API_BASE_URL={API_BASE_URL} />
       </div>
     </div>

@@ -19,6 +19,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { FileJsonIcon, MessagesSquareIcon, PickaxeIcon, LinkIcon } from 'lucide-react'
 import JsonDisplay from './util/json_display'
+import { MessagesDisplay } from "./messages"
 
 export default function ExecutionTable({ runState }: { runState: RunState }) {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
@@ -198,19 +199,7 @@ export default function ExecutionTable({ runState }: { runState: RunState }) {
                                         </AccordionItem>
                                       </Accordion>
 
-                                      {/* Messages Section */}
-                                      <Accordion type="single" collapsible className="w-full">
-                                        <AccordionItem value="messages" className="border border-gray-200 rounded-md">
-                                          <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
-                                            <div className="flex flex-row gap-4">
-                                              <MessagesSquareIcon className="w-4 h-4" />
-                                              Messages & Task State
-                                            </div>
-                                          </AccordionTrigger>
-                                          <AccordionContent className="p-4">
-                                          </AccordionContent>
-                                        </AccordionItem>
-                                      </Accordion>
+                                      <MessagesDisplay messages={execution.request_group.tool_requests[0]?.task_state?.messages || []} />
 
                                       {/* Supervision Result Card */}
                                       {supervisionRequest.result && (
