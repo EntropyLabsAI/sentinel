@@ -11,5 +11,5 @@ export function ToolAttributes({ attributes, ignoredAttributes }: ToolAttributes
     return null;
   }
 
-  return <pre className="text-xs bg-muted p-2 rounded">{JSON.stringify(attributes, null, 2)}</pre>;
+  return <pre className="text-xs bg-muted p-2 rounded overflow-scroll">{JSON.stringify(attributes, null, 2)}</pre>;
 }

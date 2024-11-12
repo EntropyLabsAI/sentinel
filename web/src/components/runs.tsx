@@ -16,7 +16,7 @@ import {
   TableRow,
   TableFooter,
 } from "@/components/ui/table"
-import { ToolBadge } from "./util/status_badge";
+import { ToolBadge, ToolBadges } from "./util/status_badge";
 
 export default function Runs() {
   const [runs, setRuns] = useState<Run[]>([]);
@@ -124,13 +124,12 @@ function ToolsBadgeList({ runId }: { runId: string }) {
   }, [toolsData]);
 
   return (
-    <div className="flex flex-row flex-wrap gap-2">
-
+    <div className="flex flex-row gap-2 min-w-0">
       {toolsLoading && <p>Loading...</p>}
       {toolsError && <p>Error: {toolsError.message}</p>}
-      {tools.map((tool) => (
-        <ToolBadge toolId={tool.id || ''} />
-      ))}
+      <div className="flex-shrink-0">
+        <ToolBadges tools={tools} maxTools={4} />
+      </div>
     </div>
   )
 }

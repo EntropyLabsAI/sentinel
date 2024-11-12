@@ -1,5 +1,5 @@
 import React from "react";
-import { Decision, Status, SupervisionStatus, Supervisor, SupervisorType, useGetSupervisor, useGetTool } from "@/types";
+import { Decision, Status, SupervisionStatus, Supervisor, SupervisorType, Tool, useGetSupervisor, useGetTool } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { BotIcon, PickaxeIcon } from "lucide-react";
@@ -67,7 +67,16 @@ export function RunBadge({ runId }: { runId: string }) {
 }
 
 // TODO accept a tool object instead of ID, optionally.
-export const ToolBadge: React.FC<{ toolId: string }> = ({ toolId }) => {
+export const ToolBadge: React.FC<{ toolId: string, tool?: Tool }> = ({ toolId, tool }) => {
+  if (tool) {
+    return <Badge key={tool.id} className="text-gray-800 shadow-none bg-amber-300 min-w-0 inline-flex">
+      <Link to={`/tools/${tool.id}`} className="flex flex-row gap-2 items-center overflow-hidden">
+        <PickaxeIcon className="w-3 h-3 flex-shrink-0" />
+        <span className="truncate overflow-hidden">{tool.name}</span>
+      </Link>
+    </Badge>
+  }
+
   // Load tool name from toolId
   const { data, isLoading, error } = useGetTool(toolId);
 
@@ -82,8 +91,29 @@ export const ToolBadge: React.FC<{ toolId: string }> = ({ toolId }) => {
       </Link>
     </Badge>
   );
-
 };
+
+export const ToolBadges: React.FC<{ tools: Tool[], maxTools?: number }> = ({ tools, maxTools = 1 }) => {
+  const visibleTools = tools.slice(0, maxTools);
+  const hiddenTools = tools.slice(maxTools);
+  const remainingTools = hiddenTools.length;
+
+  return (
+    <div className="flex flex-row gap-2 items-center">
+      {visibleTools.map((tool) => (
+        <ToolBadge key={tool.id} toolId={tool.id || ''} tool={tool} />
+      ))}
+      {remainingTools > 0 && (
+        <Badge
+          className="text-gray-800 shadow-none bg-amber-300 cursor-help"
+          title={hiddenTools.map(tool => tool.name).join('\n')}
+        >
+          +{remainingTools} more
+        </Badge>
+      )}
+    </div>
+  );
+}
 
 export const ExecutionStatusBadge: React.FC<{ statuses: SupervisionStatus[] }> = ({ statuses }) => {
   // Sort statuses by ID and return the status of the most recent one
