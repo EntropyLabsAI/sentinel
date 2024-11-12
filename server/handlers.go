@@ -133,23 +133,26 @@ func apiCreateRunToolHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 		return
 	}
 
-	var existingTool *Tool
-	if t.Attributes != nil && t.Name != "" && t.Description != "" && t.IgnoredAttributes != nil {
-		found, err := store.GetToolFromValues(ctx, t.Attributes, t.Name, t.Description, t.IgnoredAttributes)
-		if err != nil {
-			sendErrorResponse(w, http.StatusInternalServerError, "error trying to locate an existing tool", err.Error())
-			return
-		}
-		if found != nil {
-			existingTool = found
-		}
-	}
+	// TODO revive this logic so that we can share tools across runs, requires schema changes
+	// var existingTool *Tool
+	// if t.Attributes != nil && t.Name != "" && t.Description != "" && t.IgnoredAttributes != nil {
+	// 	found, err := store.GetToolFromValues(ctx, t.Attributes, t.Name, t.Description, t.IgnoredAttributes)
+	// 	if err != nil {
+	// 		sendErrorResponse(w, http.StatusInternalServerError, "error trying to locate an existing tool", err.Error())
+	// 		return
+	// 	}
+	// 	if found != nil {
+	// 		existingTool = found
+	// 	}
+	// }
 
-	if existingTool != nil {
-		w.WriteHeader(http.StatusOK)
-		respondJSON(w, existingTool)
-		return
-	}
+	// if existingTool != nil {
+	// 	w.WriteHeader(http.StatusOK)
+	// 	id := existingTool.Id.String()
+	// 	fmt.Printf("existing tool found with ID: %s", id)
+	// 	respondJSON(w, id)
+	// 	return
+	// }
 
 	toolId, err := store.CreateTool(ctx, runId, t.Attributes, t.Name, t.Description, t.IgnoredAttributes)
 	if err != nil {
