@@ -239,6 +239,7 @@ def human_supervisor(
         tool_args: list[Any],
         tool_kwargs: dict[str, Any],
         supervision_request_id: UUID,
+        decision: Optional[SupervisionDecision] = None,
         **kwargs
     ) -> SupervisionDecision:
         """

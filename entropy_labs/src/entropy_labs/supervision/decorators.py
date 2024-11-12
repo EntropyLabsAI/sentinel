@@ -72,6 +72,7 @@ def supervise(
                 return func(*tool_args, **tool_kwargs)
             all_decisions = []
             for supervisor_chain in supervisors_chains:
+                chain_decisions = []
                 # We send supervision request to the API
                 supervisors = supervisor_chain.supervisors
                 supervisor_chain_id = supervisor_chain.chain_id
@@ -85,7 +86,8 @@ def supervise(
                         return None  # Continue to next supervisor
 
                     # Execute supervisor function
-                    decision = call_supervisor_function(supervisor_func, func, supervision_context, supervision_request_id=supervision_request_id, ignored_attributes=ignored_attributes, tool_args=tool_args, tool_kwargs=tool_kwargs)
+                    decision = call_supervisor_function(supervisor_func, func, supervision_context, supervision_request_id=supervision_request_id, ignored_attributes=ignored_attributes, tool_args=tool_args, tool_kwargs=tool_kwargs, decision=decision)
+                    chain_decisions.append(decision)
                     print(f"Supervisor decision: {decision.decision}")
 
                     if supervisor.type != SupervisorType.HUMAN_SUPERVISOR:
@@ -106,18 +108,28 @@ def supervise(
                         all_decisions.append(decision)
                         break
                     elif decision.decision == SupervisionDecisionType.REJECT:
-                        return f"The agent requested to execute {func.__qualname__} but it was rejected. Explanation: {decision.explanation}\n This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior."
+                        explanations = " ".join([f"Decision: {d.decision}, Explanation: {d.explanation}" for d in chain_decisions])
+                        return (f"The agent requested to execute {func.__qualname__} but it was rejected. "
+                                f"Explanation: {decision.explanation}. "
+                                f"Chain Explanations: {explanations}\n"
+                                "This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior.")
                     elif decision.decision == SupervisionDecisionType.ESCALATE:
                         continue
-                        #continue  # Proceed to the next supervisor
                     elif decision.decision == SupervisionDecisionType.MODIFY:
                         all_decisions.append(decision)
                         break
                     elif decision.decision == SupervisionDecisionType.TERMINATE:
-                        return f"Execution of {func.__qualname__} should be terminated. Explanation: {decision.explanation}\n This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior."
+                        explanations = " ".join([f"Decision: {d.decision}, Explanation: {d.explanation}" for d in chain_decisions])
+                        return (f"Execution of {func.__qualname__} should be terminated. "
+                                f"Explanation: {decision.explanation}. "
+                                f"Chain Explanations: {explanations}\n"
+                                "This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior.")
                     else:
                         print(f"Unknown decision: {decision.decision}. Cancelling execution.")
-                        return f"Execution of {func.__qualname__} was cancelled due to an unknown supervision decision.\n This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior."
+                        explanations = " ".join([f"Decision: {d.decision}, Explanation: {d.explanation}" for d in chain_decisions])
+                        return (f"Execution of {func.__qualname__} was cancelled due to an unknown supervision decision. "
+                                f"Chain Explanations: {explanations}\n"
+                                "This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior.")
 
             # Check decisions and apply modifications if any
             if all(decision.decision in [SupervisionDecisionType.APPROVE, SupervisionDecisionType.MODIFY] for decision in all_decisions):
