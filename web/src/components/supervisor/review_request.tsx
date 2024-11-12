@@ -11,7 +11,7 @@ import CopyButton from "../util/copy_button"
 
 interface ReviewRequestProps {
   reviewPayload: ReviewPayload;
-  sendResponse: (decision: Decision, toolChoice: ToolRequest) => void;
+  sendResponse: (decision: Decision, toolChoice: ToolRequest, feedback?: string) => void;
 }
 
 export default function ReviewRequestDisplay({ reviewPayload, sendResponse }: ReviewRequestProps) {
@@ -28,9 +28,9 @@ export default function ReviewRequestDisplay({ reviewPayload, sendResponse }: Re
     // TODO: handle editting tool choice
   }
 
-  function handleSendResponse(decision: Decision) {
+  function handleSendResponse(decision: Decision, feedback?: string) {
     const selectedToolChoice = toolRequests[selectedToolIndex];
-    sendResponse(decision, selectedToolChoice);
+    sendResponse(decision, selectedToolChoice, feedback);
   }
 
   return (

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   Table,
   TableBody,
@@ -9,7 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
-import { RunState, Status } from "@/types"
+import { RunExecution, RunState, Status } from "@/types"
 import { UUIDDisplay } from "@/components/util/uuid_display"
 import { CreatedAgo } from "@/components/util/created_ago"
 import { DecisionBadge, StatusBadge, SupervisorBadge, ToolBadge } from "./util/status_badge"
@@ -24,33 +24,18 @@ import { MessagesDisplay } from "./messages"
 export default function ExecutionTable({ runState }: { runState: RunState }) {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
   const { selectedProject } = useProject()
+  const [rows, setRows] = useState<RunExecution[]>(runState)
+
+  useEffect(() => {
+    // Sort the rows by the created_at field
+    const sortedRows = runState.sort(
+      (a, b) => new Date(a.request_group.created_at || '').getTime() - new Date(b.request_group.created_at || '').getTime()
+    )
+    setRows(sortedRows)
+  }, [runState])
 
   const toggleRow = (groupId: string) => {
     setExpandedRows((prev) => ({ ...prev, [groupId]: !prev[groupId] }))
-  }
-
-  // Helper to determine the overall status of a request group
-  const getGroupStatus = (execution: RunState[0]): Status => {
-    // If any chain has a failed status, the group is failed
-    const hasFailedChain = execution.chains.some(chain =>
-      chain.supervision_requests.some(req => req.status.status === Status.failed)
-    )
-    if (hasFailedChain) return Status.failed
-
-    // If all chains are completed, the group is completed
-    const allChainsCompleted = execution.chains.every(chain =>
-      chain.supervision_requests.every(req => req.status.status === Status.completed)
-    )
-    if (allChainsCompleted) return Status.completed
-
-    // If any chain is pending, the group is pending
-    const hasPendingChain = execution.chains.some(chain =>
-      chain.supervision_requests.some(req => req.status.status === Status.pending)
-    )
-    if (hasPendingChain) return Status.pending
-
-    // Default to pending if we can't determine status
-    return Status.pending
   }
 
   return (
@@ -65,7 +50,7 @@ export default function ExecutionTable({ runState }: { runState: RunState }) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {runState?.map((execution) => (
+        {rows?.map((execution) => (
           <>
             <TableRow key={execution.request_group.id} className="">
               <TableCell className="font-medium">
@@ -78,10 +63,10 @@ export default function ExecutionTable({ runState }: { runState: RunState }) {
                 <ToolBadge toolId={execution.request_group.tool_requests[0]?.tool_id || ''} />
               </TableCell>
               <TableCell>
-                <StatusBadge status={getGroupStatus(execution)} />
+                <StatusBadge statuses={execution.chains.map((chain) => chain.supervision_requests).flat().map((req) => req.status)} />
               </TableCell>
               <TableCell className="text-right">
-                <CreatedAgo datetime={execution.request_group.created_at || ''} />
+                <CreatedAgo datetime={execution.request_group.created_at || ''} label='' />
               </TableCell>
               <TableCell
                 className="cursor-pointer w-[200px] text-right"

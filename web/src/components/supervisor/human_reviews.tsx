@@ -16,6 +16,13 @@ import { UUIDDisplay } from '../util/uuid_display';
 import { Supervisor } from '@/types';
 import JSONDisplay from '../util/json_display';
 import { SupervisorBadge, ToolBadge } from '../util/status_badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface ReviewSectionProps {
   supervisor: Supervisor;
@@ -37,6 +44,10 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
   const [reviews, setReviews] = useState<ReviewPayloadMap>({});
   // Currently selected request ID
   const [selectedRequestId, setSelectedRequestId] = useState<string>();
+
+  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [pendingToolChoice, setPendingToolChoice] = useState<ToolRequest | null>(null);
 
   // Hook to fetch payload for the next request in queue
   const nextRequestId = requestQueue[0];
@@ -100,7 +111,7 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
   }, [WEBSOCKET_BASE_URL, API_BASE_URL]);
 
   // Send response and remove the review
-  const sendResponse = (decision: Decision, requestId: string, toolChoice: ToolRequest) => {
+  const sendResponse = (decision: Decision, requestId: string, toolChoice: ToolRequest, feedback?: string) => {
     if (socket?.readyState === WebSocket.OPEN) {
       const response: SupervisionResult = {
         decision: decision,
@@ -178,15 +189,61 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
               <div id="content" className="space-y-6 break-words">
                 <ReviewRequestDisplay
                   reviewPayload={selectedReviewPayload}
-                  sendResponse={(decision: Decision, toolChoice: ToolRequest) =>
-                    sendResponse(
-                      decision,
-                      selectedReviewPayload.supervision_request.id || '',
-                      toolChoice
-                    )
-                  }
+                  sendResponse={(decision: Decision, toolChoice: ToolRequest, feedback?: string) => {
+                    if (decision === Decision.reject) {
+                      setShowFeedbackDialog(true);
+                      setPendingToolChoice(toolChoice);
+                    } else {
+                      sendResponse(decision, selectedReviewPayload.supervision_request.id || '', toolChoice);
+                    }
+                  }}
                 />
               </div>
+
+              <Dialog open={showFeedbackDialog} onOpenChange={setShowFeedbackDialog}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Provide Rejection Feedback</DialogTitle>
+                  </DialogHeader>
+                  <textarea
+                    className="w-full p-2 border rounded"
+                    value={feedbackText}
+                    onChange={(e) => setFeedbackText(e.target.value)}
+                    placeholder="Enter feedback for rejection..."
+                    rows={4}
+                  />
+                  <DialogFooter className="flex gap-2">
+                    <button
+                      className="px-4 py-2 bg-red-500 text-white rounded"
+                      onClick={() => {
+                        if (pendingToolChoice) {
+                          sendResponse(
+                            Decision.reject,
+                            selectedReviewPayload.supervision_request.id || '',
+                            pendingToolChoice,
+                            feedbackText
+                          );
+                        }
+                        setShowFeedbackDialog(false);
+                        setFeedbackText("");
+                        setPendingToolChoice(null);
+                      }}
+                    >
+                      Submit Rejection
+                    </button>
+                    <button
+                      className="px-4 py-2 bg-gray-300 rounded"
+                      onClick={() => {
+                        setShowFeedbackDialog(false);
+                        setFeedbackText("");
+                        setPendingToolChoice(null);
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </>
           )}
         </div>
