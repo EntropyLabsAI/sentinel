@@ -777,11 +777,34 @@ func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if len(requestGroup.ToolRequests) == 0 {
+		sendErrorResponse(w, http.StatusInternalServerError, "request group has no tool requests", "")
+		return
+	}
+
+	if requestGroup.ToolRequests[0].Id == nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "tool request ID is required", "")
+		return
+	}
+
+	// Get the tool to find the run ID
+	tool, err := store.GetTool(ctx, requestGroup.ToolRequests[0].ToolId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool", err.Error())
+		return
+	}
+
+	if tool == nil || tool.RunId == nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "can't find run ID from tool", "")
+		return
+	}
+
 	// Build the review payload
 	reviewPayload := ReviewPayload{
 		SupervisionRequest: *supervisionRequest,
 		ChainState:         *chainState,
 		RequestGroup:       *requestGroup,
+		RunId:              *tool.RunId,
 	}
 
 	respondJSON(w, reviewPayload)

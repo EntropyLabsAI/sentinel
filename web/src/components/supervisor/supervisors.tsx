@@ -3,15 +3,15 @@ import { Link } from 'react-router-dom';
 import { Decision, Supervisor, useGetProject } from '@/types';
 import { useGetSupervisors } from '@/types';
 import { useProject } from '@/contexts/project_context';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import Page from './util/page';
-import { UUIDDisplay } from './util/uuid_display';
-import { CreatedAgo } from './util/created_ago';
-import { Button } from './ui/button';
-import { ArrowRightIcon, EyeIcon, InspectIcon, ScanEyeIcon, UsersIcon } from 'lucide-react';
-import { SupervisorTypeBadge } from './util/status_badge';
-import { DecisionBadge } from './util/status_badge';
-import LoadingSpinner from './util/loading';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import Page from '@/components/util/page';
+import { UUIDDisplay } from '@/components/util/uuid_display';
+import { CreatedAgo } from '@/components/util/created_ago';
+import { Button } from '@/components/ui/button';
+import { ArrowRightIcon, EyeIcon, ScanEyeIcon } from 'lucide-react';
+import { SupervisorTypeBadge } from '@/components/util/status_badge';
+import { DecisionBadge } from '@/components/util/status_badge';
+import LoadingSpinner from '@/components/util/loading';
 
 const SupervisorSelection: React.FC = () => {
   const [supervisors, setSupervisors] = useState<Supervisor[]>([]);

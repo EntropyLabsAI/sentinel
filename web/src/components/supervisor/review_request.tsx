@@ -1,13 +1,13 @@
 import { Check, X, SkullIcon, MessagesSquareIcon, ClockIcon, CodeIcon, Copy } from "lucide-react"
 import { ReviewPayload, ToolRequest, Decision } from "@/types"
-import ToolChoiceDisplay from "./tool_call"
+import ToolChoiceDisplay from "../tool_call"
 import React, { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import ToolsDisplay from "./tool_display"
-import { MessagesDisplay } from "./messages"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion"
-import ChainStateDisplay from "./chain_state_display"
-import CopyButton from "./util/copy_button"
+import ToolsDisplay from "../tool_display"
+import { MessagesDisplay } from "../messages"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../ui/accordion"
+import ChainStateDisplay from "../chain_state_display"
+import CopyButton from "../util/copy_button"
 
 interface ReviewRequestProps {
   reviewPayload: ReviewPayload;
@@ -34,7 +34,7 @@ export default function ReviewRequestDisplay({ reviewPayload, sendResponse }: Re
   }
 
   return (
-    <div className="w-full max-w-full mx-auto flex flex-col space-y-4">
+    <div className="flex flex-col space-y-4">
       {/* Action Buttons */}
       <div className="w-full flex-shrink-0">
         <div className="mb-4 flex flex-wrap gap-2">
@@ -78,6 +78,7 @@ export default function ReviewRequestDisplay({ reviewPayload, sendResponse }: Re
               isSelected={selectedToolIndex === index}
               onSelect={() => setSelectedToolIndex(index)}
               index={index + 1}
+              runId={reviewPayload.run_id}
             />
           ))}
         </div>

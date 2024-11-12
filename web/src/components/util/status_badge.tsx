@@ -3,6 +3,8 @@ import { Decision, Status, SupervisionStatus, Supervisor, SupervisorType, useGet
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { BotIcon, PickaxeIcon } from "lucide-react";
+import { UUIDDisplay } from "./uuid_display";
+import { useProject } from "@/contexts/project_context";
 
 export function StatusBadge({ status, statuses }: { status?: Status, statuses?: SupervisionStatus[] }) {
   const colors = {
@@ -56,6 +58,14 @@ export function SupervisorTypeBadge({ type }: { type: SupervisorType }) {
 
 };
 
+export function RunBadge({ runId }: { runId: string }) {
+  const projectId = useProject();
+  if (!runId) {
+    return
+  }
+  return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap"><Link to={`/projects/${projectId.selectedProject}/runs/${runId}`}>Run {runId.slice(0, 8)}</Link></Badge>;
+}
+
 // TODO accept a tool object instead of ID, optionally.
 export const ToolBadge: React.FC<{ toolId: string }> = ({ toolId }) => {
   // Load tool name from toolId
@@ -64,7 +74,14 @@ export const ToolBadge: React.FC<{ toolId: string }> = ({ toolId }) => {
   if (isLoading) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Loading...</Badge>;
   if (error) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Error: {error.message}</Badge>;
 
-  return <Badge key={toolId} className="text-gray-800 shadow-none bg-amber-300 whitespace-nowrap"><Link to={`/tools/${toolId}`} className="flex flex-row gap-2 items-center"><PickaxeIcon className="w-3 h-3" />{data?.data.name}</Link></Badge>;
+  return (
+    <Badge key={toolId} className="text-gray-800 shadow-none bg-amber-300 min-w-0 inline-flex">
+      <Link to={`/tools/${toolId}`} className="flex flex-row gap-2 items-center overflow-hidden">
+        <PickaxeIcon className="w-3 h-3 flex-shrink-0" />
+        <span className="truncate overflow-hidden">{data?.data.name}</span>
+      </Link>
+    </Badge>
+  );
 
 };
 

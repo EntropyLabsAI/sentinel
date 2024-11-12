@@ -1207,7 +1207,12 @@ components:
         request_group:
           $ref: "#/components/schemas/ToolRequestGroup"
           description: The tool request group being supervised
+        run_id:
+          type: string
+          format: uuid
+          description: The ID of the run this review is for
       required:
         - supervision_request
         - chain_state
         - request_group
+        - run_id

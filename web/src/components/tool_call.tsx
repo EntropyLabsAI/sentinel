@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import ToolCodeBlock from "@/components/tool_code_block";
 import { MessageDisplay } from "@/components/messages";
 import { UUIDDisplay } from "@/components/util/uuid_display";
-import { ToolBadge } from "@/components/util/status_badge";
+import { RunBadge, ToolBadge } from "@/components/util/status_badge";
 
 interface ToolChoiceDisplayProps {
   toolChoice: ToolRequest;
@@ -16,6 +16,7 @@ interface ToolChoiceDisplayProps {
   isSelected: boolean;
   onSelect: () => void;
   index: number;
+  runId: string;
 }
 
 const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
@@ -25,6 +26,7 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
   isSelected,
   onSelect,
   index,
+  runId,
 }) => {
   const [explanation, setExplanation] = useState<string | null>(null);
   const [score, setScore] = useState<string | null>(null);
@@ -54,7 +56,6 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
   }
 
   useEffect(() => {
-    console.log("tool choice/tool was updated. updating hidden args")
     if (tool?.ignored_attributes) {
       const hidden = tool.ignored_attributes.reduce((acc, key) => {
         if (key in toolChoice.arguments) {
@@ -64,8 +65,6 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
       }, {} as Partial<Arguments>);
 
       setHiddenArgs(hidden);
-      console.log("hidden args: ", hidden);
-      console.log("visible args: ", getVisibleArgs(toolChoice.arguments));
       setArgs(getVisibleArgs(toolChoice.arguments));
     }
   }, [tool, toolChoice.arguments]);
@@ -115,14 +114,16 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
             </span>
           </div>
           <div className="flex items-center">
-            <span className="font-semibold mr-2"></span>
-            <ToolBadge toolId={toolChoice.tool_id} />
+            <div className="flex items-center gap-2">
+              <RunBadge runId={runId} />
+              <ToolBadge toolId={toolChoice.tool_id} />
+            </div>
             <Button
               size="sm"
               variant={isSelected ? "outline" : "outline"}
               onClick={onSelect}
               disabled={isSelected}
-              className="ml-4 bg-blue-500 hover:bg-blue-600 hover:text-white text-white"
+              className="h-6 ml-4 bg-blue-500 hover:bg-blue-600 hover:text-white text-white"
             >
               {isSelected ? "Selected" : "Select"}
             </Button>

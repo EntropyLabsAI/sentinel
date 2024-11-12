@@ -31,10 +31,8 @@ export function MessagesDisplay({ messages }: { messages: StateMessage[] }) {
             Messages & Task State
           </div>
         </AccordionTrigger>
-        <AccordionContent className="p-4">
+        <AccordionContent className="">
           <Card className="border-none">
-            <CardHeader>
-            </CardHeader>
             <CardContent>
               <div className="overflow-auto" ref={scrollAreaRef}>
                 {messages.map((message, index) => (

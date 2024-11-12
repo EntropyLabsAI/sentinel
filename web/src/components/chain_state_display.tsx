@@ -2,8 +2,10 @@ import React from "react";
 import { ChainExecutionState, SupervisionRequestState, Decision } from "@/types";
 import { Badge } from "./ui/badge";
 import { Card, CardHeader, CardContent } from "./ui/card";
-import { CheckCircle2, XCircle, AlertCircle, Clock, ArrowRight, ClockIcon } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, Clock, ArrowRight, ClockIcon, LinkIcon } from "lucide-react";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { DecisionBadge, StatusBadge, SupervisorBadge } from "./util/status_badge";
+import { UUIDDisplay } from "./util/uuid_display";
 
 interface ChainStateDisplayProps {
   chainState: ChainExecutionState;
@@ -52,7 +54,7 @@ export default function ChainStateDisplay({ chainState, currentRequestId }: Chai
               <div className="flex flex-col space-y-4">
                 {/* Chain Info */}
                 <div className="text-sm text-gray-500">
-                  Chain ID: {chainState.chain.chain_id}
+                  Chain ID: <UUIDDisplay uuid={chainState.chain.chain_id} />
                 </div>
 
                 {/* Supervision Timeline */}
@@ -60,11 +62,12 @@ export default function ChainStateDisplay({ chainState, currentRequestId }: Chai
                   {chainState.supervision_requests.map((request, index) => (
                     <div
                       key={request.supervision_request.id}
-                      className={`flex items-center space-x-2 p-2 rounded-lg ${request.supervision_request.id === currentRequestId ? 'bg-blue-50' : ''
+                      className={`flex items-center space-x-6 p-2 rounded-lg ${request.supervision_request.id === currentRequestId ? 'bg-blue-50' : ''
                         }`}
                     >
                       {/* Position indicator */}
-                      <span className="text-sm font-medium w-6">
+                      <span className="text-sm font-medium w-6 flex flex-row gap-1 items-center">
+                        <LinkIcon className="w-4 h-4" />
                         {request.supervision_request.position_in_chain}
                       </span>
 
@@ -73,15 +76,12 @@ export default function ChainStateDisplay({ chainState, currentRequestId }: Chai
 
                       {/* Supervisor info */}
                       <div className="flex-grow">
-                        <span className="text-sm font-medium">
-                          Supervisor {request.supervision_request.supervisor_id}
-                        </span>
+                        <SupervisorBadge supervisorId={request.supervision_request.supervisor_id} />
                       </div>
 
                       {/* Status badge */}
-                      <Badge className={getStatusColor(request)}>
-                        {request.result ? request.result.decision : request.status.status}
-                      </Badge>
+                      <StatusBadge status={request.status.status} />
+                      <DecisionBadge decision={request.result?.decision} />
 
                       {/* Show connector line if not last item */}
                       {index < chainState.supervision_requests.length - 1 && (

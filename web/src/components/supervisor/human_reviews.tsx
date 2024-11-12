@@ -7,14 +7,15 @@ import {
   SupervisionRequest,
   useGetSupervisionReviewPayload
 } from '@/types';
-import ReviewRequestDisplay from '@/components/review_request';
-import { HubStatsAccordion } from './util/hub_stats';
+import ReviewRequestDisplay from '@/components/supervisor/review_request';
+import { HubStatsAccordion } from '../util/hub_stats';
 import { useConfig } from '@/contexts/config_context';
 import axios from 'axios';
 import { EyeIcon } from 'lucide-react';
-import { UUIDDisplay } from './util/uuid_display';
+import { UUIDDisplay } from '../util/uuid_display';
 import { Supervisor } from '@/types';
-import JSONDisplay from './util/json_display';
+import JSONDisplay from '../util/json_display';
+import { SupervisorBadge, ToolBadge } from '../util/status_badge';
 
 interface ReviewSectionProps {
   supervisor: Supervisor;
@@ -49,6 +50,12 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
         ...prev,
         [nextRequestId]: nextReviewPayload.data
       }));
+
+      // If no review is selected, select the first one
+      if (!selectedRequestId && (Object.keys(reviews).length > 0 || nextRequestId)) {
+        setSelectedRequestId(nextRequestId);
+      }
+
       // Remove the processed request from queue
       setRequestQueue(prev => prev.slice(1));
     }
@@ -129,15 +136,11 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
     : null;
 
   return (
-    <div className="p-16 flex flex-col gap-16 container mx-auto">
+    <div className="p-16 flex flex-col gap-16 container">
       {/* Main Content */}
-      <div className="flex">
+      <div className="flex gap-6">
         {/* Sidebar */}
-        <div className="w-full md:w-1/4 pr-4 border-r">
-          <h2 className="text-xl font-semibold mb-4">
-
-            Review requests for human supervisor <UUIDDisplay uuid={supervisor.id} /> will be displayed here.
-          </h2>
+        <div className="w-full max-w-[200px] pr-4 border-r flex-shrink-0">
           {Object.keys(reviews).length === 0 ? (
             <p>No review requests at the moment.</p>
           ) : (
@@ -155,13 +158,11 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
                       selectReviewRequest(payload.supervision_request.id || '')
                     }
                   >
-                    <div className="">
-                      Agent{' '}
-                      <code>{payload.supervision_request.chainexecution_id}</code>
-                    </div>
-                    <div className="text-sm">
-                      Request{' '}
-                      <code>{payload.supervision_request.id}</code>
+                    <div className="flex flex-col gap-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-1">
+                        <span>Agent wants to use</span>
+                        <ToolBadge toolId={payload.request_group.tool_requests[0].tool_id || ''} />
+                      </div>
                     </div>
                   </li>
                 );
@@ -171,10 +172,10 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
         </div>
 
         {/* Main Content */}
-        <div className="w-full md:w-3/4 pl-4">
+        <div className="w-full pl-4 min-w-0">
           {!selectedReviewPayload ? (<></>) : (
             <>
-              <div id="content" className="space-y-6">
+              <div id="content" className="space-y-6 break-words">
                 <ReviewRequestDisplay
                   reviewPayload={selectedReviewPayload}
                   sendResponse={(decision: Decision, toolChoice: ToolRequest) =>
@@ -192,13 +193,16 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
 
       </div>
 
-      <div className="flex flex-col">
+      <div className="">
         <h2 className="text-xl font-semibold mb-4">Supervisor Config</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Configuration for human supervisor <UUIDDisplay uuid={supervisor.id} />.
+        </p>
         <JSONDisplay json={supervisor} />
       </div>
 
-      <div className="flex flex-col">
-        <h2 className="text-xl font-semibold mb-4">Supervisor Config</h2>
+      <div className="">
+        <h2 className="text-xl font-semibold mb-4">Hub Stats</h2>
         <HubStatsAccordion API_BASE_URL={API_BASE_URL} />
       </div>
     </div>

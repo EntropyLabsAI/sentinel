@@ -44,6 +44,8 @@ export interface ReviewPayload {
   chain_state: ChainExecutionState;
   /** The tool request group being supervised */
   request_group: ToolRequestGroup;
+  /** The ID of the run this review is for */
+  run_id: string;
   /** The current supervision request being reviewed */
   supervision_request: SupervisionRequest;
 }
