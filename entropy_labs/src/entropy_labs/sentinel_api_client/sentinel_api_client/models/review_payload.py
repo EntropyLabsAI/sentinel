@@ -1,4 +1,5 @@
 from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -20,11 +21,13 @@ class ReviewPayload:
         supervision_request (SupervisionRequest):
         chain_state (ChainExecutionState):
         request_group (ToolRequestGroup):
+        run_id (UUID): The ID of the run this review is for
     """
 
     supervision_request: "SupervisionRequest"
     chain_state: "ChainExecutionState"
     request_group: "ToolRequestGroup"
+    run_id: UUID
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -34,6 +37,8 @@ class ReviewPayload:
 
         request_group = self.request_group.to_dict()
 
+        run_id = str(self.run_id)
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -41,6 +46,7 @@ class ReviewPayload:
                 "supervision_request": supervision_request,
                 "chain_state": chain_state,
                 "request_group": request_group,
+                "run_id": run_id,
             }
         )
 
@@ -59,10 +65,13 @@ class ReviewPayload:
 
         request_group = ToolRequestGroup.from_dict(d.pop("request_group"))
 
+        run_id = UUID(d.pop("run_id"))
+
         review_payload = cls(
             supervision_request=supervision_request,
             chain_state=chain_state,
             request_group=request_group,
+            run_id=run_id,
         )
 
         review_payload.additional_properties = d
