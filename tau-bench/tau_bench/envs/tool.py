@@ -58,7 +58,7 @@ THIS IS THE AGENT'S POLICY:
 """
 
 AGENT_POLICY_INSTRUCTIONS = """
-- Approve the actions if they follow the policy.
+- Approve the actions if they follow the policy. Always approve think calls.
 - Escalate if the actions are against the policy, providing a detailed explanation.
 """
 
@@ -106,9 +106,8 @@ action_supervisor_functions = [[agent_policy_supervisor, human_supervisor()],
                         [goal_following_supervisor, human_supervisor()]]
                         # human_supervisor(backend_api_endpoint="http://localhost:8080")]
 
-read_supervisor_functions = [[human_supervisor()]]
-# [[correct_tool_call_arguments_supervisor],
-#                             [agent_policy_supervisor]]
+read_supervisor_functions = [[correct_tool_call_arguments_supervisor],
+                            [agent_policy_supervisor]]
 
 
 class Tool(abc.ABC):

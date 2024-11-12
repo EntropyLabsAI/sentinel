@@ -74,8 +74,8 @@ def to_hashable(item: ToHashable) -> Hashable:
 
 @supervise(
         supervision_functions=[
-            [correct_information_presented_to_user_supervisor, human_supervisor()],
-            [multiple_requests_supervisor, human_supervisor()],
+            [correct_information_presented_to_user_supervisor, human_supervisor()]
+            # [multiple_requests_supervisor, human_supervisor()],
         ],
         ignored_attributes=["self"]
     )
@@ -149,20 +149,25 @@ class Env(object):
 
         if action.name == RESPOND_ACTION_NAME:
             observation = respond_to_user(self=self, content=action.kwargs["content"])
+            print(f"Responding to user: {observation}")
             info.source = "user"
             done = "###STOP###" in observation
         elif action.name in self.tools_map:
+            print(f"Invoking tool: {action.name}")
             try:
                 observation = self.tools_map[action.name].invoke(
                     data=self.data, **action.kwargs
                 )
+                print(f"Observation: {observation}")
             except Exception as e:
                 observation = f"Error: {e}"
+                print(f"Error: {e}")
             info.source = action.name
             if action.name in self.terminate_tools:
                 done = True
         else:
             observation = f"Unknown action {action.name}"
+            print(f"Unknown action {action.name}")
             info.source = action.name
 
         if done:

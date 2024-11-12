@@ -112,7 +112,7 @@ def supervise(
                         return (f"The agent requested to execute {func.__qualname__} but it was rejected. "
                                 f"Explanation: {decision.explanation}. "
                                 f"Chain Explanations: {explanations}\n"
-                                "This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior.")
+                                "This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior. You should try different action using the feedback!")
                     elif decision.decision == SupervisionDecisionType.ESCALATE:
                         continue
                     elif decision.decision == SupervisionDecisionType.MODIFY:
@@ -123,13 +123,13 @@ def supervise(
                         return (f"Execution of {func.__qualname__} should be terminated. "
                                 f"Explanation: {decision.explanation}. "
                                 f"Chain Explanations: {explanations}\n"
-                                "This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior.")
+                                "This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior. You should try different action using the feedback!")
                     else:
                         print(f"Unknown decision: {decision.decision}. Cancelling execution.")
                         explanations = " ".join([f"Decision: {d.decision}, Explanation: {d.explanation}" for d in chain_decisions])
                         return (f"Execution of {func.__qualname__} was cancelled due to an unknown supervision decision. "
                                 f"Chain Explanations: {explanations}\n"
-                                "This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior.")
+                                "This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior. You should try different action using the feedback!")
 
             # Check decisions and apply modifications if any
             if all(decision.decision in [SupervisionDecisionType.APPROVE, SupervisionDecisionType.MODIFY] for decision in all_decisions):
@@ -154,7 +154,7 @@ def supervise(
                 # Call the function with modified arguments
                 return func(*final_args, **final_kwargs)
             else:
-                return "The agent requested to execute a function but it was rejected by all supervisors.\n This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior."
+                return "The agent requested to execute a function but it was rejected by all supervisors.\n This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior. You should try something else!"
         return wrapper
     return decorator
 
