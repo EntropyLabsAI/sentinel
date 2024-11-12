@@ -125,7 +125,7 @@ func apiCreateRunToolHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 		Attributes        map[string]interface{} `json:"attributes"`
 		Name              string                 `json:"name"`
 		Description       string                 `json:"description"`
-		IgnoredAttributes []string               `json:"ignoredAttributes"`
+		IgnoredAttributes []string               `json:"ignored_attributes"`
 	}
 	err = json.NewDecoder(r.Body).Decode(&t)
 	if err != nil {

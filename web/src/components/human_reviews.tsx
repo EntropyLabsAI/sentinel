@@ -129,8 +129,7 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
     : null;
 
   return (
-    <div className="p-16 flex flex-col gap-16">
-
+    <div className="p-16 flex flex-col gap-16 container mx-auto">
       {/* Main Content */}
       <div className="flex">
         {/* Sidebar */}
@@ -199,7 +198,7 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
       </div>
 
       <div className="flex flex-col">
-        <h2 className="text-xl font-semibold mb-4">Hub Stats</h2>
+        <h2 className="text-xl font-semibold mb-4">Supervisor Config</h2>
         <HubStatsAccordion API_BASE_URL={API_BASE_URL} />
       </div>
     </div>

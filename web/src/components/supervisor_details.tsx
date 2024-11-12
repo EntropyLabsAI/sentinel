@@ -28,7 +28,7 @@ export default function SupervisorDetails() {
         <div className="">
           {supervisor?.type === SupervisorType.human_supervisor && <HumanReviews supervisor={supervisor} />}
           {supervisor?.type !== SupervisorType.human_supervisor && (
-            <Page title={`Supervisor "${supervisor?.name}" Details`} subtitle={<span>Details and reviews for supervisor <UUIDDisplay uuid={supervisor?.id} /> will be displayed here</span>} icon={<EyeIcon />}>
+            <Page cols={3} title={`Supervisor "${supervisor?.name}" Details`} subtitle={<span>Details and reviews for supervisor <UUIDDisplay uuid={supervisor?.id} /> will be displayed here</span>} icon={<EyeIcon />}>
               <div className="col-span-3">
                 <JsonDisplay json={supervisor} />
               </div>
