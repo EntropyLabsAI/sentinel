@@ -23,7 +23,15 @@ export function ToolCard({ tool, runId }: ToolCardProps) {
           {tool.description && <p className="text-sm">{tool.description}</p>}
         </CardDescription>
       </CardHeader>
-      <CardContent className="    flex flex-col gap-2">
+      <CardContent className="flex flex-col gap-2">
+        {tool.code && (
+          <>
+            <p className="text-sm font-semibold">Code</p>
+            <pre className="text-xs bg-muted p-2 rounded w-full overflow-auto">
+              <code>{tool.code}</code>
+            </pre>
+          </>
+        )}
         <p className="text-sm font-semibold">Attributes</p>
         {tool.attributes && <ToolAttributes attributes={tool.attributes || ''} ignoredAttributes={tool.ignored_attributes || []} />}
         {runId && tool.id && <RunToolSupervisors runId={runId} toolId={tool.id} />}

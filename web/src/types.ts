@@ -26,8 +26,9 @@ import type {
 export type CreateRunToolBodyAttributes = { [key: string]: unknown };
 
 export type CreateRunToolBody = {
-  attributes?: CreateRunToolBodyAttributes;
-  description?: string;
+  attributes: CreateRunToolBodyAttributes;
+  code: string;
+  description: string;
   ignored_attributes?: string[];
   name: string;
 };
@@ -247,12 +248,13 @@ export interface Supervisor {
 export type ToolAttributes = { [key: string]: unknown };
 
 export interface Tool {
-  attributes?: ToolAttributes;
-  description?: string;
+  attributes: ToolAttributes;
+  code: string;
+  description: string;
   id?: string;
   ignored_attributes?: string[];
-  name?: string;
-  run_id?: string;
+  name: string;
+  run_id: string;
 }
 
 export interface Run {

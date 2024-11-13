@@ -126,6 +126,7 @@ func apiCreateRunToolHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 		Name              string                 `json:"name"`
 		Description       string                 `json:"description"`
 		IgnoredAttributes []string               `json:"ignored_attributes"`
+		Code              string                 `json:"code"`
 	}
 	err = json.NewDecoder(r.Body).Decode(&t)
 	if err != nil {
@@ -154,7 +155,7 @@ func apiCreateRunToolHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 	// 	return
 	// }
 
-	toolId, err := store.CreateTool(ctx, runId, t.Attributes, t.Name, t.Description, t.IgnoredAttributes)
+	toolId, err := store.CreateTool(ctx, runId, t.Attributes, t.Name, t.Description, t.IgnoredAttributes, t.Code)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error creating tool", err.Error())
 		return
@@ -794,7 +795,7 @@ func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if tool == nil || tool.RunId == nil {
+	if tool == nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "can't find run ID from tool", "")
 		return
 	}
@@ -804,7 +805,7 @@ func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Reques
 		SupervisionRequest: *supervisionRequest,
 		ChainState:         *chainState,
 		RequestGroup:       *requestGroup,
-		RunId:              *tool.RunId,
+		RunId:              tool.RunId,
 	}
 
 	respondJSON(w, reviewPayload)

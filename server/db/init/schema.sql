@@ -59,7 +59,8 @@ CREATE TABLE tool (
     name VARCHAR DEFAULT '',
     description TEXT DEFAULT '',
     attributes JSONB DEFAULT '{}' NOT NULL,
-    ignored_attributes TEXT[] DEFAULT '{}' NOT NULL
+    ignored_attributes TEXT[] DEFAULT '{}' NOT NULL,
+    code TEXT DEFAULT ''
 );
 
 CREATE TABLE message (

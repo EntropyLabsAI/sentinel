@@ -181,8 +181,13 @@ paths:
                   type: array
                   items:
                     type: string
+                code:
+                  type: string
               required:
                 - name
+                - description
+                - attributes
+                - code
       responses:
         "200":
           description: Tool found
@@ -830,6 +835,14 @@ components:
           type: array
           items:
             type: string
+        code:
+          type: string
+      required:
+        - run_id
+        - name
+        - description
+        - attributes
+        - code
 
     Supervisor:
       type: object
