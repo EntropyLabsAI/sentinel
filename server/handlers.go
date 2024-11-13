@@ -810,3 +810,56 @@ func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Reques
 
 	respondJSON(w, reviewPayload)
 }
+
+func apiGetRequestGroupStatusHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	// Get all of the chain executions for this request group
+	chainExecutions, err := store.GetChainExecutionsFromRequestGroup(ctx, requestGroupId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting request group", err.Error())
+		return
+	}
+
+	// Get the last statuus in the chain for each execution chain. This is the chain's status
+	executionStatuses := make([]Status, len(chainExecutions))
+
+	// Get the chain execution state for this request group
+	for _, execution := range chainExecutions {
+		state, err := store.GetChainExecutionState(ctx, *execution.Id)
+		if err != nil {
+			sendErrorResponse(w, http.StatusInternalServerError, "error getting request group", err.Error())
+			return
+		}
+
+		// Get the last status in the chain. This is our executionStatus
+		executionStatus := state.SupervisionRequests[len(state.SupervisionRequests)-1].Status.Status
+		executionStatuses = append(executionStatuses, executionStatus)
+	}
+
+	// Using the slice of chain execution statuses, compute the group's status using
+	completed := computeStatus(executionStatuses)
+
+	groupStatus := Pending
+	if completed == true {
+		groupStatus = Completed
+	}
+
+	respondJSON(w, groupStatus)
+}
+
+// If every status is completed then the ToolRequestGroup has finished processing
+// If any status is not completed then it's either (failed, pending, assigned, timeout) which means
+// we have not finished processing
+func computeStatus(statuses []Status) bool {
+	completed := true
+
+	for _, s := range statuses {
+		if s != Completed {
+			completed = false
+			break
+		}
+	}
+
+	return completed
+}

@@ -398,6 +398,27 @@ paths:
       tags:
         - RequestGroup
 
+  /api/request_group/{requestGroupId}/status:
+    parameters:
+      - name: requestGroupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get a request group status
+      operationId: GetRequestGroupStatus
+      responses:
+        "200":
+          description: Request group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Status"
+      tags:
+        - RequestGroup
+
   /api/request_group/{requestGroupId}/tool_requests:
     parameters:
       - name: requestGroupId
