@@ -43,52 +43,102 @@ export default function ChainStateDisplay({ chainState, currentRequestId }: Chai
     <Accordion type="single" collapsible className="w-full">
       <AccordionItem value="messages" className="border border-gray-200 rounded-md">
         <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
-          <div className="flex flex-row gap-4">
+          <div className="flex flex-row gap-4 items-center">
             <ClockIcon className="w-4 h-4" />
-            Supervision Chain State
+            <span>Chain Execution Details</span>
+            <Badge variant="outline" className="ml-2">
+              {chainState.supervision_requests.length} requests
+            </Badge>
           </div>
         </AccordionTrigger>
         <AccordionContent className="p-4">
           <Card className="w-full border-none">
             <CardContent>
-              <div className="flex flex-col space-y-4">
-                {/* Chain Info */}
-                <div className="text-sm text-gray-500">
-                  Chain ID: <UUIDDisplay uuid={chainState.chain.chain_id} />
+              <div className="flex flex-col space-y-6">
+                {/* Chain Metadata */}
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <h3 className="font-semibold mb-2">Chain Information</h3>
+                    <div className="space-y-1">
+                      <div>Chain ID: <UUIDDisplay uuid={chainState.chain.chain_id} /></div>
+                      <div>Execution ID: <UUIDDisplay uuid={chainState.chain_execution.id} /></div>
+                      <div>Created: {new Date(chainState.chain_execution.created_at).toLocaleString()}</div>
+                      <div>Request Group: <UUIDDisplay uuid={chainState.chain_execution.request_group_id} /></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold mb-2">Supervisor Chain</h3>
+                    <div className="space-y-1">
+                      {chainState.chain.supervisors.map((supervisor, index) => (
+                        <div key={supervisor.id} className="flex items-center gap-2">
+                          <span className="text-gray-500">{index + 1}.</span>
+                          <Badge variant="outline" className="font-mono">
+                            {supervisor.name}
+                          </Badge>
+                          <span className="text-xs text-gray-500">({supervisor.type})</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Supervision Timeline */}
-                <div className="flex flex-col space-y-2">
-                  {chainState.supervision_requests.map((request, index) => (
-                    <div
-                      key={request.supervision_request.id}
-                      className={`flex items-center space-x-6 p-2 rounded-lg ${request.supervision_request.id === currentRequestId ? 'bg-blue-50' : ''
-                        }`}
-                    >
-                      {/* Position indicator */}
-                      <span className="text-sm font-medium w-6 flex flex-row gap-1 items-center">
-                        <LinkIcon className="w-4 h-4" />
-                        {request.supervision_request.position_in_chain}
-                      </span>
+                <div>
+                  <h3 className="font-semibold mb-4">Supervision Timeline</h3>
+                  <div className="flex flex-col space-y-4">
+                    {chainState.supervision_requests.map((request, index) => (
+                      <Card key={request.supervision_request.id}
+                        className={`border ${request.supervision_request.id === currentRequestId ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                        <CardContent className="p-4">
+                          <div className="flex flex-col space-y-3">
+                            {/* Header */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <LinkIcon className="w-4 h-4" />
+                                <span className="font-medium">Step {request.supervision_request.position_in_chain}</span>
+                                {getStatusIcon(request)}
+                              </div>
+                              <div className="flex gap-2">
+                                <StatusBadge status={request.status.status} />
+                                {request.result && <DecisionBadge decision={request.result.decision} />}
+                              </div>
+                            </div>
 
-                      {/* Status icon */}
-                      {getStatusIcon(request)}
+                            {/* Supervisor Info */}
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-500">Supervisor:</span>
+                              <SupervisorBadge supervisorId={request.supervision_request.supervisor_id} />
+                            </div>
 
-                      {/* Supervisor info */}
-                      <div className="flex-grow">
-                        <SupervisorBadge supervisorId={request.supervision_request.supervisor_id} />
-                      </div>
+                            {/* Result Details (if available) */}
+                            {request.result && (
+                              <div className="bg-gray-50 p-3 rounded-md space-y-2">
+                                <div className="text-sm">
+                                  <span className="font-medium">Decision:</span> {request.result.decision}
+                                </div>
+                                {request.result.chosen_toolrequest_id && (
+                                  <div className="text-sm">
+                                    <span className="font-medium">Chosen Tool Request:</span>
+                                    <UUIDDisplay uuid={request.result.chosen_toolrequest_id} />
+                                  </div>
+                                )}
+                                <div className="text-sm">
+                                  <span className="font-medium">Reasoning:</span>
+                                  <p className="mt-1 text-gray-600">{request.result.reasoning}</p>
+                                </div>
+                              </div>
+                            )}
 
-                      {/* Status badge */}
-                      <StatusBadge status={request.status.status} />
-                      <DecisionBadge decision={request.result?.decision} />
-
-                      {/* Show connector line if not last item */}
-                      {index < chainState.supervision_requests.length - 1 && (
-                        <ArrowRight className="w-4 h-4 text-gray-400" />
-                      )}
-                    </div>
-                  ))}
+                            {/* Status Details */}
+                            <div className="text-xs text-gray-500">
+                              Created: {new Date(request.status.created_at).toLocaleString()}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 </div>
               </div>
             </CardContent>
