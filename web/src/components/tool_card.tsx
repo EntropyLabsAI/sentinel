@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
 import { SupervisorBadge, SupervisorTypeBadge, ToolBadge } from "./util/status_badge";
 import { ToolAttributes } from "./tool_attributes";
+import { UUIDDisplay } from "./util/uuid_display";
 
 type ToolCardProps = {
   tool: Tool;
@@ -14,8 +15,9 @@ export function ToolCard({ tool, runId }: ToolCardProps) {
   return (
     <Card className="flex flex-col text-muted-foreground">
       <CardHeader className="py-2">
-        <CardTitle className="py-4 flex flex-row gap-4">
+        <CardTitle className="py-4 flex flex-row justify-between">
           <ToolBadge toolId={tool.id || ''} />
+          <UUIDDisplay uuid={tool.id || ''} className="text-xs font-normal" />
         </CardTitle>
         <CardDescription>
           <p className="text-sm font-semibold">Description</p>
