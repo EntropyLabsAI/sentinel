@@ -18,7 +18,14 @@ export default function ProjectList() {
   const { setSelectedProject } = useProject();
   const navigate = useNavigate();
 
-  const { data, isLoading, error } = useGetProjects();
+  const { data, isLoading, error } = useGetProjects(
+    {
+      query: {
+        refetchInterval: 1000,
+        refetchIntervalInBackground: true,
+      }
+    }
+  );
 
   useEffect(() => {
     if (data?.data) {

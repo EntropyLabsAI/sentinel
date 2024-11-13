@@ -4,7 +4,7 @@ import SwaggerUI from '@/components/util/swagger_ui';
 import SupervisorSelection from '@/components/supervisor/supervisors';
 import Sidebar from './components/sidebar';
 import Home from './components/home';
-import ProjectList from './components/project_list';
+import ProjectList from './components/projects';
 import Runs from './components/runs';
 import Executions from './components/run';
 import Tools from './components/tools';
