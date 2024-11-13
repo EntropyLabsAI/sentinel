@@ -51,10 +51,10 @@ export default function Run() {
     <>
       <Page
         icon={<PyramidIcon className="h-5 w-5" />}
-        title={`Executions for run`}
+        title={`Run Details`}
         subtitle={
           <span className="text-sm text-muted-foreground">
-            We recorded {runState?.length} execution{runState?.length === 1 ? "" : "s"} for run{' '}
+            The agent has made {runState?.length} tool execution{runState?.length === 1 ? "" : "s"} for run{' '}
             <UUIDDisplay uuid={runId} />{' '}
             across {tools.length} tool{tools.length === 1 ? "" : "s"}. To see more details for each tool execution, inspect the rows in the table below.
           </span>

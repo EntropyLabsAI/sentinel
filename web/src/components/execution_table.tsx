@@ -56,7 +56,6 @@ export default function ExecutionTable({ runState }: { runState: RunState }) {
               <TableCell className="font-medium">
                 <UUIDDisplay
                   uuid={execution.request_group.id || ''}
-                  href={`/projects/${selectedProject}/runs/${execution.request_group.id}`}
                 />
               </TableCell>
               <TableCell>
