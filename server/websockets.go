@@ -131,10 +131,10 @@ func (h *Hub) assignReview(supervisionRequest SupervisionRequest) {
 	defer h.ClientsMutex.RUnlock()
 
 	// Attempt to assign the supervisor to a client
-	if !h.assignReviewToClient(supervisionRequest) {
-		// If no client is available, do nothing.
-		// log.Printf("No available clients with capacity. SupervisionRequest.RequestId %s.", supervisionRequest.Id)
-	}
+	// if !h.assignReviewToClient(supervisionRequest) {
+	// If no client is available, do nothing.
+	// log.Printf("No available clients with capacity. SupervisionRequest.RequestId %s.", supervisionRequest.Id)
+	// }
 }
 
 // assignReviewToClient attempts to assign a supervisor to a client if they have capacity

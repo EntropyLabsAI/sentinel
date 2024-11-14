@@ -1,6 +1,7 @@
 package sentinel
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -150,7 +151,6 @@ func apiCreateRunToolHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 	// if existingTool != nil {
 	// 	w.WriteHeader(http.StatusOK)
 	// 	id := existingTool.Id.String()
-	// 	fmt.Printf("existing tool found with ID: %s", id)
 	// 	respondJSON(w, id)
 	// 	return
 	// }
@@ -737,6 +737,15 @@ func apiGetRunStateHandler(w http.ResponseWriter, r *http.Request, runId uuid.UU
 			}
 		}
 
+		// TODO This seems super inefficient as it loads a bunch of duplicate stuff
+		status, err := getRequestGroupStatus(ctx, *requestGroup.Id, store)
+		if err != nil {
+			sendErrorResponse(w, http.StatusInternalServerError, "error getting request group status", err.Error())
+			return
+		}
+
+		execution.Status = status
+
 		runState = append(runState, execution)
 	}
 
@@ -813,13 +822,8 @@ func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Reques
 
 // determineChainStatus checks if a supervision chain has completed
 func determineChainStatus(requests []SupervisionRequestState, totalSupervisors int) Status {
-	fmt.Printf("\n=== Chain Status Analysis ===\n")
-	fmt.Printf("Total supervisors in chain: %d\n", totalSupervisors)
-	fmt.Printf("Total supervision requests: %d\n", len(requests))
-
 	// No supervision requests means chain hasn't started
 	if len(requests) == 0 {
-		fmt.Printf("❌ No supervision requests found - chain hasn't started\n")
 		return Pending
 	}
 
@@ -827,87 +831,54 @@ func determineChainStatus(requests []SupervisionRequestState, totalSupervisors i
 	var lastCompleted *SupervisionRequestState
 	var highestPosition int = -1
 
-	fmt.Printf("\nAnalyzing supervision requests:\n")
-	for i, req := range requests {
-		fmt.Printf("\n🔍 Request #%d:\n", i+1)
-		fmt.Printf("  Position: %d\n", req.SupervisionRequest.PositionInChain)
-		fmt.Printf("  Status: %s\n", req.Status.Status)
-		if req.Result != nil {
-			fmt.Printf("  Decision: %s\n", req.Result.Decision)
-		} else {
-			fmt.Printf("  Decision: no result yet\n")
-		}
-
+	for _, req := range requests {
 		if req.Status.Status == Completed {
 			if req.SupervisionRequest.PositionInChain > highestPosition {
 				highestPosition = req.SupervisionRequest.PositionInChain
 				lastCompleted = &req
-				fmt.Printf("  ✅ New highest completed position found\n")
 			}
 		}
 	}
 
 	// No completed supervisions yet
 	if lastCompleted == nil {
-		fmt.Printf("\n❌ No completed supervisions found\n")
 		return Pending
 	}
-
-	fmt.Printf("\n📊 Final Analysis:\n")
-	fmt.Printf("Highest completed position: %d\n", highestPosition)
 
 	// Key change: If the last completed supervision approved the chain is complete
 	// regardless of position
 	if lastCompleted.Result != nil && lastCompleted.Result.Decision != Escalate {
-		fmt.Printf("✅ Last supervisor approved - Chain is COMPLETE\n")
 		return Completed
 	}
 
 	// If we didn't get an approval, we need to check if we reached the end
 	// and got a different valid completion (like Reject)
 	if highestPosition == totalSupervisors-1 {
-		fmt.Printf("✅ Reached final supervisor\n")
 		if lastCompleted.Result != nil {
-			fmt.Printf("✅ Final decision was %s - Chain is COMPLETE\n", lastCompleted.Result.Decision)
 			return Completed
 		}
-		fmt.Printf("❌ Final supervisor escalated - Chain remains PENDING\n")
-	} else {
-		fmt.Printf("❌ No approval yet and haven't reached final supervisor (position %d of %d)\n",
-			highestPosition, totalSupervisors-1)
 	}
 
 	return Pending
 }
 
-func apiGetRequestGroupStatusHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store Store) {
-	ctx := r.Context()
-
-	fmt.Printf("\n🔄 Processing Request Group: %s\n", requestGroupId)
-
+func getRequestGroupStatus(ctx context.Context, requestGroupId uuid.UUID, store Store) (Status, error) {
 	chainExecutions, err := store.GetChainExecutionsFromRequestGroup(ctx, requestGroupId)
 	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "error getting chain executions", err.Error())
-		return
+		return Pending, fmt.Errorf("error getting chain executions: %w", err)
 	}
-
-	fmt.Printf("\nFound %d chain executions\n", len(chainExecutions))
 
 	// Track status for each chain execution
 	executionStatuses := make([]Status, 0, len(chainExecutions))
 
-	for i, execution := range chainExecutions {
-		fmt.Printf("\n📎 Analyzing Chain Execution #%d: %s\n", i+1, execution)
-
+	for _, execution := range chainExecutions {
 		state, err := store.GetChainExecutionState(ctx, execution)
 		if err != nil {
-			sendErrorResponse(w, http.StatusInternalServerError, "error getting chain state", err.Error())
-			return
+			return Pending, fmt.Errorf("error getting chain state: %w", err)
 		}
 
 		status := determineChainStatus(state.SupervisionRequests, len(state.Chain.Supervisors))
 		executionStatuses = append(executionStatuses, status)
-		fmt.Printf("Chain #%d Status: %s\n", i+1, status)
 	}
 
 	// Request group is complete only if all chains are complete
@@ -916,8 +887,17 @@ func apiGetRequestGroupStatusHandler(w http.ResponseWriter, r *http.Request, req
 		status = Completed
 	}
 
-	fmt.Printf("\n🏁 Final Request Group Status: %s\n", status)
-	fmt.Printf("(Based on chain statuses: %v)\n", executionStatuses)
+	return status, nil
+}
+
+func apiGetRequestGroupStatusHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	status, err := getRequestGroupStatus(ctx, requestGroupId, store)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting request group status", err.Error())
+		return
+	}
 
 	respondJSON(w, status)
 }
@@ -925,16 +905,13 @@ func apiGetRequestGroupStatusHandler(w http.ResponseWriter, r *http.Request, req
 // allChainsComplete checks if all supervision chains have completed
 func allChainsComplete(statuses []Status) bool {
 	if len(statuses) == 0 {
-		fmt.Printf("\n❌ No chain statuses found\n")
 		return false
 	}
 
-	for i, status := range statuses {
+	for _, status := range statuses {
 		if status != Completed {
-			fmt.Printf("❌ Chain #%d is not completed (status: %s)\n", i+1, status)
 			return false
 		}
 	}
-	fmt.Printf("✅ All chains are completed\n")
 	return true
 }
