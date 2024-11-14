@@ -54,8 +54,8 @@ type ProjectStore interface {
 
 type ToolRequestStore interface {
 	CreateToolRequestGroup(ctx context.Context, toolId uuid.UUID, request ToolRequestGroup) (*ToolRequestGroup, error)
-	GetRunRequestGroups(ctx context.Context, runId uuid.UUID) ([]ToolRequestGroup, error)
-	GetRequestGroup(ctx context.Context, id uuid.UUID) (*ToolRequestGroup, error)
+	GetRunRequestGroups(ctx context.Context, runId uuid.UUID, includeArgs bool) ([]ToolRequestGroup, error)
+	GetRequestGroup(ctx context.Context, id uuid.UUID, includeArgs bool) (*ToolRequestGroup, error)
 	CreateToolRequest(ctx context.Context, requestGroupId uuid.UUID, request ToolRequest) (*uuid.UUID, error)
 	GetToolRequest(ctx context.Context, id uuid.UUID) (*ToolRequest, error)
 }

@@ -293,7 +293,7 @@ func apiCreateToolRequestGroupHandler(w http.ResponseWriter, r *http.Request, to
 func apiGetRequestGroupHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store Store) {
 	ctx := r.Context()
 
-	requestGroup, err := store.GetRequestGroup(ctx, requestGroupId)
+	requestGroup, err := store.GetRequestGroup(ctx, requestGroupId, true)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting request group", err.Error())
 		return
@@ -360,7 +360,7 @@ func apiGetRunRequestGroupsHandler(w http.ResponseWriter, r *http.Request, runId
 		return
 	}
 
-	requestGroups, err := store.GetRunRequestGroups(ctx, runId)
+	requestGroups, err := store.GetRunRequestGroups(ctx, runId, true)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting run request groups", err.Error())
 		return
@@ -457,7 +457,7 @@ func apiCreateSupervisionRequestHandler(
 	}
 
 	// Check that the request, chain and supervisor exist
-	requestGroup, err := store.GetRequestGroup(ctx, requestGroupId)
+	requestGroup, err := store.GetRequestGroup(ctx, requestGroupId, false)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting request group", err.Error())
 		return
@@ -655,7 +655,7 @@ func apiGetRunStateHandler(w http.ResponseWriter, r *http.Request, runId uuid.UU
 	}
 
 	// Get all request groups for this run
-	requestGroups, err := store.GetRunRequestGroups(ctx, runId)
+	requestGroups, err := store.GetRunRequestGroups(ctx, runId, false)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting request groups", err.Error())
 		return
@@ -774,7 +774,7 @@ func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Get the request group
-	requestGroup, err := store.GetRequestGroup(ctx, *requestGroupId)
+	requestGroup, err := store.GetRequestGroup(ctx, *requestGroupId, true)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting request group", err.Error())
 		return

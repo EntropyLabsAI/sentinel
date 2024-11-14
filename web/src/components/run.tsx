@@ -19,7 +19,7 @@ export default function Run() {
   const { data: toolsData, isLoading: toolsLoading } = useGetRunTools(runId || '');
   const { data: runStateData, isLoading: runStateLoading } = useGetRunState(runId || '', {
     query: {
-      refetchInterval: 1000, // Refetch every 1 second
+      refetchInterval: 5000, // Refetch every 1 second
       refetchIntervalInBackground: true, // Optional: continue polling when window is in background
     }
   });

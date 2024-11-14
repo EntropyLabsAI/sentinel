@@ -23,6 +23,7 @@ import { MessagesDisplay } from "./messages"
 import { Button } from "./ui/button"
 import Slideover from "./supervisor/slideover"
 import ChainExecutionState from "./chain_execution_state"
+import LoadingSpinner from "./util/loading"
 
 export default function ExecutionTable({ runState }: { runState: RunState }) {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
@@ -57,6 +58,13 @@ export default function ExecutionTable({ runState }: { runState: RunState }) {
           </TableRow>
         </TableHeader>
         <TableBody>
+          {rows.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={5} className="text-center text-muted-foreground h-[100px]">
+                <LoadingSpinner />
+              </TableCell>
+            </TableRow>
+          )}
           {rows?.map((execution, idx) => (
             <>
               <TableRow key={execution.request_group.id} className="">
@@ -93,9 +101,9 @@ export default function ExecutionTable({ runState }: { runState: RunState }) {
               <TableRow>
                 <TableCell colSpan={5} className="p-0 bg-muted/50">
                   <div
-                    className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
+                    className="overflow-hidden transition-[max-height] duration-500 ease-in-out"
                     style={{
-                      maxHeight: expandedRows[execution.request_group.id || ''] ? "none" : "0",
+                      maxHeight: expandedRows[execution.request_group.id || ''] ? "5000px" : "0",
                     }}
                   >
                     <div className="p-4">

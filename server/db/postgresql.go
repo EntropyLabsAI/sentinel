@@ -504,13 +504,24 @@ func (s *PostgresqlStore) GetChainExecutionsFromRequestGroup(ctx context.Context
 	return ids, nil
 }
 
-func (s *PostgresqlStore) GetRequestGroup(ctx context.Context, id uuid.UUID) (*sentinel.ToolRequestGroup, error) {
-	query := `
-		SELECT tr.id, tr.tool_id, tr.arguments, tr.task_state, tr.requestgroup_id, m.role, m.content, rg.created_at
-		FROM toolrequest tr
-		INNER JOIN message m ON tr.message_id = m.id
-		INNER JOIN requestgroup rg ON tr.requestgroup_id = rg.id
-		WHERE tr.requestgroup_id = $1`
+func (s *PostgresqlStore) GetRequestGroup(ctx context.Context, id uuid.UUID, includeArgs bool) (*sentinel.ToolRequestGroup, error) {
+	// Sometimes we don't need the arguments, and loading them kills performance on large runs
+	var query string
+	if includeArgs {
+		query = `
+			SELECT tr.id, tr.tool_id, tr.arguments, tr.task_state, tr.requestgroup_id, m.role, m.content, rg.created_at
+			FROM toolrequest tr
+			INNER JOIN message m ON tr.message_id = m.id
+			INNER JOIN requestgroup rg ON tr.requestgroup_id = rg.id
+			WHERE tr.requestgroup_id = $1`
+	} else {
+		query = `
+			SELECT tr.id, tr.tool_id, NULL as arguments, tr.task_state, tr.requestgroup_id, m.role, m.content, rg.created_at
+			FROM toolrequest tr
+			INNER JOIN message m ON tr.message_id = m.id
+			INNER JOIN requestgroup rg ON tr.requestgroup_id = rg.id
+			WHERE tr.requestgroup_id = $1`
+	}
 
 	var createdAt time.Time
 	toolRequestGroup := sentinel.ToolRequestGroup{
@@ -565,7 +576,7 @@ func (s *PostgresqlStore) GetRequestGroup(ctx context.Context, id uuid.UUID) (*s
 	return &toolRequestGroup, nil
 }
 
-func (s *PostgresqlStore) GetRunRequestGroups(ctx context.Context, runId uuid.UUID) ([]sentinel.ToolRequestGroup, error) {
+func (s *PostgresqlStore) GetRunRequestGroups(ctx context.Context, runId uuid.UUID, withToolRequestArgs bool) ([]sentinel.ToolRequestGroup, error) {
 	// First get all of the tool request groups for the run by linking through the tool request table to the run table
 	query := `
 		SELECT rg.id
@@ -587,7 +598,7 @@ func (s *PostgresqlStore) GetRunRequestGroups(ctx context.Context, runId uuid.UU
 			return nil, fmt.Errorf("error scanning request group: %w", err)
 		}
 
-		requestGroup, err := s.GetRequestGroup(ctx, id)
+		requestGroup, err := s.GetRequestGroup(ctx, id, withToolRequestArgs)
 		if err != nil {
 			return nil, fmt.Errorf("error getting request group: %w", err)
 		}
