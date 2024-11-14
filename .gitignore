@@ -43,3 +43,5 @@ examples/inspect_example/inspect_ai
 logs/
 
 .logs
+
+results/

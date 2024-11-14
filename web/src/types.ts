@@ -291,6 +291,7 @@ export interface ChainExecutionState {
 export interface RunExecution {
   chains: ChainExecutionState[];
   request_group: ToolRequestGroup;
+  status: Status;
 }
 
 export type RunState = RunExecution[];
@@ -1275,6 +1276,65 @@ export const useGetRequestGroup = <TData = Awaited<ReturnType<typeof getRequestG
   ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
 
   const queryOptions = getGetRequestGroupQueryOptions(requestGroupId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Get a request group status
+ */
+export const getRequestGroupStatus = (
+    requestGroupId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<Status>> => {
+    
+    return axios.get(
+      `/api/request_group/${requestGroupId}/status`,options
+    );
+  }
+
+
+export const getGetRequestGroupStatusQueryKey = (requestGroupId: string,) => {
+    return [`/api/request_group/${requestGroupId}/status`] as const;
+    }
+
+    
+export const getGetRequestGroupStatusQueryOptions = <TData = Awaited<ReturnType<typeof getRequestGroupStatus>>, TError = AxiosError<unknown>>(requestGroupId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRequestGroupStatus>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRequestGroupStatusQueryKey(requestGroupId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRequestGroupStatus>>> = ({ signal }) => getRequestGroupStatus(requestGroupId, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(requestGroupId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRequestGroupStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRequestGroupStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getRequestGroupStatus>>>
+export type GetRequestGroupStatusQueryError = AxiosError<unknown>
+
+/**
+ * @summary Get a request group status
+ */
+export const useGetRequestGroupStatus = <TData = Awaited<ReturnType<typeof getRequestGroupStatus>>, TError = AxiosError<unknown>>(
+ requestGroupId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRequestGroupStatus>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetRequestGroupStatusQueryOptions(requestGroupId,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -49,7 +49,7 @@ export default function ExecutionTable({ runState }: { runState: RunState }) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[100px]">Request Group ID</TableHead>
+            <TableHead className="w-[100px]">Request</TableHead>
             <TableHead className="w-[20px]">Tool</TableHead>
             <TableHead className="w-[120px]">Status</TableHead>
             <TableHead className="w-[120px] text-right">Created</TableHead>
@@ -57,19 +57,20 @@ export default function ExecutionTable({ runState }: { runState: RunState }) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows?.map((execution) => (
+          {rows?.map((execution, idx) => (
             <>
               <TableRow key={execution.request_group.id} className="">
                 <TableCell className="font-medium">
                   <UUIDDisplay
                     uuid={execution.request_group.id || ''}
+                    label={`Request ${idx + 1}`}
                   />
                 </TableCell>
                 <TableCell>
                   <ToolBadge toolId={execution.request_group.tool_requests[0]?.tool_id || ''} />
                 </TableCell>
                 <TableCell>
-                  <StatusBadge statuses={execution.chains.map((chain) => chain.supervision_requests).flat().map((req) => req.status)} />
+                  <StatusBadge status={execution.status} />
                 </TableCell>
                 <TableCell className="text-right">
                   <CreatedAgo datetime={execution.request_group.created_at || ''} label='' />
@@ -79,13 +80,11 @@ export default function ExecutionTable({ runState }: { runState: RunState }) {
                   onClick={() => toggleRow(execution.request_group.id || '')}
                 >
                   {expandedRows[execution.request_group.id || ''] ? (
-                    <span className="flex flex-row gap-4 text-xs text-muted-foreground">
-                      Supervision chains
+                    <span className="flex flex-row gap-4 text-xs text-muted-foreground items-center justify-center">
                       <ChevronUpIcon className="h-4 w-4" />
                     </span>
                   ) : (
-                    <span className="flex flex-row gap-4 text-xs text-muted-foreground">
-                      Supervision chains
+                    <span className="flex flex-row gap-4 text-xs text-muted-foreground items-center justify-center">
                       <ChevronDownIcon className="h-4 w-4" />
                     </span>
                   )}

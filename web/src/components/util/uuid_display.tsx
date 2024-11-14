@@ -7,9 +7,10 @@ interface UUIDDisplayProps {
   uuid: string | undefined;
   className?: string;
   href?: string;
+  label?: string;
 }
 
-export const UUIDDisplay: React.FC<UUIDDisplayProps> = ({ uuid, className = '', href }) => {
+export const UUIDDisplay: React.FC<UUIDDisplayProps> = ({ uuid, className = '', href, label = '' }) => {
   if (!uuid) return null;
 
   const [copied, setCopied] = useState(false);
@@ -23,7 +24,7 @@ export const UUIDDisplay: React.FC<UUIDDisplayProps> = ({ uuid, className = '', 
 
   const content = (
     <>
-      {uuid.slice(0, 8)}
+      {label ? <span className="text-muted-foreground">{label}</span> : uuid.slice(0, 8)}
       {copied ? (
         <Check className="h-4 w-4 text-green-500" />
       ) : (<></>)}
@@ -33,8 +34,7 @@ export const UUIDDisplay: React.FC<UUIDDisplayProps> = ({ uuid, className = '', 
   return href ? (
     <Link to={href}>
       <code
-        className={`font-mono inline-flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded px-1 ${className}`}
-        // onClick={copyToClipboard}
+        className={`inline-flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded px-1 ${className}`}
         title="Click to copy UUID, click link to navigate"
       >
         {content}
@@ -42,7 +42,7 @@ export const UUIDDisplay: React.FC<UUIDDisplayProps> = ({ uuid, className = '', 
     </Link>
   ) : (
     <code
-      className={`font-mono inline-flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded px-1 ${className}`}
+      className={`inline-flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded px-1 ${className}`}
       onClick={copyToClipboard}
       title="Click to copy"
     >
