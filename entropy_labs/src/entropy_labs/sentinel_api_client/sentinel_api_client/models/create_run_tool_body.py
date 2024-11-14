@@ -17,14 +17,16 @@ class CreateRunToolBody:
     """
     Attributes:
         name (str):
-        description (Union[Unset, str]):
-        attributes (Union[Unset, CreateRunToolBodyAttributes]):
+        description (str):
+        attributes (CreateRunToolBodyAttributes):
+        code (str):
         ignored_attributes (Union[Unset, List[str]]):
     """
 
     name: str
-    description: Union[Unset, str] = UNSET
-    attributes: Union[Unset, "CreateRunToolBodyAttributes"] = UNSET
+    description: str
+    attributes: "CreateRunToolBodyAttributes"
+    code: str
     ignored_attributes: Union[Unset, List[str]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -33,9 +35,9 @@ class CreateRunToolBody:
 
         description = self.description
 
-        attributes: Union[Unset, Dict[str, Any]] = UNSET
-        if not isinstance(self.attributes, Unset):
-            attributes = self.attributes.to_dict()
+        attributes = self.attributes.to_dict()
+
+        code = self.code
 
         ignored_attributes: Union[Unset, List[str]] = UNSET
         if not isinstance(self.ignored_attributes, Unset):
@@ -46,12 +48,11 @@ class CreateRunToolBody:
         field_dict.update(
             {
                 "name": name,
+                "description": description,
+                "attributes": attributes,
+                "code": code,
             }
         )
-        if description is not UNSET:
-            field_dict["description"] = description
-        if attributes is not UNSET:
-            field_dict["attributes"] = attributes
         if ignored_attributes is not UNSET:
             field_dict["ignored_attributes"] = ignored_attributes
 
@@ -64,14 +65,11 @@ class CreateRunToolBody:
         d = src_dict.copy()
         name = d.pop("name")
 
-        description = d.pop("description", UNSET)
+        description = d.pop("description")
 
-        _attributes = d.pop("attributes", UNSET)
-        attributes: Union[Unset, CreateRunToolBodyAttributes]
-        if isinstance(_attributes, Unset):
-            attributes = UNSET
-        else:
-            attributes = CreateRunToolBodyAttributes.from_dict(_attributes)
+        attributes = CreateRunToolBodyAttributes.from_dict(d.pop("attributes"))
+
+        code = d.pop("code")
 
         ignored_attributes = cast(List[str], d.pop("ignored_attributes", UNSET))
 
@@ -79,6 +77,7 @@ class CreateRunToolBody:
             name=name,
             description=description,
             attributes=attributes,
+            code=code,
             ignored_attributes=ignored_attributes,
         )
 

@@ -6,7 +6,6 @@ from .config import supervision_config, SupervisionDecisionType, SupervisionDeci
 from ..mocking.policies import MockPolicy
 from ..utils.utils import create_random_value
 from .llm_sampling import sample_from_llm
-from entropy_labs.api.sentinel_api_client_helper import create_tool_request_group, get_supervisor_chains_for_tool, send_supervision_request, send_supervision_result, _serialize_arguments
 import random
 from uuid import UUID, uuid4
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_type import SupervisorType
@@ -22,22 +21,40 @@ def supervise(
     supervision_functions: Optional[List[List[Callable]]] = None,
     ignored_attributes: Optional[List[str]] = None
 ):
+    """
+    Decorator that supervises a function.
+    
+    Args:
+        mock_policy (Optional[MockPolicy]): Mock policy to use. Defaults to None.
+        mock_responses (Optional[List[Any]]): Mock responses to use. Defaults to None.
+        supervision_functions (Optional[List[List[Callable]]]): Supervision functions to use. Defaults to None.
+        ignored_attributes (Optional[List[str]]): Ignored attributes. Defaults to None.
+    """
+    if supervision_functions and len(supervision_functions) == 1 and isinstance(supervision_functions[0], list):
+        supervision_functions = [supervision_functions[0]]
+
     def decorator(func):
-        # Add the function and supervision functions to the registry within the context
-        supervision_config.context.add_supervised_function(func, supervision_functions, ignored_attributes)
+        # Register the supervised function in SupervisionConfig's pending functions
+        supervision_config.register_pending_supervised_function(
+            func, supervision_functions, ignored_attributes
+        )
 
         @wraps(func)
         def wrapper(*tool_args, **tool_kwargs):
-            supervision_context = supervision_config.context
-            client = supervision_config.client  # Get the Sentinel API client
+            
+            from entropy_labs.api.sentinel_api_client_helper import create_tool_request_group, get_supervisor_chains_for_tool, send_supervision_request, send_supervision_result, _serialize_arguments
 
+            supervision_context = supervision_config.get_all_runs()[0].supervision_context
+            client = supervision_config.client  # Get the Sentinel API client
+            # TODO: This for now assumes there is only one run
+            
             print(f"\n--- Supervision ---")
             print(f"Function Name: {func.__qualname__}")
             print(f"Description: {func.__doc__}")
             print(f"Arguments: {tool_args}, {tool_kwargs.keys()}")
 
             # Retrieve the tool_id from the registry
-            entry = supervision_context.get_supervised_function_entry(func)
+            entry = supervision_context.get_supervised_function_entry(func.__qualname__)
             if entry:
                 tool_id = entry['tool_id']
                 ignored_attributes = entry['ignored_attributes']
@@ -80,7 +97,7 @@ def supervise(
                     supervision_request_id = send_supervision_request(supervisor_chain_id=supervisor_chain_id, supervisor_id=supervisor.id, request_group_id=tool_request_group.id, position_in_chain=position_in_chain)
 
                     decision = None
-                    supervisor_func = supervision_config.get_supervisor_by_id(supervisor.id)
+                    supervisor_func = supervision_context.get_supervisor_by_id(supervisor.id)
                     if supervisor_func is None:
                         print(f"No local supervisor function found for ID {supervisor.id}. Skipping.")
                         return None  # Continue to next supervisor
@@ -114,6 +131,9 @@ def supervise(
                                 f"Chain Explanations: {explanations}\n"
                                 "This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior. You should try different action using the feedback!")
                     elif decision.decision == SupervisionDecisionType.ESCALATE:
+                        # if last decision in chain is escalate, we continue to the next supervisor chain
+                        if position_in_chain == len(supervisors) - 1:
+                            all_decisions.append(decision)
                         continue
                     elif decision.decision == SupervisionDecisionType.MODIFY:
                         all_decisions.append(decision)
@@ -154,7 +174,10 @@ def supervise(
                 # Call the function with modified arguments
                 return func(*final_args, **final_kwargs)
             else:
-                return "The agent requested to execute a function but it was rejected by all supervisors.\n This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior. You should try something else!"
+                explanations = " ".join([f"Supervisor {idx}: Decision: {d.decision}, Explanation: {d.explanation} \n" for idx, d in enumerate(all_decisions)])
+                return (f"The agent requested to execute a function but it was rejected by some supervisors.\n"
+                        f"Chain Explanations: \n{explanations}\n"
+                        "This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior. You should try something else!")
         return wrapper
     return decorator
 

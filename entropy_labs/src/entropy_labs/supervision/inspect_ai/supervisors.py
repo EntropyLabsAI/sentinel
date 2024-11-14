@@ -1,5 +1,5 @@
 import logging
-from typing import List, Dict, Optional, Set, Any, Callable
+from typing import List, Dict, Optional, Set, Callable
 from inspect_ai.approval import Approval, Approver, approver
 from inspect_ai.solver import TaskState
 from inspect_ai.tool import ToolCall, ToolCallView
@@ -9,59 +9,18 @@ from uuid import UUID
 from entropy_labs.supervision.config import supervision_config
 from entropy_labs.supervision.config import SupervisionDecision, SupervisionDecisionType
 from functools import wraps
-
-# Helper functions
-def get_or_create_execution_id(run_id: UUID, tool_id: UUID, client: Client) -> Optional[UUID]:
-    from entropy_labs.api.sentinel_api_client_helper import create_execution, get_executions
-    from entropy_labs.sentinel_api_client.sentinel_api_client.models.status import Status
-    executions = get_executions(run_id, client)
-    if executions:
-        for execution in executions:
-            if execution.tool_id == tool_id and execution.run_id == run_id and execution.status == Status.PENDING:
-                return execution.id
-    return create_execution(tool_id, run_id, client)
-
-def get_supervisor_by_name(run_id: UUID, tool_id: UUID, supervisor_name: str, client: Client):
-    from entropy_labs.api.sentinel_api_client_helper import get_tool_supervisors
-    supervisors_chains = get_tool_supervisors(run_id, tool_id, client)
-    # Only one chain is supported with Inspect AI as of now
-    supervisors = supervisors_chains[0].supervisors
-    for supervisor in supervisors:
-        if supervisor.name == supervisor_name:
-            return supervisor
-    return None
-
-def send_supervision_request_wrapper(supervisor, supervision_context, execution_id, tool_id, call_arguments):
-    from entropy_labs.api.sentinel_api_client_helper import send_supervision_request
-    return send_supervision_request(
-        supervisor=supervisor,
-        supervision_context=supervision_context,
-        execution_id=execution_id,
-        tool_id=tool_id,
-        tool_args=[],
-        tool_kwargs=call_arguments
-    )
-
-def send_review_result_wrapper(review_id, execution_id, run_id, tool_id, supervisor_id, decision, client, call_arguments):
-    from entropy_labs.api.sentinel_api_client_helper import send_review_result
-    send_review_result(
-        review_id=review_id,
-        execution_id=execution_id,
-        run_id=run_id,
-        tool_id=tool_id,
-        supervisor_id=supervisor_id,
-        decision=decision,
-        client=client,
-        tool_args=[],  # TODO: If modified, send modified args and kwargs
-        tool_kwargs=call_arguments  # TODO: update for modified
-    )
+from entropy_labs.supervision.inspect_ai.utils import generate_tool_call_suggestions
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request import (
+    ToolRequest,
+)
+from entropy_labs.supervision.config import SupervisionContext
 
 def prepare_approval(decision: SupervisionDecision) -> Approval:
     from entropy_labs.supervision.common import _transform_entropy_labs_approval_to_inspect_ai_approval
     return _transform_entropy_labs_approval_to_inspect_ai_approval(decision)
 
-def get_tool_info(call: ToolCall, supervision_context):
-    entry = supervision_context.get_supervised_function_entry_by_name(call.function)
+def get_tool_info(call: ToolCall, supervision_context: SupervisionContext) -> tuple[UUID, List[str]]:
+    entry = supervision_context.get_supervised_function_entry(call.function)
     if entry:
         tool_id = entry['tool_id']
         ignored_attributes = entry['ignored_attributes']
@@ -70,65 +29,131 @@ def get_tool_info(call: ToolCall, supervision_context):
         raise Exception(f"Tool ID for function {call.function} not found in the registry.")
 
 # Decorator for common Entropy Sentinel API interactions
-def with_entropy_supervision(supervisor_name_param: Optional[str] = None):
+def with_entropy_supervision(supervisor_name_param: Optional[str] = None, n: Optional[int] = None):
+    """
+    Decorator for common Entropy Sentinel API interactions.
+    
+    Args:
+        supervisor_name_param: Name of the supervisor to use. If not provided, the name of the function will be used.
+        n: Number of tool call suggestions to generate for human approval.
+    """
     def decorator(approve_func: Callable):
         @wraps(approve_func)
         async def wrapper(
             message: str,
             call: ToolCall,
             view: ToolCallView,
-            state: Optional[TaskState] = None,
+            state: TaskState,
             **kwargs
         ) -> Approval:
             from entropy_labs.api.sentinel_api_client_helper import SupervisorType
+            from entropy_labs.api.sentinel_api_client_helper import send_supervision_request
+            from entropy_labs.sentinel_api_client.sentinel_api_client.models.arguments import Arguments
+            from entropy_labs.api.sentinel_api_client_helper import (
+                create_tool_request_group,
+                get_supervisor_chains_for_tool,
+                send_supervision_request,
+                send_supervision_result,
+                get_tool_request_group,
+                SupervisorType,
+            )
 
-            supervision_context = supervision_config.context
-            run_id = supervision_config.run_id
+            run_name = str(state.sample_id) #For inspect AI, this is the run_name
+            run = supervision_config.get_run_by_name(run_name)
+            if run is None:
+                raise Exception(f"Run with name {run_name} not found")
+            supervision_context = run.supervision_context
+            
+            supervision_context.inspect_ai_state = state
+            supervision_config.update_supervision_context_by_run_name(run.run_name, supervision_context)
+            
+            # add messages from task_state to context
+            
             client = supervision_config.client  # Get the Sentinel API client
-            if run_id is None:
-                raise Exception("Run ID is required to create a supervision request.")
 
             # Retrieve the tool_id from the registry
-            tool_id, _ = get_tool_info(call, supervision_context)
+            tool_id, ignored_attributes = get_tool_info(call, supervision_context)
+            
+            
+            
+            tool_requests = [ToolRequest(tool_id=tool_id, 
+                                         message=supervision_context.get_api_messages()[-1],
+                                         arguments=Arguments.from_dict(call.arguments),                                         task_state=supervision_context.to_task_state())]
+            
 
-            # Get or create request_group
-            execution_id = get_or_create_execution_id(run_id, tool_id, client)
-            if not execution_id:
-                raise Exception(f"Failed to get or create execution ID")
+            # Create ToolRequestGroup, we need to check first if the ToolRequestGroup for this run_id and tool_id exists
+            tool_request_group = get_tool_request_group(run.run_id, tool_id, client)
+            # Check if th tool request group finished
+            # TODO: WE NEED TO CHECK IF THE TOOL REQUEST GROUP IS FINISHED
+            
+            if not tool_request_group:
+                tool_request_group = create_tool_request_group(tool_id, tool_requests, client)
+                if not tool_request_group:
+                    raise Exception(f"Failed to create Tool Request Group")
 
-            # Supervisor name can be specified or use the name of the approve function
+            tool_requests = tool_request_group.tool_requests
+            
+            # Get the supervisor chains for the tool
+            supervisor_chains = get_supervisor_chains_for_tool(tool_id, client)
+            if not supervisor_chains:
+                print(f"No supervisors found for tool ID {tool_id}.")
+                return prepare_approval(SupervisionDecision(
+                    decision=SupervisionDecisionType.APPROVE,
+                    explanation="No supervisors configured. Approval granted."
+                ))
+            
+
+            # Find the supervisor by name
             supervisor_name = supervisor_name_param or approve_func.__name__
-            # Get the relevant supervisor for this function
-            supervisor = get_supervisor_by_name(run_id, tool_id, supervisor_name, client)
-            if supervisor is None or supervisor.id is None:
-                raise Exception(f"No supervisor found for function {call.function}")
+            supervisor_id = None
+            supervisor_chain_id = None
+            position_in_chain = None
+            for chain in supervisor_chains:
+                for idx, supervisor in enumerate(chain.supervisors):
+                    if supervisor.name == supervisor_name:
+                        supervisor_id = supervisor.id
+                        supervisor_chain_id = chain.chain_id
+                        position_in_chain = idx
+                        break
+                if supervisor_id:
+                    break
 
-            supervision_context.inspect_ai_state = state
-            review_id = send_supervision_request_wrapper(
-                supervisor, supervision_context, execution_id, tool_id, call.arguments
+            if not supervisor_id or not supervisor_chain_id:
+                raise Exception(f"No supervisor found with name '{supervisor_name}' for tool ID {tool_id}")
+            if position_in_chain is None:
+                raise Exception(f"Position in chain not found for supervisor {supervisor_name} in chain {supervisor_chain_id}")
+                
+
+            # Send supervision request
+            supervision_request_id = send_supervision_request(
+                supervisor_id=supervisor_id,
+                supervisor_chain_id=supervisor_chain_id,
+                request_group_id=tool_request_group.id,
+                position_in_chain=position_in_chain
             )
 
             # Call the specific approval logic
             decision = await approve_func(
                 message, call, view, state,
                 supervision_context=supervision_context,
-                review_id=review_id,
+                supervision_request_id=supervision_request_id,
                 client=client,
                 **kwargs
             )
-            print(f"Decision: {decision} for review ID: {review_id}")
+            print(f"Decision: {decision.decision} for supervision request ID: {supervision_request_id}")
 
             if supervisor.type != SupervisorType.HUMAN_SUPERVISOR:
                 # Send the decision to the API
-                send_review_result_wrapper(
-                    review_id,
-                    execution_id,
-                    run_id,
-                    tool_id,
-                    supervisor.id,
-                    decision,
-                    client,
-                    call.arguments
+                send_supervision_result(
+                    supervision_request_id=supervision_request_id,
+                    request_group_id=tool_request_group.id,
+                    tool_id=tool_id,
+                    supervisor_id=supervisor_id,
+                    decision=decision,
+                    client=client,
+                    tool_args=[],  # TODO: If modified, send modified args and kwargs
+                    tool_kwargs=call.arguments,
+                    tool_request=tool_requests[0]
                 )
 
             return prepare_approval(decision)
@@ -152,7 +177,7 @@ def bash_approver(
         view: ToolCallView,
         state: Optional[TaskState] = None,
         supervision_context=None,
-        review_id: Optional[UUID] = None,
+        supervision_request_id: Optional[UUID] = None,
         client: Optional[Client] = None,
     ) -> SupervisionDecision:
         """
@@ -190,7 +215,7 @@ def python_approver(
         view: ToolCallView,
         state: Optional[TaskState] = None,
         supervision_context=None,
-        review_id: Optional[UUID] = None,
+        supervision_request_id: Optional[UUID] = None,
         client: Optional[Client] = None,
     ) -> SupervisionDecision:
         """
@@ -225,14 +250,14 @@ def human_approver(
     n: int = 3,
     timeout: int = 300
 ) -> Approver:
-    @with_entropy_supervision(supervisor_name_param="human_approver")
+    @with_entropy_supervision(supervisor_name_param="human_approver", n=n)
     async def approve(
         message: str,
         call: ToolCall,
         view: ToolCallView,
         state: Optional[TaskState] = None,
         supervision_context=None,
-        review_id: Optional[UUID] = None,
+        supervision_request_id: Optional[UUID] = None,
         client: Optional[Client] = None,
     ) -> SupervisionDecision:
         """
@@ -244,19 +269,25 @@ def human_approver(
                 decision=SupervisionDecisionType.ESCALATE,
                 explanation="TaskState is required for this approver."
             )
-
-        logging.info(f"Generating {n} tool call suggestions for user review")
+            
+        # Handle n > 1 tool calls, generate suggestions
+        if n > 1:
+            # generate n-1 tool calls
+            last_messages, tool_options = await generate_tool_call_suggestions(state, n, call)
+            # last_messages = [state.messages[-1]] + last_messages
+            # tool_options = [tool_jsonable(call)] + tool_options
+            # TODO: Implement n > 1 logic here for human supervisor
 
         approval_decision = await human_supervisor_wrapper(
             task_state=state,
             call=call,
-            backend_api_endpoint=approval_api_endpoint,
             timeout=timeout,
             use_inspect_ai=True,
             n=n,
-            review_id=review_id,
+            supervision_request_id=supervision_request_id,
             client=client
         )
+        
         return approval_decision
     return approve
 
@@ -275,7 +306,7 @@ def llm_approver(
         view: ToolCallView,
         state: Optional[TaskState] = None,
         supervision_context=None,
-        review_id: Optional[UUID] = None,
+        supervision_request_id: Optional[UUID] = None,
         client: Optional[Client] = None,
     ) -> SupervisionDecision:
         """
@@ -300,7 +331,11 @@ def llm_approver(
         approval_decision = llm_supervisor_func(
             func=func,
             supervision_context=supervision_context,
-            **call.arguments
+            ignored_attributes=[],
+            tool_args=[],
+            tool_kwargs=call.arguments,
+            decision=None,
+            supervision_request_id=supervision_request_id
         )
         return approval_decision
     return approve

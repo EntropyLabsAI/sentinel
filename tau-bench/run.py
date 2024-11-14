@@ -18,12 +18,12 @@ from litellm import provider_list
 from tau_bench.envs.user import UserStrategy
 from entropy_labs.supervision.config import supervision_config
 from entropy_labs.sentinel_api_client.sentinel_api_client import Client
-from entropy_labs.api.project_registration import (
+from entropy_labs.api import (
     register_project,
     create_run,
     register_task,
+    register_tools_and_supervisors
 )
-from entropy_labs.api.sentinel_api_client_helper import register_tools_and_supervisors
 
 import pkgutil
 import importlib

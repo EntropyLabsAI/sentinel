@@ -93,8 +93,13 @@ ModifiedData:
         func_name = func.__qualname__
         func_description = str(func.__doc__) or "No description available."
         try:
-            func_implementation = inspect.getsource(func)
-        except OSError:
+            source_lines, _ = inspect.getsourcelines(func)
+            # Remove decorator lines before the function definition
+            func_def_index = next(
+                i for i, line in enumerate(source_lines) if line.lstrip().startswith('def ')
+            )
+            func_implementation = ''.join(source_lines[func_def_index:])
+        except (OSError, StopIteration):
             func_implementation = "Source code not available."
             
         # Prepare tool arguments string

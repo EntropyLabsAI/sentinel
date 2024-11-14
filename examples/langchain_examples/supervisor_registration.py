@@ -2,7 +2,7 @@ from entropy_labs.supervision.langchain.supervisors import human_supervisor
 from entropy_labs.supervision.supervisors import llm_supervisor
 from entropy_labs.supervision.langchain.logging import EntropyLabsCallbackHandler
 from entropy_labs.supervision import supervise
-from entropy_labs.api.project_registration import register_project, create_run, register_task
+from entropy_labs.api import register_project, create_run, register_task
 from entropy_labs.supervision.supervisors import Supervisor
 from langchain_openai import ChatOpenAI
 from langchain.tools import tool
