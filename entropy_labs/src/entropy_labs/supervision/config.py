@@ -368,8 +368,6 @@ class SupervisionConfig:
     # Project methods
     def add_project(self, project_name: str, project_id: UUID):
         """Add a new project."""
-        if project_name in self.projects:
-            raise ValueError(f"Project '{project_name}' already exists.")
         project = Project(project_id=project_id, project_name=project_name)
         self.projects[project_name] = project
         self.projects_by_id[project_id] = project  # Add to ID-based dict
@@ -388,8 +386,6 @@ class SupervisionConfig:
         project = self.get_project(project_name)
         if not project:
             raise ValueError(f"Project '{project_name}' does not exist.")
-        if task_name in project.tasks:
-            raise ValueError(f"Task '{task_name}' already exists under project '{project_name}'.")
         task = Task(task_id=task_id, task_name=task_name)
         project.tasks[task_name] = task
         self.tasks_by_id[task_id] = task  # Add to ID-based dict
@@ -412,8 +408,6 @@ class SupervisionConfig:
             task = self.get_task(project_name, task_name)
             if not task:
                 raise ValueError(f"Task '{task_name}' does not exist under project '{project_name}'.")
-            if run_name in task.runs:
-                raise ValueError(f"Run '{run_name}' already exists under task '{task_name}' in project '{project_name}'.")
 
             # Obtain a copy of the pending functions
             supervision_context = SupervisionContext(pending_functions=self.pending_supervised_functions)
