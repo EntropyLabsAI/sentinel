@@ -10,8 +10,6 @@ import {
 import ReviewRequestDisplay from '@/components/supervisor/review_request';
 import { HubStatsAccordion } from '../util/hub_stats';
 import { useConfig } from '@/contexts/config_context';
-import axios from 'axios';
-import { EyeIcon } from 'lucide-react';
 import { UUIDDisplay } from '../util/uuid_display';
 import { Supervisor } from '@/types';
 import JSONDisplay from '../util/json_display';
@@ -181,6 +179,7 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
             </ul>
           )}
         </div>
+
 
         {/* Main Content */}
         <div className="w-full pl-4 min-w-0">
