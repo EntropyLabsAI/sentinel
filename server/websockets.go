@@ -83,7 +83,7 @@ func (h *Hub) Run() {
 		case client := <-h.Unregister:
 			h.unregisterClient(client)
 		case supervisionRequest := <-h.ReviewChan:
-			fmt.Printf("Received request for supervision from ReviewChan: %v\n", supervisionRequest.Id)
+			// fmt.Printf("Received request for supervision from ReviewChan: %v\n", supervisionRequest.Id)
 			h.assignReview(supervisionRequest)
 		}
 	}
@@ -133,7 +133,7 @@ func (h *Hub) assignReview(supervisionRequest SupervisionRequest) {
 	// Attempt to assign the supervisor to a client
 	if !h.assignReviewToClient(supervisionRequest) {
 		// If no client is available, do nothing.
-		log.Printf("No available clients with capacity. SupervisionRequest.RequestId %s.", supervisionRequest.Id)
+		// log.Printf("No available clients with capacity. SupervisionRequest.RequestId %s.", supervisionRequest.Id)
 	}
 }
 

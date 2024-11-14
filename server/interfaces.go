@@ -41,6 +41,7 @@ type SupervisionStore interface {
 	GetExecutionFromChainId(ctx context.Context, chainId uuid.UUID) (*uuid.UUID, error)
 	GetChainExecution(ctx context.Context, executionId uuid.UUID) (*uuid.UUID, *uuid.UUID, error)
 	GetChainExecutionFromChainAndRequestGroup(ctx context.Context, chainId uuid.UUID, requestGroupId uuid.UUID) (*uuid.UUID, error)
+	GetChainExecutionsFromRequestGroup(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error)
 	GetChainExecutionState(ctx context.Context, executionId uuid.UUID) (*ChainExecutionState, error)
 }
 

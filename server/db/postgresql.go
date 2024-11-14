@@ -480,6 +480,30 @@ func (s *PostgresqlStore) GetToolRequest(ctx context.Context, id uuid.UUID) (*se
 	return &toolRequest, nil
 }
 
+func (s *PostgresqlStore) GetChainExecutionsFromRequestGroup(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {
+	query := `
+			SELECT id FROM chainexecution WHERE requestgroup_id = $1`
+
+	rows, err := s.db.QueryContext(ctx, query, id)
+	if err != nil {
+		return nil, fmt.Errorf("error getting chain executions from requestgroup ID: %w", err)
+	}
+	defer rows.Close()
+
+	ids := make([]uuid.UUID, 0)
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(
+			&id,
+		); err != nil {
+			return nil, fmt.Errorf("error scanning chain execution ID: %w", err)
+		}
+		ids = append(ids, id)
+	}
+
+	return ids, nil
+}
+
 func (s *PostgresqlStore) GetRequestGroup(ctx context.Context, id uuid.UUID) (*sentinel.ToolRequestGroup, error) {
 	query := `
 		SELECT tr.id, tr.tool_id, tr.arguments, tr.task_state, tr.requestgroup_id, m.role, m.content, rg.created_at
@@ -1346,11 +1370,11 @@ func (s *PostgresqlStore) GetSupervisionStatusesForChainExecution(ctx context.Co
 // GetChainExecutionSupervisionRequests gets all supervision requests for a specific chain execution
 func (s *PostgresqlStore) GetChainExecutionSupervisionRequests(ctx context.Context, chainExecutionId uuid.UUID) ([]sentinel.SupervisionRequest, error) {
 	query := `
-        SELECT sr.id, sr.supervisor_id, sr.chainexecution_id
+        SELECT sr.id, sr.supervisor_id, sr.chainexecution_id, position_in_chain
         FROM supervisionrequest sr
         JOIN chainexecution ce ON sr.chainexecution_id = ce.id
         WHERE ce.id = $1
-        ORDER BY sr.id`
+        ORDER BY sr.id ASC`
 
 	rows, err := s.db.QueryContext(ctx, query, chainExecutionId)
 	if err != nil {
@@ -1365,9 +1389,20 @@ func (s *PostgresqlStore) GetChainExecutionSupervisionRequests(ctx context.Conte
 			&request.Id,
 			&request.SupervisorId,
 			&request.ChainexecutionId,
+			&request.PositionInChain,
 		); err != nil {
 			return nil, fmt.Errorf("error scanning supervision request: %w", err)
 		}
+
+		status, err := s.GetSupervisionRequestStatus(ctx, *request.Id)
+		if err != nil {
+			return nil, fmt.Errorf("error trying to get request status during chain execution query: %w", err)
+		}
+
+		if status != nil {
+			request.Status = status
+		}
+
 		requests = append(requests, request)
 	}
 
@@ -1418,12 +1453,12 @@ func (s *PostgresqlStore) GetChainExecution(ctx context.Context, executionId uui
 // GetChainExecutionState returns the chain state for a given chain execution ID
 func (s *PostgresqlStore) GetChainExecutionState(ctx context.Context, executionId uuid.UUID) (*sentinel.ChainExecutionState, error) {
 	// First, get the chain execution record
-	fmt.Printf("getting chain execution state for execution ID: %s\n", executionId)
 	var chainExecution sentinel.ChainExecution
 	err := s.db.QueryRowContext(ctx, `
         SELECT id, requestgroup_id, chain_id, created_at
         FROM chainexecution
         WHERE id = $1
+				ORDER BY id ASC
     `, executionId).Scan(
 		&chainExecution.Id,
 		&chainExecution.RequestGroupId,
@@ -1437,15 +1472,11 @@ func (s *PostgresqlStore) GetChainExecutionState(ctx context.Context, executionI
 		return nil, fmt.Errorf("failed to get chain execution: %w", err)
 	}
 
-	fmt.Printf("chainExecution: %+v\n", chainExecution)
-
 	// Get the supervisor chain
 	supervisorChain, err := s.GetSupervisorChain(ctx, chainExecution.ChainId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get supervisor chain: %w", err)
 	}
-
-	fmt.Printf("supervisorChain: %+v\n", supervisorChain)
 
 	// Get all supervision requests for this chain execution
 	supervisionRequests, err := s.GetChainExecutionSupervisionRequests(ctx, chainExecution.Id)
@@ -1453,19 +1484,13 @@ func (s *PostgresqlStore) GetChainExecutionState(ctx context.Context, executionI
 		return nil, fmt.Errorf("failed to get supervision requests: %w", err)
 	}
 
-	fmt.Printf("requests: %+v\n", len(supervisionRequests))
-
 	// For each supervision request, get the latest status and result
 	var supervisionRequestStates []sentinel.SupervisionRequestState
 	for _, request := range supervisionRequests {
 		// Get the latest status
 		var status sentinel.SupervisionStatus
 		err := s.db.QueryRowContext(ctx, `
-            SELECT id, supervisionrequest_id, created_at, status
-            FROM supervisionrequest_status
-            WHERE supervisionrequest_id = $1
-            ORDER BY created_at DESC
-            LIMIT 1
+            SELECT id, supervisionrequest_id, created_at, status FROM supervisionrequest_status WHERE supervisionrequest_id = $1 ORDER BY created_at DESC LIMIT 1
         `, request.Id).Scan(
 			&status.Id,
 			&status.SupervisionRequestId,

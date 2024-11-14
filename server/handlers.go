@@ -811,6 +811,48 @@ func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Reques
 	respondJSON(w, reviewPayload)
 }
 
+type SupervisorResultPosition struct {
+	supervisor *Supervisor
+	result     *SupervisionResult
+	request    *SupervisionRequest
+	position   *int
+	status     *SupervisionStatus
+}
+
+func determineChainStatus(chainMap map[string]SupervisorResultPosition, totalSupervisors int) Status {
+	// If we have no supervision requests yet, the chain is pending
+	if len(chainMap) == 0 {
+		return Pending
+	}
+
+	// Find the last completed supervision in the chain
+	var lastCompletedPosition int = -1
+
+	for _, srp := range chainMap {
+		if srp.position != nil &&
+			srp.status != nil &&
+			srp.status.Status == Completed &&
+			srp.result != nil {
+			if *srp.position > lastCompletedPosition {
+				lastCompletedPosition = *srp.position
+			}
+		}
+	}
+
+	// If we found no completed supervisions, chain is pending
+	if lastCompletedPosition == -1 {
+		return Pending
+	}
+
+	// If the last completed supervision was the final supervisor in the chain
+	if lastCompletedPosition == totalSupervisors-1 {
+		return Completed
+	}
+
+	// If we're here, we have completed supervisions but haven't reached the end
+	return Pending
+}
+
 func apiGetRequestGroupStatusHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store Store) {
 	ctx := r.Context()
 
@@ -821,27 +863,62 @@ func apiGetRequestGroupStatusHandler(w http.ResponseWriter, r *http.Request, req
 		return
 	}
 
-	// Get the last statuus in the chain for each execution chain. This is the chain's status
+	fmt.Printf("Got these chain execution IDs for requestgroup_id %s: %v\n", requestGroupId.String(), chainExecutions)
+
+	// For every chain of supervisors associated with this request group, we need to check the status
 	executionStatuses := make([]Status, len(chainExecutions))
 
 	// Get the chain execution state for this request group
 	for _, execution := range chainExecutions {
-		state, err := store.GetChainExecutionState(ctx, *execution.Id)
+		state, err := store.GetChainExecutionState(ctx, execution)
 		if err != nil {
 			sendErrorResponse(w, http.StatusInternalServerError, "error getting request group", err.Error())
 			return
 		}
 
-		// Get the last status in the chain. This is our executionStatus
-		executionStatus := state.SupervisionRequests[len(state.SupervisionRequests)-1].Status.Status
-		executionStatuses = append(executionStatuses, executionStatus)
+		chainMap := map[string]SupervisorResultPosition{}
+
+		// Iterate over every supervisor in the chain
+		for _, supervisor := range state.Chain.Supervisors {
+			var req SupervisionRequest
+			var res SupervisionResult
+			var pos int
+			var sta SupervisionStatus
+			// Find the request that corresponds to this supervisor (if one exists)
+			for _, request := range state.SupervisionRequests {
+				if request.SupervisionRequest.SupervisorId == *supervisor.Id {
+					req = request.SupervisionRequest
+					pos = request.SupervisionRequest.PositionInChain
+					if request.Result != nil {
+						res = *request.Result
+					}
+					sta = request.Status
+				}
+			}
+
+			c := SupervisorResultPosition{
+				// supervisor,
+				nil,
+				&res,
+				&req,
+				&pos,
+				&sta,
+			}
+
+			chainMap[supervisor.Id.String()] = c
+		}
+
+		chainStatus := determineChainStatus(chainMap, len(state.Chain.Supervisors))
+
+		executionStatuses = append(executionStatuses, chainStatus)
 	}
 
-	// Using the slice of chain execution statuses, compute the group's status using
+	// Using the slice of chain execution statuses, compute the group's status
 	completed := computeStatus(executionStatuses)
 
 	groupStatus := Pending
-	if completed == true {
+
+	if completed {
 		groupStatus = Completed
 	}
 
@@ -852,14 +929,49 @@ func apiGetRequestGroupStatusHandler(w http.ResponseWriter, r *http.Request, req
 // If any status is not completed then it's either (failed, pending, assigned, timeout) which means
 // we have not finished processing
 func computeStatus(statuses []Status) bool {
-	completed := true
+	fmt.Printf("Statuses in compute status: %v\n", statuses)
+	fmt.Printf("number of statuses is: %d\n", len(statuses))
 
+	var none Status
+	var completedCount int64
 	for _, s := range statuses {
-		if s != Completed {
-			completed = false
-			break
+		if !(s == Completed || s == none) {
+			return false
+		}
+		if s == Completed {
+			completedCount++
 		}
 	}
 
-	return completed
+	return completedCount != 0
 }
+
+//
+// for i, sr := range state.SupervisionRequests {
+// fmt.Printf(">>> supervision requests: %v\n", sr.SupervisionRequest.Id)
+// fmt.Printf(">>> supervision requests: %v\n", sr.SupervisionRequest.PositionInChain)
+// if sr.SupervisionRequest.Status != nil {
+
+// 	fmt.Printf(">>> supervision requests: %v\n", sr.SupervisionRequest.Status.Status)
+// 	fmt.Printf(">>> supervision requests: %v\n", sr.SupervisionRequest.Status.CreatedAt)
+// }
+// fmt.Printf(">>> supervision requests: %v\n", sr.SupervisionRequest.SupervisorId)
+// fmt.Printf("---> Querying status for supervision request: %s\n", sr.SupervisionRequest.Id)
+// fmt.Printf("---> supervisionRequest %d latest status: %s (time %s)\n", i, sr.Status.Status, sr.Status.CreatedAt.String())
+// 		if sr.SupervisionRequest.Status != nil {
+// 			chainMap[sr.SupervisionRequest.PositionInChain] = sr.SupervisionRequest.Status.Status
+// 		} else {
+// 			chainMap[sr.SupervisionRequest.PositionInChain] = none
+// 		}
+
+// 		if i > x {
+// 			x = i
+// 		}
+// 		fmt.Printf("chainMap is now %v\n", chainMap)
+// 	}
+
+// 	// Get the last status in the chain. This is our executionStatus
+// 	lastStatus := chainMap[x]
+// 	executionStatuses = append(executionStatuses, lastStatus)
+// 	fmt.Printf("-> Execution state for %s: %s\n", execution.String(), lastStatus)
+// }

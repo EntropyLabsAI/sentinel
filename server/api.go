@@ -209,6 +209,11 @@ func (s Server) GetSupervisionReviewPayload(w http.ResponseWriter, r *http.Reque
 	apiGetSupervisionReviewPayloadHandler(w, r, supervisionRequestId, s.Store)
 }
 
+// GetRequestGroupStatus
+func (s Server) GetRequestGroupStatus(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID) {
+	apiGetRequestGroupStatusHandler(w, r, requestGroupId, s.Store)
+}
+
 func enableCorsMiddleware(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Set CORS headers
