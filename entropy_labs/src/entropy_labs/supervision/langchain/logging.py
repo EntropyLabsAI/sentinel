@@ -14,7 +14,7 @@ import inspect
 from entropy_labs.supervision.config import supervision_config
 
 class EntropyLabsCallbackHandler(BaseCallbackHandler):
-    def __init__(self, tools: List[BaseTool], log_directory=".logs/langchain", single_log_file=False, log_filename=None) -> None:
+    def __init__(self, tools: List[BaseTool], log_directory=".logs/langchain", single_log_file=False, log_filename=None, run_id: Optional[UUID] = None) -> None:
         super().__init__()
         self.raise_error = True
         self.run_inline = True
@@ -37,6 +37,8 @@ class EntropyLabsCallbackHandler(BaseCallbackHandler):
         self.trace_logs: Dict[UUID, Any] = {}
         # Map of run_id to trace_id
         self.run_trace_ids: Dict[UUID, UUID] = {}
+        self.run_id = run_id
+        
 
     def _get_log_file(self, trace_id: UUID):
         if self.single_log_file:

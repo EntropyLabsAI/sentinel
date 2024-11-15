@@ -1,4 +1,5 @@
 from typing import Any, Callable, Dict, List, Optional, Literal
+from entropy_labs.sentinel_api_client.sentinel_api_client.types import UNSET
 from enum import Enum
 import random
 import json
@@ -6,10 +7,28 @@ from pydantic import BaseModel, Field
 from entropy_labs.mocking.policies import MockPolicy
 from threading import Lock
 from inspect_ai.solver import TaskState
-from inspect_ai.tool import ToolCall
-from inspect_ai.model import ChatMessage, ChatMessageAssistant
+from inspect_ai.tool import ToolCall, Tool
+from inspect_ai.model import ChatMessage, ChatMessageAssistant, ChatMessageTool, ModelOutput, ChatMessageUser, ChatMessageSystem
+from uuid import UUID, uuid4
+from inspect_ai._util.content import Content, ContentText
+from entropy_labs.supervision.langchain.utils import extract_messages_from_events
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.task_state import TaskState as APITaskState
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.message import Message
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_call import ToolCall as ApiToolCall
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_call_arguments import ToolCallArguments
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool import Tool as ApiTool
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.output import Output as ApiOutput
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.message import Message
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.assistant_message import AssistantMessage
+import json
+import copy
+
 
 PREFERRED_LLM_MODEL = "gpt-4o"
+DEFAULT_RUN_NAME = "default"
+
+
+
 
 class SupervisionDecisionType(str, Enum):
     APPROVE = "approve"
@@ -18,22 +37,41 @@ class SupervisionDecisionType(str, Enum):
     TERMINATE = "terminate"
     MODIFY = "modify"
 
+class ModifiedData(BaseModel):
+    tool_args: Optional[List[Any]] = None
+    """Modified positional arguments for the tool/function."""
+
+    tool_kwargs: Optional[Dict[str, Any]] = None
+    """Modified keyword arguments for the tool/function."""
+    
+    original_inspect_ai_call: Optional[ToolCall] = None
+    """Original InspectAI call that was modified."""
+    
+    #TODO: Update to support changing the tool call itself
+
 class SupervisionDecision(BaseModel):
     decision: SupervisionDecisionType
     """Supervision decision."""
 
-    modified: Any = Field(default=None)
+    modified: Optional[ModifiedData] = Field(default=None)
     """Modified data for decision 'modify'."""
 
     explanation: Optional[str] = Field(default=None)
     """Explanation for decision."""
 
 class SupervisionContext:
-    def __init__(self):
+    """
+    Context for supervision decisions. This is used to store the context of the currently active project including all tasks/runs.
+    """
+    def __init__(self, pending_functions: Optional[Dict[str, Dict[str, Any]]] = None):
         self.langchain_events: List[dict] = []  # List to store all logged events
         self.lock = Lock()  # Ensure thread safety
         self.metadata: Dict[str, Any] = {}
         self.inspect_ai_state: Optional[TaskState] = None
+        self.openai_messages: List[Dict[str, Any]] = []
+        self.supervised_functions_registry: Dict[str, Dict[str, Any]] = pending_functions or {}
+        self.registered_supervisors: Dict[str, UUID] = {}
+        self.local_supervisors_by_id: Dict[UUID, Callable] = {}
 
     def add_event(self, event: dict):
         with self.lock:
@@ -57,6 +95,11 @@ class SupervisionContext:
             if self.inspect_ai_state:
                 inspect_ai_text = self._describe_inspect_ai_state()
                 texts.append(inspect_ai_text)
+                
+            # Process OpenAI messages if any
+            if self.openai_messages:
+                openai_text = self._describe_openai_messages()
+                texts.append(openai_text)
 
         return "\n\n".join(texts)
 
@@ -116,6 +159,153 @@ class SupervisionContext:
         )
         return description
 
+    def _describe_openai_messages(self) -> str:
+        """Converts the OpenAI messages into a textual description."""
+        messages = [convert_openai_message_to_chat_message(msg) for msg in self.openai_messages]
+        texts = []
+        texts.append("## OpenAI Messages:")
+        for message in messages:
+            message_text = self._describe_chat_message(message)
+            texts.append(message_text)
+        return "\n\n".join(texts)
+
+    # Methods to manage the supervised functions registry
+    def add_supervised_function(
+        self,
+        func: Callable,
+        supervision_functions: Optional[List[List[Callable]]] = None,
+        ignored_attributes: Optional[List[str]] = None,
+    ):
+        func_name = func.__qualname__
+        with self.lock:
+            if func_name in self.supervised_functions_registry:
+                print(f"Function '{func_name}' is already registered in context. Skipping.")
+                return  # Skip adding the duplicate
+
+            self.supervised_functions_registry[func_name] = {
+                'supervision_functions': supervision_functions or [],
+                'ignored_attributes': ignored_attributes or [],
+                'function': func,
+            }
+            print(f"Registered function '{func_name}' in supervision context")
+
+    def get_supervised_function_entry(self, func_name: str) -> Optional[Dict[str, Any]]:
+        with self.lock:
+            return self.supervised_functions_registry.get(func_name)
+
+    def update_tool_id(self, func: Callable, tool_id: UUID):
+        with self.lock:
+            if func.__qualname__ in self.supervised_functions_registry:
+                self.supervised_functions_registry[func.__qualname__]['tool_id'] = tool_id
+                print(f"Updated tool ID for '{func.__qualname__}' to {tool_id}")
+
+    def add_run_id_to_supervised_function(self, func: Callable, run_id: UUID):
+        with self.lock:
+            if func.__qualname__ in self.supervised_functions_registry:
+                self.supervised_functions_registry[func.__qualname__]['run_id'] = run_id
+                print(f"Updated run ID for '{func.__qualname__}' to {run_id}")
+
+    def add_supervisor_id(self, supervisor_name: str, supervisor_id: UUID):
+        with self.lock:
+            self.registered_supervisors[supervisor_name] = supervisor_id
+            print(f"Locally registered supervisor '{supervisor_name}' with ID: {supervisor_id}")
+
+    def get_supervisor_id(self, supervisor_name: str) -> Optional[UUID]:
+        with self.lock:
+            return self.registered_supervisors.get(supervisor_name)
+
+    def to_task_state(self) -> APITaskState:
+        """Converts the supervision context into the API client's TaskState model."""
+        if self.inspect_ai_state:
+            return convert_task_state(self.inspect_ai_state)
+        elif self.openai_messages: #TODO: this is when user uses directly openai messages, update
+            # Convert OpenAI messages to TaskState
+            messages = [convert_openai_message_to_chat_message(msg) for msg in self.openai_messages]
+            task_state = TaskState(
+                model='model_name',  # TODO: Update with actual model name
+                sample_id=str(uuid4()),
+                epoch=1,
+                input=messages[0].text if messages else "",
+                messages=messages,
+                completed=False,
+                metadata={}
+            )
+            return convert_task_state(task_state)
+        elif self.langchain_events:
+            messages = extract_messages_from_events(self.langchain_events)
+
+            # Create your custom TaskState object
+            # TODO: Initialize direct API TaskState ?
+            task_state = TaskState(
+                model='model_name',  # TODO: Update with actual model name
+                sample_id=str(uuid4()),
+                epoch=1,
+                input=messages[0].content if messages else "",
+                messages=messages,
+                completed=False,
+                metadata={}
+            )
+            return convert_task_state(task_state)
+        else:
+            # Handle case when no messages are available
+            return APITaskState(
+                messages=[],
+                tools=[],
+                output=None,
+                completed=False,
+                tool_choice=None,
+            )
+        
+    def get_messages(self) -> List[ChatMessage]:
+        """Get the messages from the supervision context as ChatMessage objects."""
+        if self.openai_messages:
+            # Convert OpenAI messages to ChatMessage objects
+            return [convert_openai_message_to_chat_message(msg) for msg in self.openai_messages]
+        elif self.langchain_events:
+            # Extract messages from LangChain events
+            return extract_messages_from_events(self.langchain_events)
+        elif self.inspect_ai_state:
+            # Use messages from inspect_ai_state
+            return self.inspect_ai_state.messages
+        else:
+            # No messages available
+            return []
+        
+    def get_api_messages(self) -> List[AssistantMessage]:
+        """Get the messages from the supervision context in the API client's Message model."""
+        return [convert_message(msg) for msg in self.get_messages()]
+        
+    def update_openai_messages(self, messages: List[Dict[str, Any]]):
+        """Updates the context with a list of OpenAI messages."""
+        with self.lock:
+            self.openai_messages = messages.copy()
+    def add_local_supervisor(self, supervisor_id: UUID, supervisor_func: Callable, supervisor_name: str):
+        """Add a supervisor function to the config."""
+        self.local_supervisors_by_id[supervisor_id] = supervisor_func
+
+    def get_supervisor_by_id(self, supervisor_id: UUID) -> Optional[Callable]:
+        """Retrieve a supervisor function by its ID."""
+        return self.local_supervisors_by_id.get(supervisor_id)
+
+class Run(BaseModel):
+    run_id: UUID
+    run_name: str
+    supervision_context: SupervisionContext = Field(default_factory=SupervisionContext)
+
+    class Config:
+        arbitrary_types_allowed = True
+
+class Task(BaseModel):
+    task_id: UUID
+    task_name: str
+    runs: Dict[str, Run] = Field(default_factory=dict)
+
+
+class Project(BaseModel):
+    project_id: UUID
+    project_name: str
+    tasks: Dict[str, Task] = Field(default_factory=dict)
+
 class SupervisionConfig:
     def __init__(self):
         self.global_supervision_functions: List[Callable] = []
@@ -123,40 +313,20 @@ class SupervisionConfig:
         self.override_local_policy = False
         self.mock_responses: Dict[str, List[Any]] = {}
         self.previous_calls: Dict[str, List[Any]] = {}
-        self.function_supervisors: Dict[str, List[Callable]] = {}  # Function-specific supervision chains
         self.llm = None
-        self.context = SupervisionContext()
+        self.client = None  # Sentinel API client
+
+        # Hierarchical projects structure
+        self.projects: Dict[str, Project] = {}  # Mapping from project_name to Project
+        self.projects_by_id: Dict[UUID, Project] = {}
+        self.tasks_by_id: Dict[UUID, Task] = {}
+        self.runs_by_id: Dict[UUID, Run] = {}
+        self.runs_by_name: Dict[str, List[Run]] = {}  # New mapping for runs by name
+        self.lock = Lock()  # For thread safety
+        self.pending_supervised_functions: Dict[str, Dict[str, Any]] = {}
 
     def set_global_supervision_functions(self, functions: List[Callable]):
         self.global_supervision_functions = functions
-
-    def set_function_supervision_functions(self, function_name: str, functions: List[Callable]):
-        self.function_supervisors[function_name] = functions
-
-    def get_supervision_functions(self, function_name: str, local_supervision: Optional[List[Callable]] = None) -> List[Callable]:
-        supervisors = []
-        # Add local supervision functions specified in the decorator
-        if local_supervision:
-            supervisors.extend(local_supervision)
-        
-        # Add function-specific supervision functions
-        local_supervisors = self.function_supervisors.get(function_name, [])
-        for supervisor in local_supervisors:
-            if supervisor not in supervisors:
-                supervisors.append(supervisor)
-        
-        # Add global supervision functions
-        for supervisor in self.global_supervision_functions:
-            if supervisor not in supervisors:
-                supervisors.append(supervisor)
-        
-        return supervisors
-
-    def add_function_supervisors(self, function_name: str, supervisors: List[Callable]):
-        """Add supervisor functions to the supervision chain of a specific function."""
-        if function_name not in self.function_supervisors:
-            self.function_supervisors[function_name] = []
-        self.function_supervisors[function_name].extend(supervisors)
 
     def set_llm(self, llm):
         self.llm = llm
@@ -195,15 +365,211 @@ class SupervisionConfig:
         else:
             raise ValueError(f"No mock responses available for function: {function_name}")
 
+    # Project methods
+    def add_project(self, project_name: str, project_id: UUID):
+        """Add a new project."""
+        project = Project(project_id=project_id, project_name=project_name)
+        self.projects[project_name] = project
+        self.projects_by_id[project_id] = project  # Add to ID-based dict
+
+    def get_project(self, project_name: str) -> Optional[Project]:
+        """Retrieve a project by its name."""
+        return self.projects.get(project_name)
+
+    def get_project_by_id(self, project_id: UUID) -> Optional[Project]:
+        """Retrieve a project by its ID."""
+        return self.projects_by_id.get(project_id)
+
+    # Task methods
+    def add_task(self, project_name: str, task_name: str, task_id: UUID):
+        """Add a new task to a project."""
+        project = self.get_project(project_name)
+        if not project:
+            raise ValueError(f"Project '{project_name}' does not exist.")
+        task = Task(task_id=task_id, task_name=task_name)
+        project.tasks[task_name] = task
+        self.tasks_by_id[task_id] = task  # Add to ID-based dict
+
+    def get_task(self, project_name: str, task_name: str) -> Optional[Task]:
+        """Retrieve a task by its name under a project."""
+        project = self.get_project(project_name)
+        if project:
+            return project.tasks.get(task_name)
+        return None
+
+    def get_task_by_id(self, task_id: UUID) -> Optional[Task]:
+        """Retrieve a task by its ID."""
+        return self.tasks_by_id.get(task_id)
+
+    # Run methods
+    def add_run(self, project_name: str, task_name: str, run_name: str, run_id: UUID):
+        """Add a new run to a task under a project."""
+        with self.lock:
+            task = self.get_task(project_name, task_name)
+            if not task:
+                raise ValueError(f"Task '{task_name}' does not exist under project '{project_name}'.")
+
+            # Obtain a copy of the pending functions
+            supervision_context = SupervisionContext(pending_functions=self.pending_supervised_functions)
+            print("Initialized supervised functions registry with pending functions.")
+
+            # Optionally, clear the pending supervised functions
+            # self.clear_pending_supervised_functions()
+
+            run = Run(run_id=run_id, run_name=run_name, supervision_context=supervision_context)
+            task.runs[run_name] = run
+            self.runs_by_id[run_id] = run
+
+            # Add to name-based dict
+            if run_name not in self.runs_by_name:
+                self.runs_by_name[run_name] = []
+            self.runs_by_name[run_name].append(run)
+
+    def get_run(self, project_name: str, task_name: str, run_name: str) -> Optional[Run]:
+        """Retrieve a run by its name under a task and project."""
+        task = self.get_task(project_name, task_name)
+        if task:
+            return task.runs.get(run_name)
+        return None
+
+    def get_run_by_id(self, run_id: UUID) -> Optional[Run]:
+        """Retrieve a run by its ID."""
+        return self.runs_by_id.get(run_id)
+
+    def get_run_by_name(self, run_name: str) -> Optional[Run]:
+        """Retrieve a run by its name across all projects and tasks."""
+        for run in self.runs_by_name.get(run_name, []):
+            return run
+        return None
+    
+    def get_all_runs(self) -> List[Run]:
+        """Retrieve all runs across all projects and tasks."""
+        return list(self.runs_by_id.values())
+
+    # Optional editing methods
+    def update_project_id(self, project_name: str, new_project_id: UUID):
+        """Update the project ID for a given project name."""
+        project = self.projects.get(project_name)
+        if project:
+            project.project_id = new_project_id
+        else:
+            raise ValueError(f"Project '{project_name}' does not exist.")
+
+    def update_task_id(self, project_name: str, task_name: str, new_task_id: UUID):
+        """Update the task ID for a given task name under a project."""
+        project = self.projects.get(project_name)
+        if project:
+            task = project.tasks.get(task_name)
+            if task:
+                task.task_id = new_task_id
+            else:
+                raise ValueError(f"Task '{task_name}' does not exist under project '{project_name}'.")
+        else:
+            raise ValueError(f"Project '{project_name}' does not exist.")
+
+    def update_run_id(self, project_name: str, task_name: str, run_name: str, new_run_id: UUID):
+        """Update the run ID for a given run name under a task and project."""
+        project = self.projects.get(project_name)
+        if project:
+            task = project.tasks.get(task_name)
+            if task:
+                if run_name in task.runs:
+                    task.runs[run_name].run_id = new_run_id
+                else:
+                    raise ValueError(f"Run '{run_name}' does not exist under task '{task_name}' and project '{project_name}'.")
+            else:
+                raise ValueError(f"Task '{task_name}' does not exist under project '{project_name}'.")
+        else:
+            raise ValueError(f"Project '{project_name}' does not exist.")
+
+    def update_supervision_context_by_run_id(self, run_id: UUID, new_supervision_context: SupervisionContext):
+        """Update the supervision context for a run specified by run_id."""
+        run = self.get_run_by_id(run_id)
+        if run:
+            run.supervision_context = new_supervision_context
+            print(f"Updated supervision context for run_id {run_id}")
+        else:
+            raise ValueError(f"No run found with run_id {run_id}")
+
+    def update_supervision_context_by_run_name(
+        self,
+        run_name: str,
+        new_supervision_context: SupervisionContext,
+    ):
+        """Update the supervision context for a run specified by run_name."""
+        with self.lock:
+            runs = self.runs_by_name.get(run_name)
+            if runs:
+                if len(runs) == 1:
+                    run = runs[0]
+                else:
+                    raise ValueError(
+                        f"Multiple runs found with run_name '{run_name}'. Please specify project and task names."
+                    )
+                run.supervision_context = new_supervision_context
+                print(f"Updated supervision context for run_name '{run_name}'")
+            else:
+                raise ValueError(f"No run found with run_name '{run_name}'")
+
+    def add_supervised_function_to_all_runs(
+        self,
+        func: Callable,
+        supervision_functions: List[List[Callable]] = [],
+        ignored_attributes: List[str] = [],
+    ):
+        """
+        Add supervised functions to the supervision context of each run in the supervision configuration.
+        """
+        with self.lock:
+            for run in self.get_all_runs():
+                run.supervision_context.add_supervised_function(func, supervision_functions, ignored_attributes)
+                print(f"Added supervised function '{func.__qualname__}' to run '{run.run_name}'")
+    # Method to register supervised functions temporarily
+    def register_pending_supervised_function(
+        self,
+        func: Callable,
+        supervision_functions: Optional[List[List[Callable]]] = None,
+        ignored_attributes: Optional[List[str]] = None,
+    ):
+        func_name = func.__qualname__
+        with self.lock:
+            if func_name in self.pending_supervised_functions:
+                print(f"Function '{func_name}' is already pending registration. Skipping.")
+                return  # Skip adding the duplicate
+
+            self.pending_supervised_functions[func_name] = {
+                'supervision_functions': supervision_functions or [],
+                'ignored_attributes': ignored_attributes or [],
+                'function': func,
+            }
+            print(f"Registered pending supervised function '{func_name}'")
+
+    def get_pending_supervised_functions(self) -> Dict[str, Dict[str, Any]]:
+        """Returns a deep copy of the pending supervised functions."""
+        with self.lock:
+            return copy.deepcopy(self.pending_supervised_functions)
+
+    # Optionally, clear the pending supervised functions if needed
+    def clear_pending_supervised_functions(self):
+        with self.lock:
+            self.pending_supervised_functions.clear()
+            print("Cleared pending supervised functions")
+
 # Global instance of SupervisionConfig
-# TODO: Update this
 supervision_config = SupervisionConfig()
+
+def get_supervision_context(run_id: UUID, project_name: Optional[str] = None, task_name: Optional[str] = None, run_name: Optional[str] = None) -> SupervisionContext:
+    if project_name and task_name and run_name:
+        run = supervision_config.get_run(project_name, task_name, run_name)
+    else:
+        run = supervision_config.get_run_by_id(run_id)
+    if run:
+        return run.supervision_context
+    else:
+        raise ValueError(f"No run found with run_id {run_id}")
 
 def set_global_supervision_functions(functions: List[Callable]):
     supervision_config.set_global_supervision_functions(functions)
-
-def set_function_supervision_functions(function_name: str, functions: List[Callable]):
-    supervision_config.set_function_supervision_functions(function_name, functions)
 
 def set_global_mock_policy(mock_policy: MockPolicy, override_local_policy: bool = False):
     supervision_config.set_mock_policy(mock_policy)
@@ -213,3 +579,149 @@ def setup_sample_from_previous_calls(log_file_path: str):
     """Set up the SAMPLE_FROM_PREVIOUS_CALLS mock policy."""
     supervision_config.load_previous_execution_log(log_file_path)
     set_global_mock_policy(MockPolicy.SAMPLE_PREVIOUS_CALLS, override_local_policy=True)
+
+def convert_task_state(task_state: TaskState) -> APITaskState:
+    """
+    Converts Inspect AI TaskState object into the Sentinel API client's TaskState model.
+    They should be identical when serialized.
+    """
+    from entropy_labs.sentinel_api_client.sentinel_api_client.types import UNSET
+    from entropy_labs.sentinel_api_client.sentinel_api_client.models.task_state import TaskState as APITaskState
+
+    # Convert messages
+    messages = [convert_message(msg) for msg in task_state.messages]
+
+    # Convert tools - we can't do this because Inspect AI doesn't have tool names    
+    tools: list[ApiTool] = []
+
+    # Convert output
+    output = convert_output(task_state.output)
+
+    # Convert tool_choice
+    tool_choice = UNSET
+
+    return APITaskState(
+        messages=messages,
+        tools=tools,
+        output=output,
+        completed=False,
+        tool_choice=tool_choice,
+    )
+
+def convert_message(msg: ChatMessage) -> AssistantMessage:
+    """
+    Converts a ChatMessage to a AssistantMessage in the API model.
+    """
+
+    # Convert content to a string
+    if isinstance(msg.content, str):
+        content_str = msg.content
+    elif isinstance(msg.content, list):
+        content_str = "\n".join([convert_content(content) for content in msg.content])
+    else:
+        content_str = ""
+        
+    if isinstance(msg, ChatMessageTool):
+        tool_call_id = msg.tool_call_id
+        function = msg.function
+        content_str = f"Function {function} has been executed with result: {msg.content}."
+        if msg.error:
+            content_str = f"Function {function} has been executed with error: {msg.error}"
+    else:
+        tool_call_id = UNSET
+        function = UNSET
+
+    if isinstance(msg, ChatMessageAssistant) and msg.tool_calls:
+        tool_calls = [convert_tool_call(tool_call) for tool_call in msg.tool_calls]
+    else:
+        tool_calls = UNSET
+
+    return AssistantMessage( 
+        source=msg.source,
+        role=msg.role if msg.role != 'tool' else 'assistant',
+        content=content_str,
+        tool_calls=tool_calls,
+        # tool_call_id=tool_call_id,
+        # function=function
+    )
+
+
+def convert_content(content: Content) -> str:
+    # Convert Content to a string representation
+    if isinstance(content, ContentText):
+        return content.text
+    elif hasattr(content, 'data_url'):
+        return content.data_url  # For images or other content types
+    else:
+        return str(content)
+
+def convert_tool_call(tool_call: ToolCall) -> ApiToolCall:
+    return ApiToolCall(
+        id=tool_call.id,
+        function=tool_call.function,
+        arguments=ToolCallArguments.from_dict(tool_call.arguments),
+        type=tool_call.type
+    )
+
+
+def convert_output(output: ModelOutput) -> ApiOutput:
+    from entropy_labs.sentinel_api_client.sentinel_api_client.models.output import Output as ApiOutput
+
+    return ApiOutput(
+        model=output.model if output.model else UNSET,
+        choices=UNSET, #TODO: Implement if needed
+        usage=UNSET
+    )
+
+def convert_openai_message_to_chat_message(openai_msg: Dict[str, Any]) -> ChatMessage:
+    """
+    Converts an OpenAI message dict to a ChatMessage object.
+    """
+    role = openai_msg.get('role')
+    content = openai_msg.get('content', '')
+    tool_calls = openai_msg.get('tool_calls', None)
+
+    # Ensure content is not None
+    if content is None:
+        content = ''
+
+    if role == 'assistant':
+        # Handle assistant message with potential tool calls
+        if tool_calls:
+            # Convert function call to ToolCall
+            tool_calls = [convert_openai_tool_call(tool_call) for tool_call in tool_calls]
+            return ChatMessageAssistant(content=content, tool_calls=tool_calls)
+        else:
+            return ChatMessageAssistant(content=content)
+    elif role == 'user':
+        return ChatMessageUser(content=content)
+    elif role == 'system':
+        return ChatMessageSystem(content=content)
+    elif role == 'tool':
+        # Handle tool messages
+        name = openai_msg.get('name')
+        tool_call_id = openai_msg.get('tool_call_id')
+        return ChatMessageTool(content=content, function=name, tool_call_id=tool_call_id)
+    else:
+        # Default handling as user message
+        return ChatMessageUser(content=content)
+
+def convert_openai_tool_call(tool_call_dict: Dict[str, Any]) -> ToolCall:
+    """
+    Converts an OpenAI tool call dict to a ToolCall object.
+    """
+    id_ = tool_call_dict.get('id')
+    function = tool_call_dict.get('function', {})
+    function_name = function.get('name')
+    arguments = function.get('arguments', {})
+    
+    if isinstance(arguments, str):
+        try:
+            arguments = json.loads(arguments)
+        except json.JSONDecodeError:
+            arguments = {}
+    
+    type_ = tool_call_dict.get('type', '')
+
+    return ToolCall(id=id_, function=function_name, arguments=arguments, type=type_)
+

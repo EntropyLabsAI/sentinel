@@ -20,13 +20,16 @@ do
     tmux select-layout -t $SESSION_NAME tiled > /dev/null
 done
 
+# Create a random number task to run from 1 to 100
+
 # Send the command to run the Go program with each task
 for ((i=0; i<$PANE_COUNT; i++))
 do
-    TASK="${TASKS[$i]}"
+    TASK=$(shuf -i 1-100 -n 1)
     # Escape double quotes in the task string
     ESCAPED_TASK=$(printf '%q' "$TASK")
-    tmux send-keys -t $SESSION_NAME.$i "inspect eval run.py --approval $APPROVAL_YAML --model $MODEL --trace" C-m
+    tmux send-keys -t $SESSION_NAME.$i "python tau-bench/run.py --task-ids $TASK" C-m
+    #tmux send-keys -t $SESSION_NAME.$i "inspect eval run.py --approval $APPROVAL_YAML --model $MODEL --trace" C-m
     
     # Print the selected file for debugging
     echo "Pane $i: Selected approval file: $APPROVAL_YAML"

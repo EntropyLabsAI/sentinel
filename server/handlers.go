@@ -6,411 +6,912 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
-	"regexp"
-	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sashabaranov/go-openai"
 )
 
-var projects = &sync.Map{}
-var completedHumanReviews = &sync.Map{}
-var completedLLMReviews = &sync.Map{}
+// respondJSON writes a JSON response with status 200 OK
+func respondJSON(w http.ResponseWriter, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
 
-// reviewChannels maps a reviews ID to the channel configured to receive the reviewer's response
-var reviewChannels = &sync.Map{}
-
-// Timeout duration for waiting for the reviewer to respond
-const reviewTimeout = 1440 * time.Minute
-
-// serveWs upgrades the HTTP connection to a WebSocket connection and registers the client with the hub
-func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println("upgrade error:", err)
-		return
+	// If the header is not set, set it to StatusOK
+	if w.Header().Get("Content-Type") == "" {
+		w.WriteHeader(http.StatusOK)
 	}
 
-	client := &Client{
-		Hub:  hub,
-		Conn: conn,
-		Send: make(chan Review),
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-	hub.Register <- client
-
-	go client.WritePump()
-	go client.ReadPump()
 }
 
-// apiRegisterProjectHandler handles the POST /api/project/register endpoint
-func apiRegisterProjectHandler(w http.ResponseWriter, r *http.Request) {
+func apiCreateProjectHandler(w http.ResponseWriter, r *http.Request, store ProjectStore) {
+	ctx := r.Context()
+
 	log.Printf("received new project registration request")
-	var request RegisterProjectRequest
+	var request struct {
+		Name string `json:"name"`
+	}
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	existingProject, err := store.GetProjectFromName(ctx, request.Name)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error getting project: %v", err.Error()), http.StatusInternalServerError)
+		return
+	}
+
+	if existingProject != nil {
+		w.WriteHeader(http.StatusOK)
+		respondJSON(w, existingProject.Id.String())
 		return
 	}
 
 	// Generate a new Project ID
-	id := uuid.New().String()
+	id := uuid.New()
 
 	// Create the Project struct
 	project := Project{
-		Id:    id,
-		Name:  request.Name,
-		Tools: request.Tools,
+		Id:        id,
+		Name:      request.Name,
+		CreatedAt: time.Now(),
 	}
 
 	// Store the project in the global projects map
-	projects.Store(id, project)
-
-	// Prepare the response
-	response := map[string]string{
-		"id": id,
+	err = store.CreateProject(ctx, project)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to register project, %v", err), http.StatusInternalServerError)
+		return
 	}
 
 	// Send the response
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(response)
+	w.WriteHeader(http.StatusCreated)
+	respondJSON(w, id.String())
+}
+
+func apiCreateProjectRunHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store RunStore) {
+	ctx := r.Context()
+
+	log.Printf("received new run request for project ID: %s", id)
+
+	run := Run{
+		Id:        uuid.Nil,
+		ProjectId: id,
+		CreatedAt: time.Now(),
+	}
+
+	runID, err := store.CreateRun(ctx, run)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	log.Printf("created run with ID: %s", run.Id)
+
+	w.WriteHeader(http.StatusCreated)
+	respondJSON(w, runID)
 }
 
-// apiReviewHandler receives review requests via the HTTP API
-func apiReviewHandler(hub *Hub, w http.ResponseWriter, r *http.Request) {
-	var request ReviewRequest
+func apiGetProjectRunsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store RunStore) {
+	ctx := r.Context()
 
+	runs, err := store.GetProjectRuns(ctx, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	respondJSON(w, runs)
+}
+
+func apiCreateRunToolHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	// Check that the run exists
+	run, err := store.GetRun(ctx, runId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting run", err.Error())
+		return
+	}
+
+	if run == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Run not found", "")
+		return
+	}
+
+	var t struct {
+		Attributes        map[string]interface{} `json:"attributes"`
+		Name              string                 `json:"name"`
+		Description       string                 `json:"description"`
+		IgnoredAttributes []string               `json:"ignored_attributes"`
+		Code              string                 `json:"code"`
+	}
+	err = json.NewDecoder(r.Body).Decode(&t)
+	if err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
+		return
+	}
+
+	// TODO revive this logic so that we can share tools across runs, requires schema changes
+	// var existingTool *Tool
+	// if t.Attributes != nil && t.Name != "" && t.Description != "" && t.IgnoredAttributes != nil {
+	// 	found, err := store.GetToolFromValues(ctx, t.Attributes, t.Name, t.Description, t.IgnoredAttributes)
+	// 	if err != nil {
+	// 		sendErrorResponse(w, http.StatusInternalServerError, "error trying to locate an existing tool", err.Error())
+	// 		return
+	// 	}
+	// 	if found != nil {
+	// 		existingTool = found
+	// 	}
+	// }
+
+	// if existingTool != nil {
+	// 	w.WriteHeader(http.StatusOK)
+	// 	id := existingTool.Id.String()
+	// 	respondJSON(w, id)
+	// 	return
+	// }
+
+	toolId, err := store.CreateTool(ctx, runId, t.Attributes, t.Name, t.Description, t.IgnoredAttributes, t.Code)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error creating tool", err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	respondJSON(w, toolId)
+}
+
+func apiGetSupervisorHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store SupervisorStore) {
+	ctx := r.Context()
+
+	supervisor, err := store.GetSupervisor(ctx, id)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisor", err.Error())
+		return
+	}
+
+	respondJSON(w, supervisor)
+}
+
+func apiCreateToolSupervisorChainsHandler(w http.ResponseWriter, r *http.Request, toolId uuid.UUID, store SupervisorStore) {
+	ctx := r.Context()
+
+	var request []ChainRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		sendErrorResponse(w, http.StatusBadRequest, "invalid JSON format", err.Error())
 		return
 	}
 
-	// Convert the request to a Review by adding an ID
-	id := uuid.New().String()
-
-	review := Review{
-		Id:      id,
-		Request: request,
-	}
-
-	// Add the review request to the queue
-	hub.ReviewChan <- review
-
-	log.Printf("received new review request ID %s via API.", review.Id)
-
-	// Create a channel for this review request
-	responseChan := make(chan ReviewResult)
-	reviewChannels.Store(id, responseChan)
-
-	// Start a goroutine to wait for the response
-	go func() {
-		select {
-		case response := <-responseChan:
-			// Store the completed review
-			completedHumanReviews.Store(response.Id, response)
-			reviewChannels.Delete(response.Id)
-			log.Printf("review ID %s completed with decision: %s.", response.Id, response.Decision)
-		case <-time.After(reviewTimeout):
-
-			reviewStatus := ReviewStatusResponse{
-				Status: Timeout,
-				Id:     review.Id,
-			}
-
-			// Timeout occurred
-			completedHumanReviews.Store(review.Id, reviewStatus)
-			reviewChannels.Delete(review.Id)
-			log.Printf("review ID %s timed out.", review.Id)
-		}
-	}()
-
-	response := ReviewStatusResponse{
-		Id:     id,
-		Status: Queued,
-	}
-
-	// Respond immediately with 200 OK.
-	// The client will receive and ID they can use to poll the status of their review
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-// apiReviewStatusHandler checks the status of a review request
-func apiReviewStatusHandler(w http.ResponseWriter, _ *http.Request, reviewID string) {
-	// Use the reviewID directly
-	if _, ok := reviewChannels.Load(reviewID); ok {
-		// There's a pending review
-		w.WriteHeader(http.StatusOK)
-		err := json.NewEncoder(w).Encode(map[string]string{"status": "pending"})
+	// TODO do we want to return the chains here?
+	chainIds := make([]uuid.UUID, 0)
+	for _, chain := range request {
+		chainId, err := store.CreateSupervisorChain(ctx, toolId, chain)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			sendErrorResponse(w, http.StatusInternalServerError, "error creating supervisor chain", err.Error())
 			return
 		}
-	} else {
-		// Check if there's a stored response for this review
-		if response, ok := completedHumanReviews.Load(reviewID); ok {
-			log.Printf("status request for review ID %s: completed\n", reviewID)
-
-			w.WriteHeader(http.StatusOK)
-			err := json.NewEncoder(w).Encode(response)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-		} else {
-			// Review not found
-			w.WriteHeader(http.StatusNotFound)
-			err := json.NewEncoder(w).Encode(map[string]string{"status": "not_found"})
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-		}
+		chainIds = append(chainIds, *chainId)
 	}
+
+	w.WriteHeader(http.StatusCreated)
+	respondJSON(w, chainIds)
 }
 
-// apiLLMExplanationHandler receives a code snippet and returns an explanation and a danger score by calling an LLM
-func apiLLMExplanationHandler(w http.ResponseWriter, r *http.Request) {
-	// Handle preflight request
-	if r.Method == "OPTIONS" {
-		w.WriteHeader(http.StatusOK)
+func apiCreateSupervisorHandler(w http.ResponseWriter, r *http.Request, _ uuid.UUID, store SupervisorStore) {
+	ctx := r.Context()
+
+	var request Supervisor
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, "invalid JSON format", err.Error())
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	var request struct {
-		Text string `json:"text"`
+	// Create new supervisor
+	supervisorId, err := store.CreateSupervisor(ctx, request)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error creating supervisor", err.Error())
+		return
 	}
+
+	w.WriteHeader(http.StatusCreated)
+	respondJSON(w, supervisorId)
+}
+
+func apiGetToolSupervisorChainsHandler(w http.ResponseWriter, r *http.Request, toolId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	// First check if tool exists
+	tool, err := store.GetTool(ctx, toolId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool", err.Error())
+		return
+	}
+
+	if tool == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Tool not found", "")
+		return
+	}
+
+	chains, err := store.GetSupervisorChains(ctx, toolId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool supervisor chains", err.Error())
+		return
+	}
+
+	respondJSON(w, chains)
+}
+
+func apiGetRunToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	// First check if run exists
+	run, err := store.GetRun(ctx, id)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting run", err.Error())
+		return
+	}
+
+	if run == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Run not found", "")
+		return
+	}
+
+	tools, err := store.GetRunTools(ctx, id)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting run tools", err.Error())
+		return
+	}
+
+	respondJSON(w, tools)
+}
+
+func apiCreateToolRequestGroupHandler(w http.ResponseWriter, r *http.Request, toolId uuid.UUID, store ToolRequestStore) {
+	ctx := r.Context()
+
+	var request ToolRequestGroup
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
+		return
+	}
+
+	trg, err := store.CreateToolRequestGroup(ctx, toolId, request)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error creating tool request group", err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	respondJSON(w, trg)
+}
+
+func apiGetRequestGroupHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	requestGroup, err := store.GetRequestGroup(ctx, requestGroupId, true)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting request group", err.Error())
+		return
+	}
+
+	respondJSON(w, requestGroup)
+}
+
+func apiCreateToolRequestHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store ToolRequestStore) {
+	ctx := r.Context()
+
+	var request ToolRequest
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
+		return
+	}
+
+	toolRequestId, err := store.CreateToolRequest(ctx, requestGroupId, request)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error creating tool request", err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	respondJSON(w, toolRequestId)
+}
+
+func apiGetSupervisionResultHandler(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	// Check that the supervision request exists
+	supervisionRequest, err := store.GetSupervisionRequest(ctx, supervisionRequestId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision request", err.Error())
+		return
+	}
+
+	if supervisionRequest == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Supervision request not found", "")
+		return
+	}
+
+	supervisionResult, err := store.GetSupervisionResultFromRequestID(ctx, supervisionRequestId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision result", err.Error())
+		return
+	}
+
+	respondJSON(w, supervisionResult)
+}
+
+func apiGetRunRequestGroupsHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	run, err := store.GetRun(ctx, runId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting run", err.Error())
+		return
+	}
+
+	if run == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Run not found", "")
+		return
+	}
+
+	requestGroups, err := store.GetRunRequestGroups(ctx, runId, true)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting run request groups", err.Error())
+		return
+	}
+
+	respondJSON(w, requestGroups)
+}
+
+func apiGetSupervisorsHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	// First check if project exists
+	project, err := store.GetProject(ctx, projectId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting project", err.Error())
+		return
+	}
+
+	if project == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Project not found", "")
+		return
+	}
+
+	supervisors, err := store.GetSupervisors(ctx, projectId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisors", err.Error())
+		return
+	}
+
+	respondJSON(w, supervisors)
+}
+
+func apiGetProjectToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store ToolStore) {
+	ctx := r.Context()
+
+	tools, err := store.GetProjectTools(ctx, id)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting project tools", err.Error())
+		return
+	}
+
+	respondJSON(w, tools)
+}
+
+func apiGetToolHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store ToolStore) {
+	ctx := r.Context()
+
+	tool, err := store.GetTool(ctx, id)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool", err.Error())
+		return
+	}
+
+	if tool == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Tool not found", "")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(tool)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error encoding tool", err.Error())
+		return
+	}
+}
+
+func apiGetSupervisionRequestStatusHandler(w http.ResponseWriter, r *http.Request, reviewID uuid.UUID, store Store) {
+	ctx := r.Context()
+	status, err := store.GetSupervisionRequestStatus(ctx, reviewID)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisor", err.Error())
+		return
+	}
+
+	respondJSON(w, status)
+}
+
+func apiCreateSupervisionRequestHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+	requestGroupId uuid.UUID,
+	chainId uuid.UUID,
+	supervisorId uuid.UUID,
+	store Store,
+) {
+	ctx := r.Context()
+
+	var request SupervisionRequest
 
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
 		return
 	}
 
-	explanation, score, err := getExplanationFromLLM(ctx, request.Text)
+	// Check that the request, chain and supervisor exist
+	requestGroup, err := store.GetRequestGroup(ctx, requestGroupId, false)
 	if err != nil {
-		fmt.Printf("error: %v\n", err)
-		http.Error(w, "Failed to get explanation from LLM", http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting request group", err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(map[string]string{"explanation": explanation, "score": score})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if requestGroup == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Request group not found", "")
 		return
 	}
+
+	if len(requestGroup.ToolRequests) > 1 {
+		sendErrorResponse(w, http.StatusBadRequest, "Request group must contain only one tool request", "")
+		return
+	}
+
+	chain, err := store.GetSupervisorChain(ctx, chainId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisor chain", err.Error())
+		return
+	}
+
+	if chain == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Supervisor chain not found", "")
+		return
+	}
+
+	supervisor, err := store.GetSupervisor(ctx, supervisorId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervisor", err.Error())
+		return
+	}
+
+	if supervisor == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Supervisor not found", "")
+		return
+	}
+
+	// Check that the supervisor is associated with the tool/request/chain
+	found := false
+	pos := -1
+	for i, chainSupervisor := range chain.Supervisors {
+		if chainSupervisor.Id.String() == supervisorId.String() {
+			found = true
+			pos = i
+			break
+		}
+	}
+
+	if !found {
+		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Supervisor %s not associated with chain %s", supervisorId, chainId), "")
+		return
+	}
+
+	if pos != request.PositionInChain {
+		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Supervisor %s is not in the correct position in chain %s", supervisorId, chainId), "")
+		return
+	}
+
+	// Check that the chainexecution entry exists
+	foundExecutionId, err := store.GetChainExecutionFromChainAndRequestGroup(ctx, chainId, requestGroupId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting execution from chain ID", err.Error())
+		return
+	}
+
+	// Sanity check: this is the first supervisor in the chain, we shouldn't have already created a chain execution
+	if foundExecutionId != nil && pos == 0 {
+		sendErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("chain execution already exists for chain %s, yet supervisor is position 0. Curious.", chainId), "")
+		return
+	}
+
+	if foundExecutionId == nil && pos > 0 {
+		sendErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("no ongoing chain execution found for chain %s, yet supervisor allegedly not a position 0. Curious.", chainId), "")
+		return
+	}
+
+	if request.ChainexecutionId != nil && foundExecutionId != nil {
+		if *request.ChainexecutionId != *foundExecutionId {
+			sendErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("chain execution ID mismatch for chain %s, request group %s, and supervisor %s", chainId, requestGroupId, supervisorId), "")
+			return
+		}
+	}
+
+	if foundExecutionId != nil && request.ChainexecutionId == nil {
+		request.ChainexecutionId = foundExecutionId
+	}
+
+	// Store the supervision in the database
+	reviewID, err := store.CreateSupervisionRequest(ctx, request, chainId, requestGroupId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error creating supervision request", err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	respondJSON(w, reviewID)
 }
 
-func apiReviewLLMHandler(w http.ResponseWriter, r *http.Request) {
-	id := uuid.New().String()
+func apiCreateSupervisionResultHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+	supervisionRequestId uuid.UUID,
+	store Store,
+) {
+	ctx := r.Context()
 
-	log.Printf("received new LLM review request, ID: %s", id)
-
-	// Parse the request body to get the same input as /api/review
-	var reviewRequest ReviewRequest
-	err := json.NewDecoder(r.Body).Decode(&reviewRequest)
+	var result SupervisionResult
+	err := json.NewDecoder(r.Body).Decode(&result)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
 		return
 	}
 
-	// TODO allow LLM reviewer to handle multiple tool choice options
-	if len(reviewRequest.ToolChoices) != 1 {
-		http.Error(w, "Invalid number of tool choices provided for LLM review", http.StatusBadRequest)
-		return
+	if result.Decision == Modify || result.Decision == Approve {
+		if result.ChosenToolrequestId == nil {
+			sendErrorResponse(w, http.StatusBadRequest, "Chosen tool request ID is required if you wish to modify or approve a given tool request", "")
+			return
+		}
+
+		toolRequest, err := store.GetToolRequest(ctx, *result.ChosenToolrequestId)
+		if err != nil {
+			sendErrorResponse(w, http.StatusInternalServerError, "error getting tool request", err.Error())
+			return
+		}
+
+		if toolRequest == nil {
+			sendErrorResponse(w, http.StatusNotFound, fmt.Sprintf("Tool request %s not found", *result.ChosenToolrequestId), "")
+			return
+		}
 	}
 
-	// Call the LLM to evaluate the tool_choice
-	llmReasoning, decision, err := callLLMForReview(r.Context(), reviewRequest.ToolChoices[0])
+	// Check that the group, chain and supervisor, and request exist
+	id, err := store.CreateSupervisionResult(ctx, result, supervisionRequestId)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error calling LLM: %v", err), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error creating supervision result", err.Error())
 		return
 	}
 
-	// Prepare the response
-	response := ReviewResult{
-		Id:         id,
-		Decision:   decision,
-		ToolChoice: reviewRequest.ToolChoices[0],
-		Reasoning:  llmReasoning,
-	}
-
-	// Store the completed LLM review
-	completedLLMReviews.Store(id, response)
-
-	// Send the response
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	w.WriteHeader(http.StatusCreated)
+	respondJSON(w, id)
 }
 
-func apiStatsHandler(hub *Hub, w http.ResponseWriter, _ *http.Request) {
-	stats := hub.getStats()
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err := json.NewEncoder(w).Encode(stats)
+func apiGetHubStatsHandler(w http.ResponseWriter, _ *http.Request, hub *Hub) {
+	stats, err := hub.getStats()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting stats", err.Error())
 		return
 	}
-}
 
-// getLLMResponse is a helper function that interacts with the OpenAI API and returns the LLM response.
-func getLLMResponse(ctx context.Context, messages []openai.ChatCompletionMessage, model string) (string, error) {
-	apiKey := os.Getenv("OPENAI_API_KEY")
-	if apiKey == "" {
-		return "", fmt.Errorf("OPENAI_API_KEY environment variable not set")
-	}
-
-	client := openai.NewClient(apiKey)
-
-	resp, err := client.CreateChatCompletion(
-		ctx,
-		openai.ChatCompletionRequest{
-			Model:    model,
-			Messages: messages,
-		},
-	)
-
-	if err != nil {
-		return "", fmt.Errorf("error creating LLM chat completion: %v", err)
-	}
-
-	return resp.Choices[0].Message.Content, nil
-}
-
-// apiGetLLMReviews returns all LLM reviews
-func apiGetLLMReviews(w http.ResponseWriter, _ *http.Request) {
-	reviews := make([]ReviewResult, 0)
-
-	completedLLMReviews.Range(func(key, value any) bool {
-		reviews = append(reviews, value.(ReviewResult))
-		return true
-	})
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err := json.NewEncoder(w).Encode(reviews)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	respondJSON(w, stats)
 }
 
 // apiGetProjectsHandler returns all projects
-func apiGetProjectsHandler(w http.ResponseWriter, _ *http.Request) {
-	p := make([]Project, 0)
+func apiGetProjectsHandler(w http.ResponseWriter, r *http.Request, store ProjectStore) {
+	ctx := r.Context()
 
-	projects.Range(func(key, value any) bool {
-		p = append(p, value.(Project))
-		return true
-	})
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err := json.NewEncoder(w).Encode(p)
+	projects, err := store.GetProjects(ctx)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting projects", err.Error())
 		return
 	}
+
+	respondJSON(w, projects)
 }
 
-func apiSetLLMPromptHandler(w http.ResponseWriter, r *http.Request) {
-	var request LLMPrompt
+func apiGetProjectHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store ProjectStore) {
+	ctx := r.Context()
 
-	// Decode the request body
-	err := json.NewDecoder(r.Body).Decode(&request)
+	project, err := store.GetProject(ctx, id)
 	if err != nil {
-		http.Error(w, "api: invalid request body", http.StatusBadRequest)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting project", err.Error())
 		return
 	}
 
-	// Sanitize the prompt.
-	sanitizedPrompt := sanitizePrompt(request.Prompt)
-	if sanitizedPrompt == "" {
-		http.Error(w, "api: invalid prompt", http.StatusBadRequest)
+	if project == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Project not found", "")
 		return
 	}
 
-	// Update the global prompt
-	llmReviewPrompt = sanitizedPrompt
+	respondJSON(w, project)
+}
 
-	response := LLMPromptResponse{
-		Status:  "success",
-		Message: "LLM prompt updated successfully",
-	}
+func apiGetRunStateHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
+	ctx := r.Context()
 
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(response)
+	// First verify the run exists
+	run, err := store.GetRun(ctx, runId)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting run", err.Error())
 		return
 	}
-}
-
-// Sanitize the prompt to prevent XSS
-func sanitizePrompt(prompt string) string {
-	// Remove any HTML tags
-	cleanPrompt := stripHTMLTags(prompt)
-	// Trim whitespace
-	cleanPrompt = strings.TrimSpace(cleanPrompt)
-	return cleanPrompt
-}
-
-func stripHTMLTags(input string) string {
-	// Simple regex to remove HTML tags
-	re := regexp.MustCompile(`<.*?>`)
-	return re.ReplaceAllString(input, "")
-}
-
-// Add this to your handlers.go file
-
-func apiGetLLMPromptHandler(w http.ResponseWriter, _ *http.Request) {
-	response := struct {
-		Prompt string `json:"prompt"`
-	}{
-		Prompt: llmReviewPrompt,
+	if run == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Run not found", "")
+		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(response)
+	// Get all request groups for this run
+	requestGroups, err := store.GetRunRequestGroups(ctx, runId, false)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting request groups", err.Error())
 		return
 	}
-}
 
-// apiGetProjectByIdHandler handles the GET /api/project/{id} endpoint
-func apiGetProjectByIdHandler(w http.ResponseWriter, _ *http.Request, id string) {
-	// Retrieve the project from the projects map
-	if project, ok := projects.Load(id); ok {
-		w.Header().Set("Content-Type", "application/json")
-		err := json.NewEncoder(w).Encode(project)
+	// Build the run state
+	runState := make([]RunExecution, 0)
+
+	// For each request group
+	for _, requestGroup := range requestGroups {
+		execution := RunExecution{
+			RequestGroup: requestGroup,
+			Chains:       make([]ChainExecutionState, 0),
+		}
+
+		// Get all tools from this request group
+		for _, toolRequest := range requestGroup.ToolRequests {
+			// Get all chains for this tool
+			chains, err := store.GetSupervisorChains(ctx, toolRequest.ToolId)
+			if err != nil {
+				sendErrorResponse(w, http.StatusInternalServerError, "error getting chains", err.Error())
+				return
+			}
+
+			// For each chain
+			for _, chain := range chains {
+				chainState := ChainExecutionState{
+					Chain:               chain,
+					SupervisionRequests: make([]SupervisionRequestState, 0),
+				}
+
+				// Get the chain execution from the chain ID + request group ID
+				chainExecutionId, err := store.GetChainExecutionFromChainAndRequestGroup(ctx, chain.ChainId, *requestGroup.Id)
+				if err != nil {
+					sendErrorResponse(w, http.StatusInternalServerError, "error getting chain execution", err.Error())
+					return
+				}
+
+				var supervisionRequests []SupervisionRequest
+
+				// Get all supervision requests for this chain
+				if chainExecutionId != nil {
+					supervisionRequests, err = store.GetChainExecutionSupervisionRequests(ctx, *chainExecutionId)
+					if err != nil {
+						sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision requests", err.Error())
+						return
+					}
+				}
+
+				// For each supervision request
+				for _, request := range supervisionRequests {
+					// Get the status
+					status, err := store.GetSupervisionRequestStatus(ctx, *request.Id)
+					if err != nil {
+						sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision status", err.Error())
+						return
+					}
+
+					// Get the result if it exists
+					var result *SupervisionResult
+					if status.Status == "completed" {
+						result, err = store.GetSupervisionResultFromRequestID(ctx, *request.Id)
+						if err != nil {
+							sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision result", err.Error())
+							return
+						}
+					}
+
+					requestState := SupervisionRequestState{
+						SupervisionRequest: request,
+						Status:             *status,
+						Result:             result,
+					}
+
+					chainState.SupervisionRequests = append(chainState.SupervisionRequests, requestState)
+				}
+
+				execution.Chains = append(execution.Chains, chainState)
+			}
+		}
+
+		// TODO This seems super inefficient as it loads a bunch of duplicate stuff
+		status, err := getRequestGroupStatus(ctx, *requestGroup.Id, store)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			sendErrorResponse(w, http.StatusInternalServerError, "error getting request group status", err.Error())
 			return
 		}
-	} else {
-		http.Error(w, "Project not found", http.StatusNotFound)
+
+		execution.Status = status
+
+		runState = append(runState, execution)
+	}
+
+	respondJSON(w, runState)
+}
+
+func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	// Get the supervision request
+	supervisionRequest, err := store.GetSupervisionRequest(ctx, supervisionRequestId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision request", err.Error())
 		return
 	}
+	if supervisionRequest == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Supervision request not found", "")
+		return
+	}
+
+	// Get the chain execution
+	_, requestGroupId, err := store.GetChainExecution(ctx, *supervisionRequest.ChainexecutionId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting chain execution", err.Error())
+		return
+	}
+
+	// Get the request group
+	requestGroup, err := store.GetRequestGroup(ctx, *requestGroupId, true)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting request group", err.Error())
+		return
+	}
+
+	// Get the chain state (all supervision requests and results for this chain execution)
+	chainState, err := store.GetChainExecutionState(ctx, *supervisionRequest.ChainexecutionId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting chain state", err.Error())
+		return
+	}
+
+	if len(requestGroup.ToolRequests) == 0 {
+		sendErrorResponse(w, http.StatusInternalServerError, "request group has no tool requests", "")
+		return
+	}
+
+	if requestGroup.ToolRequests[0].Id == nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "tool request ID is required", "")
+		return
+	}
+
+	// Get the tool to find the run ID
+	tool, err := store.GetTool(ctx, requestGroup.ToolRequests[0].ToolId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool", err.Error())
+		return
+	}
+
+	if tool == nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "can't find run ID from tool", "")
+		return
+	}
+
+	// Build the review payload
+	reviewPayload := ReviewPayload{
+		SupervisionRequest: *supervisionRequest,
+		ChainState:         *chainState,
+		RequestGroup:       *requestGroup,
+		RunId:              tool.RunId,
+	}
+
+	respondJSON(w, reviewPayload)
+}
+
+// determineChainStatus checks if a supervision chain has completed
+func determineChainStatus(requests []SupervisionRequestState, totalSupervisors int) Status {
+	// No supervision requests means chain hasn't started
+	if len(requests) == 0 {
+		return Pending
+	}
+
+	// Find the last completed supervision in the chain
+	var lastCompleted *SupervisionRequestState
+	var highestPosition int = -1
+
+	for _, req := range requests {
+		if req.Status.Status == Completed {
+			if req.SupervisionRequest.PositionInChain > highestPosition {
+				highestPosition = req.SupervisionRequest.PositionInChain
+				lastCompleted = &req
+			}
+		}
+	}
+
+	// No completed supervisions yet
+	if lastCompleted == nil {
+		return Pending
+	}
+
+	// Key change: If the last completed supervision approved the chain is complete
+	// regardless of position
+	if lastCompleted.Result != nil && lastCompleted.Result.Decision != Escalate {
+		return Completed
+	}
+
+	// If we didn't get an approval, we need to check if we reached the end
+	// and got a different valid completion (like Reject)
+	if highestPosition == totalSupervisors-1 {
+		if lastCompleted.Result != nil {
+			return Completed
+		}
+	}
+
+	return Pending
+}
+
+func getRequestGroupStatus(ctx context.Context, requestGroupId uuid.UUID, store Store) (Status, error) {
+	chainExecutions, err := store.GetChainExecutionsFromRequestGroup(ctx, requestGroupId)
+	if err != nil {
+		return Pending, fmt.Errorf("error getting chain executions: %w", err)
+	}
+
+	// Track status for each chain execution
+	executionStatuses := make([]Status, 0, len(chainExecutions))
+
+	for _, execution := range chainExecutions {
+		state, err := store.GetChainExecutionState(ctx, execution)
+		if err != nil {
+			return Pending, fmt.Errorf("error getting chain state: %w", err)
+		}
+
+		status := determineChainStatus(state.SupervisionRequests, len(state.Chain.Supervisors))
+		executionStatuses = append(executionStatuses, status)
+	}
+
+	// Request group is complete only if all chains are complete
+	status := Pending
+	if allChainsComplete(executionStatuses) {
+		status = Completed
+	}
+
+	return status, nil
+}
+
+func apiGetRequestGroupStatusHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	status, err := getRequestGroupStatus(ctx, requestGroupId, store)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting request group status", err.Error())
+		return
+	}
+
+	respondJSON(w, status)
+}
+
+// allChainsComplete checks if all supervision chains have completed
+func allChainsComplete(statuses []Status) bool {
+	if len(statuses) == 0 {
+		return false
+	}
+
+	for _, status := range statuses {
+		if status != Completed {
+			return false
+		}
+	}
+	return true
 }

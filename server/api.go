@@ -1,24 +1,50 @@
 package sentinel
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/google/uuid"
 )
 
 type Server struct {
-	Hub *Hub
+	Hub   *Hub
+	Store Store
 }
 
-func InitAPI() {
+// sendErrorResponse writes an error response with specific status code and message
+func sendErrorResponse(w http.ResponseWriter, status int, message string, details string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	response := ErrorResponse{
+		Error:   message,
+		Details: &details,
+	}
+	err := json.NewEncoder(w).Encode(response)
+	if err != nil {
+		log.Printf("Error encoding error response: %v", err)
+	}
+}
+
+func InitAPI(store Store) {
+	humanReviewChan := make(chan SupervisionRequest, 100)
+
 	// Initialize the WebSocket hub
-	hub := NewHub()
+	hub := NewHub(store, humanReviewChan)
 	go hub.Run()
+
+	// Start the processor which will pick up reviews from the DB and send them to the humanReviewChan
+	processor := NewProcessor(store, humanReviewChan)
+	go processor.Start(context.Background())
 
 	// Create an instance of your ServerInterface implementation
 	server := Server{
-		Hub: hub,
+		Hub:   hub,
+		Store: store,
 	}
 
 	// Generate the API handler using the generated code
@@ -44,6 +70,7 @@ func InitAPI() {
 	}
 
 	log.Printf("Server started on port %s", port)
+	// err := http.ListenAndServe(fmt.Sprintf(":%s", port), mux)
 	err := http.ListenAndServe(fmt.Sprintf(":%s", port), mux)
 	if err != nil {
 		log.Fatal("Error listening and serving: ", err)
@@ -58,57 +85,133 @@ func (s Server) GetOpenAPI(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "openapi.yaml")
 }
 
-// SubmitReview handles the POST /api/review/human endpoint
-func (s Server) SubmitReviewHuman(w http.ResponseWriter, r *http.Request) {
-	apiReviewHandler(s.Hub, w, r)
+// CreateProject
+func (s Server) CreateProject(w http.ResponseWriter, r *http.Request) {
+	apiCreateProjectHandler(w, r, s.Store)
 }
 
-// GetReviewLLM handles the POST /api/review/llm endpoint
-func (s Server) SubmitReviewLLM(w http.ResponseWriter, r *http.Request) {
-	apiReviewLLMHandler(w, r)
-}
-
-func (s Server) GetLLMExplanation(w http.ResponseWriter, r *http.Request) {
-	apiLLMExplanationHandler(w, r)
-}
-
-func (s Server) GetReviewStatus(w http.ResponseWriter, r *http.Request, id string) {
-	apiReviewStatusHandler(w, r, id)
-}
-
-// GetHubStats handles the GET /api/stats endpoint
-func (s Server) GetHubStats(w http.ResponseWriter, r *http.Request) {
-	apiStatsHandler(s.Hub, w, r)
-}
-
-// GetReviewLLMResult handles the GET /api/review/llm/list endpoint
-func (s Server) GetLLMReviews(w http.ResponseWriter, r *http.Request) {
-	apiGetLLMReviews(w, r)
-}
-
-// SetLLMPrompt handles the POST /api/llm/prompt endpoint
-func (s Server) SetLLMPrompt(w http.ResponseWriter, r *http.Request) {
-	apiSetLLMPromptHandler(w, r)
-}
-
-// GetLLMPrompt handles the GET /api/review/llm/prompt endpoint
-func (s Server) GetLLMPrompt(w http.ResponseWriter, r *http.Request) {
-	apiGetLLMPromptHandler(w, r)
-}
-
-// RegisterProject handles the POST /api/project endpoint
-func (s Server) RegisterProject(w http.ResponseWriter, r *http.Request) {
-	apiRegisterProjectHandler(w, r)
-}
-
-// GetProjectById handles the GET /api/project/{id} endpoint
-func (s Server) GetProjectById(w http.ResponseWriter, r *http.Request, id string) {
-	apiGetProjectByIdHandler(w, r, id)
-}
-
-// GetProjects handles the GET /api/project endpoint
+// GetProjects
 func (s Server) GetProjects(w http.ResponseWriter, r *http.Request) {
-	apiGetProjectsHandler(w, r)
+	apiGetProjectsHandler(w, r, s.Store)
+}
+
+// GetProjectById
+func (s Server) GetProject(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetProjectHandler(w, r, id, s.Store)
+}
+
+// CreateProjectRun
+func (s Server) CreateProjectRun(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiCreateProjectRunHandler(w, r, id, s.Store)
+}
+
+// GetProjectRuns
+func (s Server) GetProjectRuns(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetProjectRunsHandler(w, r, id, s.Store)
+}
+
+// GetRunTools
+func (s Server) GetRunTools(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetRunToolsHandler(w, r, id, s.Store)
+}
+
+// CreateRunTool
+func (s Server) CreateRunTool(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiCreateRunToolHandler(w, r, id, s.Store)
+}
+
+// CreateSupervisor
+func (s Server) CreateSupervisor(w http.ResponseWriter, r *http.Request, projectId uuid.UUID) {
+	apiCreateSupervisorHandler(w, r, projectId, s.Store)
+}
+
+// GetSupervisors
+func (s Server) GetSupervisors(w http.ResponseWriter, r *http.Request, projectId uuid.UUID) {
+	apiGetSupervisorsHandler(w, r, projectId, s.Store)
+}
+
+func (s Server) GetSupervisor(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetSupervisorHandler(w, r, id, s.Store)
+}
+
+// CreateToolSupervisorChains
+func (s Server) CreateToolSupervisorChains(w http.ResponseWriter, r *http.Request, toolId uuid.UUID) {
+	apiCreateToolSupervisorChainsHandler(w, r, toolId, s.Store)
+}
+
+// GetToolSupervisorChains
+func (s Server) GetToolSupervisorChains(w http.ResponseWriter, r *http.Request, toolId uuid.UUID) {
+	apiGetToolSupervisorChainsHandler(w, r, toolId, s.Store)
+}
+
+// CreateToolRequestGroup
+func (s Server) CreateToolRequestGroup(w http.ResponseWriter, r *http.Request, toolId uuid.UUID) {
+	apiCreateToolRequestGroupHandler(w, r, toolId, s.Store)
+}
+
+// GetRunRequestGroups
+func (s Server) GetRunRequestGroups(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
+	apiGetRunRequestGroupsHandler(w, r, runId, s.Store)
+}
+
+// GetRequestGroup
+func (s Server) GetRequestGroup(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID) {
+	apiGetRequestGroupHandler(w, r, requestGroupId, s.Store)
+}
+
+// GetProjectTools
+func (s Server) GetProjectTools(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetProjectToolsHandler(w, r, id, s.Store)
+}
+
+// GetTool
+func (s Server) GetTool(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetToolHandler(w, r, id, s.Store)
+}
+
+// CreateSupervisionRequest
+func (s Server) CreateSupervisionRequest(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, chainId uuid.UUID, supervisorId uuid.UUID) {
+	apiCreateSupervisionRequestHandler(w, r, requestGroupId, chainId, supervisorId, s.Store)
+}
+
+// GetSupervisionRequestStatus
+func (s Server) GetSupervisionRequestStatus(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID) {
+	apiGetSupervisionRequestStatusHandler(w, r, supervisionRequestId, s.Store)
+}
+
+// CreateSupervisionResult
+func (s Server) CreateSupervisionResult(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID) {
+	apiCreateSupervisionResultHandler(w, r, supervisionRequestId, s.Store)
+}
+
+// GetSupervisionResult
+func (s Server) GetSupervisionResult(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID) {
+	apiGetSupervisionResultHandler(w, r, supervisionRequestId, s.Store)
+}
+
+// GetHubStats
+func (s Server) GetHubStats(w http.ResponseWriter, r *http.Request) {
+	apiGetHubStatsHandler(w, r, s.Hub)
+}
+
+// GetRunState
+func (s Server) GetRunState(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
+	apiGetRunStateHandler(w, r, runId, s.Store)
+}
+
+// CreateToolRequest
+func (s Server) CreateToolRequest(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID) {
+	apiCreateToolRequestHandler(w, r, requestGroupId, s.Store)
+}
+
+// GetSupervisionReviewPayload
+func (s Server) GetSupervisionReviewPayload(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID) {
+	apiGetSupervisionReviewPayloadHandler(w, r, supervisionRequestId, s.Store)
+}
+
+// GetRequestGroupStatus
+func (s Server) GetRequestGroupStatus(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID) {
+	apiGetRequestGroupStatusHandler(w, r, requestGroupId, s.Store)
 }
 
 func enableCorsMiddleware(handler http.Handler) http.Handler {

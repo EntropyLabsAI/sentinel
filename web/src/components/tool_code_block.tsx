@@ -1,12 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Code, X, AlertTriangle, AlertCircle, CheckCircle } from "lucide-react";
-import { Textarea } from "./ui/textarea";
-import { Button } from "./ui/button";
-import CopyButton from "./copy_button";
-import ExplainButton from "./ask_lm";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import CopyButton from "@/components/util/copy_button";
+import ExplainButton from "@/components/util/ask_lm";
 
 interface ToolCodeBlockProps {
-  isBashCommand: boolean;
   code: string;
   handleCodeChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   explanation: string | null;
@@ -18,7 +17,6 @@ interface ToolCodeBlockProps {
 }
 
 export default function ToolCodeBlock({
-  isBashCommand,
   code,
   handleCodeChange,
   explanation,
@@ -90,16 +88,10 @@ export default function ToolCodeBlock({
       <div
         className="flex items-center"
       >
-        {/* Left side: $ or Python icon */}
         <div className="flex mr-2">
-          {isBashCommand ? (
-            <span className="text-green-400">$</span>
-          ) : (
-            <div className="flex items-center">
-              <Code className="text-green-400 mr-1" size={18} />
-              <span className="text-green-400">py</span>
-            </div>
-          )}
+          <div className="flex items-center">
+            <Code className="text-green-400 mr-1" size={18} />
+          </div>
         </div>
         {/* Middle: Textarea or code display */}
         <div className="flex-grow"

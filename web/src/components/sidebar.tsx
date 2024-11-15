@@ -1,5 +1,5 @@
 import * as React from "react"
-import { BookIcon, Check, ChevronsUpDown, GalleryVerticalEnd, Search, GithubIcon, InspectIcon, FileIcon, RailSymbol, Building2Icon, LucideBuilding, CogIcon, HistoryIcon, BarChartIcon } from "lucide-react"
+import { BookIcon, Check, ChevronsUpDown, PickaxeIcon, GithubIcon, InspectIcon, FileIcon, RailSymbol, Building2Icon, LucideBuilding, CogIcon, HistoryIcon, BarChartIcon, DoorOpenIcon, ScanEyeIcon } from "lucide-react"
 import { Link, useLocation } from 'react-router-dom'
 
 import {
@@ -32,94 +32,32 @@ import {
   SidebarRail,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { Card, Button } from "@radix-ui/themes"
-import { CardHeader, CardTitle, CardDescription, CardContent } from "./ui/card"
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "./ui/card"
 import { useEffect, useState } from "react"
-
-const data = {
-  versions: ["0.1.2"],
-  navMain: [
-    {
-      title: "Getting started",
-      url: "#",
-      items: [
-        {
-          title: "Supervisors",
-          url: "/supervisor",
-          isActive: false,
-          disabled: false,
-          icon: <InspectIcon />
-        },
-        {
-          title: "Projects",
-          url: "/projects",
-          isActive: true,
-          disabled: true,
-          icon: <Building2Icon />
-        },
-        {
-          title: "Agent Runs",
-          url: "/agents",
-          isActive: false,
-          disabled: true,
-          icon: <RailSymbol />
-        },
-        {
-          title: "Execution History",
-          url: "/execution_history",
-          isActive: false,
-          disabled: true,
-          icon: <HistoryIcon />
-        },
-        {
-          title: "Stats",
-          url: "/stats",
-          isActive: false,
-          disabled: true,
-          icon: <BarChartIcon />
-        },
-        {
-          title: "API Spec",
-          url: "/api",
-          isActive: false,
-          disabled: false,
-          icon: <CogIcon />
-        },
-        {
-          title: "GitHub",
-          url: "https://github.com/EntropyLabsAI/sentinel",
-          isActive: false,
-          disabled: false,
-          icon: <GithubIcon />
-        },
-        {
-          title: "Documentation",
-          url: "https://docs.entropy-labs.ai",
-          isActive: false,
-          disabled: false,
-          icon: <BookIcon />
-        },
-      ],
-    }
-  ],
-}
+import { useProject } from '@/contexts/project_context';
+import { Project, useGetProjects } from '@/types'; // Assuming you have this hook from Orval
+import { useConfig } from "@/contexts/config_context"
+import { randomUUID } from "crypto"
 
 interface SidebarProps {
-  isSocketConnected: boolean;
   children: React.ReactNode;
 }
 
-export default function SidebarComponent({ isSocketConnected, children }: SidebarProps) {
-  const [selectedVersion, setSelectedVersion] = React.useState(data.versions[0])
-  // Access environment variables
-  // @ts-ignore
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-  // @ts-ignore
-  const WEBSOCKET_BASE_URL = import.meta.env.VITE_WEBSOCKET_BASE_URL;
+export default function SidebarComponent({ children }: SidebarProps) {
 
+  const { API_BASE_URL, WEBSOCKET_BASE_URL } = useConfig();
 
   const location = useLocation();
   const [currentPath, setCurrentPath] = useState<string[]>([])
+  const { selectedProject, setSelectedProject } = useProject();
+  const { data } = useGetProjects();
+  const [projects, setProjects] = useState<Project[]>([]);
+
+  useEffect(() => {
+    if (data) {
+      setProjects(data.data);
+    }
+  }, [data]);
 
   useEffect(() => {
     if (location.pathname === '/') {
@@ -134,6 +72,86 @@ export default function SidebarComponent({ isSocketConnected, children }: Sideba
     setCurrentPath(splitPath);
   }, [location.pathname]);
 
+  const navData = {
+    navMain: [
+      {
+        title: "Getting started",
+        url: "#",
+        items: [
+          {
+            title: "Projects",
+            url: "/projects",
+            isActive: true,
+            disabled: false,
+            icon: <Building2Icon />
+          },
+          {
+            title: "Agent Runs",
+            url: `/projects/${selectedProject}`,
+            isActive: false,
+            disabled: false,
+            icon: <RailSymbol />
+          },
+          {
+            title: "Supervisors",
+            url: "/supervisors",
+            isActive: false,
+            disabled: false,
+            icon: <ScanEyeIcon />
+          },
+          {
+            title: "Tools",
+            url: `/tools`,
+            isActive: false,
+            disabled: false,
+            icon: <PickaxeIcon />
+          },
+          {
+            title: "Execution History",
+            url: "/execution_history",
+            isActive: false,
+            disabled: true,
+            icon: <HistoryIcon />
+          },
+          {
+            title: "Export Data",
+            url: "/export",
+            isActive: false,
+            disabled: true,
+            icon: <DoorOpenIcon />
+          },
+          {
+            title: "Stats",
+            url: "/stats",
+            isActive: false,
+            disabled: true,
+            icon: <BarChartIcon />
+          },
+          {
+            title: "API Spec",
+            url: "/api",
+            isActive: false,
+            disabled: false,
+            icon: <CogIcon />
+          },
+          {
+            title: "GitHub",
+            url: "https://github.com/EntropyLabsAI/sentinel",
+            isActive: false,
+            disabled: false,
+            icon: <GithubIcon />
+          },
+          {
+            title: "Documentation",
+            url: "https://docs.entropy-labs.ai",
+            isActive: false,
+            disabled: false,
+            icon: <BookIcon />
+          },
+        ],
+      }
+    ],
+  }
 
   return (
     <SidebarProvider>
@@ -152,7 +170,11 @@ export default function SidebarComponent({ isSocketConnected, children }: Sideba
                     </div>
                     <div className="flex flex-col gap-0.5 leading-none">
                       <span className="font-semibold">Sentinel</span>
-                      <span className="">v{selectedVersion}</span>
+                      <span className="text-xs">
+                        {projects && selectedProject ?
+                          projects?.find(p => p.id === selectedProject)?.name || 'Select Project'
+                          : 'Select Project'}
+                      </span>
                     </div>
                     <ChevronsUpDown className="ml-auto" />
                   </SidebarMenuButton>
@@ -161,13 +183,13 @@ export default function SidebarComponent({ isSocketConnected, children }: Sideba
                   className="w-[--radix-dropdown-menu-trigger-width]"
                   align="start"
                 >
-                  {data.versions.map((version) => (
+                  {projects && projects.map((project) => (
                     <DropdownMenuItem
-                      key={version}
-                      onSelect={() => setSelectedVersion(version)}
+                      key={project.id}
+                      onSelect={() => setSelectedProject(project.id)}
                     >
-                      v{version}{" "}
-                      {version === selectedVersion && (
+                      {project.name}
+                      {project.id === selectedProject && (
                         <Check className="ml-auto" />
                       )}
                     </DropdownMenuItem>
@@ -177,19 +199,6 @@ export default function SidebarComponent({ isSocketConnected, children }: Sideba
             </SidebarMenuItem>
           </SidebarMenu>
           <form>
-            {/* <SidebarGroup className="py-0">
-              <SidebarGroupContent className="relative">
-                <Label htmlFor="search" className="sr-only">
-                  Search
-                </Label>
-                <SidebarInput
-                  id="search"
-                  placeholder="Search the docs..."
-                  className="pl-8"
-                />
-                <Search className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 select-none opacity-50" />
-              </SidebarGroupContent>
-            </SidebarGroup> */}
             <SidebarGroup className="py-0">
               <SidebarGroupContent className="relative">
                 <div className="flex flex-col gap-0.5 leading-none">
@@ -200,7 +209,7 @@ export default function SidebarComponent({ isSocketConnected, children }: Sideba
           </form>
         </SidebarHeader>
         <SidebarContent>
-          {data.navMain.map((item) => (
+          {navData.navMain.map((item) => (
             <SidebarGroup key={item.title}>
               <SidebarGroupLabel>{item.title}</SidebarGroupLabel>
               <SidebarGroupContent>
@@ -211,7 +220,11 @@ export default function SidebarComponent({ isSocketConnected, children }: Sideba
                         asChild
                         isActive={currentPath[currentPath.length - 1] === subItem.url}
                         disabled={subItem.disabled}
+<<<<<<< HEAD
                         className={subItem.disabled ? "opacity-50 cursor-not-allowed" : ""}
+=======
+                        className={subItem.disabled ? 'opacity-50 cursor-not-allowed' : ''}
+>>>>>>> 5c5e522 (add global project state)
                       >
                         <Link to={subItem.url} onClick={e => subItem.disabled && e.preventDefault()}>
                           {subItem.icon}
@@ -241,10 +254,6 @@ export default function SidebarComponent({ isSocketConnected, children }: Sideba
                   <p className="text-xs font-mono">[API] {API_BASE_URL}</p>
                   <div className="flex items-center gap-1">
                     <p className="text-xs font-mono">[WS] {WEBSOCKET_BASE_URL}</p>
-                    <span
-                      className={`ml-2 h-3 w-3 rounded-full ${isSocketConnected ? 'bg-green-500' : 'bg-red-500'
-                        }`}
-                    ></span>
                   </div>
                 </CardContent>
               </form>
@@ -260,31 +269,41 @@ export default function SidebarComponent({ isSocketConnected, children }: Sideba
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="/supervisor">
+                <BreadcrumbLink asChild={true}>
                   <Link to="/">
                     home
                   </Link>
                 </BreadcrumbLink>
               </BreadcrumbItem>
               {currentPath.length > 0 && (
-
-                currentPath.map((path) => (
-                  <>
-                    <BreadcrumbSeparator className="hidden md:block" />
-                    <BreadcrumbItem key={path}>
-                      <BreadcrumbLink>
-                        <Link to={`/${path}`}>
-                          {path}
-                        </Link>
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                  </>
+                currentPath.map((path, index) => (
+                  <BreadcrumbItem key={index}>
+                    <span className="text-muted-foreground text-xs">/</span>
+                    <BreadcrumbLink asChild={true}>
+                      <Link to={`/${currentPath.slice(0, index + 1).join('/')}`}>
+                        {path}
+                      </Link>
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
                 ))
               )}
             </BreadcrumbList>
           </Breadcrumb>
+          <div className="ml-auto">
+            <Card className="bg-muted px-3 py-1 shadow-none">
+              <div className="flex items-center gap-2">
+                <LucideBuilding className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  Selected Project: {` `}
+                  {projects && selectedProject ?
+                    projects?.find(p => p.id === selectedProject)?.name || 'No Project Selected'
+                    : 'No Project Selected'}
+                </span>
+              </div>
+            </Card>
+          </div>
         </header>
-        <div className="flex-grow mt-24">
+        <div className="flex-grow">
           {children}
         </div>
       </SidebarInset>

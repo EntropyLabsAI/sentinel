@@ -4,31 +4,32 @@ info:
   version: 1.0.0
 
 paths:
-  /api/project:
-    post:
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RegisterProjectRequest"
-      summary: Register a new project
-      operationId: RegisterProject
+  /api/openapi.yaml:
+    get:
+      summary: Get the OpenAPI schema
+      operationId: GetOpenAPI
       responses:
         "200":
-          description: Project registered successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RegisterProjectResponse"
+          description: OpenAPI schema
       tags:
-        - Project
+        - API
+  /api/swagger-ui:
+    get:
+      summary: Get the Swagger UI
+      operationId: GetSwaggerDocs
+      responses:
+        "200":
+          description: Swagger UI
+      tags:
+        - API
+
+  /api/project:
     get:
       summary: Get all projects
       operationId: GetProjects
       responses:
         "200":
-          description: List of all projects
+          description: List of projects
           content:
             application/json:
               schema:
@@ -37,290 +38,1026 @@ paths:
                   $ref: "#/components/schemas/Project"
       tags:
         - Project
-  /api/project/{id}:
-    get:
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      summary: Get a project by ID
-      operationId: GetProjectById
-      responses:
-        "200":
-          description: Project retrieved successfully
-      tags:
-        - Project
-
-  /api/review/human:
     post:
-      summary: Submit a review to a human supervisor
-      operationId: SubmitReviewHuman
+      summary: Create a new project
+      operationId: CreateProject
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ReviewRequest"
+              type: object
+              properties:
+                name:
+                  type: string
+              required:
+                - name
       responses:
         "200":
-          description: Review queued successfully
+          description: Project found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReviewStatusResponse"
+                type: string
+                format: uuid
+        "201":
+          description: Project created
+          content:
+            application/json:
+              schema:
+                type: string
+                format: uuid
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
       tags:
-        - Human Supervisor
-  /api/review/llm:
+        - Project
+
+  /api/project/{projectId}:
+    parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
     get:
-      summary: Get all LLM review results
-      operationId: GetLLMReviews
+      summary: Get a project
+      operationId: GetProject
       responses:
         "200":
-          description: List of all LLM review results
+          description: Project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "404":
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - Project
+
+  /api/project/{projectId}/run:
+    parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get all runs for a project
+      operationId: GetProjectRuns
+      responses:
+        "200":
+          description: List of runs
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Review"
+                  $ref: "#/components/schemas/Run"
       tags:
-        - LLM Supervisor
+        - Run
     post:
-      summary: Submit a review to an LLM supervisor
-      operationId: SubmitReviewLLM
+      summary: Create a new run for a project
+      operationId: CreateProjectRun
+      responses:
+        "201":
+          description: Run created
+          content:
+            application/json:
+              schema:
+                type: string
+                format: uuid
+      tags:
+        - Run
+
+  /api/run/{runId}/tool:
+    parameters:
+      - name: runId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get all tools for a run
+      operationId: GetRunTools
+      responses:
+        "200":
+          description: List of tools
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tool"
+      tags:
+        - Tool
+    post:
+      summary: Create a new tool for a run
+      operationId: CreateRunTool
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ReviewRequest"
-      responses:
-        "200":
-          description: Review queued successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReviewStatusResponse"
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-      tags:
-        - LLM Supervisor
-  /api/review/status/{id}:
-    get:
-      summary: Get review status
-      operationId: GetReviewStatus
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Review status retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReviewResult"
-        "404":
-          description: Review not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-      tags:
-        - Review
-  /api/review/llm/prompt:
-    post:
-      summary: Submit a new prompt for LLM reviews
-      operationId: SetLLMPrompt
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/LLMPrompt"
-      responses:
-        "200":
-          description: Prompt updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LLMPromptResponse"
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-      tags:
-        - LLM Supervisor
-    get:
-      summary: Get the current LLM review prompt
-      operationId: GetLLMPrompt
-      responses:
-        "200":
-          description: Current LLM prompt retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  prompt:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                attributes:
+                  type: object
+                ignored_attributes:
+                  type: array
+                  items:
                     type: string
+                code:
+                  type: string
+              required:
+                - name
+                - description
+                - attributes
+                - code
+      responses:
+        "200":
+          description: Tool found
+          content:
+            application/json:
+              schema:
+                type: string
+                format: uuid
+        "201":
+          description: Tool created
+          content:
+            application/json:
+              schema:
+                type: string
+                format: uuid
       tags:
-        - LLM Supervisor
-  /api/hub/stats:
+        - Tool
+
+  /api/supervisor/{supervisorId}:
+    parameters:
+      - name: supervisorId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
     get:
-      summary: Get hub statistics
+      summary: Get a supervisor
+      operationId: GetSupervisor
+      responses:
+        "200":
+          description: Supervisor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Supervisor"
+      tags:
+        - Supervisor
+
+  /api/project/{projectId}/supervisor:
+    parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get all supervisors
+      operationId: GetSupervisors
+      responses:
+        "200":
+          description: List of supervisors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Supervisor"
+      tags:
+        - Supervisor
+    post:
+      summary: Create a new supervisor
+      operationId: CreateSupervisor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Supervisor"
+      responses:
+        "201":
+          description: Supervisor created
+          content:
+            application/json:
+              schema:
+                type: string
+                format: uuid
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - Supervisor
+
+  /api/tool/{toolId}/supervisors:
+    parameters:
+      - name: toolId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get all supervisors for a tool, in chain format
+      operationId: GetToolSupervisorChains
+      responses:
+        "200":
+          description: List of chains with their supervisors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SupervisorChain"
+      tags:
+        - Supervisor
+    post:
+      summary: Create new chains with supervisors for a tool
+      operationId: CreateToolSupervisorChains
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "#/components/schemas/ChainRequest"
+      responses:
+        "201":
+          description: Chains created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+      tags:
+        - Supervisor
+
+  /api/tool/{toolId}/request_group:
+    parameters:
+      - name: toolId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      summary: Create a new request group for a tool
+      operationId: CreateToolRequestGroup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToolRequestGroup"
+      responses:
+        "201":
+          description: Request group created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolRequestGroup"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - RequestGroup
+
+  /api/run/{runId}/request_groups:
+    parameters:
+      - name: runId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get all request groups for a run
+      operationId: GetRunRequestGroups
+      responses:
+        "200":
+          description: List of request groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ToolRequestGroup"
+      tags:
+        - RequestGroup
+
+  /api/request_group/{requestGroupId}:
+    parameters:
+      - name: requestGroupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get a request group
+      operationId: GetRequestGroup
+      responses:
+        "200":
+          description: Request group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolRequestGroup"
+      tags:
+        - RequestGroup
+
+  /api/request_group/{requestGroupId}/status:
+    parameters:
+      - name: requestGroupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get a request group status
+      operationId: GetRequestGroupStatus
+      responses:
+        "200":
+          description: Request group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Status"
+      tags:
+        - RequestGroup
+
+  /api/request_group/{requestGroupId}/tool_requests:
+    parameters:
+      - name: requestGroupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      summary: Create a new tool request for a request group
+      operationId: CreateToolRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToolRequest"
+      responses:
+        "201":
+          description: Tool request added to request group
+          content:
+            application/json:
+              schema:
+                type: string
+                format: uuid
+      tags:
+        - RequestGroup
+
+  /api/tool/{toolId}:
+    parameters:
+      - name: toolId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get a tool
+      operationId: GetTool
+      responses:
+        "200":
+          description: Tool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tool"
+        "404":
+          description: Tool not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - Tool
+
+  /api/project/{projectId}/tools:
+    parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get all tools for a project
+      operationId: GetProjectTools
+      responses:
+        "200":
+          description: List of tools
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tool"
+      tags:
+        - Tool
+
+  # /api/request_group/{requestGroupId}/chain/{chainId}/execution:
+  #   parameters:
+  #     - name: requestGroupId
+  #       in: path
+  #       required: true
+  #       schema:
+  #         type: string
+  #         format: uuid
+  #     - name: chainId
+  #       in: path
+  #       required: true
+  #       schema:
+  #         type: string
+  #         format: uuid
+  #   post:
+  #     summary: Create a new execution for a request group and chain
+  #     operationId: CreateChainExecution
+  #     responses:
+  #       "201":
+  #         description: Chain execution created
+  #       "400":
+  #         description: Bad request
+  #         content:
+  #           application/json:
+  #             schema:
+  #               $ref: "#/components/schemas/ErrorResponse"
+
+  ? /api/request_group/{requestGroupId}/chain/{chainId}/supervisor/{supervisorId}/supervision_request
+  : parameters:
+      - name: requestGroupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: chainId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: supervisorId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      summary: Create a supervision request for a supervisor in a chain on a request group
+      operationId: CreateSupervisionRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupervisionRequest"
+      responses:
+        "201":
+          description: Supervision request created
+          content:
+            application/json:
+              schema:
+                type: string
+                format: uuid
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - Supervision
+
+  /api/supervision_request/{supervisionRequestId}/status:
+    parameters:
+      - name: supervisionRequestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get a supervision request status
+      operationId: GetSupervisionRequestStatus
+      responses:
+        "200":
+          description: Get the supervision request status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupervisionStatus"
+      tags:
+        - Supervision
+
+  /api/supervision_request/{supervisionRequestId}/result:
+    parameters:
+      - name: supervisionRequestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get a supervision result
+      operationId: GetSupervisionResult
+      responses:
+        "200":
+          description: Get the supervision result for a supervision request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupervisionResult"
+      tags:
+        - Supervision
+    post:
+      summary: Create a supervision result for a supervision request
+      operationId: CreateSupervisionResult
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupervisionResult"
+      responses:
+        "201":
+          description: Supervision result created
+          content:
+            application/json:
+              schema:
+                type: string
+                format: uuid
+      tags:
+        - Supervision
+
+  /api/run/{runId}/state:
+    parameters:
+      - name: runId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get the state of a run
+      operationId: GetRunState
+      responses:
+        "200":
+          description: Run state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunState"
+      tags:
+        - Run
+
+  /api/stats:
+    get:
+      summary: Get hub stats
       operationId: GetHubStats
       responses:
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
-          description: Hub statistics retrieved successfully
+          description: Hub stats
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/HubStats"
       tags:
-        - Utility
-  /api/explain:
-    post:
-      summary: Get an explanation and danger score for a code snippet
-      operationId: GetLLMExplanation
-      requestBody:
+        - Stats
+
+  /api/supervision_request/{supervisionRequestId}/review_payload:
+    parameters:
+      - name: supervisionRequestId
+        in: path
         required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CodeSnippet"
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get the review payload for a supervision request
+      operationId: GetSupervisionReviewPayload
       responses:
         "200":
-          description: LLM explanation retrieved successfully
+          description: Review payload for the supervision request
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/LLMExplanation"
-        "400":
-          description: Bad request
+                $ref: "#/components/schemas/ReviewPayload"
+        "404":
+          description: Supervision request not found
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       tags:
-        - Utility
-  /api/docs:
-    get:
-      summary: Get the API documentation
-      operationId: GetSwaggerDocs
-      responses:
-        "200":
-          description: API documentation retrieved successfully
-      tags:
-        - Utility
-  /api/openapi.yaml:
-    get:
-      summary: Get the OpenAPI schema
-      operationId: GetOpenAPI
-      responses:
-        "200":
-          description: OpenAPI schema retrieved successfully
-      tags:
-        - Utility
+        - Supervision
+
+  # /api/chain_execution/{chainExecutionId}:
+  #   parameters:
+  #     - name: chainExecutionId
+  #       in: path
+  #       required: true
+  #       schema:
+  #         type: string
+  #         format: uuid
+  #   get:
+  #     summary: Get the state of a chain execution
+  #     operationId: GetChainExecutionState
+  #     responses:
+  #       "200":
+  #         description: Chain execution state
+  #         content:
+  #           application/json:
+  #             schema:
+  #               $ref: "#/components/schemas/ChainExecutionState"
+
 components:
   schemas:
-    CodeSnippet:
-      type: object
-      properties:
-        text:
-          type: string
-      required:
-        - text
-    LLMExplanation:
-      type: object
-      properties:
-        explanation:
-          type: string
-        score:
-          type: number
-      required:
-        - explanation
-        - score
-    Review:
-      type: object
-      properties:
-        id:
-          type: string
-        request:
-          $ref: "#/components/schemas/ReviewRequest"
-      required:
-        - id
-        - request
-    ReviewRequest:
-      type: object
-      properties:
-        agent_id:
-          type: string
-        task_state:
-          $ref: "#/components/schemas/TaskState"
-        tool_choices:
-          type: array
-          items:
-            $ref: "#/components/schemas/ToolChoice"
-        last_messages:
-          type: array
-          items:
-            $ref: "#/components/schemas/Message"
-      required:
-        - agent_id
-        - task_state
-        - tool_choices
-        - last_messages
-    ReviewStatusResponse:
-      type: object
-      properties:
-        id:
-          type: string
-        status:
-          $ref: "#/components/schemas/Status"
-      required:
-        - id
-        - status
-    ReviewResult:
-      type: object
-      properties:
-        id:
-          type: string
-        decision:
-          $ref: "#/components/schemas/Decision"
-        tool_choice:
-          $ref: "#/components/schemas/ToolChoice"
-        reasoning:
-          type: string
-      required:
-        - id
-        - decision
-        - tool_choice
-        - reasoning
     ErrorResponse:
       type: object
       properties:
-        status:
+        error:
+          type: string
+        details:
           type: string
       required:
+        - error
+
+    RunState:
+      type: array
+      items:
+        $ref: "#/components/schemas/RunExecution"
+
+    RunExecution:
+      type: object
+      properties:
+        request_group:
+          $ref: "#/components/schemas/ToolRequestGroup"
+        chains:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChainExecutionState"
+        status:
+          $ref: "#/components/schemas/Status"
+      required:
+        - request_group
+        - chains
         - status
+
+    ChainExecutionState:
+      type: object
+      properties:
+        chain:
+          $ref: "#/components/schemas/SupervisorChain"
+        chain_execution:
+          $ref: "#/components/schemas/ChainExecution"
+        supervision_requests:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupervisionRequestState"
+      required:
+        - chain
+        - supervision_requests
+        - chain_execution
+
+    ChainExecution:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        request_group_id:
+          type: string
+          format: uuid
+        chain_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - request_group_id
+        - chain_id
+        - created_at
+
+    SupervisionRequestState:
+      type: object
+      properties:
+        supervision_request:
+          $ref: "#/components/schemas/SupervisionRequest"
+        status:
+          $ref: "#/components/schemas/SupervisionStatus"
+        result:
+          $ref: "#/components/schemas/SupervisionResult"
+      required:
+        - supervision_request
+        - status
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - name
+        - created_at
+        - id
+
+    Run:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - project_id
+        - created_at
+
+    Tool:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        run_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        attributes:
+          type: object
+        ignored_attributes:
+          type: array
+          items:
+            type: string
+        code:
+          type: string
+      required:
+        - run_id
+        - name
+        - description
+        - attributes
+        - code
+
+    Supervisor:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        type:
+          $ref: "#/components/schemas/SupervisorType"
+        code:
+          type: string
+        attributes:
+          type: object
+      required:
+        - name
+        - description
+        - created_at
+        - type
+        - code
+        - attributes
+
+    ChainRequest:
+      type: object
+      properties:
+        supervisor_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Array of supervisor IDs to create chains with
+
+    SupervisorChain:
+      type: object
+      properties:
+        chain_id:
+          type: string
+          format: uuid
+        supervisors:
+          type: array
+          items:
+            $ref: "#/components/schemas/Supervisor"
+      required:
+        - chain_id
+        - supervisors
+
+    ToolRequestGroup:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        tool_requests:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolRequest"
+      required:
+        - tool_requests
+
+    ToolRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        requestgroup_id:
+          type: string
+          format: uuid
+        tool_id:
+          type: string
+          format: uuid
+        message:
+          $ref: "#/components/schemas/Message"
+        arguments:
+          $ref: "#/components/schemas/Arguments"
+        task_state:
+          $ref: "#/components/schemas/TaskState"
+      required:
+        - tool_id
+        - arguments
+        - message
+        - task_state
+
+    Message:
+      type: object
+      properties:
+        role:
+          $ref: "#/components/schemas/MessageRole"
+        content:
+          type: string
+      required:
+        - role
+        - content
+
+    Arguments:
+      type: object
+      additionalProperties: true
+
+    SupervisionRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        chainexecution_id:
+          type: string
+          format: uuid
+        supervisor_id:
+          type: string
+          format: uuid
+        position_in_chain:
+          type: integer
+        status:
+          $ref: "#/components/schemas/SupervisionStatus"
+      required:
+        - supervisor_id
+        - position_in_chain
+
+    SupervisionStatus:
+      type: object
+      properties:
+        id:
+          type: integer
+        supervision_request_id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/Status"
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - status
+        - created_at
+
+    SupervisionResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        supervision_request_id:
+          type: string
+          format: uuid
+        chosen_toolrequest_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        decision:
+          $ref: "#/components/schemas/Decision"
+        reasoning:
+          type: string
+      required:
+        - supervision_request_id
+        - created_at
+        - decision
+        - reasoning
+
+    Status:
+      type: string
+      enum: [pending, completed, failed, assigned, timeout]
+
+    Decision:
+      type: string
+      enum: [approve, reject, terminate, modify, escalate]
+
+    SupervisorType:
+      type: string
+      description: The type of supervisor. ClientSupervisor means that the supervision is done client side and the server is merely informed. Other supervisor types are handled serverside, e.g. HumanSupervisor means that a human will review the request via the Sentinel UI.
+      enum: [client_supervisor, human_supervisor, no_supervisor]
+
+    # Task State Begin
     TaskState:
       type: object
       properties:
         messages:
           type: array
           items:
-            $ref: "#/components/schemas/Message"
+            $ref: "#/components/schemas/StateMessage"
         tools:
           type: array
           items:
@@ -342,7 +1079,8 @@ components:
         - tools
         - output
         - completed
-    Message:
+
+    StateMessage:
       type: object
       properties:
         content:
@@ -362,18 +1100,7 @@ components:
       required:
         - content
         - role
-    Tool:
-      type: object
-      properties:
-        name:
-          type: string
-        description:
-          type: string
-        attributes:
-          type: object
-          additionalProperties: true
-      required:
-        - name
+
     ToolChoice:
       type: object
       properties:
@@ -390,13 +1117,7 @@ components:
         - function
         - arguments
         - type
-    Arguments:
-      type: object
-      properties:
-        cmd:
-          type: string
-        code:
-          type: string
+
     Output:
       type: object
       properties:
@@ -408,6 +1129,7 @@ components:
             $ref: "#/components/schemas/Choice"
         usage:
           $ref: "#/components/schemas/Usage"
+
     Choice:
       type: object
       properties:
@@ -417,6 +1139,7 @@ components:
           type: string
       required:
         - message
+
     AssistantMessage:
       type: object
       properties:
@@ -433,6 +1156,7 @@ components:
       required:
         - content
         - role
+
     ToolCall:
       type: object
       properties:
@@ -452,6 +1176,7 @@ components:
         - function
         - arguments
         - type
+
     Usage:
       type: object
       properties:
@@ -465,29 +1190,12 @@ components:
         - input_tokens
         - output_tokens
         - total_tokens
-    Decision:
-      type: string
-      enum:
-        - approve
-        - reject
-        - escalate
-        - terminate
-        - modify
-    Status:
-      type: string
-      enum:
-        - queued
-        - processing
-        - completed
-        - timeout
+    # Task State End
+
     HubStats:
       type: object
       properties:
         connected_clients:
-          type: integer
-        queued_reviews:
-          type: integer
-        stored_reviews:
           type: integer
         free_clients:
           type: integer
@@ -501,7 +1209,11 @@ components:
           type: object
           additionalProperties:
             type: integer
-        completed_reviews:
+        completed_reviews_count:
+          type: integer
+        pending_reviews_count:
+          type: integer
+        assigned_reviews_count:
           type: integer
       required:
         - connected_clients
@@ -511,55 +1223,33 @@ components:
         - busy_clients
         - assigned_reviews
         - review_distribution
-        - completed_reviews
-    LLMPrompt:
+        - completed_reviews_count
+        - pending_reviews_count
+        - assigned_reviews_count
+
+    MessageRole:
+      type: string
+      enum: [system, user, assistant]
+
+    ReviewPayload:
       type: object
+      description: Contains all the information needed for a human reviewer to make a supervision decision
       properties:
-        prompt:
+        supervision_request:
+          $ref: "#/components/schemas/SupervisionRequest"
+          description: The current supervision request being reviewed
+        chain_state:
+          $ref: "#/components/schemas/ChainExecutionState"
+          description: The state of the entire supervision chain, including previous supervision results
+        request_group:
+          $ref: "#/components/schemas/ToolRequestGroup"
+          description: The tool request group being supervised
+        run_id:
           type: string
+          format: uuid
+          description: The ID of the run this review is for
       required:
-        - prompt
-    LLMPromptResponse:
-      type: object
-      properties:
-        status:
-          type: string
-        message:
-          type: string
-      required:
-        - status
-        - message
-    RegisterProjectRequest:
-      type: object
-      properties:
-        name:
-          type: string
-        tools:
-          type: array
-          items:
-            $ref: "#/components/schemas/Tool"
-      required:
-        - name
-        - tools
-    RegisterProjectResponse:
-      type: object
-      properties:
-        id:
-          type: string
-      required:
-        - id
-    Project:
-      type: object
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        tools:
-          type: array
-          items:
-            $ref: "#/components/schemas/Tool"
-      required:
-        - id
-        - name
-        - tools
+        - supervision_request
+        - chain_state
+        - request_group
+        - run_id

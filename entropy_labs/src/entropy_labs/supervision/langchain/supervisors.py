@@ -1,10 +1,12 @@
-from typing import Callable, Dict, List, Optional, Set
+from typing import Callable, Dict, List, Optional, Set, Any
 from entropy_labs.supervision.config import SupervisionDecisionType, SupervisionDecision, supervision_config, SupervisionContext
-from entropy_labs.supervision.langchain.utils import create_task_state_from_context
 from inspect_ai.tool import ToolCall
+from entropy_labs.sentinel_api_client.sentinel_api_client.client import Client
+from uuid import UUID
 
-def human_supervisor(backend_api_endpoint: Optional[str] = None, agent_id: str = "default_agent", timeout: int = 300, n: int = 1):
-    async def supervisor(func: Callable, supervision_context: SupervisionContext, **kwargs) -> SupervisionDecision:
+def human_supervisor(agent_id: str = "default_agent", timeout: int = 300, n: int = 1):
+    async def supervisor(func: Callable, supervision_context: SupervisionContext, supervision_request_id: Optional[UUID] = None, ignored_attributes: List[str] = [], 
+                         tool_args: List[Any] = [], tool_kwargs: dict[str, Any] = {}, decision: Optional[SupervisionDecision] = None) -> SupervisionDecision:
         """
         Human supervisor that requests approval via backend API or CLI.
         """
@@ -15,15 +17,17 @@ def human_supervisor(backend_api_endpoint: Optional[str] = None, agent_id: str =
         # TODO: Reuse Supervise Protocol
 
         # Create TaskState from context - Right now we are using Inspect AI TaskState format to send to the backend, we need to transform langchain format to TaskState format
-        task_state = create_task_state_from_context(context)
+        task_state = context.to_task_state()
         id = 'tool_id'
-        tool_call = ToolCall(id=id,function=func.__name__, arguments=kwargs, type='function')
+        tool_call = ToolCall(id=id,function=func.__name__, arguments=tool_kwargs, type='function')
+        client = supervision_config.client
         
-        supervisor_decision = await human_supervisor_wrapper(task_state=task_state, call=tool_call, backend_api_endpoint=backend_api_endpoint, agent_id=agent_id, timeout=timeout, use_inspect_ai=False, n=n)
+        supervisor_decision = await human_supervisor_wrapper(task_state=task_state, call=tool_call, timeout=timeout, use_inspect_ai=False, n=n, supervision_request_id=supervision_request_id, client=client)
 
         return supervisor_decision
 
     supervisor.__name__ = human_supervisor.__name__
+    supervisor.supervisor_attributes = {"timeout": timeout, "n": n}
     return supervisor
 
 def bash_supervisor(
@@ -42,10 +46,10 @@ def bash_supervisor(
     Returns:
         Callable: A supervisor function that checks bash commands.
     """
-    def supervisor(func: Callable, *args, **kwargs) -> SupervisionDecision:
+    def supervisor(func: Callable, ignored_attributes: List[str] = [], tool_kwargs: dict[str, Any] = {}) -> SupervisionDecision:
         from entropy_labs.supervision.common import check_bash_command
         
-        command = args[0] if args else kwargs.get('command', '')
+        command = tool_kwargs.get('command', '')
         is_approved, explanation = check_bash_command(
             command, allowed_commands, allow_sudo, command_specific_rules
         )
@@ -61,6 +65,7 @@ def bash_supervisor(
             )
     
     supervisor.__name__ = bash_supervisor.__name__
+    supervisor.supervisor_attributes = {"allowed_commands": allowed_commands, "allow_sudo": allow_sudo, "command_specific_rules": command_specific_rules}
     return supervisor
 
 def python_supervisor(
@@ -83,10 +88,10 @@ def python_supervisor(
     Returns:
         Callable: A supervisor function that checks Python code.
     """
-    def supervisor(func: Callable, *args, **kwargs) -> SupervisionDecision:
+    def supervisor(func: Callable, ignored_attributes: List[str] = [], tool_kwargs: dict[str, Any] = {}) -> SupervisionDecision:
         from entropy_labs.supervision.common import check_python_code
         
-        code = args[0] if args else kwargs.get('code', '')
+        code = tool_kwargs.get('code', '')
         is_approved, explanation = check_python_code(
             code, allowed_modules, allowed_functions, disallowed_builtins,
             sensitive_modules, allow_system_state_modification
@@ -103,4 +108,5 @@ def python_supervisor(
             )
     
     supervisor.__name__ = python_supervisor.__name__
+    supervisor.supervisor_attributes = {"allowed_modules": allowed_modules, "allowed_functions": allowed_functions, "disallowed_builtins": disallowed_builtins, "sensitive_modules": sensitive_modules, "allow_system_state_modification": allow_system_state_modification}
     return supervisor

@@ -1,21 +1,22 @@
-import { Message, ToolChoice } from "@/types";
+import { Message, Tool, ToolChoice, ToolRequest, Arguments, useGetTool } from "@/types";
 import { Code, Code2, Link, X, MessageSquare } from "lucide-react"
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import CopyButton from "./copy_button"
-import ExplainButton from "./ask_lm"
-import { Button } from "./ui/button";
-import { Textarea } from "./ui/textarea"; // Make sure to import Textarea
-import ToolCodeBlock from "./tool_code_block";
-import { MessageDisplay, MessagesDisplay } from "./messages";
+import CopyButton from "@/components/util/copy_button"
+import { Button } from "@/components/ui/button";
+import ToolCodeBlock from "@/components/tool_code_block";
+import { MessageDisplay } from "@/components/messages";
+import { UUIDDisplay } from "@/components/util/uuid_display";
+import { RunBadge, ToolBadge } from "@/components/util/status_badge";
 
 interface ToolChoiceDisplayProps {
-  toolChoice: ToolChoice;
+  toolChoice: ToolRequest;
   lastMessage: Message;
-  onToolChoiceChange: (updatedToolChoice: ToolChoice) => void;
-  isSelected: boolean; // Added isSelected prop
-  onSelect: () => void; // Added onSelect prop
+  onToolChoiceChange: (updatedToolChoice: ToolRequest) => void;
+  isSelected: boolean;
+  onSelect: () => void;
   index: number;
+  runId: string;
 }
 
 const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
@@ -25,18 +26,26 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
   isSelected,
   onSelect,
   index,
+  runId,
 }) => {
-  const isBashCommand = toolChoice.function === "bash";
-  const [code, setCode] = useState(
-    isBashCommand ? toolChoice.arguments.cmd : toolChoice.arguments.code
-  );
   const [explanation, setExplanation] = useState<string | null>(null);
   const [score, setScore] = useState<string | null>(null);
   const [showMessage, setShowMessage] = useState(false);
+  const [tool, setTool] = useState<Tool>();
+  const [args, setArgs] = useState<Arguments>(toolChoice.arguments);
+  const [hiddenArgs, setHiddenArgs] = useState<Partial<Arguments>>({});
 
-  useEffect(() => {
-    setCode(isBashCommand ? toolChoice.arguments.cmd : toolChoice.arguments.code);
-  }, [toolChoice, isBashCommand]);
+  const getVisibleArgs = (fullArgs: Arguments): Arguments => {
+    if (!tool?.ignored_attributes) return fullArgs;
+
+    const visibleArgs = { ...fullArgs };
+    tool.ignored_attributes.forEach(key => {
+      delete visibleArgs[key];
+    });
+    return visibleArgs;
+  };
+
+  const toolQuery = useGetTool(toolChoice.tool_id);
 
   function resetExplanation() {
     setExplanation(null);
@@ -46,17 +55,42 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
     setScore(null);
   }
 
+  useEffect(() => {
+    if (tool?.ignored_attributes) {
+      const hidden = tool.ignored_attributes.reduce((acc, key) => {
+        if (key in toolChoice.arguments) {
+          acc[key] = toolChoice.arguments[key];
+        }
+        return acc;
+      }, {} as Partial<Arguments>);
+
+      setHiddenArgs(hidden);
+      setArgs(getVisibleArgs(toolChoice.arguments));
+    }
+  }, [tool, toolChoice.arguments]);
+
   function handleCodeChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const newCode = e.target.value;
-    setCode(newCode);
+    const newArgs = e.target.value;
+    const newVisibleArgs: Arguments = JSON.parse(newArgs);
+
+    setArgs(newVisibleArgs);
+
     const updatedToolChoice = {
       ...toolChoice,
-      arguments: isBashCommand
-        ? { ...toolChoice.arguments, cmd: newCode }
-        : { ...toolChoice.arguments, code: newCode },
+      arguments: {
+        ...newVisibleArgs,
+        ...hiddenArgs, // Merge back hidden values
+      },
     };
+
     onToolChoiceChange(updatedToolChoice);
   }
+
+  useEffect(() => {
+    if (toolQuery.data) {
+      setTool(toolQuery.data.data);
+    }
+  }, [toolQuery.data]);
 
   return (
     <Card className={isSelected ? "border-2 border-blue-500" : ""}>
@@ -75,19 +109,21 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
             >
               <MessageSquare size={16} />
             </Button>
-            <span className="font-semibold"></span>
-            <code className="">{toolChoice.id}</code>
-            <CopyButton className="bg-transparent shadow-none text-gray-600 hover:text-gray-400 hover:bg-transparent outline-none" text={toolChoice.id} />
+            <span className="text-sm text-gray-500">
+              Tool Choice ID <UUIDDisplay className="" uuid={toolChoice.id} />
+            </span>
           </div>
           <div className="flex items-center">
-            <span className="font-semibold mr-2"></span>
-            <code>{toolChoice.function}</code>
+            <div className="flex items-center gap-2">
+              <RunBadge runId={runId} />
+              <ToolBadge toolId={toolChoice.tool_id} />
+            </div>
             <Button
               size="sm"
               variant={isSelected ? "outline" : "outline"}
               onClick={onSelect}
               disabled={isSelected}
-              className="ml-4 bg-blue-500 hover:bg-blue-600 hover:text-white text-white"
+              className="h-6 ml-4 bg-blue-500 hover:bg-blue-600 hover:text-white text-white"
             >
               {isSelected ? "Selected" : "Select"}
             </Button>
@@ -97,8 +133,7 @@ const ToolChoiceDisplay: React.FC<ToolChoiceDisplayProps> = ({
       <CardContent>
         <div className="space-y-4">
           <ToolCodeBlock
-            isBashCommand={isBashCommand}
-            code={code || ""}
+            code={JSON.stringify(getVisibleArgs(args), null, 2)}
             handleCodeChange={handleCodeChange}
             explanation={explanation}
             setExplanation={setExplanation}

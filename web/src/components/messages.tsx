@@ -1,9 +1,10 @@
-import { Message } from "@/types";
+import { Message, StateMessage } from "@/types";
 import React, { useRef, useState, useEffect } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
-import { MessageSquare } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { MessagesSquareIcon } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
-export function MessagesDisplay({ messages }: { messages: Message[] }) {
+export function MessagesDisplay({ messages }: { messages: StateMessage[] }) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -21,29 +22,33 @@ export function MessagesDisplay({ messages }: { messages: Message[] }) {
     }
   }, [messages, isLoaded]);
 
-
-
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center">
-          <MessageSquare className="mr-2" />
-          Messages
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="h-[500px] overflow-auto" ref={scrollAreaRef}>
-          {messages.map((message, index) => (
-            <MessageDisplay key={index} message={message} index={index} />
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+    <Accordion type="single" collapsible className="w-full">
+      <AccordionItem value="messages" className="border border-gray-200 rounded-md">
+        <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
+          <div className="flex flex-row gap-4">
+            <MessagesSquareIcon className="w-4 h-4" />
+            Messages & Task State
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="">
+          <Card className="border-none">
+            <CardContent>
+              <div className="overflow-auto" ref={scrollAreaRef}>
+                {messages.map((message, index) => (
+                  <MessageDisplay key={index} message={message} index={index} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
   )
 }
 
 interface MessageDisplayProps {
-  message: Message;
+  message: StateMessage;
   index: number;
 }
 
