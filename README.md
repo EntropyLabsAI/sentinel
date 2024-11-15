@@ -29,7 +29,7 @@ source .env          # Pick up the environment variables
 docker compose up    # Start the server and frontend
 ```
 
-2. Run an agent that is pointing at Sentinel via our [SDK](/entropy_labs/README.md). See the examples for more details.
+2. Run an agent that is pointing at Sentinel via our [SDK](/entropy_labs/README.md). See the [examples](/examples) for more details.
 
 For more details, see our [docs](https://docs.entropy-labs.ai/introduction).
 
