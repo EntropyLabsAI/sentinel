@@ -220,11 +220,7 @@ export default function SidebarComponent({ children }: SidebarProps) {
                         asChild
                         isActive={currentPath[currentPath.length - 1] === subItem.url}
                         disabled={subItem.disabled}
-<<<<<<< HEAD
                         className={subItem.disabled ? "opacity-50 cursor-not-allowed" : ""}
-=======
-                        className={subItem.disabled ? 'opacity-50 cursor-not-allowed' : ''}
->>>>>>> 5c5e522 (add global project state)
                       >
                         <Link to={subItem.url} onClick={e => subItem.disabled && e.preventDefault()}>
                           {subItem.icon}
