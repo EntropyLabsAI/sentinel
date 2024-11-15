@@ -173,11 +173,11 @@ export default function ExecutionTable({ runState }: { runState: RunState }) {
                                     </AccordionTrigger>
 
                                     <AccordionContent className="p-4 bg-white rounded-md space-y-4">
-                                      {supervisionRequest && supervisionRequest.status.status === Status.pending && (
+                                      {/* {supervisionRequest && supervisionRequest.status.status === Status.pending && (
                                         <Button variant="outline" size="sm" onClick={() => setIsSlideoverOpen(true)}>
                                           Review
                                         </Button>
-                                      )}
+                                      )} */}
                                       {supervisionRequest ? (
                                         <>
                                           <p className="text-xs text-gray-500">
