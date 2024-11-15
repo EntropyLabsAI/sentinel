@@ -74,7 +74,7 @@ def to_hashable(item: ToHashable) -> Hashable:
 
 @supervise(
         supervision_functions=[
-            human_supervisor()
+            [human_supervisor()]
             # [correct_information_presented_to_user_supervisor, human_supervisor()]
         ],
         ignored_attributes=["self"]
