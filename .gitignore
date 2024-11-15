@@ -45,3 +45,5 @@ logs/
 .logs
 
 results/
+
+tau-bench/
