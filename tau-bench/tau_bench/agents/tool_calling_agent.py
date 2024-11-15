@@ -37,7 +37,8 @@ class ToolCallingAgent(Agent):
             {"role": "system", "content": self.wiki},
             {"role": "user", "content": obs},
         ]
-        supervision_config.context.update_openai_messages(messages)
+        supervision_context = supervision_config.get_all_runs()[0].supervision_context
+        supervision_context.update_openai_messages(messages)
         for _ in range(max_num_steps):
             res = completion(
                 messages=messages,
@@ -49,7 +50,8 @@ class ToolCallingAgent(Agent):
             next_message = res.choices[0].message.model_dump()
             total_cost += res._hidden_params["response_cost"]
             action = message_to_action(next_message)
-            supervision_config.context.update_openai_messages(messages)
+            supervision_context = supervision_config.get_all_runs()[0].supervision_context
+            supervision_context.update_openai_messages(messages)
             env_response = env.step(action)
             reward = env_response.reward
             info = {**info, **env_response.info.model_dump()}
@@ -73,7 +75,9 @@ class ToolCallingAgent(Agent):
                         {"role": "user", "content": env_response.observation},
                     ]
                 )
-            supervision_config.context.update_openai_messages(messages)
+            supervision_context = supervision_config.get_all_runs()[0].supervision_context
+            supervision_context.update_openai_messages(messages)
+
             if env_response.done:
                 break
         return SolveResult(
