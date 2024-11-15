@@ -237,7 +237,7 @@ def human_supervisor(
     Returns:
         Supervisor: A supervisor function that implements human supervision.
     """
-    async def supervisor(
+    def supervisor(
         func: Callable,
         supervision_context: SupervisionContext,
         ignored_attributes: list[str],
@@ -277,7 +277,7 @@ def human_supervisor(
         client = supervision_config.client  # Assuming supervision_config is accessible
 
         # Get the human supervision decision
-        supervisor_decision = await human_supervisor_wrapper(
+        supervisor_decision = human_supervisor_wrapper(
             task_state=task_state,
             call=tool_call,
             timeout=timeout,

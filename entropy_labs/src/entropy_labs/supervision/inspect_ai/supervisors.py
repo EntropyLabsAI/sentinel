@@ -13,6 +13,8 @@ from entropy_labs.supervision.inspect_ai.utils import generate_tool_call_suggest
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request import (
     ToolRequest,
 )
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.status import Status
+
 from entropy_labs.supervision.config import SupervisionContext
 
 def prepare_approval(decision: SupervisionDecision) -> Approval:
@@ -55,6 +57,7 @@ def with_entropy_supervision(supervisor_name_param: Optional[str] = None, n: Opt
                 send_supervision_request,
                 send_supervision_result,
                 get_tool_request_group,
+                get_tool_request_status,
                 SupervisorType,
             )
 
@@ -78,15 +81,18 @@ def with_entropy_supervision(supervisor_name_param: Optional[str] = None, n: Opt
             
             tool_requests = [ToolRequest(tool_id=tool_id, 
                                          message=supervision_context.get_api_messages()[-1],
-                                         arguments=Arguments.from_dict(call.arguments),                                         task_state=supervision_context.to_task_state())]
+                                         arguments=Arguments.from_dict(call.arguments),
+                                         task_state=supervision_context.to_task_state())]
             
 
             # Create ToolRequestGroup, we need to check first if the ToolRequestGroup for this run_id and tool_id exists
             tool_request_group = get_tool_request_group(run.run_id, tool_id, client)
-            # Check if th tool request group finished
-            # TODO: WE NEED TO CHECK IF THE TOOL REQUEST GROUP IS FINISHED
             
-            if not tool_request_group:
+            if tool_request_group is not None and tool_request_group.id:
+                tool_request_status = get_tool_request_status(tool_request_group.id, client)
+            else:
+                tool_request_status = None
+            if not tool_request_group or (tool_request_status in [Status.COMPLETED, Status.FAILED, Status.TIMEOUT]):
                 tool_request_group = create_tool_request_group(tool_id, tool_requests, client)
                 if not tool_request_group:
                     raise Exception(f"Failed to create Tool Request Group")

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "entropy_labs"
-version = "0.1.7"
+version = "0.1.10"
 description = "Entropy Labs' Sentinel is an agent control plane that enables efficient oversight of thousands of parallel-running agents."
 authors = [
     {name = "Entropy Labs", email = "devs@entropy-labs.ai"},

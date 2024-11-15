@@ -296,7 +296,7 @@ def register_inspect_approvals(run_id: UUID, approval_file: str):
     
     
 # Create an asyncio.Lock to prevent concurrent console access
-_console_lock = asyncio.Lock()
+# _console_lock = asyncio.Lock()
 
 def register_tools_and_supervisors(run_id: UUID, tools: Optional[List[Callable | StructuredTool]] = None):
     """
@@ -446,7 +446,7 @@ def wait_for_human_decision(supervision_request_id: UUID, client: Client, timeou
         time.sleep(5)  # Wait for 5 seconds before polling again
 
 
-async def get_human_supervision_decision_api(
+def get_human_supervision_decision_api(
     supervision_request_id: UUID,
     client: Client,
     timeout: int = 300,
@@ -454,10 +454,10 @@ async def get_human_supervision_decision_api(
     """Get the supervision decision from the backend API."""
 
     if use_inspect_ai:
-        async with _console_lock:
-            with input_screen(width=None) as console:
-                console.record = True
-                supervision_status = wait_for_human_decision(supervision_request_id=supervision_request_id, client=client, timeout=timeout)
+        # async with _console_lock:
+        with input_screen(width=None) as console:
+            console.record = True
+            supervision_status = wait_for_human_decision(supervision_request_id=supervision_request_id, client=client, timeout=timeout)
     else:
         console = Console(record=True)
         supervision_status = wait_for_human_decision(supervision_request_id=supervision_request_id, client=client, timeout=timeout)
