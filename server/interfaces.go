@@ -83,4 +83,5 @@ type RunStore interface {
 	GetRun(ctx context.Context, id uuid.UUID) (*Run, error)
 	GetRuns(ctx context.Context, projectId uuid.UUID) ([]Run, error)
 	GetProjectRuns(ctx context.Context, id uuid.UUID) ([]Run, error)
+	UpdateRunStatus(ctx context.Context, runId uuid.UUID, status Status) error
 }

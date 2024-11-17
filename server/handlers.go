@@ -915,3 +915,40 @@ func allChainsComplete(statuses []Status) bool {
 	}
 	return true
 }
+
+func apiGetRunStatusHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	run, err := store.GetRun(ctx, runId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting run status", err.Error())
+		return
+	}
+
+	if run == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Run not found", "")
+		return
+	}
+
+	respondJSON(w, run.Status)
+}
+
+func apiUpdateRunStatusHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	var status Status
+	if err := json.NewDecoder(r.Body).Decode(&status); err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, "error decoding run status", err.Error())
+		return
+	}
+
+	// Update the run status
+	err := store.UpdateRunStatus(ctx, runId, status)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error updating run status", err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+	respondJSON(w, nil)
+}

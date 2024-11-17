@@ -658,6 +658,47 @@ paths:
       tags:
         - Run
 
+  /api/run/{runId}/status:
+    parameters:
+      - name: runId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get the status of a run
+      operationId: GetRunStatus
+      responses:
+        "200":
+          description: Run status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Status"
+        "404":
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - Run
+    put:
+      summary: Update the status of a run
+      operationId: UpdateRunStatus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Status"
+      responses:
+        "204":
+          description: Run status updated
+      tags:
+        - Run
+
   /api/stats:
     get:
       summary: Get hub stats
@@ -835,6 +876,8 @@ components:
         created_at:
           type: string
           format: date-time
+        status:
+          $ref: "#/components/schemas/Status"
       required:
         - id
         - project_id
