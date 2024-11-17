@@ -5,6 +5,8 @@ import { ArrowRightIcon } from "@radix-ui/react-icons";
 import { SupervisorBadge, SupervisorTypeBadge, ToolBadge } from "./util/status_badge";
 import { ToolAttributes } from "./tool_attributes";
 import { UUIDDisplay } from "./util/uuid_display";
+import hljs from 'highlight.js';
+import 'highlight.js/styles/github-dark.css';
 
 type ToolCardProps = {
   tool: Tool;
@@ -12,6 +14,14 @@ type ToolCardProps = {
 };
 
 export function ToolCard({ tool, runId }: ToolCardProps) {
+  useEffect(() => {
+    if (tool.code) {
+      document.querySelectorAll('pre code').forEach((block) => {
+        hljs.highlightElement(block as HTMLElement);
+      });
+    }
+  }, [tool.code]);
+
   return (
     <Card className="flex flex-col text-muted-foreground">
       <CardHeader className="py-2">
@@ -27,12 +37,12 @@ export function ToolCard({ tool, runId }: ToolCardProps) {
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         {tool.code && (
-          <>
-            <p className="text-sm font-semibold">Code</p>
-            <pre className="text-xs bg-muted p-2 rounded w-full overflow-auto">
-              <code>{tool.code}</code>
+          <div className="">
+            <p className="text-sm font-semibold mb-2">Code</p>
+            <pre className="text-xs rounded w-full overflow-scroll max-h-96">
+              <code className="rounded-lg language-python">{tool.code}</code>
             </pre>
-          </>
+          </div>
         )}
         <p className="text-sm font-semibold">Attributes</p>
         {tool.attributes && <ToolAttributes attributes={tool.attributes || ''} ignoredAttributes={tool.ignored_attributes || []} />}
