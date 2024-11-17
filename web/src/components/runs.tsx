@@ -16,7 +16,7 @@ import {
   TableRow,
   TableFooter,
 } from "@/components/ui/table"
-import { ToolBadge, ToolBadges } from "./util/status_badge";
+import { StatusBadge, ToolBadge, ToolBadges } from "./util/status_badge";
 
 export default function Runs() {
   const [runs, setRuns] = useState<Run[]>([]);
@@ -61,9 +61,10 @@ export default function Runs() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[100px]">Run ID</TableHead>
-                <TableHead className="">Tools Used</TableHead>
+                <TableHead className="">Tools Assigned</TableHead>
                 <TableHead className="w-[100px] text-right">Tool Executions</TableHead>
                 <TableHead className="w-[100px] text-right">Created</TableHead>
+                <TableHead className="w-[100px] text-right">Status</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -80,7 +81,10 @@ export default function Runs() {
                     <ExecutionsCount runId={run.id} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <CreatedAgo datetime={run.created_at} />
+                    <CreatedAgo datetime={run.created_at} label='' />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <StatusBadge status={run.status} />
                   </TableCell>
                   <TableCell>
                     <Link to={`/projects/${projectId}/runs/${run.id}`}>
@@ -92,7 +96,7 @@ export default function Runs() {
             </TableBody>
             <TableFooter>
               <TableRow>
-                <TableCell className="text-xs text-muted-foreground" colSpan={5}>
+                <TableCell className="text-xs text-muted-foreground" colSpan={6}>
                   {runs.length} runs found for this project
                 </TableCell>
               </TableRow>

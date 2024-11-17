@@ -111,7 +111,7 @@ export default function ReviewRequestDisplay({ reviewPayload, sendResponse }: Re
             </div>
           </AccordionTrigger>
           <AccordionContent className="p-4">
-            <pre>{JSON.stringify(toolRequests[selectedToolIndex].task_state, null, 2)}</pre>
+            <pre className="overflow-scroll">{JSON.stringify(toolRequests[selectedToolIndex].task_state, null, 2)}</pre>
           </AccordionContent>
         </AccordionItem>
       </Accordion>

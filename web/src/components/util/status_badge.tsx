@@ -22,7 +22,7 @@ export function StatusBadge({ status, statuses }: { status?: Status, statuses?: 
     return
   }
 
-  return <Badge className={`shadow-none ${colors[status]}`}>{status}</Badge>;
+  return <Badge className={`shadow-none ${colors[status]}`}>{status === Status.pending ? 'in progress' : status}</Badge>;
 }
 
 

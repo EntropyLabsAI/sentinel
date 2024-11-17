@@ -261,6 +261,7 @@ export interface Run {
   created_at: string;
   id: string;
   project_id: string;
+  status?: Status;
 }
 
 export interface Project {
@@ -1811,6 +1812,121 @@ export const useGetRunState = <TData = Awaited<ReturnType<typeof getRunState>>, 
 
 
 
+/**
+ * @summary Get the status of a run
+ */
+export const getRunStatus = (
+    runId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<Status>> => {
+    
+    return axios.get(
+      `/api/run/${runId}/status`,options
+    );
+  }
+
+
+export const getGetRunStatusQueryKey = (runId: string,) => {
+    return [`/api/run/${runId}/status`] as const;
+    }
+
+    
+export const getGetRunStatusQueryOptions = <TData = Awaited<ReturnType<typeof getRunStatus>>, TError = AxiosError<ErrorResponse>>(runId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunStatus>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRunStatusQueryKey(runId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRunStatus>>> = ({ signal }) => getRunStatus(runId, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(runId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRunStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRunStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getRunStatus>>>
+export type GetRunStatusQueryError = AxiosError<ErrorResponse>
+
+/**
+ * @summary Get the status of a run
+ */
+export const useGetRunStatus = <TData = Awaited<ReturnType<typeof getRunStatus>>, TError = AxiosError<ErrorResponse>>(
+ runId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunStatus>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetRunStatusQueryOptions(runId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Update the status of a run
+ */
+export const updateRunStatus = (
+    runId: string,
+    status: Status, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<void>> => {
+    
+    return axios.put(
+      `/api/run/${runId}/status`,
+      status,options
+    );
+  }
+
+
+
+export const getUpdateRunStatusMutationOptions = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRunStatus>>, TError,{runId: string;data: Status}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof updateRunStatus>>, TError,{runId: string;data: Status}, TContext> => {
+const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateRunStatus>>, {runId: string;data: Status}> = (props) => {
+          const {runId,data} = props ?? {};
+
+          return  updateRunStatus(runId,data,axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateRunStatusMutationResult = NonNullable<Awaited<ReturnType<typeof updateRunStatus>>>
+    export type UpdateRunStatusMutationBody = Status
+    export type UpdateRunStatusMutationError = AxiosError<unknown>
+
+    /**
+ * @summary Update the status of a run
+ */
+export const useUpdateRunStatus = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRunStatus>>, TError,{runId: string;data: Status}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationResult<
+        Awaited<ReturnType<typeof updateRunStatus>>,
+        TError,
+        {runId: string;data: Status},
+        TContext
+      > => {
+
+      const mutationOptions = getUpdateRunStatusMutationOptions(options);
+
+      return useMutation(mutationOptions);
+    }
+    
 /**
  * @summary Get hub stats
  */
