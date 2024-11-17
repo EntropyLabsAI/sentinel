@@ -31,6 +31,12 @@ type ReviewPayloadMap = {
   [key: string]: ReviewPayload;
 };
 
+// Add this type definition at the top with other types
+type TimeoutMessage = {
+  type: 'timeout';
+  request_id: string;
+};
+
 const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
   const { API_BASE_URL, WEBSOCKET_BASE_URL } = useConfig();
   const [socket, setSocket] = useState<WebSocket | null>(null);
@@ -80,15 +86,37 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
     };
 
     ws.onmessage = (event) => {
-      const data: SupervisionRequest = JSON.parse(event.data);
-      if (!data.id) {
+      const data = JSON.parse(event.data);
+
+      // Handle timeout messages
+      if (data.type === 'timeout') {
+        const timeoutData = data as TimeoutMessage;
+        // Remove from queue if present
+        setRequestQueue(prev => prev.filter(id => id !== timeoutData.request_id));
+        // Remove from reviews if present
+        setReviews(prev => {
+          const newReviews = { ...prev };
+          delete newReviews[timeoutData.request_id];
+
+          // Update selection if the timed-out review was selected
+          if (selectedRequestId === timeoutData.request_id) {
+            const remainingIds = Object.keys(newReviews);
+            setSelectedRequestId(remainingIds.length > 0 ? remainingIds[0] : undefined);
+          }
+
+          return newReviews;
+        });
+        return;
+      }
+
+      // Handle regular supervision requests
+      const supervisionRequest = data as SupervisionRequest;
+      if (!supervisionRequest.id) {
         console.error('Received a message with no ID');
         return;
       }
       // Add new request to queue
-      if (data.id) {
-        setRequestQueue(prev => [...prev, data.id || '']);
-      }
+      setRequestQueue(prev => [...prev, supervisionRequest.id || '']);
     };
 
     ws.onclose = () => {

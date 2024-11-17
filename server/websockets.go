@@ -14,7 +14,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const MAX_SUPERVISORS_PER_CLIENT = 5
+const MAX_SUPERVISORS_PER_CLIENT = 8
 
 // Upgrade HTTP connection to WebSocket with proper settings
 var upgrader = websocket.Upgrader{
