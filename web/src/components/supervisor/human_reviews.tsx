@@ -111,9 +111,15 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
   // Send response and remove the review
   const sendResponse = (decision: Decision, requestId: string, toolChoice: ToolRequest, feedback?: string) => {
     if (socket?.readyState === WebSocket.OPEN) {
+
+      var feedbackText = "Human decided via interface";
+      if (feedback) {
+        feedbackText = feedback;
+      }
+
       const response: SupervisionResult = {
         decision: decision,
-        reasoning: 'Human decided via interface',
+        reasoning: feedbackText,
         created_at: new Date().toISOString(),
         supervision_request_id: requestId,
         chosen_toolrequest_id: toolChoice.id,
