@@ -49,7 +49,7 @@ export default function Runs() {
 
   return (
     <Page title={`Agent Runs`}
-      subtitle={<span>{runs.length} runs found for project {projectData?.data?.name} (<UUIDDisplay uuid={projectData?.data?.id} />)</span>}
+      subtitle={<span>{runs.length > 0 ? `${runs.length} runs` : 'No runs'} found for project {projectData?.data?.name ?? ''} <UUIDDisplay uuid={projectData?.data?.id ?? ''} /></span>}
       icon={<RailSymbol className="w-6 h-6" />}
     >
       {runs.length === 0 &&

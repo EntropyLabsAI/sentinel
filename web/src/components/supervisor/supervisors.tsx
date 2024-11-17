@@ -39,7 +39,7 @@ const SupervisorSelection: React.FC = () => {
   console.log(supervisors);
 
   return (
-    <Page title="Supervisors" subtitle={`${supervisors.length} supervisors registered against runs in ${projectData?.data.name}`} icon={<ScanEyeIcon className="w-6 h-6" />}>
+    <Page title="Supervisors" subtitle={`${supervisors.length ? `${supervisors.length} supervisors` : 'No supervisors'} registered against runs in project ${projectData?.data?.name ?? ''}`} icon={<ScanEyeIcon className="w-6 h-6" />}>
       {isLoading && (
         <LoadingSpinner />
       )}

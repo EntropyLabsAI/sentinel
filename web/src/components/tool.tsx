@@ -19,7 +19,7 @@ export default function ToolDetails() {
   }, [data]);
 
   return (
-    <Page title={`Tool Details`} subtitle={`Details for tool ${tool?.name || "Tool"} (${toolId})`} icon={<PickaxeIcon className="w-6 h-6" />}>
+    <Page title={`Tool Details`} subtitle={`Details for tool ${tool?.name ?? "Tool"} (${toolId ?? ''})`} icon={<PickaxeIcon className="w-6 h-6" />}>
       <div className="col-span-3">
         {isLoading && <LoadingSpinner />}
         {error && <div>Error loading tool: {error.message}</div>}
