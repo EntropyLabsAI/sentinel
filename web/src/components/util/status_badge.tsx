@@ -1,8 +1,8 @@
 import React from "react";
-import { Decision, Status, SupervisionStatus, Supervisor, SupervisorType, Tool, useGetSupervisor, useGetTool } from "@/types";
+import { Decision, Status, SupervisionStatus, Supervisor, SupervisorType, Tool, useGetProject, useGetSupervisor, useGetTask, useGetTool } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
-import { BotIcon, PickaxeIcon } from "lucide-react";
+import { BotIcon, CpuIcon, PickaxeIcon } from "lucide-react";
 import { UUIDDisplay } from "./uuid_display";
 import { useProject } from "@/contexts/project_context";
 
@@ -25,7 +25,28 @@ export function StatusBadge({ status, statuses }: { status?: Status, statuses?: 
   return <Badge className={`shadow-none ${colors[status]}`}>{status === Status.pending ? 'in progress' : status}</Badge>;
 }
 
+export function ProjectBadge({ projectId }: { projectId: string }) {
+  const { data, isLoading, error } = useGetProject(projectId);
+  if (isLoading) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Loading...</Badge>;
+  if (error) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Error: {error.message}</Badge>;
+  return (
+    <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">
+      <Link to={`/projects/${projectId}`}>{data?.data.name ?? 'Project'} <UUIDDisplay uuid={projectId} /></Link>
+    </Badge>
+  );
+}
 
+export function TaskBadge({ taskId }: { taskId: string }) {
+  const { data, isLoading, error } = useGetTask(taskId);
+  if (isLoading) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Loading...</Badge>;
+  if (error) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Error: {error.message}</Badge>;
+  return (
+    <Badge className="text-white bg-teal-800 shadow-none whitespace-nowrap gap-2 items-center">
+      <CpuIcon className="w-3 h-3 flex-shrink-0" />
+      <Link to={`/tasks/${taskId}`}>{data?.data.name ?? 'Task'}</Link>
+    </Badge>
+  )
+}
 
 export function DecisionBadge({ decision }: { decision: Decision | undefined }) {
   if (!decision) {

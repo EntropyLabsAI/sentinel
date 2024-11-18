@@ -1,4 +1,4 @@
-import { useGetProjects, Project, useGetProjectRuns, Run, useGetProject, useGetRunTools, Tool, useGetRunRequestGroups } from "@/types";
+import { useGetProjects, Project, useGetTaskRuns, Run, useGetProject, useGetRunTools, Tool, useGetRunRequestGroups } from "@/types";
 import React, { useEffect, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import Page from "./util/page";
@@ -16,28 +16,14 @@ import {
   TableRow,
   TableFooter,
 } from "@/components/ui/table"
-import { StatusBadge, ToolBadge, ToolBadges } from "./util/status_badge";
+import { ProjectBadge, StatusBadge, TaskBadge, ToolBadge, ToolBadges } from "./util/status_badge";
 
 export default function Runs() {
   const [runs, setRuns] = useState<Run[]>([]);
-  const { projectId } = useParams();
-  const navigate = useNavigate();
-  // Sync global state with URL parameter
-  const { selectedProject, setSelectedProject } = useProject();
-  const [executionsCount, setExecutionsCount] = useState(0);
+  const { taskId } = useParams();
+  const { selectedProject } = useProject();
 
-  const { data: runsData, isLoading: runsLoading, error: runsError } = useGetProjectRuns(projectId || '');
-  const { data: projectData, isLoading: projectLoading, error: projectError } = useGetProject(projectId || '');
-
-  useEffect(() => {
-    if (projectId && projectId !== selectedProject) {
-      setSelectedProject(projectId);
-    } else if (selectedProject && !projectId) {
-      // If we have a selected project but no URL parameter,
-      // navigate to the correct URL
-      navigate(`/projects/${selectedProject}/runs`);
-    }
-  }, [projectId, selectedProject]);
+  const { data: runsData, isLoading: runsLoading, error: runsError } = useGetTaskRuns(taskId || '');
 
   useEffect(() => {
     if (runsData?.data) {
@@ -45,11 +31,11 @@ export default function Runs() {
     } else {
       setRuns([]);
     }
-  }, [runsData, selectedProject]);
+  }, [runsData]);
 
   return (
-    <Page title={`Agent Runs`}
-      subtitle={<span>{runs.length > 0 ? `${runs.length} runs` : 'No runs'} found for project {projectData?.data?.name ?? ''} <UUIDDisplay uuid={projectData?.data?.id ?? ''} /></span>}
+    <Page title={`Runs`}
+      subtitle={<span>{runs.length > 0 ? `${runs.length} runs` : 'No runs'} found for task <TaskBadge taskId={taskId ?? ''} /></span>}
       icon={<RailSymbol className="w-6 h-6" />}
     >
       {runs.length === 0 &&
@@ -72,7 +58,7 @@ export default function Runs() {
               {runs.map((run) => (
                 <TableRow key={run.id}>
                   <TableCell className="font-medium">
-                    <UUIDDisplay uuid={run.id} href={`/projects/${projectId}/runs/${run.id}`} />
+                    <UUIDDisplay uuid={run.id} href={`/tasks/${taskId}/runs/${run.id}`} />
                   </TableCell>
                   <TableCell>
                     <ToolsBadgeList runId={run.id} />
@@ -87,7 +73,7 @@ export default function Runs() {
                     <StatusBadge status={run.status} />
                   </TableCell>
                   <TableCell>
-                    <Link to={`/projects/${projectId}/runs/${run.id}`}>
+                    <Link to={`/tasks/${taskId}/runs/${run.id}`}>
                       <Button variant="ghost"><ArrowRightIcon className="h-4 w-4" /></Button>
                     </Link>
                   </TableCell>

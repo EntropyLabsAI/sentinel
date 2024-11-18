@@ -10,8 +10,28 @@ import { Button } from "./ui/button";
 import { useProject } from "@/contexts/project_context";
 import { UUIDDisplay } from "./util/uuid_display";
 import { CreatedAgo } from "./util/created_ago";
-import { Building2 } from "lucide-react";
+import { Building2, Code2, Database, Gauge, GitBranch, Globe, Layout, Server, Terminal } from "lucide-react";
 import LoadingSpinner from "./util/loading";
+
+function getProjectIcon(uuid: string) {
+  // List of available icons
+  const icons = [
+    Building2, Code2, Database,
+    Gauge, GitBranch, Globe, Layout,
+    Server, Terminal
+  ];
+
+  // Convert UUID to a number by summing char codes
+  const sum = uuid.split('')
+    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+
+  // Use modulo to get a consistent index
+  const iconIndex = sum % icons.length;
+
+  // Return the icon component
+  const IconComponent = icons[iconIndex];
+  return <IconComponent className="w-4 h-4" />;
+}
 
 export default function ProjectList() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -46,28 +66,28 @@ export default function ProjectList() {
       )}
 
       {projects.map((project) => (
-        <Card key={project.id} className="flex flex-col">
-          <CardHeader>
-            <CardTitle>{project.name}</CardTitle>
-            <CardDescription className="flex flex-col">
-              <span>Project <UUIDDisplay uuid={project.id} /></span>
-              <span>
-                <CreatedAgo datetime={project.created_at} />
-              </span>
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex-grow">
-          </CardContent>
-          <CardFooter className="flex justify-end">
-            <Link
-              to={`/projects/${project.id}`}
-              key={project.id}
-              onClick={(e) => handleProjectSelect(project, e)}
-            >
-              <Button variant="outline">View Project</Button>
-            </Link>
-          </CardFooter>
-        </Card>
+        <Link
+          to={`/project/${project.id}`}
+          key={project.id}
+          onClick={(e) => handleProjectSelect(project, e)}
+        >
+          <Card key={project.id} className="flex w-64">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                {getProjectIcon(project.id)}
+                {project.name}
+              </CardTitle>
+              <CardDescription className="flex flex-col">
+                <span>Project <UUIDDisplay uuid={project.id} /></span>
+                <span>
+                  <CreatedAgo datetime={project.created_at} />
+                </span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex-grow">
+            </CardContent>
+          </Card>
+        </Link>
       ))}
     </Page>
   )

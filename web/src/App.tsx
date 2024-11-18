@@ -2,14 +2,15 @@ import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import SwaggerUI from '@/components/util/swagger_ui';
 import SupervisorSelection from '@/components/supervisor/supervisors';
-import Sidebar from './components/sidebar';
-import Home from './components/home';
-import ProjectList from './components/projects';
-import Runs from './components/runs';
-import Executions from './components/run';
-import Tools from './components/tools';
-import ToolDetails from './components/tool';
-import SupervisorDetails from './components/supervisor/supervisor';
+import Sidebar from '@/components/sidebar';
+import Home from '@/components/home';
+import ProjectList from '@/components/projects';
+import Runs from '@/components/runs';
+import Executions from '@/components/run';
+import Tools from '@/components/tools';
+import ToolDetails from '@/components/tool';
+import SupervisorDetails from '@/components/supervisor/supervisor';
+import Tasks from '@/components/tasks';
 
 const App: React.FC = () => {
   return (
@@ -20,9 +21,12 @@ const App: React.FC = () => {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/api" element={<SwaggerUI />} />
+
               <Route path="/projects" element={<ProjectList />} />
-              <Route path="/projects/:projectId" element={<Runs />} />
-              <Route path="/projects/:projectId/runs/:runId" element={<Executions />} />
+              <Route path="/projects/:projectId" element={<Tasks />} />
+              <Route path="/tasks/:taskId" element={<Runs />} />
+              <Route path="/tasks/:taskId/runs/:runId" element={<Executions />} />
+
               <Route path="/tools" element={<Tools />} />
               <Route path="/tools/:toolId" element={<ToolDetails />} />
               <Route path="/supervisors" element={<SupervisorSelection />} />
