@@ -72,35 +72,90 @@ func apiCreateProjectHandler(w http.ResponseWriter, r *http.Request, store Proje
 	respondJSON(w, id.String())
 }
 
-func apiCreateProjectRunHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store RunStore) {
+func apiCreateTaskHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, store Store) {
 	ctx := r.Context()
 
-	log.Printf("received new run request for project ID: %s", id)
+	var request struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid request body", err.Error())
+		return
+	}
+
+	task := Task{
+		Id:          uuid.New(),
+		ProjectId:   projectId,
+		Name:        request.Name,
+		Description: &request.Description,
+		CreatedAt:   time.Now(),
+	}
+
+	id, err := store.CreateTask(ctx, task)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "Failed to create task", err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	respondJSON(w, id.String())
+}
+
+func apiGetTaskHandler(w http.ResponseWriter, r *http.Request, taskId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	task, err := store.GetTask(ctx, taskId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "Error getting task", err.Error())
+		return
+	}
+
+	if task == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Task not found", "")
+		return
+	}
+
+	respondJSON(w, task)
+}
+
+func apiGetProjectTasksHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	tasks, err := store.GetProjectTasks(ctx, projectId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "Error getting project tasks", err.Error())
+		return
+	}
+
+	respondJSON(w, tasks)
+}
+
+func apiCreateRunHandler(w http.ResponseWriter, r *http.Request, taskId uuid.UUID, store Store) {
+	ctx := r.Context()
 
 	run := Run{
-		Id:        uuid.Nil,
-		ProjectId: id,
+		Id:        uuid.New(),
+		TaskId:    taskId, // Changed from ProjectId to TaskId
 		CreatedAt: time.Now(),
 	}
 
 	runID, err := store.CreateRun(ctx, run)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "Error creating run", err.Error())
 		return
 	}
-
-	log.Printf("created run with ID: %s", run.Id)
 
 	w.WriteHeader(http.StatusCreated)
 	respondJSON(w, runID)
 }
 
-func apiGetProjectRunsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store RunStore) {
+func apiGetTaskRunsHandler(w http.ResponseWriter, r *http.Request, taskId uuid.UUID, store Store) {
 	ctx := r.Context()
 
-	runs, err := store.GetProjectRuns(ctx, id)
+	runs, err := store.GetTaskRuns(ctx, taskId)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "Error getting task runs", err.Error())
 		return
 	}
 

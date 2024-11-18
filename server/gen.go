@@ -149,8 +149,8 @@ type ReviewPayload struct {
 type Run struct {
 	CreatedAt time.Time          `json:"created_at"`
 	Id        openapi_types.UUID `json:"id"`
-	ProjectId openapi_types.UUID `json:"project_id"`
 	Status    *Status            `json:"status,omitempty"`
+	TaskId    openapi_types.UUID `json:"task_id"`
 }
 
 // RunExecution defines model for RunExecution.
@@ -232,6 +232,15 @@ type SupervisorChain struct {
 // SupervisorType The type of supervisor. ClientSupervisor means that the supervision is done client side and the server is merely informed. Other supervisor types are handled serverside, e.g. HumanSupervisor means that a human will review the request via the Sentinel UI.
 type SupervisorType string
 
+// Task defines model for Task.
+type Task struct {
+	CreatedAt   time.Time          `json:"created_at"`
+	Description *string            `json:"description,omitempty"`
+	Id          openapi_types.UUID `json:"id"`
+	Name        string             `json:"name"`
+	ProjectId   openapi_types.UUID `json:"project_id"`
+}
+
 // TaskState defines model for TaskState.
 type TaskState struct {
 	Completed  bool                    `json:"completed"`
@@ -300,6 +309,12 @@ type CreateProjectJSONBody struct {
 	Name string `json:"name"`
 }
 
+// CreateTaskJSONBody defines parameters for CreateTask.
+type CreateTaskJSONBody struct {
+	Description *string `json:"description,omitempty"`
+	Name        string  `json:"name"`
+}
+
 // CreateRunToolJSONBody defines parameters for CreateRunTool.
 type CreateRunToolJSONBody struct {
 	Attributes        map[string]interface{} `json:"attributes"`
@@ -317,6 +332,9 @@ type CreateProjectJSONRequestBody CreateProjectJSONBody
 
 // CreateSupervisorJSONRequestBody defines body for CreateSupervisor for application/json ContentType.
 type CreateSupervisorJSONRequestBody = Supervisor
+
+// CreateTaskJSONRequestBody defines body for CreateTask for application/json ContentType.
+type CreateTaskJSONRequestBody CreateTaskJSONBody
 
 // CreateSupervisionRequestJSONRequestBody defines body for CreateSupervisionRequest for application/json ContentType.
 type CreateSupervisionRequestJSONRequestBody = SupervisionRequest
@@ -353,18 +371,18 @@ type ServerInterface interface {
 	// Get a project
 	// (GET /api/project/{projectId})
 	GetProject(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
-	// Get all runs for a project
-	// (GET /api/project/{projectId}/run)
-	GetProjectRuns(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
-	// Create a new run for a project
-	// (POST /api/project/{projectId}/run)
-	CreateProjectRun(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
 	// Get all supervisors
 	// (GET /api/project/{projectId}/supervisor)
 	GetSupervisors(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
 	// Create a new supervisor
 	// (POST /api/project/{projectId}/supervisor)
 	CreateSupervisor(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
+	// Get all tasks for a project
+	// (GET /api/project/{projectId}/task)
+	GetProjectTasks(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
+	// Create a new task
+	// (POST /api/project/{projectId}/task)
+	CreateTask(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
 	// Get all tools for a project
 	// (GET /api/project/{projectId}/tools)
 	GetProjectTools(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
@@ -419,6 +437,15 @@ type ServerInterface interface {
 	// Get the Swagger UI
 	// (GET /api/swagger-ui)
 	GetSwaggerDocs(w http.ResponseWriter, r *http.Request)
+	// Get a task
+	// (GET /api/task/{taskId})
+	GetTask(w http.ResponseWriter, r *http.Request, taskId openapi_types.UUID)
+	// Get all runs for a task
+	// (GET /api/task/{taskId}/run)
+	GetTaskRuns(w http.ResponseWriter, r *http.Request, taskId openapi_types.UUID)
+	// Create a new run for a task
+	// (POST /api/task/{taskId}/run)
+	CreateRun(w http.ResponseWriter, r *http.Request, taskId openapi_types.UUID)
 	// Get a tool
 	// (GET /api/tool/{toolId})
 	GetTool(w http.ResponseWriter, r *http.Request, toolId openapi_types.UUID)
@@ -509,56 +536,6 @@ func (siw *ServerInterfaceWrapper) GetProject(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
-// GetProjectRuns operation middleware
-func (siw *ServerInterfaceWrapper) GetProjectRuns(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "projectId" -------------
-	var projectId openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "projectId", r.PathValue("projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetProjectRuns(w, r, projectId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// CreateProjectRun operation middleware
-func (siw *ServerInterfaceWrapper) CreateProjectRun(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "projectId" -------------
-	var projectId openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "projectId", r.PathValue("projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateProjectRun(w, r, projectId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // GetSupervisors operation middleware
 func (siw *ServerInterfaceWrapper) GetSupervisors(w http.ResponseWriter, r *http.Request) {
 
@@ -600,6 +577,56 @@ func (siw *ServerInterfaceWrapper) CreateSupervisor(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateSupervisor(w, r, projectId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetProjectTasks operation middleware
+func (siw *ServerInterfaceWrapper) GetProjectTasks(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectId" -------------
+	var projectId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", r.PathValue("projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProjectTasks(w, r, projectId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateTask operation middleware
+func (siw *ServerInterfaceWrapper) CreateTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectId" -------------
+	var projectId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", r.PathValue("projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateTask(w, r, projectId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1055,6 +1082,81 @@ func (siw *ServerInterfaceWrapper) GetSwaggerDocs(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// GetTask operation middleware
+func (siw *ServerInterfaceWrapper) GetTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "taskId" -------------
+	var taskId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "taskId", r.PathValue("taskId"), &taskId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "taskId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTask(w, r, taskId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTaskRuns operation middleware
+func (siw *ServerInterfaceWrapper) GetTaskRuns(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "taskId" -------------
+	var taskId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "taskId", r.PathValue("taskId"), &taskId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "taskId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTaskRuns(w, r, taskId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateRun operation middleware
+func (siw *ServerInterfaceWrapper) CreateRun(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "taskId" -------------
+	var taskId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "taskId", r.PathValue("taskId"), &taskId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "taskId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateRun(w, r, taskId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetTool operation middleware
 func (siw *ServerInterfaceWrapper) GetTool(w http.ResponseWriter, r *http.Request) {
 
@@ -1279,10 +1381,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("GET "+options.BaseURL+"/api/project", wrapper.GetProjects)
 	m.HandleFunc("POST "+options.BaseURL+"/api/project", wrapper.CreateProject)
 	m.HandleFunc("GET "+options.BaseURL+"/api/project/{projectId}", wrapper.GetProject)
-	m.HandleFunc("GET "+options.BaseURL+"/api/project/{projectId}/run", wrapper.GetProjectRuns)
-	m.HandleFunc("POST "+options.BaseURL+"/api/project/{projectId}/run", wrapper.CreateProjectRun)
 	m.HandleFunc("GET "+options.BaseURL+"/api/project/{projectId}/supervisor", wrapper.GetSupervisors)
 	m.HandleFunc("POST "+options.BaseURL+"/api/project/{projectId}/supervisor", wrapper.CreateSupervisor)
+	m.HandleFunc("GET "+options.BaseURL+"/api/project/{projectId}/task", wrapper.GetProjectTasks)
+	m.HandleFunc("POST "+options.BaseURL+"/api/project/{projectId}/task", wrapper.CreateTask)
 	m.HandleFunc("GET "+options.BaseURL+"/api/project/{projectId}/tools", wrapper.GetProjectTools)
 	m.HandleFunc("GET "+options.BaseURL+"/api/request_group/{requestGroupId}", wrapper.GetRequestGroup)
 	m.HandleFunc("POST "+options.BaseURL+"/api/request_group/{requestGroupId}/chain/{chainId}/supervisor/{supervisorId}/supervision_request", wrapper.CreateSupervisionRequest)
@@ -1301,6 +1403,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("GET "+options.BaseURL+"/api/supervision_request/{supervisionRequestId}/status", wrapper.GetSupervisionRequestStatus)
 	m.HandleFunc("GET "+options.BaseURL+"/api/supervisor/{supervisorId}", wrapper.GetSupervisor)
 	m.HandleFunc("GET "+options.BaseURL+"/api/swagger-ui", wrapper.GetSwaggerDocs)
+	m.HandleFunc("GET "+options.BaseURL+"/api/task/{taskId}", wrapper.GetTask)
+	m.HandleFunc("GET "+options.BaseURL+"/api/task/{taskId}/run", wrapper.GetTaskRuns)
+	m.HandleFunc("POST "+options.BaseURL+"/api/task/{taskId}/run", wrapper.CreateRun)
 	m.HandleFunc("GET "+options.BaseURL+"/api/tool/{toolId}", wrapper.GetTool)
 	m.HandleFunc("POST "+options.BaseURL+"/api/tool/{toolId}/request_group", wrapper.CreateToolRequestGroup)
 	m.HandleFunc("GET "+options.BaseURL+"/api/tool/{toolId}/supervisors", wrapper.GetToolSupervisorChains)
@@ -1312,54 +1417,56 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

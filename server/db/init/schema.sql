@@ -15,6 +15,7 @@ DROP TABLE IF EXISTS supervisor CASCADE;
 DROP TABLE IF EXISTS requestgroup CASCADE;
 DROP TABLE IF EXISTS project CASCADE;
 DROP TABLE IF EXISTS sentinel_user CASCADE;
+DROP TABLE IF EXISTS task CASCADE;
 
 -- Create tables in dependency order (tables with no foreign keys first)
 CREATE TABLE sentinel_user (
@@ -47,9 +48,17 @@ CREATE TABLE chain (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE run (
+CREATE TABLE task (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES project(id),
+    name TEXT DEFAULT '',
+    description TEXT DEFAULT '',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+);
+
+CREATE TABLE run (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    task_id UUID REFERENCES task(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')) NOT NULL
 );
