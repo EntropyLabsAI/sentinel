@@ -85,7 +85,6 @@ func apiCreateTaskHandler(w http.ResponseWriter, r *http.Request, projectId uuid
 	}
 
 	task := Task{
-		Id:          uuid.New(),
 		ProjectId:   projectId,
 		Name:        request.Name,
 		Description: &request.Description,

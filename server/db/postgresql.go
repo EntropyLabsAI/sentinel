@@ -896,9 +896,8 @@ func (s *PostgresqlStore) GetProjectTasks(ctx context.Context, projectId uuid.UU
 
 	tasks := make([]sentinel.Task, 0)
 	for rows.Next() {
-		var id uuid.UUID
 		var task sentinel.Task
-		if err := rows.Scan(&id, &task.ProjectId, &task.Name, &task.Description, &task.CreatedAt); err != nil {
+		if err := rows.Scan(&task.Id, &task.ProjectId, &task.Name, &task.Description, &task.CreatedAt); err != nil {
 			return nil, fmt.Errorf("error scanning task: %w", err)
 		}
 

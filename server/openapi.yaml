@@ -103,7 +103,7 @@ paths:
       tags:
         - Project
 
-  /api/project/{projectId}/task:
+  /api/project/{projectId}/tasks:
     parameters:
       - name: projectId
         in: path
@@ -123,6 +123,12 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Task"
+        "404":
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
       tags:
         - Task
     post:

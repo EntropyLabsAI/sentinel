@@ -53,7 +53,7 @@ CREATE TABLE task (
     project_id UUID REFERENCES project(id),
     name TEXT DEFAULT '',
     description TEXT DEFAULT '',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE run (
