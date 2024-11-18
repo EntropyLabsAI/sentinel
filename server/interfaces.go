@@ -91,4 +91,5 @@ type RunStore interface {
 	GetRuns(ctx context.Context, taskId uuid.UUID) ([]Run, error)
 	GetTaskRuns(ctx context.Context, taskId uuid.UUID) ([]Run, error)
 	UpdateRunStatus(ctx context.Context, runId uuid.UUID, status Status) error
+	UpdateRunResult(ctx context.Context, runId uuid.UUID, result RunResult) error
 }

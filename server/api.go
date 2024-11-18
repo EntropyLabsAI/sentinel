@@ -239,6 +239,11 @@ func (s Server) UpdateRunStatus(w http.ResponseWriter, r *http.Request, runId uu
 	apiUpdateRunStatusHandler(w, r, runId, s.Store)
 }
 
+// UpdateRunResult
+func (s Server) UpdateRunResult(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
+	apiUpdateRunResultHandler(w, r, runId, s.Store)
+}
+
 func enableCorsMiddleware(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Set CORS headers

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -1004,5 +1005,61 @@ func apiUpdateRunStatusHandler(w http.ResponseWriter, r *http.Request, runId uui
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+	respondJSON(w, nil)
+}
+
+func apiUpdateRunResultHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	var result RunResult
+	if err := json.NewDecoder(r.Body).Decode(&result); err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, "error decoding run result", err.Error())
+		return
+	}
+
+	run, err := store.GetRun(ctx, runId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting run", err.Error())
+		return
+	}
+	if run == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Run not found", "")
+		return
+	}
+
+	task, err := store.GetTask(ctx, run.TaskId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting task", err.Error())
+		return
+	}
+	if task == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Task not found", "")
+		return
+	}
+
+	// Get the project's run result tags and check if the result is valid
+	project, err := store.GetProject(ctx, task.ProjectId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting project", err.Error())
+		return
+	}
+	if project == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Project not found", "")
+		return
+	}
+
+	if !slices.Contains(project.RunResultTags, result.Result) {
+		sendErrorResponse(w, http.StatusBadRequest, "invalid run result", "")
+		return
+	}
+
+	// Create the run result
+	err = store.UpdateRunResult(ctx, runId, result)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error creating run result", err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
 	respondJSON(w, nil)
 }

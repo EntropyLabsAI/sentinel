@@ -775,6 +775,35 @@ paths:
       tags:
         - Run
 
+  /api/run/{runId}/result:
+    parameters:
+      - name: runId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      summary: Update a run with a result
+      operationId: UpdateRunResult
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunResult"
+      responses:
+        "201":
+          description: Run result created
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - Run
+
   /api/stats:
     get:
       summary: Get hub stats
@@ -935,10 +964,15 @@ components:
         created_at:
           type: string
           format: date-time
+        run_result_tags:
+          type: array
+          items:
+            type: string
       required:
         - name
         - created_at
         - id
+        - run_result_tags
 
     Run:
       type: object
@@ -1394,3 +1428,12 @@ components:
         - project_id
         - name
         - created_at
+
+    RunResult:
+      description: A result for a run. Must be one of the tags in the project's run_result_tags list.
+      type: object
+      properties:
+        result:
+          type: string
+      required:
+        - result

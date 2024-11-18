@@ -25,10 +25,11 @@ CREATE TABLE sentinel_user (
 CREATE TABLE project (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT DEFAULT '' UNIQUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    run_result_tags TEXT[] DEFAULT '{"success", "failure"}' NOT NULL
 );
 
-CREATE TABLE requestgroup (
+CREATE TABLE requestgroup u
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -60,7 +61,8 @@ CREATE TABLE run (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     task_id UUID REFERENCES task(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')) NOT NULL
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')) NOT NULL,
+    result TEXT DEFAULT ''
 );
 
 CREATE TABLE tool (

@@ -1638,3 +1638,15 @@ func (s *PostgresqlStore) UpdateRunStatus(ctx context.Context, runId uuid.UUID, 
 
 	return nil
 }
+
+func (s *PostgresqlStore) UpdateRunResult(ctx context.Context, runId uuid.UUID, result sentinel.RunResult) error {
+	query := `
+		UPDATE run SET result = $1 WHERE id = $2
+	`
+	_, err := s.db.ExecContext(ctx, query, result, runId)
+	if err != nil {
+		return fmt.Errorf("error creating run result: %w", err)
+	}
+
+	return nil
+}
