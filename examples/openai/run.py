@@ -676,8 +676,11 @@ task_id = register_task(project_id=project_id, task_name="Email Assistant")
 run_id = create_run(project_id=project_id, task_id=task_id, tools=tools)
 
 # Start the chatbot
-start_chatbot(start_prompt, tools, run_id)
+# start_chatbot(start_prompt, tools, run_id)
 
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.status import Status
+from entropy_labs.api.sentinel_api_client_helper import submit_run_status
+submit_run_status(run_id=run_id, status=Status.COMPLETED)
 
 # In the web browser, you should see the supervisors in action at http://localhost:3000/.
 # 1. Click on Projects

@@ -162,13 +162,15 @@ def register_task(project_id: UUID, task_name: str, task_description: Optional[s
         response = create_task_sync_detailed(
             client=supervision_config.client,
             project_id=project_id,
-            body=CreateTaskBody(name=task_name, description=task_description)
+            body=CreateTaskBody(name=task_name, description=task_description if task_description else UNSET)
         )
         if (
             response.status_code in [200, 201]
             and response.parsed is not None
         ):
             task_id = response.parsed
+        else:
+            raise Exception(f"Failed to create task. Response: {response}")
     except Exception as e:
         print(f"Error creating task: {e}")
         raise e
@@ -217,7 +219,7 @@ def create_run(project_id: UUID, task_id: UUID, run_name: Optional[str] = None, 
     task_name = task.task_name
 
     # Create the run using the API
-    response = create_run_sync_detailed(project_id=project_id, client=client)  # TODO: Add task_id when API supports it
+    response = create_run_sync_detailed(task_id=task_id, client=client)  # TODO: Add task_id when API supports it
 
     if (
         response.status_code in [200, 201]
@@ -234,7 +236,7 @@ def create_run(project_id: UUID, task_id: UUID, run_name: Optional[str] = None, 
 
         return run_id
     else:
-        raise Exception(f"Failed to create run. Status code: {response.status_code}")
+        raise Exception(f"Failed to create run. Reponse {response}")
 
 def submit_run_status(run_id: UUID, status: Status):
     """
