@@ -6,50 +6,52 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
-from ..models.status import Status
 from ..types import UNSET, Unset
 
-T = TypeVar("T", bound="Run")
+T = TypeVar("T", bound="Task")
 
 
 @_attrs_define
-class Run:
+class Task:
     """
     Attributes:
         id (UUID):
-        task_id (UUID):
+        project_id (UUID):
+        name (str):
         created_at (datetime.datetime):
-        status (Union[Unset, Status]):
+        description (Union[Unset, str]):
     """
 
     id: UUID
-    task_id: UUID
+    project_id: UUID
+    name: str
     created_at: datetime.datetime
-    status: Union[Unset, Status] = UNSET
+    description: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         id = str(self.id)
 
-        task_id = str(self.task_id)
+        project_id = str(self.project_id)
+
+        name = self.name
 
         created_at = self.created_at.isoformat()
 
-        status: Union[Unset, str] = UNSET
-        if not isinstance(self.status, Unset):
-            status = self.status.value
+        description = self.description
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
                 "id": id,
-                "task_id": task_id,
+                "project_id": project_id,
+                "name": name,
                 "created_at": created_at,
             }
         )
-        if status is not UNSET:
-            field_dict["status"] = status
+        if description is not UNSET:
+            field_dict["description"] = description
 
         return field_dict
 
@@ -58,26 +60,24 @@ class Run:
         d = src_dict.copy()
         id = UUID(d.pop("id"))
 
-        task_id = UUID(d.pop("task_id"))
+        project_id = UUID(d.pop("project_id"))
+
+        name = d.pop("name")
 
         created_at = isoparse(d.pop("created_at"))
 
-        _status = d.pop("status", UNSET)
-        status: Union[Unset, Status]
-        if isinstance(_status, Unset):
-            status = UNSET
-        else:
-            status = Status(_status)
+        description = d.pop("description", UNSET)
 
-        run = cls(
+        task = cls(
             id=id,
-            task_id=task_id,
+            project_id=project_id,
+            name=name,
             created_at=created_at,
-            status=status,
+            description=description,
         )
 
-        run.additional_properties = d
-        return run
+        task.additional_properties = d
+        return task
 
     @property
     def additional_keys(self) -> List[str]:

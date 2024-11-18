@@ -35,7 +35,12 @@ from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor impo
 from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervisor.create_tool_supervisor_chains import (
     sync_detailed as create_tool_supervisor_chains_sync_detailed,
 )
-
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.run.update_run_status import (
+    sync_detailed as update_run_status_sync_detailed,
+)
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.task.create_task import (
+    sync_detailed as create_task_sync_detailed,
+)
 from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervisor.get_tool_supervisor_chains import (
     sync_detailed as get_tool_supervisor_chains_sync_detailed,
 )
@@ -59,13 +64,14 @@ from entropy_labs.sentinel_api_client.sentinel_api_client.models.decision import
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_attributes import (
     ToolAttributes,
 )
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.create_task_body import CreateTaskBody
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request import (
     ToolRequest,
 )
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request_group import (
     ToolRequestGroup,
 )
-
+ 
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.create_run_tool_body import (
     CreateRunToolBody,
 )
@@ -92,7 +98,7 @@ from entropy_labs.sentinel_api_client.sentinel_api_client.client import Client
 from entropy_labs.sentinel_api_client.sentinel_api_client.api.project.create_project import (
     sync_detailed as create_project_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.run.create_project_run import (
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.run.create_run import (
     sync_detailed as create_run_sync_detailed,
 )
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.create_project_body import CreateProjectBody
@@ -135,7 +141,7 @@ def register_project(project_name: str, entropy_labs_backend_url: str) -> UUID:
         raise Exception(f"Failed to create project. Status code: {response.status_code}")
 
 
-def register_task(project_id: UUID, task_name: str) -> UUID:
+def register_task(project_id: UUID, task_name: str, task_description: Optional[str] = None) -> UUID:
     """
     Registers a new task under a project using the Sentinel API.
 
@@ -152,9 +158,20 @@ def register_task(project_id: UUID, task_name: str) -> UUID:
         raise ValueError(f"Project with ID '{project_id}' not found in supervision config.")
     project_name = project.project_name
 
-    # Generate a new task ID (replace with API call if available)
-    task_id = uuid4()  # TODO: Implement with backend API
-
+    try:
+        response = create_task_sync_detailed(
+            client=supervision_config.client,
+            project_id=project_id,
+            body=CreateTaskBody(name=task_name, description=task_description)
+        )
+        if (
+            response.status_code in [200, 201]
+            and response.parsed is not None
+        ):
+            task_id = response.parsed
+    except Exception as e:
+        print(f"Error creating task: {e}")
+        raise e
     # Add the task to the project
     supervision_config.add_task(project_name, task_name, task_id)
     return task_id
@@ -219,7 +236,24 @@ def create_run(project_id: UUID, task_id: UUID, run_name: Optional[str] = None, 
     else:
         raise Exception(f"Failed to create run. Status code: {response.status_code}")
 
+def submit_run_status(run_id: UUID, status: Status):
+    """
+    Submits the status of a run to the backend API.
+    """
+    try:
+        response = update_run_status_sync_detailed(
+            client=supervision_config.client,
+            run_id=run_id,
+            body=status
+        )
+        if response.status_code in [204]:
+            print(f"Run status submitted successfully for run ID {run_id}")
+        else:
+            raise Exception(f"Failed to submit run status for run ID {run_id}. Status code: {response.status_code}")
+    except Exception as e:
+        print(f"Error submitting run status: {e}")
         
+
 def register_inspect_approvals(run_id: UUID, approval_file: str):
     """
     Reads the inspect approval YAML file and registers the approvals and tools for the run.

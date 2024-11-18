@@ -9,6 +9,7 @@ from .choice import Choice
 from .create_project_body import CreateProjectBody
 from .create_run_tool_body import CreateRunToolBody
 from .create_run_tool_body_attributes import CreateRunToolBodyAttributes
+from .create_task_body import CreateTaskBody
 from .decision import Decision
 from .error_response import ErrorResponse
 from .hub_stats import HubStats
@@ -31,6 +32,7 @@ from .supervisor import Supervisor
 from .supervisor_attributes import SupervisorAttributes
 from .supervisor_chain import SupervisorChain
 from .supervisor_type import SupervisorType
+from .task import Task
 from .task_state import TaskState
 from .task_state_metadata import TaskStateMetadata
 from .task_state_store import TaskStateStore
@@ -53,6 +55,7 @@ __all__ = (
     "CreateProjectBody",
     "CreateRunToolBody",
     "CreateRunToolBodyAttributes",
+    "CreateTaskBody",
     "Decision",
     "ErrorResponse",
     "HubStats",
@@ -75,6 +78,7 @@ __all__ = (
     "SupervisorAttributes",
     "SupervisorChain",
     "SupervisorType",
+    "Task",
     "TaskState",
     "TaskStateMetadata",
     "TaskStateStore",
