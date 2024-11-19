@@ -4,6 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/EntropyLabsAI/sentinel/server)](https://goreportcard.com/report/github.com/EntropyLabsAI/sentinel/server)
 [![GitHub stars](https://img.shields.io/github/stars/EntropyLabsAI/sentinel?style=social)](https://github.com/EntropyLabsAI/sentinel/stargazers)
 [![PyPI version](https://badge.fury.io/py/entropy-labs.svg)](https://badge.fury.io/py/entropy-labs)
+[![Downloads](https://pepy.tech/badge/entropy-labs)](https://pepy.tech/project/entropy-labs)
 
 Sentinel is an agent control plane built by [Entropy Labs](http://entropy-labs.ai/) that allows you to efficiently oversee thousands of agents running in parallel.
 
