@@ -13,13 +13,9 @@ import (
 )
 
 // respondJSON writes a JSON response with status 200 OK
-func respondJSON(w http.ResponseWriter, data interface{}) {
+func respondJSON(w http.ResponseWriter, data interface{}, status int) {
+	w.WriteHeader(status)
 	w.Header().Set("Content-Type", "application/json")
-
-	// If the header is not set, set it to StatusOK
-	if w.Header().Get("Content-Type") == "" {
-		w.WriteHeader(http.StatusOK)
-	}
 
 	if err := json.NewEncoder(w).Encode(data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -46,8 +42,7 @@ func apiCreateProjectHandler(w http.ResponseWriter, r *http.Request, store Proje
 	}
 
 	if existingProject != nil {
-		w.WriteHeader(http.StatusOK)
-		respondJSON(w, existingProject.Id.String())
+		respondJSON(w, existingProject.Id.String(), http.StatusOK)
 		return
 	}
 
@@ -69,8 +64,7 @@ func apiCreateProjectHandler(w http.ResponseWriter, r *http.Request, store Proje
 	}
 
 	// Send the response
-	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, id.String())
+	respondJSON(w, id.String(), http.StatusCreated)
 }
 
 func apiCreateTaskHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, store Store) {
@@ -98,8 +92,7 @@ func apiCreateTaskHandler(w http.ResponseWriter, r *http.Request, projectId uuid
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, id.String())
+	respondJSON(w, id.String(), http.StatusCreated)
 }
 
 func apiGetTaskHandler(w http.ResponseWriter, r *http.Request, taskId uuid.UUID, store Store) {
@@ -116,7 +109,7 @@ func apiGetTaskHandler(w http.ResponseWriter, r *http.Request, taskId uuid.UUID,
 		return
 	}
 
-	respondJSON(w, task)
+	respondJSON(w, task, http.StatusOK)
 }
 
 func apiGetProjectTasksHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, store Store) {
@@ -128,7 +121,7 @@ func apiGetProjectTasksHandler(w http.ResponseWriter, r *http.Request, projectId
 		return
 	}
 
-	respondJSON(w, tasks)
+	respondJSON(w, tasks, http.StatusOK)
 }
 
 func apiCreateRunHandler(w http.ResponseWriter, r *http.Request, taskId uuid.UUID, store Store) {
@@ -146,8 +139,7 @@ func apiCreateRunHandler(w http.ResponseWriter, r *http.Request, taskId uuid.UUI
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, runID)
+	respondJSON(w, runID, http.StatusCreated)
 }
 
 func apiGetTaskRunsHandler(w http.ResponseWriter, r *http.Request, taskId uuid.UUID, store Store) {
@@ -159,7 +151,7 @@ func apiGetTaskRunsHandler(w http.ResponseWriter, r *http.Request, taskId uuid.U
 		return
 	}
 
-	respondJSON(w, runs)
+	respondJSON(w, runs, http.StatusOK)
 }
 
 func apiCreateRunToolHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
@@ -216,8 +208,7 @@ func apiCreateRunToolHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, toolId)
+	respondJSON(w, toolId, http.StatusCreated)
 }
 
 func apiGetSupervisorHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store SupervisorStore) {
@@ -229,7 +220,7 @@ func apiGetSupervisorHandler(w http.ResponseWriter, r *http.Request, id uuid.UUI
 		return
 	}
 
-	respondJSON(w, supervisor)
+	respondJSON(w, supervisor, http.StatusOK)
 }
 
 func apiCreateToolSupervisorChainsHandler(w http.ResponseWriter, r *http.Request, toolId uuid.UUID, store SupervisorStore) {
@@ -253,8 +244,7 @@ func apiCreateToolSupervisorChainsHandler(w http.ResponseWriter, r *http.Request
 		chainIds = append(chainIds, *chainId)
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, chainIds)
+	respondJSON(w, chainIds, http.StatusCreated)
 }
 
 func apiCreateSupervisorHandler(w http.ResponseWriter, r *http.Request, _ uuid.UUID, store SupervisorStore) {
@@ -273,8 +263,7 @@ func apiCreateSupervisorHandler(w http.ResponseWriter, r *http.Request, _ uuid.U
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, supervisorId)
+	respondJSON(w, supervisorId, http.StatusCreated)
 }
 
 func apiGetToolSupervisorChainsHandler(w http.ResponseWriter, r *http.Request, toolId uuid.UUID, store Store) {
@@ -298,7 +287,7 @@ func apiGetToolSupervisorChainsHandler(w http.ResponseWriter, r *http.Request, t
 		return
 	}
 
-	respondJSON(w, chains)
+	respondJSON(w, chains, http.StatusOK)
 }
 
 func apiGetRunToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
@@ -322,7 +311,7 @@ func apiGetRunToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID,
 		return
 	}
 
-	respondJSON(w, tools)
+	respondJSON(w, tools, http.StatusOK)
 }
 
 func apiCreateToolRequestGroupHandler(w http.ResponseWriter, r *http.Request, toolId uuid.UUID, store ToolRequestStore) {
@@ -341,8 +330,7 @@ func apiCreateToolRequestGroupHandler(w http.ResponseWriter, r *http.Request, to
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, trg)
+	respondJSON(w, trg, http.StatusCreated)
 }
 
 func apiGetRequestGroupHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store Store) {
@@ -354,7 +342,7 @@ func apiGetRequestGroupHandler(w http.ResponseWriter, r *http.Request, requestGr
 		return
 	}
 
-	respondJSON(w, requestGroup)
+	respondJSON(w, requestGroup, http.StatusOK)
 }
 
 func apiCreateToolRequestHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store ToolRequestStore) {
@@ -373,8 +361,7 @@ func apiCreateToolRequestHandler(w http.ResponseWriter, r *http.Request, request
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, toolRequestId)
+	respondJSON(w, toolRequestId, http.StatusCreated)
 }
 
 func apiGetSupervisionResultHandler(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID, store Store) {
@@ -398,7 +385,7 @@ func apiGetSupervisionResultHandler(w http.ResponseWriter, r *http.Request, supe
 		return
 	}
 
-	respondJSON(w, supervisionResult)
+	respondJSON(w, supervisionResult, http.StatusOK)
 }
 
 func apiGetRunRequestGroupsHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
@@ -421,7 +408,7 @@ func apiGetRunRequestGroupsHandler(w http.ResponseWriter, r *http.Request, runId
 		return
 	}
 
-	respondJSON(w, requestGroups)
+	respondJSON(w, requestGroups, http.StatusOK)
 }
 
 func apiGetSupervisorsHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, store Store) {
@@ -445,7 +432,7 @@ func apiGetSupervisorsHandler(w http.ResponseWriter, r *http.Request, projectId 
 		return
 	}
 
-	respondJSON(w, supervisors)
+	respondJSON(w, supervisors, http.StatusOK)
 }
 
 func apiGetProjectToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store ToolStore) {
@@ -457,7 +444,7 @@ func apiGetProjectToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.U
 		return
 	}
 
-	respondJSON(w, tools)
+	respondJSON(w, tools, http.StatusOK)
 }
 
 func apiGetToolHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store ToolStore) {
@@ -490,7 +477,7 @@ func apiGetSupervisionRequestStatusHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	respondJSON(w, status)
+	respondJSON(w, status, http.StatusOK)
 }
 
 func apiCreateSupervisionRequestHandler(
@@ -607,8 +594,7 @@ func apiCreateSupervisionRequestHandler(
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, reviewID)
+	respondJSON(w, reviewID, http.StatusCreated)
 }
 
 func apiCreateSupervisionResultHandler(
@@ -651,8 +637,7 @@ func apiCreateSupervisionResultHandler(
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, id)
+	respondJSON(w, id, http.StatusCreated)
 }
 
 func apiGetHubStatsHandler(w http.ResponseWriter, _ *http.Request, hub *Hub) {
@@ -662,7 +647,7 @@ func apiGetHubStatsHandler(w http.ResponseWriter, _ *http.Request, hub *Hub) {
 		return
 	}
 
-	respondJSON(w, stats)
+	respondJSON(w, stats, http.StatusOK)
 }
 
 // apiGetProjectsHandler returns all projects
@@ -675,7 +660,7 @@ func apiGetProjectsHandler(w http.ResponseWriter, r *http.Request, store Project
 		return
 	}
 
-	respondJSON(w, projects)
+	respondJSON(w, projects, http.StatusOK)
 }
 
 func apiGetProjectHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store ProjectStore) {
@@ -692,7 +677,7 @@ func apiGetProjectHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, 
 		return
 	}
 
-	respondJSON(w, project)
+	respondJSON(w, project, http.StatusOK)
 }
 
 func apiGetRunStateHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
@@ -804,7 +789,7 @@ func apiGetRunStateHandler(w http.ResponseWriter, r *http.Request, runId uuid.UU
 		runState = append(runState, execution)
 	}
 
-	respondJSON(w, runState)
+	respondJSON(w, runState, http.StatusOK)
 }
 
 func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID, store Store) {
@@ -872,7 +857,7 @@ func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Reques
 		RunId:              tool.RunId,
 	}
 
-	respondJSON(w, reviewPayload)
+	respondJSON(w, reviewPayload, http.StatusOK)
 }
 
 // determineChainStatus checks if a supervision chain has completed
@@ -954,7 +939,7 @@ func apiGetRequestGroupStatusHandler(w http.ResponseWriter, r *http.Request, req
 		return
 	}
 
-	respondJSON(w, status)
+	respondJSON(w, status, http.StatusOK)
 }
 
 // allChainsComplete checks if all supervision chains have completed
@@ -985,7 +970,7 @@ func apiGetRunStatusHandler(w http.ResponseWriter, r *http.Request, runId uuid.U
 		return
 	}
 
-	respondJSON(w, run.Status)
+	respondJSON(w, run.Status, http.StatusOK)
 }
 
 func apiUpdateRunStatusHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
@@ -1004,8 +989,7 @@ func apiUpdateRunStatusHandler(w http.ResponseWriter, r *http.Request, runId uui
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
-	respondJSON(w, nil)
+	respondJSON(w, nil, http.StatusNoContent)
 }
 
 func apiUpdateRunResultHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
@@ -1060,6 +1044,5 @@ func apiUpdateRunResultHandler(w http.ResponseWriter, r *http.Request, runId uui
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, nil)
+	respondJSON(w, nil, http.StatusCreated)
 }

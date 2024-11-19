@@ -29,7 +29,7 @@ CREATE TABLE project (
     run_result_tags TEXT[] DEFAULT '{"success", "failure"}' NOT NULL
 );
 
-CREATE TABLE requestgroup u
+CREATE TABLE requestgroup (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
