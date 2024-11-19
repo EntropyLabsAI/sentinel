@@ -1347,7 +1347,11 @@ func (s *PostgresqlStore) GetSupervisors(ctx context.Context, projectId uuid.UUI
 		INNER JOIN chain_tool ct ON c.id = ct.chain_id
 		INNER JOIN tool t ON ct.tool_id = t.id
 		INNER JOIN run r ON t.run_id = r.id
-		WHERE r.project_id = $1`
+		WHERE r.task_id IN (
+			SELECT id 
+			FROM task 
+			WHERE project_id = $1
+		)`
 
 	rows, err := s.db.QueryContext(ctx, query, projectId)
 	if err != nil {
