@@ -36,6 +36,44 @@ export function ProjectBadge({ projectId }: { projectId: string }) {
   );
 }
 
+export function SupervisionResultBadge({ result }: { result: string | undefined }) {
+  if (!result) {
+    return null;
+  }
+
+  // Hash function to convert string to a number
+  const hashString = (str: string) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash);
+  };
+
+  // Convert hash to HSL color
+  // Using HSL ensures readable colors by:
+  // - Setting saturation to 70% for consistent vibrancy
+  // - Setting lightness to 45% for good contrast with white text
+  const getColorFromString = (str: string) => {
+    const hash = hashString(str);
+    const hue = hash % 360; // Get a value between 0-359 for hue
+    return `hsl(${hue}, 70%, 45%)`;
+  };
+
+  const color = getColorFromString(result);
+
+  return (
+    <Badge
+      className="text-white shadow-none whitespace-nowrap"
+      style={{ backgroundColor: color }}
+    >
+      {result}
+    </Badge>
+  );
+}
+
 export function TaskBadge({ taskId }: { taskId: string }) {
   const { data, isLoading, error } = useGetTask(taskId);
   if (isLoading) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Loading...</Badge>;

@@ -16,14 +16,17 @@ import {
   TableRow,
   TableFooter,
 } from "@/components/ui/table"
-import { ProjectBadge, StatusBadge, TaskBadge, ToolBadge, ToolBadges } from "./util/status_badge";
+import { ProjectBadge, StatusBadge, SupervisionResultBadge, TaskBadge, ToolBadge, ToolBadges } from "./util/status_badge";
+import SelectResult from "./select_result";
 
 export default function Runs() {
   const [runs, setRuns] = useState<Run[]>([]);
   const { taskId } = useParams();
   const { selectedProject } = useProject();
+  const [project, setProject] = useState<Project | undefined>(undefined);
 
   const { data: runsData, isLoading: runsLoading, error: runsError } = useGetTaskRuns(taskId || '');
+  const { data: projectData, isLoading: projectLoading, error: projectError } = useGetProject(selectedProject || '');
 
   useEffect(() => {
     if (runsData?.data) {
@@ -32,6 +35,12 @@ export default function Runs() {
       setRuns([]);
     }
   }, [runsData]);
+
+  useEffect(() => {
+    if (projectData?.data) {
+      setProject(projectData.data);
+    }
+  }, [projectData]);
 
   return (
     <Page title={`Runs`}
@@ -51,6 +60,7 @@ export default function Runs() {
                 <TableHead className="w-[100px] text-right">Tool Executions</TableHead>
                 <TableHead className="w-[100px] text-right">Created</TableHead>
                 <TableHead className="w-[100px] text-right">Status</TableHead>
+                <TableHead className="w-[100px] text-right">Result</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -72,6 +82,15 @@ export default function Runs() {
                   <TableCell className="text-right">
                     <StatusBadge status={run.status} />
                   </TableCell>
+                  <TableCell className="text-right">
+                    {project && project.run_result_tags && run.status === 'completed' &&
+                      <SelectResult
+                        result={run.result}
+                        possibleResults={project.run_result_tags}
+                        runId={run.id}
+                      />
+                    }
+                  </TableCell>
                   <TableCell>
                     <Link to={`/tasks/${taskId}/runs/${run.id}`}>
                       <Button variant="ghost"><ArrowRightIcon className="h-4 w-4" /></Button>
@@ -82,7 +101,7 @@ export default function Runs() {
             </TableBody>
             <TableFooter>
               <TableRow>
-                <TableCell className="text-xs text-muted-foreground" colSpan={6}>
+                <TableCell className="text-xs text-muted-foreground" colSpan={7}>
                   {runs.length} runs found for this project
                 </TableCell>
               </TableRow>

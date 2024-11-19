@@ -23,6 +23,10 @@ import type {
   AxiosRequestConfig,
   AxiosResponse
 } from 'axios'
+export type UpdateRunResultBody = {
+  result?: string;
+};
+
 export type CreateRunToolBodyAttributes = { [key: string]: unknown };
 
 export type CreateRunToolBody = {
@@ -273,6 +277,7 @@ export interface Tool {
 export interface Run {
   created_at: string;
   id: string;
+  result?: string;
   status?: Status;
   task_id: string;
 }
@@ -281,6 +286,7 @@ export interface Project {
   created_at: string;
   id: string;
   name: string;
+  run_result_tags: string[];
 }
 
 export interface SupervisionRequestState {
@@ -628,7 +634,7 @@ export const getGetProjectTasksQueryKey = (projectId: string,) => {
     }
 
     
-export const getGetProjectTasksQueryOptions = <TData = Awaited<ReturnType<typeof getProjectTasks>>, TError = AxiosError<unknown>>(projectId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProjectTasks>>, TError, TData>, axios?: AxiosRequestConfig}
+export const getGetProjectTasksQueryOptions = <TData = Awaited<ReturnType<typeof getProjectTasks>>, TError = AxiosError<ErrorResponse>>(projectId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProjectTasks>>, TError, TData>, axios?: AxiosRequestConfig}
 ) => {
 
 const {query: queryOptions, axios: axiosOptions} = options ?? {};
@@ -647,12 +653,12 @@ const {query: queryOptions, axios: axiosOptions} = options ?? {};
 }
 
 export type GetProjectTasksQueryResult = NonNullable<Awaited<ReturnType<typeof getProjectTasks>>>
-export type GetProjectTasksQueryError = AxiosError<unknown>
+export type GetProjectTasksQueryError = AxiosError<ErrorResponse>
 
 /**
  * @summary Get all tasks for a project
  */
-export const useGetProjectTasks = <TData = Awaited<ReturnType<typeof getProjectTasks>>, TError = AxiosError<unknown>>(
+export const useGetProjectTasks = <TData = Awaited<ReturnType<typeof getProjectTasks>>, TError = AxiosError<ErrorResponse>>(
  projectId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProjectTasks>>, TError, TData>, axios?: AxiosRequestConfig}
 
   ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
@@ -2110,6 +2116,62 @@ export const useUpdateRunStatus = <TError = AxiosError<unknown>,
       > => {
 
       const mutationOptions = getUpdateRunStatusMutationOptions(options);
+
+      return useMutation(mutationOptions);
+    }
+    
+/**
+ * @summary Update a run with a result
+ */
+export const updateRunResult = (
+    runId: string,
+    updateRunResultBody: UpdateRunResultBody, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<void>> => {
+    
+    return axios.put(
+      `/api/run/${runId}/result`,
+      updateRunResultBody,options
+    );
+  }
+
+
+
+export const getUpdateRunResultMutationOptions = <TError = AxiosError<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRunResult>>, TError,{runId: string;data: UpdateRunResultBody}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof updateRunResult>>, TError,{runId: string;data: UpdateRunResultBody}, TContext> => {
+const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateRunResult>>, {runId: string;data: UpdateRunResultBody}> = (props) => {
+          const {runId,data} = props ?? {};
+
+          return  updateRunResult(runId,data,axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateRunResultMutationResult = NonNullable<Awaited<ReturnType<typeof updateRunResult>>>
+    export type UpdateRunResultMutationBody = UpdateRunResultBody
+    export type UpdateRunResultMutationError = AxiosError<ErrorResponse>
+
+    /**
+ * @summary Update a run with a result
+ */
+export const useUpdateRunResult = <TError = AxiosError<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRunResult>>, TError,{runId: string;data: UpdateRunResultBody}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationResult<
+        Awaited<ReturnType<typeof updateRunResult>>,
+        TError,
+        {runId: string;data: UpdateRunResultBody},
+        TContext
+      > => {
+
+      const mutationOptions = getUpdateRunResultMutationOptions(options);
 
       return useMutation(mutationOptions);
     }

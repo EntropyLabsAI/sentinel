@@ -11,6 +11,7 @@ import Tools from '@/components/tools';
 import ToolDetails from '@/components/tool';
 import SupervisorDetails from '@/components/supervisor/supervisor';
 import Tasks from '@/components/tasks';
+import { Toaster } from '@/components/ui/toaster';
 
 const App: React.FC = () => {
   return (
@@ -35,6 +36,7 @@ const App: React.FC = () => {
           </Sidebar>
         </Router>
       </div>
+      <Toaster />
     </main>
   );
 };

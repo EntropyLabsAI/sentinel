@@ -995,9 +995,14 @@ func apiUpdateRunStatusHandler(w http.ResponseWriter, r *http.Request, runId uui
 func apiUpdateRunResultHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
 	ctx := r.Context()
 
-	var result RunResult
+	var result UpdateRunResultJSONBody
 	if err := json.NewDecoder(r.Body).Decode(&result); err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, "error decoding run result", err.Error())
+		return
+	}
+
+	if result.Result == nil {
+		sendErrorResponse(w, http.StatusBadRequest, "result is required", "")
 		return
 	}
 
@@ -1032,13 +1037,13 @@ func apiUpdateRunResultHandler(w http.ResponseWriter, r *http.Request, runId uui
 		return
 	}
 
-	if !slices.Contains(project.RunResultTags, result.Result) {
+	if !slices.Contains(project.RunResultTags, *result.Result) {
 		sendErrorResponse(w, http.StatusBadRequest, "invalid run result", "")
 		return
 	}
 
 	// Create the run result
-	err = store.UpdateRunResult(ctx, runId, result)
+	err = store.UpdateRunResult(ctx, runId, *result.Result)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error creating run result", err.Error())
 		return

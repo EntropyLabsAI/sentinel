@@ -43,10 +43,10 @@ func (s *PostgresqlStore) Close() error {
 // ProjectStore implementation
 func (s *PostgresqlStore) CreateProject(ctx context.Context, project sentinel.Project) error {
 	query := `
-		INSERT INTO project (id, name, created_at)
-		VALUES ($1, $2, $3)`
+		INSERT INTO project (id, name, created_at, run_result_tags)
+		VALUES ($1, $2, $3, $4)`
 
-	_, err := s.db.ExecContext(ctx, query, project.Id, project.Name, project.CreatedAt)
+	_, err := s.db.ExecContext(ctx, query, project.Id, project.Name, project.CreatedAt, pq.Array(project.RunResultTags))
 	if err != nil {
 		return fmt.Errorf("error creating project: %w", err)
 	}
@@ -56,12 +56,17 @@ func (s *PostgresqlStore) CreateProject(ctx context.Context, project sentinel.Pr
 
 func (s *PostgresqlStore) GetProject(ctx context.Context, id uuid.UUID) (*sentinel.Project, error) {
 	query := `
-		SELECT id, name, created_at
+		SELECT id, name, created_at, run_result_tags
 		FROM project
 		WHERE id = $1`
 
 	var project sentinel.Project
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&project.Id, &project.Name, &project.CreatedAt)
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
+		&project.Id,
+		&project.Name,
+		&project.CreatedAt,
+		pq.Array(&project.RunResultTags),
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -74,12 +79,17 @@ func (s *PostgresqlStore) GetProject(ctx context.Context, id uuid.UUID) (*sentin
 
 func (s *PostgresqlStore) GetProjectFromName(ctx context.Context, name string) (*sentinel.Project, error) {
 	query := `
-		SELECT id, name, created_at
+		SELECT id, name, created_at, run_result_tags
 		FROM project
 		WHERE name = $1`
 
 	var project sentinel.Project
-	err := s.db.QueryRowContext(ctx, query, name).Scan(&project.Id, &project.Name, &project.CreatedAt)
+	err := s.db.QueryRowContext(ctx, query, name).Scan(
+		&project.Id,
+		&project.Name,
+		&project.CreatedAt,
+		pq.Array(&project.RunResultTags),
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -178,7 +188,7 @@ func (s *PostgresqlStore) GetSupervisorFromValues(
 
 func (s *PostgresqlStore) GetProjects(ctx context.Context) ([]sentinel.Project, error) {
 	query := `
-		SELECT id, name, created_at
+		SELECT id, name, created_at, run_result_tags
 		FROM project
 		ORDER BY created_at DESC`
 
@@ -191,7 +201,12 @@ func (s *PostgresqlStore) GetProjects(ctx context.Context) ([]sentinel.Project, 
 	projects := make([]sentinel.Project, 0)
 	for rows.Next() {
 		var project sentinel.Project
-		if err := rows.Scan(&project.Id, &project.Name, &project.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&project.Id,
+			&project.Name,
+			&project.CreatedAt,
+			pq.Array(&project.RunResultTags),
+		); err != nil {
 			return nil, fmt.Errorf("error scanning project: %w", err)
 		}
 		projects = append(projects, project)
@@ -202,7 +217,7 @@ func (s *PostgresqlStore) GetProjects(ctx context.Context) ([]sentinel.Project, 
 
 func (s *PostgresqlStore) GetRuns(ctx context.Context, taskId uuid.UUID) ([]sentinel.Run, error) {
 	query := `
-		SELECT id, task_id, created_at, status
+		SELECT id, task_id, created_at, status, result
 		FROM run
 		WHERE task_id = $1`
 
@@ -215,7 +230,7 @@ func (s *PostgresqlStore) GetRuns(ctx context.Context, taskId uuid.UUID) ([]sent
 	var runs []sentinel.Run
 	for rows.Next() {
 		var run sentinel.Run
-		if err := rows.Scan(&run.Id, &run.TaskId, &run.CreatedAt, &run.Status); err != nil {
+		if err := rows.Scan(&run.Id, &run.TaskId, &run.CreatedAt, &run.Status, &run.Result); err != nil {
 			return nil, fmt.Errorf("error scanning run: %w", err)
 		}
 		runs = append(runs, run)
@@ -227,7 +242,7 @@ func (s *PostgresqlStore) GetRuns(ctx context.Context, taskId uuid.UUID) ([]sent
 
 func (s *PostgresqlStore) GetTaskRuns(ctx context.Context, taskId uuid.UUID) ([]sentinel.Run, error) {
 	query := `
-		SELECT id, task_id, created_at, status
+		SELECT id, task_id, created_at, status, result
 		FROM run
 		WHERE task_id = $1`
 
@@ -240,7 +255,7 @@ func (s *PostgresqlStore) GetTaskRuns(ctx context.Context, taskId uuid.UUID) ([]
 	runs := make([]sentinel.Run, 0)
 	for rows.Next() {
 		var run sentinel.Run
-		if err := rows.Scan(&run.Id, &run.TaskId, &run.CreatedAt, &run.Status); err != nil {
+		if err := rows.Scan(&run.Id, &run.TaskId, &run.CreatedAt, &run.Status, &run.Result); err != nil {
 			return nil, fmt.Errorf("error scanning run: %w", err)
 		}
 		runs = append(runs, run)
@@ -1113,13 +1128,31 @@ func (s *PostgresqlStore) CreateSupervisor(ctx context.Context, supervisor senti
 }
 
 func (s *PostgresqlStore) CreateTask(ctx context.Context, task sentinel.Task) (*uuid.UUID, error) {
-	id := uuid.New()
-
+	// First check if a task with the same values already exists
 	query := `
+		SELECT id 
+		FROM task 
+		WHERE project_id = $1 
+		AND name = $2 
+		AND description = $3`
+
+	var existingId uuid.UUID
+	err := s.db.QueryRowContext(ctx, query, task.ProjectId, task.Name, task.Description).Scan(&existingId)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("error checking for existing task: %w", err)
+	}
+	if err == nil {
+		// Task already exists, return its ID
+		return &existingId, nil
+	}
+
+	// No existing task found, create a new one
+	id := uuid.New()
+	query = `
 		INSERT INTO task (id, project_id, name, description, created_at)
 		VALUES ($1, $2, $3, $4, $5)`
 
-	_, err := s.db.ExecContext(ctx, query, id, task.ProjectId, task.Name, task.Description, task.CreatedAt)
+	_, err = s.db.ExecContext(ctx, query, id, task.ProjectId, task.Name, task.Description, task.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("error creating task: %w", err)
 	}
@@ -1209,12 +1242,18 @@ func (s *PostgresqlStore) CreateTool(
 
 func (s *PostgresqlStore) GetRun(ctx context.Context, id uuid.UUID) (*sentinel.Run, error) {
 	query := `
-		SELECT id, task_id, created_at, status
+		SELECT id, task_id, created_at, status, result
 		FROM run
 		WHERE id = $1`
 
 	var run sentinel.Run
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&run.Id, &run.TaskId, &run.CreatedAt, &run.Status)
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
+		&run.Id,
+		&run.TaskId,
+		&run.CreatedAt,
+		&run.Status,
+		&run.Result,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -1639,7 +1678,7 @@ func (s *PostgresqlStore) UpdateRunStatus(ctx context.Context, runId uuid.UUID, 
 	return nil
 }
 
-func (s *PostgresqlStore) UpdateRunResult(ctx context.Context, runId uuid.UUID, result sentinel.RunResult) error {
+func (s *PostgresqlStore) UpdateRunResult(ctx context.Context, runId uuid.UUID, result string) error {
 	query := `
 		UPDATE run SET result = $1 WHERE id = $2
 	`
