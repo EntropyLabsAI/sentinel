@@ -50,8 +50,13 @@ paths:
               properties:
                 name:
                   type: string
+                run_result_tags:
+                  type: array
+                  items:
+                    type: string
               required:
                 - name
+                - run_result_tags
       responses:
         "200":
           description: Project found

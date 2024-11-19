@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"slices"
 	"time"
@@ -25,19 +24,19 @@ func respondJSON(w http.ResponseWriter, data interface{}, status int) {
 func apiCreateProjectHandler(w http.ResponseWriter, r *http.Request, store ProjectStore) {
 	ctx := r.Context()
 
-	log.Printf("received new project registration request")
 	var request struct {
-		Name string `json:"name"`
+		Name          string   `json:"name"`
+		RunResultTags []string `json:"run_result_tags"`
 	}
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid request body", err.Error())
 		return
 	}
 
 	existingProject, err := store.GetProjectFromName(ctx, request.Name)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error getting project: %v", err.Error()), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "Error getting project", err.Error())
 		return
 	}
 
@@ -51,15 +50,16 @@ func apiCreateProjectHandler(w http.ResponseWriter, r *http.Request, store Proje
 
 	// Create the Project struct
 	project := Project{
-		Id:        id,
-		Name:      request.Name,
-		CreatedAt: time.Now(),
+		Id:            id,
+		Name:          request.Name,
+		RunResultTags: request.RunResultTags,
+		CreatedAt:     time.Now(),
 	}
 
 	// Store the project in the global projects map
 	err = store.CreateProject(ctx, project)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to register project, %v", err), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "Failed to register project", err.Error())
 		return
 	}
 
