@@ -1,5 +1,5 @@
 import datetime
-from typing import Any, Dict, List, Type, TypeVar
+from typing import Any, Dict, List, Type, TypeVar, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -16,11 +16,13 @@ class Project:
         id (UUID):
         name (str):
         created_at (datetime.datetime):
+        run_result_tags (List[str]):
     """
 
     id: UUID
     name: str
     created_at: datetime.datetime
+    run_result_tags: List[str]
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -30,6 +32,8 @@ class Project:
 
         created_at = self.created_at.isoformat()
 
+        run_result_tags = self.run_result_tags
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -37,6 +41,7 @@ class Project:
                 "id": id,
                 "name": name,
                 "created_at": created_at,
+                "run_result_tags": run_result_tags,
             }
         )
 
@@ -51,10 +56,13 @@ class Project:
 
         created_at = isoparse(d.pop("created_at"))
 
+        run_result_tags = cast(List[str], d.pop("run_result_tags"))
+
         project = cls(
             id=id,
             name=name,
             created_at=created_at,
+            run_result_tags=run_result_tags,
         )
 
         project.additional_properties = d

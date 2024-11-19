@@ -20,12 +20,14 @@ class Run:
         task_id (UUID):
         created_at (datetime.datetime):
         status (Union[Unset, Status]):
+        result (Union[Unset, str]):
     """
 
     id: UUID
     task_id: UUID
     created_at: datetime.datetime
     status: Union[Unset, Status] = UNSET
+    result: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -39,6 +41,8 @@ class Run:
         if not isinstance(self.status, Unset):
             status = self.status.value
 
+        result = self.result
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -50,6 +54,8 @@ class Run:
         )
         if status is not UNSET:
             field_dict["status"] = status
+        if result is not UNSET:
+            field_dict["result"] = result
 
         return field_dict
 
@@ -69,11 +75,14 @@ class Run:
         else:
             status = Status(_status)
 
+        result = d.pop("result", UNSET)
+
         run = cls(
             id=id,
             task_id=task_id,
             created_at=created_at,
             status=status,
+            result=result,
         )
 
         run.additional_properties = d

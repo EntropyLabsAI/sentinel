@@ -43,6 +43,7 @@ from .tool_call_arguments import ToolCallArguments
 from .tool_choice import ToolChoice
 from .tool_request import ToolRequest
 from .tool_request_group import ToolRequestGroup
+from .update_run_result_body import UpdateRunResultBody
 from .usage import Usage
 
 __all__ = (
@@ -89,5 +90,6 @@ __all__ = (
     "ToolChoice",
     "ToolRequest",
     "ToolRequestGroup",
+    "UpdateRunResultBody",
     "Usage",
 )
