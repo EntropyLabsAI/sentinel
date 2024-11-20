@@ -53,6 +53,9 @@ from entropy_labs.sentinel_api_client.sentinel_api_client.api.request_group.crea
 from entropy_labs.sentinel_api_client.sentinel_api_client.api.request_group.get_run_request_groups import (
     sync_detailed as get_request_groups_sync_detailed,
 )
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.request_group.get_request_group_status import (
+    sync_detailed as get_request_group_status_sync_detailed,
+)
 from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervision.create_supervision_request import (
     sync_detailed as create_supervision_request_sync_detailed,
 )
@@ -96,8 +99,8 @@ from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_attr
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.chain_request import (
     ChainRequest,
 )
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.arguments import Arguments
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_chain import SupervisorChain
-from uuid import uuid4, UUID
 from datetime import datetime, timezone
 import inspect
 from entropy_labs.utils.utils import get_function_code
@@ -116,6 +119,7 @@ from entropy_labs.supervision.config import supervision_config, SupervisionConte
 from typing import Optional, List, Callable
 import yaml
 import fnmatch
+import copy
 
 def register_project(project_name: str, entropy_labs_backend_url: str, run_result_tags=["passed", "failed"]) -> UUID:
     """
@@ -622,15 +626,14 @@ def get_tool_request_groups(run_id: UUID, tool_id: UUID, client: Client) -> List
         if response.status_code == 200 and response.parsed:
             request_groups = []
             print(f"Retrieved {len(request_groups)} request groups for run ID {run_id}")
+            filtered_request_groups = []
             for request_group in response.parsed:
                 for tool_request in request_group.tool_requests:
                     if tool_request.tool_id == tool_id:
-                        request_groups.append(request_group)
-            if request_groups:
-                print(f"Retrieved {len(request_groups)} request groups for tool ID {tool_id} and run ID {run_id}")
-                return request_groups
-            else:
-                print(f"No request group found for tool ID {tool_id} and run ID {run_id}")
+                        filtered_request_groups.append(request_group)
+            if filtered_request_groups:
+                return filtered_request_groups
+            print(f"No request group found for tool ID {tool_id} and run ID {run_id}")
             return None
         elif response.status_code == 200:
             print(f"No request groups found for run ID {run_id}")
@@ -659,6 +662,22 @@ def get_tool_request_group_status(request_group_id: UUID, client: Client) -> Sta
 
     return None
 
+def get_tool_request_group_status(request_group_id: UUID, client: Client) -> Status | None:
+    """
+    Retrieve the status of a tool request group.
+    """
+    try:
+        response = get_request_group_status_sync_detailed(
+            request_group_id=request_group_id,
+            client=client,
+        )
+        if response.status_code == 200 and response.parsed:
+            return response.parsed
+        else:
+            return None
+    except Exception as e:
+        print(f"Error retrieving tool request status: {e}")
+        return None
 
 def get_supervisor_chains_for_tool(tool_id: UUID, client: Client) -> List[SupervisorChain]:
     """
@@ -742,19 +761,29 @@ def send_supervision_result(
     if not api_decision:
         raise ValueError(f"Unsupported decision type: {decision.decision}")
     
+    new_tool_request_id = None
     if decision.modified is not None:
-        pass
-        # new_tool_request = copy.deepcopy(tool_request)
-        # new_tool_request.arguments = decision.modified.tool_args
-        # create_tool_request_sync_detailed(request_group_id=request_group_id, client=client, body=decision.modified)
-        # TODO: create the new tool request with new tool id
+        tool_request.id = uuid4()
+        if decision.modified.tool_kwargs is not None:
+            tool_request.arguments = Arguments.from_dict(src_dict=decision.modified.tool_kwargs)
+        else:
+            logging.warning("No tool arguments to modify")
+        try:
+            response_tool_request = create_tool_request_sync_detailed(request_group_id=request_group_id, client=client, body=tool_request)
+            if response_tool_request.status_code in [200, 201]:
+                new_tool_request_id = response_tool_request.parsed
+            else:
+                logging.error(f"Error creating modified tool request: {response_tool_request}")
+        except Exception as e:
+            logging.error(f"Error creating modified tool request: {e}")
+        
     # Create the SupervisionResult object
     supervision_result = SupervisionResult(
         supervision_request_id=supervision_request_id,
         created_at=datetime.now(timezone.utc),
         decision=api_decision,
         reasoning=decision.explanation or "",
-        chosen_toolrequest_id=tool_request.id
+        chosen_toolrequest_id=tool_request.id if new_tool_request_id is None else new_tool_request_id
     )
     # Send the supervision result to the API
     try:

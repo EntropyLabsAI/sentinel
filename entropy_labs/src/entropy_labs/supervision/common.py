@@ -269,9 +269,11 @@ def _transform_entropy_labs_approval_to_inspect_ai_approval(approval_decision: S
     if inspect_ai_decision == "modify" and approval_decision.modified is not None:
         # Create ToolCall instance directly from the modified data
         original_call = approval_decision.modified.original_inspect_ai_call
-        # TODO: Figure this one out If the tool was modified, change th call id?
-        # new_tool_call_id = 'call_xx'
-        modified = ToolCall(id=original_call.id, function=original_call.function, arguments=approval_decision.modified.tool_kwargs, type=original_call.type)
+        # TODO: Figure this one out for N > 1
+        tool_kwargs = approval_decision.modified.tool_kwargs or {}
+        if original_call is not None:
+            modified = ToolCall(id=original_call.id, function=original_call.function, arguments=tool_kwargs, type=original_call.type)
+
 
     return Approval(
         decision=inspect_ai_decision,

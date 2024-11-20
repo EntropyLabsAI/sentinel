@@ -9,7 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
-import { RunExecution, RunState, Status } from "@/types"
+import { RunExecution, RunState, Status, SupervisionRequestState, Supervisor } from "@/types"
 import { UUIDDisplay } from "@/components/util/uuid_display"
 import { CreatedAgo } from "@/components/util/created_ago"
 import { DecisionBadge, StatusBadge, SupervisorBadge, ToolBadge } from "./util/status_badge"
@@ -43,6 +43,12 @@ export default function ExecutionTable({ runState }: { runState: RunState }) {
   }
 
   const [isSlideoverOpen, setIsSlideoverOpen] = useState(false)
+
+  const sortChains = (chains: any[]) => {
+    return [...chains].sort((a, b) =>
+      (a.chain.chain_id || '').localeCompare(b.chain.chain_id || '')
+    )
+  }
 
   return (
     <>
@@ -113,7 +119,7 @@ export default function ExecutionTable({ runState }: { runState: RunState }) {
                         The request was supervised by {execution.chains.length} chain(s):
                       </p>
 
-                      {execution.chains.map((chain, chainIndex) => (
+                      {sortChains(execution.chains).map((chain, chainIndex) => (
                         <>
                           {/* <ChainExecutionState chain={chain} /> */}
                           <div key={chain.chain.chain_id} className="w-full space-y-4 bg-muted/50 rounded-md px-4 mb-4">
@@ -121,7 +127,7 @@ export default function ExecutionTable({ runState }: { runState: RunState }) {
                               <LinkIcon className="w-4 h-4" />
                               <p className="text-xs text-gray-500">
                                 Chain {chainIndex + 1} - Supervisors:{' '}
-                                {chain.chain.supervisors?.map((supervisor, idx) => (
+                                {chain.chain.supervisors?.map((supervisor: Supervisor, idx: number) => (
                                   <span key={supervisor.id} className="inline-flex items-center gap-1">
                                     {idx > 0 && " → "}
                                     <SupervisorBadge supervisorId={supervisor.id || ''} />
@@ -131,9 +137,9 @@ export default function ExecutionTable({ runState }: { runState: RunState }) {
                             </div>
 
                             {/* Show all supervisors in the chain, with their requests if they exist */}
-                            {chain.chain.supervisors?.map((supervisor, supervisorIndex) => {
+                            {chain.chain.supervisors?.map((supervisor: Supervisor, supervisorIndex: number) => {
                               const supervisionRequest = chain.supervision_requests.find(
-                                req => req.supervision_request.supervisor_id === supervisor.id
+                                (req: SupervisionRequestState) => req.supervision_request.supervisor_id === supervisor.id
                               );
 
                               return (

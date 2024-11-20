@@ -58,6 +58,8 @@ def with_entropy_supervision(supervisor_name_param: Optional[str] = None, n: Opt
                 send_supervision_result,
                 get_tool_request_groups,
                 get_tool_request_group_status,
+                get_tool_request_groups,
+                get_tool_request_group_status,
                 SupervisorType,
             )
 
@@ -103,13 +105,13 @@ def with_entropy_supervision(supervisor_name_param: Optional[str] = None, n: Opt
             
             tool_request_group = None
             if tool_request_groups:
-                # Find tool request group that is pending or assigned
+                # find tool request group that is pending or assigned
                 for _tool_request_group in tool_request_groups:
                     tool_request_status = get_tool_request_group_status(_tool_request_group.id, client)
                     if tool_request_status in [Status.PENDING, Status.ASSIGNED]:
                         tool_request_group = _tool_request_group
                         break
-            if not tool_request_group:
+            if not tool_request_group: # or (tool_request_status in [Status.COMPLETED, Status.FAILED, Status.TIMEOUT]):
                 tool_request_group = create_tool_request_group(tool_id, tool_requests, client)
                 if not tool_request_group:
                     raise Exception(f"Failed to create Tool Request Group")
@@ -174,9 +176,13 @@ def with_entropy_supervision(supervisor_name_param: Optional[str] = None, n: Opt
                     client=client,
                     tool_args=[],  # TODO: If modified, send modified args and kwargs
                     tool_kwargs=call.arguments,
-                    tool_request=tool_requests[0] # TODO: Update for N > 1 for llm supervisors
+                    tool_request=tool_requests[0] #TODO: Update for N > 1
                 )
-
+            # Handle modify decision
+            if decision.decision == SupervisionDecisionType.MODIFY:
+                decision.modified.original_inspect_ai_call = call
+                
+            print(f"Returning approval: {decision.decision}") 
             return prepare_approval(decision)
 
         # Set the __name__ of the wrapper function to the supervisor name or the outer function's name
