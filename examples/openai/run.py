@@ -1,5 +1,47 @@
-# We start with importing the necessary libraries and initializing the OpenAI client.
+#!/usr/bin/env python
+# coding: utf-8
 
+# # AI Assistant with Supervisors Demo
+# 
+# Welcome to the AI Assistant with Supervisors demo! This notebook is designed to demonstrate how to use **Entropy Labs Supervisors** to supervise tool executions within an AI assistant. We'll walk through the code, explain key components, and show how to run the assistant.
+# 
+# ## Table of Contents
+# 
+# 1. [Introduction](#Introduction)
+# 2. [Setup](#Setup)
+# 3. [Supervisors](#Supervisors)
+#    - [The `supervise()` Decorator](#The-supervise%28%29-Decorator)
+#    - [Custom Supervisor: `check_email_address_supervisor`](#Custom-Supervisor%3A-check_email_address_supervisor)
+#    - [Built-in Supervisors: `llm_supervisor` and `human_supervisor`](#Built-in-Supervisors%3A-llm_supervisor-and-human_supervisor)
+# 4. [Tools](#Tools)
+#    - [`internet_search`](#internet_search)
+#    - [`send_email`](#send_email)
+#    - [`create_calendar_event`](#create_calendar_event)
+#    - [`book_flight`](#book_flight)
+# 5. [Assistant Agent](#Assistant-Agent)
+#    - [Creating OpenAI Tools](#Creating-OpenAI-Tools)
+#    - [Chat Function with OpenAI](#Chat-Function-with-OpenAI)
+#    - [Executing Tool Calls](#Executing-Tool-Calls)
+#    - [Updating Messages](#Updating-Messages)
+#    - [Starting the Chatbot](#Starting-the-Chatbot)
+# 6. [Running the Assistant](#Running-the-Assistant)
+# 7. [Conclusion](#Conclusion)
+# 
+# ## Introduction
+# 
+# In this demo, we'll create an AI assistant that can perform tasks like searching the internet, sending emails, creating calendar events, and booking flights. We'll use **Entropy Labs Supervisors** to supervise these tool executions, ensuring they comply with specified policies or require human approval when necessary.
+# 
+# **Important:** Before running the notebook, make sure that the Entropy Labs backend is running. You can start it with `docker compose up` in the root directory.
+
+# ## Setup
+# First let's install the necessary libraries.
+
+# get_ipython().run_line_magic('pip', 'install entropy-labs inspect-ai openai duckduckgo-search bs4 ipywidgets')
+
+
+# 
+# 
+# We start with importing the necessary libraries and initializing the OpenAI client.
 
 import json
 import inspect
@@ -14,7 +56,7 @@ from openai.types.chat import ChatCompletionMessage
 from duckduckgo_search import DDGS
 
 from entropy_labs.supervision import supervise
-from entropy_labs.api import register_project, create_run, register_task
+from entropy_labs.api import register_project, create_run, register_task, submit_run_status, submit_run_result, Status
 from entropy_labs.supervision.supervisors import human_supervisor, llm_supervisor, Supervisor
 from entropy_labs.supervision.config import (
     SupervisionDecision,
@@ -639,6 +681,8 @@ def start_chatbot(
             else:
                 # If the assistant is processing, wait until it's ready for user input
                 pass
+    submit_run_status(run_id=run_id, status=Status.COMPLETED)
+    submit_run_result(run_id=run_id, result="passed")
 
 
 

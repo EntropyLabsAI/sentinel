@@ -22,7 +22,7 @@ def human_supervisor(agent_id: str = "default_agent", timeout: int = 300, n: int
         tool_call = ToolCall(id=id,function=func.__name__, arguments=tool_kwargs, type='function')
         client = supervision_config.client
         
-        supervisor_decision = await human_supervisor_wrapper(task_state=task_state, call=tool_call, timeout=timeout, use_inspect_ai=False, n=n, supervision_request_id=supervision_request_id, client=client)
+        supervisor_decision = human_supervisor_wrapper(task_state=task_state, call=tool_call, timeout=timeout, use_inspect_ai=False, n=n, supervision_request_id=supervision_request_id, client=client)
 
         return supervisor_decision
 

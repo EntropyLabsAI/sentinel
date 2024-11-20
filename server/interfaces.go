@@ -14,6 +14,7 @@ type Store interface {
 	ToolRequestStore
 	SupervisorStore
 	SupervisionStore
+	TaskStore
 }
 
 type SupervisionStore interface {
@@ -43,6 +44,12 @@ type SupervisionStore interface {
 	GetChainExecutionFromChainAndRequestGroup(ctx context.Context, chainId uuid.UUID, requestGroupId uuid.UUID) (*uuid.UUID, error)
 	GetChainExecutionsFromRequestGroup(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error)
 	GetChainExecutionState(ctx context.Context, executionId uuid.UUID) (*ChainExecutionState, error)
+}
+
+type TaskStore interface {
+	CreateTask(ctx context.Context, task Task) (*uuid.UUID, error)
+	GetTask(ctx context.Context, id uuid.UUID) (*Task, error)
+	GetProjectTasks(ctx context.Context, projectId uuid.UUID) ([]Task, error)
 }
 
 type ProjectStore interface {
@@ -81,7 +88,8 @@ type SupervisorStore interface {
 type RunStore interface {
 	CreateRun(ctx context.Context, run Run) (uuid.UUID, error)
 	GetRun(ctx context.Context, id uuid.UUID) (*Run, error)
-	GetRuns(ctx context.Context, projectId uuid.UUID) ([]Run, error)
-	GetProjectRuns(ctx context.Context, id uuid.UUID) ([]Run, error)
+	GetRuns(ctx context.Context, taskId uuid.UUID) ([]Run, error)
+	GetTaskRuns(ctx context.Context, taskId uuid.UUID) ([]Run, error)
 	UpdateRunStatus(ctx context.Context, runId uuid.UUID, status Status) error
+	UpdateRunResult(ctx context.Context, runId uuid.UUID, result string) error
 }

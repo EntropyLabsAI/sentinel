@@ -1,5 +1,5 @@
 import * as React from "react"
-import { BookIcon, Check, ChevronsUpDown, PickaxeIcon, GithubIcon, InspectIcon, FileIcon, RailSymbol, Building2Icon, LucideBuilding, CogIcon, HistoryIcon, BarChartIcon, DoorOpenIcon, ScanEyeIcon } from "lucide-react"
+import { BookIcon, Check, ChevronsUpDown, PickaxeIcon, GithubIcon, InspectIcon, FileIcon, RailSymbol, Building2Icon, LucideBuilding, CogIcon, HistoryIcon, BarChartIcon, DoorOpenIcon, ScanEyeIcon, ListIcon } from "lucide-react"
 import { Link, useLocation } from 'react-router-dom'
 
 import {
@@ -86,11 +86,11 @@ export default function SidebarComponent({ children }: SidebarProps) {
             icon: <Building2Icon />
           },
           {
-            title: "Agent Runs",
+            title: "Tasks",
             url: `/projects/${selectedProject}`,
             isActive: false,
             disabled: false,
-            icon: <RailSymbol />
+            icon: <ListIcon />
           },
           {
             title: "Supervisors",

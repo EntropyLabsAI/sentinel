@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Type, TypeVar
+from typing import Any, Dict, List, Type, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -11,19 +11,24 @@ class CreateProjectBody:
     """
     Attributes:
         name (str):
+        run_result_tags (List[str]):
     """
 
     name: str
+    run_result_tags: List[str]
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         name = self.name
+
+        run_result_tags = self.run_result_tags
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
                 "name": name,
+                "run_result_tags": run_result_tags,
             }
         )
 
@@ -34,8 +39,11 @@ class CreateProjectBody:
         d = src_dict.copy()
         name = d.pop("name")
 
+        run_result_tags = cast(List[str], d.pop("run_result_tags"))
+
         create_project_body = cls(
             name=name,
+            run_result_tags=run_result_tags,
         )
 
         create_project_body.additional_properties = d

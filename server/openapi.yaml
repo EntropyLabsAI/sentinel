@@ -50,8 +50,13 @@ paths:
               properties:
                 name:
                   type: string
+                run_result_tags:
+                  type: array
+                  items:
+                    type: string
               required:
                 - name
+                - run_result_tags
       responses:
         "200":
           description: Project found
@@ -103,7 +108,7 @@ paths:
       tags:
         - Project
 
-  /api/project/{projectId}/run:
+  /api/project/{projectId}/tasks:
     parameters:
       - name: projectId
         in: path
@@ -112,8 +117,84 @@ paths:
           type: string
           format: uuid
     get:
-      summary: Get all runs for a project
-      operationId: GetProjectRuns
+      summary: Get all tasks for a project
+      operationId: GetProjectTasks
+      responses:
+        "200":
+          description: List of tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Task"
+        "404":
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - Task
+    post:
+      summary: Create a new task
+      operationId: CreateTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+              required:
+                - name
+      responses:
+        "201":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                type: string
+                format: uuid
+      tags:
+        - Task
+
+  /api/task/{taskId}:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get a task
+      operationId: GetTask
+      responses:
+        "200":
+          description: Task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+      tags:
+        - Task
+
+  /api/task/{taskId}/run:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get all runs for a task
+      operationId: GetTaskRuns
       responses:
         "200":
           description: List of runs
@@ -126,8 +207,8 @@ paths:
       tags:
         - Run
     post:
-      summary: Create a new run for a project
-      operationId: CreateProjectRun
+      summary: Create a new run for a task
+      operationId: CreateRun
       responses:
         "201":
           description: Run created
@@ -699,6 +780,38 @@ paths:
       tags:
         - Run
 
+  /api/run/{runId}/result:
+    parameters:
+      - name: runId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      summary: Update a run with a result
+      operationId: UpdateRunResult
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                result:
+                  type: string
+      responses:
+        "201":
+          description: Run result created
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - Run
+
   /api/stats:
     get:
       summary: Get hub stats
@@ -859,10 +972,15 @@ components:
         created_at:
           type: string
           format: date-time
+        run_result_tags:
+          type: array
+          items:
+            type: string
       required:
         - name
         - created_at
         - id
+        - run_result_tags
 
     Run:
       type: object
@@ -870,7 +988,7 @@ components:
         id:
           type: string
           format: uuid
-        project_id:
+        task_id:
           type: string
           format: uuid
         created_at:
@@ -878,9 +996,11 @@ components:
           format: date-time
         status:
           $ref: "#/components/schemas/Status"
+        result:
+          type: string
       required:
         - id
-        - project_id
+        - task_id
         - created_at
 
     Tool:
@@ -1296,3 +1416,25 @@ components:
         - chain_state
         - request_group
         - run_id
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - project_id
+        - name
+        - created_at

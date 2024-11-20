@@ -12,7 +12,7 @@ export default function Page({ children, title, subtitle, icon, cols = 1 }: { ch
         {subtitle && <p className="text-sm text-gray-500">{subtitle}</p>}
 
       </div>
-      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-${cols} gap-6`}>
+      <div className={`grid grid-cols-1 lg:grid-cols-${cols} gap-6`}>
         {children}
       </div>
     </div>

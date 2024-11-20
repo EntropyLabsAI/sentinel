@@ -67,7 +67,7 @@ export default function ExecutionTable({ runState }: { runState: RunState }) {
           {rows.length === 0 && (
             <TableRow>
               <TableCell colSpan={5} className="text-center text-muted-foreground h-[100px]">
-                <LoadingSpinner />
+                No executions found
               </TableCell>
             </TableRow>
           )}

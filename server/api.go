@@ -100,14 +100,29 @@ func (s Server) GetProject(w http.ResponseWriter, r *http.Request, id uuid.UUID)
 	apiGetProjectHandler(w, r, id, s.Store)
 }
 
-// CreateProjectRun
-func (s Server) CreateProjectRun(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiCreateProjectRunHandler(w, r, id, s.Store)
+// CreateTask
+func (s Server) CreateTask(w http.ResponseWriter, r *http.Request, projectId uuid.UUID) {
+	apiCreateTaskHandler(w, r, projectId, s.Store)
 }
 
-// GetProjectRuns
-func (s Server) GetProjectRuns(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	apiGetProjectRunsHandler(w, r, id, s.Store)
+// CreateRun
+func (s Server) CreateRun(w http.ResponseWriter, r *http.Request, taskId uuid.UUID) {
+	apiCreateRunHandler(w, r, taskId, s.Store)
+}
+
+// GetProjectTasks
+func (s Server) GetProjectTasks(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetProjectTasksHandler(w, r, id, s.Store)
+}
+
+// GetTaskRuns
+func (s Server) GetTaskRuns(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetTaskRunsHandler(w, r, id, s.Store)
+}
+
+// GetTask
+func (s Server) GetTask(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetTaskHandler(w, r, id, s.Store)
 }
 
 // GetRunTools
@@ -222,6 +237,11 @@ func (s Server) GetRunStatus(w http.ResponseWriter, r *http.Request, runId uuid.
 // UpdateRunStatus
 func (s Server) UpdateRunStatus(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
 	apiUpdateRunStatusHandler(w, r, runId, s.Store)
+}
+
+// UpdateRunResult
+func (s Server) UpdateRunResult(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
+	apiUpdateRunResultHandler(w, r, runId, s.Store)
 }
 
 func enableCorsMiddleware(handler http.Handler) http.Handler {

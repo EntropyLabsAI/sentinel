@@ -14,21 +14,21 @@ from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request im
     ToolRequest,
 )
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.status import Status
-
-from entropy_labs.supervision.config import SupervisionContext
+from entropy_labs.supervision.inspect_ai.utils import tool_jsonable
+from entropy_labs.supervision.config import SupervisionContext, convert_message
 
 def prepare_approval(decision: SupervisionDecision) -> Approval:
     from entropy_labs.supervision.common import _transform_entropy_labs_approval_to_inspect_ai_approval
     return _transform_entropy_labs_approval_to_inspect_ai_approval(decision)
 
-def get_tool_info(call: ToolCall, supervision_context: SupervisionContext) -> tuple[UUID, List[str]]:
-    entry = supervision_context.get_supervised_function_entry(call.function)
+def get_tool_info(call_function: str, supervision_context: SupervisionContext) -> tuple[UUID, List[str]]:
+    entry = supervision_context.get_supervised_function_entry(call_function)
     if entry:
         tool_id = entry['tool_id']
         ignored_attributes = entry['ignored_attributes']
         return tool_id, ignored_attributes
     else:
-        raise Exception(f"Tool ID for function {call.function} not found in the registry.")
+        raise Exception(f"Tool ID for function {call_function} not found in the registry.")
 
 # Decorator for common Entropy Sentinel API interactions
 def with_entropy_supervision(supervisor_name_param: Optional[str] = None, n: Optional[int] = None):
@@ -58,10 +58,12 @@ def with_entropy_supervision(supervisor_name_param: Optional[str] = None, n: Opt
                 send_supervision_result,
                 get_tool_request_groups,
                 get_tool_request_group_status,
+                get_tool_request_groups,
+                get_tool_request_group_status,
                 SupervisorType,
             )
 
-            run_name = str(state.sample_id) #For inspect AI, this is the run_name
+            run_name = str(state.sample_id) # For Inspect AI, this is the run_name
             run = supervision_config.get_run_by_name(run_name)
             if run is None:
                 raise Exception(f"Run with name {run_name} not found")
@@ -70,20 +72,33 @@ def with_entropy_supervision(supervisor_name_param: Optional[str] = None, n: Opt
             supervision_context.inspect_ai_state = state
             supervision_config.update_supervision_context_by_run_name(run.run_name, supervision_context)
             
-            # add messages from task_state to context
-            
+            # Add messages from task_state to context
             client = supervision_config.client  # Get the Sentinel API client
 
             # Retrieve the tool_id from the registry
-            tool_id, ignored_attributes = get_tool_info(call, supervision_context)
-            
-            
-            
+            tool_id, ignored_attributes = get_tool_info(call.function, supervision_context)
             tool_requests = [ToolRequest(tool_id=tool_id, 
                                          message=supervision_context.get_api_messages()[-1],
                                          arguments=Arguments.from_dict(call.arguments),
                                          task_state=supervision_context.to_task_state())]
             
+            supervisor_attributes = getattr(approve_func, 'supervisor_attributes', {})
+            if 'n' in supervisor_attributes:
+                n = supervisor_attributes['n']
+                if n > 1:
+                    # Generate n-1 tool calls
+                    last_messages, tool_options = await generate_tool_call_suggestions(state, n - 1 , call)
+                    last_messages = [state.messages[-1]] + last_messages
+                    tool_options = [tool_jsonable(call)] + tool_options
+                    for i in range(n-1):
+                        tool_id, ignored_attributes = get_tool_info(tool_options[i]['function'], supervision_context)
+                        updated_task_state = supervision_context.to_task_state()
+                        updated_task_state.messages[-1] = convert_message(last_messages[i])
+                        tool_requests.append(ToolRequest(tool_id=tool_id, 
+                                                        message=convert_message(last_messages[i]),
+                                                        arguments=Arguments.from_dict(tool_options[i]['arguments']),
+                                                        task_state=updated_task_state))
+                        # TODO: We need to update the task state messages later in case the supervisor chooses different tool
 
             # Create ToolRequestGroup, we need to check first if the ToolRequestGroup for this run_id and tool_id exists
             tool_request_groups = get_tool_request_groups(run.run_id, tool_id, client)
@@ -111,7 +126,6 @@ def with_entropy_supervision(supervisor_name_param: Optional[str] = None, n: Opt
                     decision=SupervisionDecisionType.APPROVE,
                     explanation="No supervisors configured. Approval granted."
                 ))
-            
 
             # Find the supervisor by name
             supervisor_name = supervisor_name_param or approve_func.__name__
@@ -133,7 +147,6 @@ def with_entropy_supervision(supervisor_name_param: Optional[str] = None, n: Opt
             if position_in_chain is None:
                 raise Exception(f"Position in chain not found for supervisor {supervisor_name} in chain {supervisor_chain_id}")
                 
-
             # Send supervision request
             supervision_request_id = send_supervision_request(
                 supervisor_id=supervisor_id,
@@ -178,13 +191,13 @@ def with_entropy_supervision(supervisor_name_param: Optional[str] = None, n: Opt
     return decorator
 
 # Updated Approvers
+
 @approver
 def bash_approver(
     allowed_commands: List[str],
     allow_sudo: bool = False,
     command_specific_rules: Optional[Dict[str, List[str]]] = None,
 ) -> Approver:
-    @with_entropy_supervision(supervisor_name_param="bash_approver")
     async def approve(
         message: str,
         call: ToolCall,
@@ -212,7 +225,18 @@ def bash_approver(
                 decision=SupervisionDecisionType.ESCALATE, explanation=explanation
             )
         return decision
-    return approve
+
+    # Set attributes before applying the decorator
+    approve.__name__ = "bash_approver"
+    approve.supervisor_attributes = {
+        "allowed_commands": allowed_commands,
+        "allow_sudo": allow_sudo,
+        "command_specific_rules": command_specific_rules
+    }
+
+    # Apply decorator after setting attributes
+    decorated_approve = with_entropy_supervision(supervisor_name_param="bash_approver")(approve)
+    return decorated_approve
 
 @approver
 def python_approver(
@@ -222,7 +246,6 @@ def python_approver(
     sensitive_modules: Optional[Set[str]] = None,
     allow_system_state_modification: bool = False,
 ) -> Approver:
-    @with_entropy_supervision(supervisor_name_param="python_approver")
     async def approve(
         message: str,
         call: ToolCall,
@@ -255,7 +278,20 @@ def python_approver(
                 decision=SupervisionDecisionType.ESCALATE, explanation=explanation
             )
         return decision
-    return approve
+
+    # Set attributes before applying the decorator
+    approve.__name__ = "python_approver"
+    approve.supervisor_attributes = {
+        "allowed_modules": allowed_modules,
+        "allowed_functions": allowed_functions,
+        "disallowed_builtins": disallowed_builtins,
+        "sensitive_modules": sensitive_modules,
+        "allow_system_state_modification": allow_system_state_modification
+    }
+
+    # Apply decorator after setting attributes
+    decorated_approve = with_entropy_supervision(supervisor_name_param="python_approver")(approve)
+    return decorated_approve
 
 @approver
 def human_approver(
@@ -264,7 +300,6 @@ def human_approver(
     n: int = 3,
     timeout: int = 300
 ) -> Approver:
-    @with_entropy_supervision(supervisor_name_param="human_approver", n=n)
     async def approve(
         message: str,
         call: ToolCall,
@@ -285,9 +320,9 @@ def human_approver(
             )
             
         # Handle n > 1 tool calls, generate suggestions
-        if n > 1:
-            # generate n-1 tool calls
-            last_messages, tool_options = await generate_tool_call_suggestions(state, n, call)
+        # if n > 1:
+        #     # generate n-1 tool calls
+        #     last_messages, tool_options = await generate_tool_call_suggestions(state, n, call)
             # last_messages = [state.messages[-1]] + last_messages
             # tool_options = [tool_jsonable(call)] + tool_options
             # TODO: Implement n > 1 logic here for human supervisor
@@ -303,7 +338,14 @@ def human_approver(
         )
         
         return approval_decision
-    return approve
+
+    # Set attributes before applying the decorator
+    approve.__name__ = "human_approver"
+    approve.supervisor_attributes = {"timeout": timeout, "n": n}
+
+    # Apply decorator after setting attributes
+    decorated_approve = with_entropy_supervision(supervisor_name_param="human_approver", n=n)(approve)
+    return decorated_approve
 
 @approver
 def llm_approver(
@@ -313,7 +355,6 @@ def llm_approver(
     include_context: bool = False,
     agent_id: Optional[str] = None
 ) -> Approver:
-    @with_entropy_supervision(supervisor_name_param="llm_approver")
     async def approve(
         message: str,
         call: ToolCall,
@@ -342,7 +383,7 @@ def llm_approver(
 
         function_name = call.function
         func = registry_lookup('tool', function_name)
-        approval_decision = llm_supervisor_func(
+        approval_decision = llm_supervisor_func( # TODO: Support for n > 1
             func=func,
             supervision_context=supervision_context,
             ignored_attributes=[],
@@ -352,4 +393,16 @@ def llm_approver(
             supervision_request_id=supervision_request_id
         )
         return approval_decision
-    return approve
+
+    # Set attributes before applying the decorator
+    approve.__name__ = "llm_approver"
+    approve.supervisor_attributes = {
+        "instructions": instructions,
+        "openai_model": openai_model,
+        "system_prompt": system_prompt,
+        "include_context": include_context
+    }
+
+    # Apply decorator after setting attributes
+    decorated_approve = with_entropy_supervision(supervisor_name_param="llm_approver")(approve)
+    return decorated_approve

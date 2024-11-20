@@ -6,32 +6,42 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.error_response import ErrorResponse
+from ...models.status import Status
 from ...types import Response
 
 
 def _get_kwargs(
-    project_id: UUID,
+    run_id: UUID,
 ) -> Dict[str, Any]:
     _kwargs: Dict[str, Any] = {
-        "method": "post",
-        "url": f"/api/project/{project_id}/run",
+        "method": "get",
+        "url": f"/api/run/{run_id}/status",
     }
 
     return _kwargs
 
 
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[UUID]:
-    if response.status_code == 201:
-        response_201 = UUID(response.json())
+def _parse_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Optional[Union[ErrorResponse, Status]]:
+    if response.status_code == 200:
+        response_200 = Status(response.json())
 
-        return response_201
+        return response_200
+    if response.status_code == 404:
+        response_404 = ErrorResponse.from_dict(response.json())
+
+        return response_404
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
     else:
         return None
 
 
-def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[UUID]:
+def _build_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[Union[ErrorResponse, Status]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -41,25 +51,25 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 
 
 def sync_detailed(
-    project_id: UUID,
+    run_id: UUID,
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Response[UUID]:
-    """Create a new run for a project
+) -> Response[Union[ErrorResponse, Status]]:
+    """Get the status of a run
 
     Args:
-        project_id (UUID):
+        run_id (UUID):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[UUID]
+        Response[Union[ErrorResponse, Status]]
     """
 
     kwargs = _get_kwargs(
-        project_id=project_id,
+        run_id=run_id,
     )
 
     response = client.get_httpx_client().request(
@@ -70,49 +80,49 @@ def sync_detailed(
 
 
 def sync(
-    project_id: UUID,
+    run_id: UUID,
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Optional[UUID]:
-    """Create a new run for a project
+) -> Optional[Union[ErrorResponse, Status]]:
+    """Get the status of a run
 
     Args:
-        project_id (UUID):
+        run_id (UUID):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        UUID
+        Union[ErrorResponse, Status]
     """
 
     return sync_detailed(
-        project_id=project_id,
+        run_id=run_id,
         client=client,
     ).parsed
 
 
 async def asyncio_detailed(
-    project_id: UUID,
+    run_id: UUID,
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Response[UUID]:
-    """Create a new run for a project
+) -> Response[Union[ErrorResponse, Status]]:
+    """Get the status of a run
 
     Args:
-        project_id (UUID):
+        run_id (UUID):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[UUID]
+        Response[Union[ErrorResponse, Status]]
     """
 
     kwargs = _get_kwargs(
-        project_id=project_id,
+        run_id=run_id,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -121,26 +131,26 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    project_id: UUID,
+    run_id: UUID,
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Optional[UUID]:
-    """Create a new run for a project
+) -> Optional[Union[ErrorResponse, Status]]:
+    """Get the status of a run
 
     Args:
-        project_id (UUID):
+        run_id (UUID):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        UUID
+        Union[ErrorResponse, Status]
     """
 
     return (
         await asyncio_detailed(
-            project_id=project_id,
+            run_id=run_id,
             client=client,
         )
     ).parsed

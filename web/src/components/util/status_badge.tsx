@@ -1,8 +1,8 @@
 import React from "react";
-import { Decision, Status, SupervisionStatus, Supervisor, SupervisorType, Tool, useGetSupervisor, useGetTool } from "@/types";
+import { Decision, Status, SupervisionStatus, Supervisor, SupervisorType, Tool, useGetProject, useGetSupervisor, useGetTask, useGetTool } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
-import { BotIcon, PickaxeIcon } from "lucide-react";
+import { BotIcon, CpuIcon, PickaxeIcon } from "lucide-react";
 import { UUIDDisplay } from "./uuid_display";
 import { useProject } from "@/contexts/project_context";
 
@@ -25,7 +25,66 @@ export function StatusBadge({ status, statuses }: { status?: Status, statuses?: 
   return <Badge className={`shadow-none ${colors[status]}`}>{status === Status.pending ? 'in progress' : status}</Badge>;
 }
 
+export function ProjectBadge({ projectId }: { projectId: string }) {
+  const { data, isLoading, error } = useGetProject(projectId);
+  if (isLoading) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Loading...</Badge>;
+  if (error) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Error: {error.message}</Badge>;
+  return (
+    <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">
+      <Link to={`/projects/${projectId}`}>{data?.data.name ?? 'Project'} <UUIDDisplay uuid={projectId} /></Link>
+    </Badge>
+  );
+}
 
+export function SupervisionResultBadge({ result }: { result: string | undefined }) {
+  if (!result) {
+    return null;
+  }
+
+  // Hash function to convert string to a number
+  const hashString = (str: string) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash);
+  };
+
+  // Convert hash to HSL color
+  // Using HSL ensures readable colors by:
+  // - Setting saturation to 70% for consistent vibrancy
+  // - Setting lightness to 45% for good contrast with white text
+  const getColorFromString = (str: string) => {
+    const hash = hashString(str);
+    const hue = hash % 360; // Get a value between 0-359 for hue
+    return `hsl(${hue}, 70%, 45%)`;
+  };
+
+  const color = getColorFromString(result);
+
+  return (
+    <Badge
+      className="text-white shadow-none whitespace-nowrap"
+      style={{ backgroundColor: color }}
+    >
+      {result}
+    </Badge>
+  );
+}
+
+export function TaskBadge({ taskId }: { taskId: string }) {
+  const { data, isLoading, error } = useGetTask(taskId);
+  if (isLoading) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Loading...</Badge>;
+  if (error) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Error: {error.message}</Badge>;
+  return (
+    <Badge className="text-white bg-teal-800 shadow-none whitespace-nowrap gap-2 items-center">
+      <CpuIcon className="w-3 h-3 flex-shrink-0" />
+      <Link to={`/tasks/${taskId}`}>{data?.data.name ?? 'Task'}</Link>
+    </Badge>
+  )
+}
 
 export function DecisionBadge({ decision }: { decision: Decision | undefined }) {
   if (!decision) {

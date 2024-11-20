@@ -4,21 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 // respondJSON writes a JSON response with status 200 OK
-func respondJSON(w http.ResponseWriter, data interface{}) {
+func respondJSON(w http.ResponseWriter, data interface{}, status int) {
+	w.WriteHeader(status)
 	w.Header().Set("Content-Type", "application/json")
-
-	// If the header is not set, set it to StatusOK
-	if w.Header().Get("Content-Type") == "" {
-		w.WriteHeader(http.StatusOK)
-	}
 
 	if err := json.NewEncoder(w).Encode(data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -28,25 +24,24 @@ func respondJSON(w http.ResponseWriter, data interface{}) {
 func apiCreateProjectHandler(w http.ResponseWriter, r *http.Request, store ProjectStore) {
 	ctx := r.Context()
 
-	log.Printf("received new project registration request")
 	var request struct {
-		Name string `json:"name"`
+		Name          string   `json:"name"`
+		RunResultTags []string `json:"run_result_tags"`
 	}
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid request body", err.Error())
 		return
 	}
 
 	existingProject, err := store.GetProjectFromName(ctx, request.Name)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error getting project: %v", err.Error()), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "Error getting project", err.Error())
 		return
 	}
 
 	if existingProject != nil {
-		w.WriteHeader(http.StatusOK)
-		respondJSON(w, existingProject.Id.String())
+		respondJSON(w, existingProject.Id.String(), http.StatusOK)
 		return
 	}
 
@@ -55,56 +50,108 @@ func apiCreateProjectHandler(w http.ResponseWriter, r *http.Request, store Proje
 
 	// Create the Project struct
 	project := Project{
-		Id:        id,
-		Name:      request.Name,
-		CreatedAt: time.Now(),
+		Id:            id,
+		Name:          request.Name,
+		RunResultTags: request.RunResultTags,
+		CreatedAt:     time.Now(),
 	}
 
 	// Store the project in the global projects map
 	err = store.CreateProject(ctx, project)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to register project, %v", err), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "Failed to register project", err.Error())
 		return
 	}
 
 	// Send the response
-	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, id.String())
+	respondJSON(w, id.String(), http.StatusCreated)
 }
 
-func apiCreateProjectRunHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store RunStore) {
+func apiCreateTaskHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, store Store) {
 	ctx := r.Context()
 
-	log.Printf("received new run request for project ID: %s", id)
+	var request struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid request body", err.Error())
+		return
+	}
+
+	task := Task{
+		ProjectId:   projectId,
+		Name:        request.Name,
+		Description: &request.Description,
+		CreatedAt:   time.Now(),
+	}
+
+	id, err := store.CreateTask(ctx, task)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "Failed to create task", err.Error())
+		return
+	}
+
+	respondJSON(w, id.String(), http.StatusCreated)
+}
+
+func apiGetTaskHandler(w http.ResponseWriter, r *http.Request, taskId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	task, err := store.GetTask(ctx, taskId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "Error getting task", err.Error())
+		return
+	}
+
+	if task == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Task not found", "")
+		return
+	}
+
+	respondJSON(w, task, http.StatusOK)
+}
+
+func apiGetProjectTasksHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	tasks, err := store.GetProjectTasks(ctx, projectId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "Error getting project tasks", err.Error())
+		return
+	}
+
+	respondJSON(w, tasks, http.StatusOK)
+}
+
+func apiCreateRunHandler(w http.ResponseWriter, r *http.Request, taskId uuid.UUID, store Store) {
+	ctx := r.Context()
 
 	run := Run{
-		Id:        uuid.Nil,
-		ProjectId: id,
+		Id:        uuid.New(),
+		TaskId:    taskId, // Changed from ProjectId to TaskId
 		CreatedAt: time.Now(),
 	}
 
 	runID, err := store.CreateRun(ctx, run)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "Error creating run", err.Error())
 		return
 	}
 
-	log.Printf("created run with ID: %s", run.Id)
-
-	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, runID)
+	respondJSON(w, runID, http.StatusCreated)
 }
 
-func apiGetProjectRunsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store RunStore) {
+func apiGetTaskRunsHandler(w http.ResponseWriter, r *http.Request, taskId uuid.UUID, store Store) {
 	ctx := r.Context()
 
-	runs, err := store.GetProjectRuns(ctx, id)
+	runs, err := store.GetTaskRuns(ctx, taskId)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "Error getting task runs", err.Error())
 		return
 	}
 
-	respondJSON(w, runs)
+	respondJSON(w, runs, http.StatusOK)
 }
 
 func apiCreateRunToolHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
@@ -161,8 +208,7 @@ func apiCreateRunToolHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, toolId)
+	respondJSON(w, toolId, http.StatusCreated)
 }
 
 func apiGetSupervisorHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store SupervisorStore) {
@@ -174,7 +220,7 @@ func apiGetSupervisorHandler(w http.ResponseWriter, r *http.Request, id uuid.UUI
 		return
 	}
 
-	respondJSON(w, supervisor)
+	respondJSON(w, supervisor, http.StatusOK)
 }
 
 func apiCreateToolSupervisorChainsHandler(w http.ResponseWriter, r *http.Request, toolId uuid.UUID, store SupervisorStore) {
@@ -198,8 +244,7 @@ func apiCreateToolSupervisorChainsHandler(w http.ResponseWriter, r *http.Request
 		chainIds = append(chainIds, *chainId)
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, chainIds)
+	respondJSON(w, chainIds, http.StatusCreated)
 }
 
 func apiCreateSupervisorHandler(w http.ResponseWriter, r *http.Request, _ uuid.UUID, store SupervisorStore) {
@@ -218,8 +263,7 @@ func apiCreateSupervisorHandler(w http.ResponseWriter, r *http.Request, _ uuid.U
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, supervisorId)
+	respondJSON(w, supervisorId, http.StatusCreated)
 }
 
 func apiGetToolSupervisorChainsHandler(w http.ResponseWriter, r *http.Request, toolId uuid.UUID, store Store) {
@@ -243,7 +287,7 @@ func apiGetToolSupervisorChainsHandler(w http.ResponseWriter, r *http.Request, t
 		return
 	}
 
-	respondJSON(w, chains)
+	respondJSON(w, chains, http.StatusOK)
 }
 
 func apiGetRunToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
@@ -267,7 +311,7 @@ func apiGetRunToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID,
 		return
 	}
 
-	respondJSON(w, tools)
+	respondJSON(w, tools, http.StatusOK)
 }
 
 func apiCreateToolRequestGroupHandler(w http.ResponseWriter, r *http.Request, toolId uuid.UUID, store ToolRequestStore) {
@@ -286,8 +330,7 @@ func apiCreateToolRequestGroupHandler(w http.ResponseWriter, r *http.Request, to
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, trg)
+	respondJSON(w, trg, http.StatusCreated)
 }
 
 func apiGetRequestGroupHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store Store) {
@@ -299,7 +342,7 @@ func apiGetRequestGroupHandler(w http.ResponseWriter, r *http.Request, requestGr
 		return
 	}
 
-	respondJSON(w, requestGroup)
+	respondJSON(w, requestGroup, http.StatusOK)
 }
 
 func apiCreateToolRequestHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store ToolRequestStore) {
@@ -318,8 +361,7 @@ func apiCreateToolRequestHandler(w http.ResponseWriter, r *http.Request, request
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, toolRequestId)
+	respondJSON(w, toolRequestId, http.StatusCreated)
 }
 
 func apiGetSupervisionResultHandler(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID, store Store) {
@@ -343,7 +385,7 @@ func apiGetSupervisionResultHandler(w http.ResponseWriter, r *http.Request, supe
 		return
 	}
 
-	respondJSON(w, supervisionResult)
+	respondJSON(w, supervisionResult, http.StatusOK)
 }
 
 func apiGetRunRequestGroupsHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
@@ -366,7 +408,7 @@ func apiGetRunRequestGroupsHandler(w http.ResponseWriter, r *http.Request, runId
 		return
 	}
 
-	respondJSON(w, requestGroups)
+	respondJSON(w, requestGroups, http.StatusOK)
 }
 
 func apiGetSupervisorsHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, store Store) {
@@ -390,7 +432,7 @@ func apiGetSupervisorsHandler(w http.ResponseWriter, r *http.Request, projectId 
 		return
 	}
 
-	respondJSON(w, supervisors)
+	respondJSON(w, supervisors, http.StatusOK)
 }
 
 func apiGetProjectToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store ToolStore) {
@@ -402,7 +444,7 @@ func apiGetProjectToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.U
 		return
 	}
 
-	respondJSON(w, tools)
+	respondJSON(w, tools, http.StatusOK)
 }
 
 func apiGetToolHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store ToolStore) {
@@ -435,7 +477,7 @@ func apiGetSupervisionRequestStatusHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	respondJSON(w, status)
+	respondJSON(w, status, http.StatusOK)
 }
 
 func apiCreateSupervisionRequestHandler(
@@ -552,8 +594,7 @@ func apiCreateSupervisionRequestHandler(
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, reviewID)
+	respondJSON(w, reviewID, http.StatusCreated)
 }
 
 func apiCreateSupervisionResultHandler(
@@ -596,8 +637,7 @@ func apiCreateSupervisionResultHandler(
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	respondJSON(w, id)
+	respondJSON(w, id, http.StatusCreated)
 }
 
 func apiGetHubStatsHandler(w http.ResponseWriter, _ *http.Request, hub *Hub) {
@@ -607,7 +647,7 @@ func apiGetHubStatsHandler(w http.ResponseWriter, _ *http.Request, hub *Hub) {
 		return
 	}
 
-	respondJSON(w, stats)
+	respondJSON(w, stats, http.StatusOK)
 }
 
 // apiGetProjectsHandler returns all projects
@@ -620,7 +660,7 @@ func apiGetProjectsHandler(w http.ResponseWriter, r *http.Request, store Project
 		return
 	}
 
-	respondJSON(w, projects)
+	respondJSON(w, projects, http.StatusOK)
 }
 
 func apiGetProjectHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store ProjectStore) {
@@ -637,7 +677,7 @@ func apiGetProjectHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, 
 		return
 	}
 
-	respondJSON(w, project)
+	respondJSON(w, project, http.StatusOK)
 }
 
 func apiGetRunStateHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
@@ -749,7 +789,7 @@ func apiGetRunStateHandler(w http.ResponseWriter, r *http.Request, runId uuid.UU
 		runState = append(runState, execution)
 	}
 
-	respondJSON(w, runState)
+	respondJSON(w, runState, http.StatusOK)
 }
 
 func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID, store Store) {
@@ -817,7 +857,7 @@ func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Reques
 		RunId:              tool.RunId,
 	}
 
-	respondJSON(w, reviewPayload)
+	respondJSON(w, reviewPayload, http.StatusOK)
 }
 
 // determineChainStatus checks if a supervision chain has completed
@@ -899,7 +939,7 @@ func apiGetRequestGroupStatusHandler(w http.ResponseWriter, r *http.Request, req
 		return
 	}
 
-	respondJSON(w, status)
+	respondJSON(w, status, http.StatusOK)
 }
 
 // allChainsComplete checks if all supervision chains have completed
@@ -930,7 +970,7 @@ func apiGetRunStatusHandler(w http.ResponseWriter, r *http.Request, runId uuid.U
 		return
 	}
 
-	respondJSON(w, run.Status)
+	respondJSON(w, run.Status, http.StatusOK)
 }
 
 func apiUpdateRunStatusHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
@@ -949,6 +989,65 @@ func apiUpdateRunStatusHandler(w http.ResponseWriter, r *http.Request, runId uui
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
-	respondJSON(w, nil)
+	respondJSON(w, nil, http.StatusNoContent)
+}
+
+func apiUpdateRunResultHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	var result UpdateRunResultJSONBody
+	if err := json.NewDecoder(r.Body).Decode(&result); err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, "error decoding run result", err.Error())
+		return
+	}
+
+	if result.Result == nil {
+		sendErrorResponse(w, http.StatusBadRequest, "result is required", "")
+		return
+	}
+
+	run, err := store.GetRun(ctx, runId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting run", err.Error())
+		return
+	}
+	if run == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Run not found", "")
+		return
+	}
+
+	task, err := store.GetTask(ctx, run.TaskId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting task", err.Error())
+		return
+	}
+	if task == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Task not found", "")
+		return
+	}
+
+	// Get the project's run result tags and check if the result is valid
+	project, err := store.GetProject(ctx, task.ProjectId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting project", err.Error())
+		return
+	}
+	if project == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Project not found", "")
+		return
+	}
+
+	if !slices.Contains(project.RunResultTags, *result.Result) {
+		sendErrorResponse(w, http.StatusBadRequest, "invalid run result", "")
+		return
+	}
+
+	// Create the run result
+	err = store.UpdateRunResult(ctx, runId, *result.Result)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error creating run result", err.Error())
+		return
+	}
+
+	respondJSON(w, nil, http.StatusCreated)
 }

@@ -10,7 +10,7 @@ import { Button } from "./ui/button";
 import { useProject } from "@/contexts/project_context";
 import { UUIDDisplay } from "./util/uuid_display";
 import { CreatedAgo } from "./util/created_ago";
-import { Building2 } from "lucide-react";
+import { Building2, Code2, CogIcon, Database, FileAudio, FileCode, FileIcon, FileImage, FileMusic, FileText, FileVideo, Gauge, GitBranch, Globe, Layout, ListIcon, Server, Terminal } from "lucide-react";
 import LoadingSpinner from "./util/loading";
 
 export default function ProjectList() {
@@ -29,7 +29,8 @@ export default function ProjectList() {
 
   useEffect(() => {
     if (data?.data) {
-      setProjects(data.data);
+      // Sort the projects by most recently created
+      setProjects(data.data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
     }
   }, [data]);
 
@@ -40,35 +41,45 @@ export default function ProjectList() {
   };
 
   return (
-    <Page title="Projects" icon={<Building2 className="w-6 h-6" />} subtitle={projects.length === 0 && <div>No projects found. To register a project, check out the <Link to="/api" className="text-blue-500">docs</Link>.</div>}>
+    <Page
+      title="Projects"
+      icon={<Building2 className="w-6 h-6" />}
+      subtitle={projects.length === 0 && <div>No projects found. To register a project, check out the <Link to="/api" className="text-blue-500">docs</Link>.</div>}
+      cols={1}
+    >
       {isLoading && (
         <LoadingSpinner />
       )}
 
-      {projects.map((project) => (
-        <Card key={project.id} className="flex flex-col">
-          <CardHeader>
-            <CardTitle>{project.name}</CardTitle>
-            <CardDescription className="flex flex-col">
-              <span>Project <UUIDDisplay uuid={project.id} /></span>
-              <span>
-                <CreatedAgo datetime={project.created_at} />
-              </span>
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex-grow">
-          </CardContent>
-          <CardFooter className="flex justify-end">
+      <div className="grid col-span-1 grid-cols-1 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+
+        {projects.map((project) => (
+          <div className="">
             <Link
-              to={`/projects/${project.id}`}
+              to={`/project/${project.id}`}
               key={project.id}
               onClick={(e) => handleProjectSelect(project, e)}
             >
-              <Button variant="outline">View Project</Button>
+              <Card key={project.id} className="flex">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileIcon className="w-4 h-4" />
+                    {project.name}
+                  </CardTitle>
+                  <CardDescription className="flex flex-col">
+                    <span>Project <UUIDDisplay uuid={project.id} /></span>
+                    <span>
+                      <CreatedAgo datetime={project.created_at} />
+                    </span>
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex-grow">
+                </CardContent>
+              </Card>
             </Link>
-          </CardFooter>
-        </Card>
-      ))}
+          </div>
+        ))}
+      </div>
     </Page>
   )
 }

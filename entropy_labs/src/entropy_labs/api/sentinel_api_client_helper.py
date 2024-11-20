@@ -35,7 +35,15 @@ from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor impo
 from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervisor.create_tool_supervisor_chains import (
     sync_detailed as create_tool_supervisor_chains_sync_detailed,
 )
-
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.run.update_run_status import (
+    sync_detailed as update_run_status_sync_detailed,
+)
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.task.create_task import (
+    sync_detailed as create_task_sync_detailed,
+)
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.run.update_run_result import (
+    sync_detailed as update_run_result_sync_detailed,
+)
 from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervisor.get_tool_supervisor_chains import (
     sync_detailed as get_tool_supervisor_chains_sync_detailed,
 )
@@ -57,18 +65,25 @@ from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervision.create
 from entropy_labs.sentinel_api_client.sentinel_api_client.api.request_group.create_tool_request import (
     sync_detailed as create_tool_request_sync_detailed,
 )
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.request_group.get_request_group_status import (
+    sync_detailed as get_request_group_status_sync_detailed,
+)
 
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.update_run_result_body import (
+    UpdateRunResultBody
+)
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.decision import Decision
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_attributes import (
     ToolAttributes,
 )
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.create_task_body import CreateTaskBody
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request import (
     ToolRequest,
 )
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request_group import (
     ToolRequestGroup,
 )
-
+ 
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.create_run_tool_body import (
     CreateRunToolBody,
 )
@@ -95,7 +110,7 @@ from entropy_labs.sentinel_api_client.sentinel_api_client.client import Client
 from entropy_labs.sentinel_api_client.sentinel_api_client.api.project.create_project import (
     sync_detailed as create_project_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.run.create_project_run import (
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.run.create_run import (
     sync_detailed as create_run_sync_detailed,
 )
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.create_project_body import CreateProjectBody
@@ -106,7 +121,7 @@ import yaml
 import fnmatch
 import copy
 
-def register_project(project_name: str, entropy_labs_backend_url: str) -> UUID:
+def register_project(project_name: str, entropy_labs_backend_url: str, run_result_tags=["passed", "failed"]) -> UUID:
     """
     Registers a new project using the Sentinel API.
 
@@ -122,7 +137,7 @@ def register_project(project_name: str, entropy_labs_backend_url: str) -> UUID:
     supervision_config.client = client
 
     # Create new project
-    project_data = CreateProjectBody(name=project_name)
+    project_data = CreateProjectBody(name=project_name, run_result_tags=run_result_tags)
 
     response = create_project_sync_detailed(client=client, body=project_data)
     if (
@@ -136,10 +151,10 @@ def register_project(project_name: str, entropy_labs_backend_url: str) -> UUID:
         else:
             raise Exception("Unexpected response type. Expected UUID.")
     else:
-        raise Exception(f"Failed to create project. Status code: {response.status_code}")
+        raise Exception(f"Failed to create project. Response: {response}")
 
 
-def register_task(project_id: UUID, task_name: str) -> UUID:
+def register_task(project_id: UUID, task_name: str, task_description: Optional[str] = None) -> UUID:
     """
     Registers a new task under a project using the Sentinel API.
 
@@ -156,9 +171,22 @@ def register_task(project_id: UUID, task_name: str) -> UUID:
         raise ValueError(f"Project with ID '{project_id}' not found in supervision config.")
     project_name = project.project_name
 
-    # Generate a new task ID (replace with API call if available)
-    task_id = uuid4()  # TODO: Implement with backend API
-
+    try:
+        response = create_task_sync_detailed(
+            client=supervision_config.client,
+            project_id=project_id,
+            body=CreateTaskBody(name=task_name, description=task_description if task_description else UNSET)
+        )
+        if (
+            response.status_code in [200, 201]
+            and response.parsed is not None
+        ):
+            task_id = response.parsed
+        else:
+            raise Exception(f"Failed to create task. Response: {response}")
+    except Exception as e:
+        print(f"Error creating task: {e}, Response: {response}")
+        raise e
     # Add the task to the project
     supervision_config.add_task(project_name, task_name, task_id)
     return task_id
@@ -204,7 +232,7 @@ def create_run(project_id: UUID, task_id: UUID, run_name: Optional[str] = None, 
     task_name = task.task_name
 
     # Create the run using the API
-    response = create_run_sync_detailed(project_id=project_id, client=client)  # TODO: Add task_id when API supports it
+    response = create_run_sync_detailed(task_id=task_id, client=client)  # TODO: Add task_id when API supports it
 
     if (
         response.status_code in [200, 201]
@@ -221,9 +249,43 @@ def create_run(project_id: UUID, task_id: UUID, run_name: Optional[str] = None, 
 
         return run_id
     else:
-        raise Exception(f"Failed to create run. Status code: {response.status_code}")
+        raise Exception(f"Failed to create run. Response: {response}")
 
+def submit_run_status(run_id: UUID, status: Status):
+    """
+    Submits the status of a run to the backend API.
+    """
+    try:
+        response = update_run_status_sync_detailed(
+            client=supervision_config.client,
+            run_id=run_id,
+            body=status
+        )
+        if response.status_code in [204]:
+            print(f"Run status submitted successfully for run ID {run_id}")
+        else:
+            raise Exception(f"Failed to submit run status for run ID {run_id}. Response: {response}")
+    except Exception as e:
+        print(f"Error submitting run status: {e}, Response: {response}")
         
+
+def submit_run_result(run_id: UUID, result: str):
+    """
+    Submits the result of a run to the backend API.
+    """
+    try:
+        response = update_run_result_sync_detailed(
+            client=supervision_config.client,
+            run_id=run_id,
+            body=UpdateRunResultBody.from_dict({'result': result})
+        )
+        if response.status_code in [201]:
+            print(f"Run result submitted successfully for run ID {run_id}")
+        else:
+            raise Exception(f"Failed to submit run result for run ID {run_id}. Response: {response}")
+    except Exception as e:
+        print(f"Error submitting run result: {e}, Response: {response}")
+
 def register_inspect_approvals(run_id: UUID, approval_file: str):
     """
     Reads the inspect approval YAML file and registers the approvals and tools for the run.
@@ -368,7 +430,7 @@ def register_tools_and_supervisors(run_id: UUID, tools: Optional[List[Callable |
             supervision_context.update_tool_id(func, tool_id)
             print(f"Tool '{tool_name}' registered with ID: {tool_id}")
         else:
-            raise Exception(f"Failed to register tool '{tool_name}'. Status code: {tool_response}")
+            raise Exception(f"Failed to register tool '{tool_name}'. Response: {tool_response}")
 
         # Register supervisors and associate them with the tool
         supervisor_chain_ids: List[List[UUID]] = []
@@ -479,7 +541,7 @@ def get_human_supervision_decision_api(
         else:
             return SupervisionDecision(
                 decision=SupervisionDecisionType.ESCALATE,
-                explanation="Failed to retrieve supervision results."
+                explanation=f"Failed to retrieve supervision results. Response: {response}"
             )
     elif supervision_status == 'failed':
         return SupervisionDecision(decision=SupervisionDecisionType.ESCALATE,
@@ -491,7 +553,7 @@ def get_human_supervision_decision_api(
         return SupervisionDecision(decision=SupervisionDecisionType.ESCALATE,
                                    explanation="The human supervisor did not provide a decision within the timeout period.")
     elif supervision_status == 'pending':
-        return SupervisionDecision(decision=SupervisionDecisionType.APPROVE,
+        return SupervisionDecision(decision=SupervisionDecisionType.ESCALATE,
                                    explanation="The human supervisor has not yet provided a decision.")
     
     # Default return statement in case no conditions are met
@@ -548,7 +610,7 @@ def create_tool_request_group(tool_id: UUID, tool_requests: List[ToolRequest], c
         else:
             raise Exception(f"Failed to create tool request group. Response: {tool_request_group_response}")
     except Exception as e:
-        print(f"Error creating tool request group: {e}")
+        print(f"Error creating tool request group: {e}, Response: {tool_request_group_response}")
     
     return None
 
@@ -562,10 +624,10 @@ def get_tool_request_groups(run_id: UUID, tool_id: UUID, client: Client) -> List
             client=client,
         )
         if response.status_code == 200 and response.parsed:
-            request_groups = response.parsed
+            request_groups = []
             print(f"Retrieved {len(request_groups)} request groups for run ID {run_id}")
             filtered_request_groups = []
-            for request_group in request_groups:
+            for request_group in response.parsed:
                 for tool_request in request_group.tool_requests:
                     if tool_request.tool_id == tool_id:
                         filtered_request_groups.append(request_group)
@@ -578,7 +640,25 @@ def get_tool_request_groups(run_id: UUID, tool_id: UUID, client: Client) -> List
         else:
             print(f"Failed to retrieve request groups for run ID {run_id}. Response: {response}")
     except Exception as e:
-        print(f"Error retrieving request groups: {e}")
+        print(f"Error retrieving request groups: {e}, Response: {response}")
+
+    return None
+
+def get_tool_request_group_status(request_group_id: UUID, client: Client) -> Status:
+    """
+    Get the status of a tool request group.
+    """
+    try:
+        response = get_request_group_status_sync_detailed(
+            request_group_id=request_group_id,
+            client=client,
+        )
+        if response.status_code == 200 and response.parsed:
+            return response.parsed
+        else:
+            print(f"Failed to retrieve tool request group status. Response: {response}")
+    except Exception as e:
+        print(f"Error retrieving tool request group status: {e}, Response: {response}")
 
     return None
 
@@ -651,7 +731,7 @@ def send_supervision_request(supervisor_id: UUID, supervisor_chain_id: UUID, req
         else:
             raise Exception(f"Failed to create supervision request. Response: {supervision_request_response}")
     except Exception as e:
-        print(f"Error creating supervision request: {e}")
+        print(f"Error creating supervision request: {e}, Response: {supervision_request_response}")
         raise
 
 def send_supervision_result(
@@ -717,7 +797,7 @@ def send_supervision_result(
         else:
             raise Exception(f"Failed to submit supervision result. Response: {response}")
     except Exception as e:
-        print(f"Error submitting supervision result: {e}")
+        print(f"Error submitting supervision result: {e}, Response: {response}")
         raise
 
 def register_supervisor(client: Client, supervisor_info: dict, project_id: UUID, supervision_context: SupervisionContext) -> UUID:
