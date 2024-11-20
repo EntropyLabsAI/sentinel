@@ -41,6 +41,9 @@ from entropy_labs.sentinel_api_client.sentinel_api_client.api.run.update_run_sta
 from entropy_labs.sentinel_api_client.sentinel_api_client.api.task.create_task import (
     sync_detailed as create_task_sync_detailed,
 )
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.run.update_run_result import (
+    sync_detailed as update_run_result_sync_detailed,
+)
 from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervisor.get_tool_supervisor_chains import (
     sync_detailed as get_tool_supervisor_chains_sync_detailed,
 )
@@ -59,7 +62,9 @@ from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervision.create
 from entropy_labs.sentinel_api_client.sentinel_api_client.api.request_group.create_tool_request import (
     sync_detailed as create_tool_request_sync_detailed,
 )
-
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.update_run_result_body import (
+    UpdateRunResultBody
+)
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.decision import Decision
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_attributes import (
     ToolAttributes,
@@ -108,7 +113,7 @@ from typing import Optional, List, Callable
 import yaml
 import fnmatch
 
-def register_project(project_name: str, entropy_labs_backend_url: str) -> UUID:
+def register_project(project_name: str, entropy_labs_backend_url: str, run_result_tags=["passed", "failed"]) -> UUID:
     """
     Registers a new project using the Sentinel API.
 
@@ -124,7 +129,7 @@ def register_project(project_name: str, entropy_labs_backend_url: str) -> UUID:
     supervision_config.client = client
 
     # Create new project
-    project_data = CreateProjectBody(name=project_name)
+    project_data = CreateProjectBody(name=project_name, run_result_tags=run_result_tags)
 
     response = create_project_sync_detailed(client=client, body=project_data)
     if (
@@ -255,6 +260,23 @@ def submit_run_status(run_id: UUID, status: Status):
     except Exception as e:
         print(f"Error submitting run status: {e}")
         
+
+def submit_run_result(run_id: UUID, result: str):
+    """
+    Submits the result of a run to the backend API.
+    """
+    try:
+        response = update_run_result_sync_detailed(
+            client=supervision_config.client,
+            run_id=run_id,
+            body=UpdateRunResultBody.from_dict({'result': result})
+        )
+        if response.status_code in [201]:
+            print(f"Run result submitted successfully for run ID {run_id}")
+        else:
+            raise Exception(f"Failed to submit run result for run ID {run_id}. Response {response}")
+    except Exception as e:
+        print(f"Error submitting run result: {e}")
 
 def register_inspect_approvals(run_id: UUID, approval_file: str):
     """
