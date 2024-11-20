@@ -143,7 +143,7 @@ def register_project(project_name: str, entropy_labs_backend_url: str, run_resul
         else:
             raise Exception("Unexpected response type. Expected UUID.")
     else:
-        raise Exception(f"Failed to create project. Status code: {response.status_code}")
+        raise Exception(f"Failed to create project. Response: {response}")
 
 
 def register_task(project_id: UUID, task_name: str, task_description: Optional[str] = None) -> UUID:
@@ -177,7 +177,7 @@ def register_task(project_id: UUID, task_name: str, task_description: Optional[s
         else:
             raise Exception(f"Failed to create task. Response: {response}")
     except Exception as e:
-        print(f"Error creating task: {e}")
+        print(f"Error creating task: {e}, Response: {response}")
         raise e
     # Add the task to the project
     supervision_config.add_task(project_name, task_name, task_id)
@@ -241,7 +241,7 @@ def create_run(project_id: UUID, task_id: UUID, run_name: Optional[str] = None, 
 
         return run_id
     else:
-        raise Exception(f"Failed to create run. Reponse {response}")
+        raise Exception(f"Failed to create run. Response: {response}")
 
 def submit_run_status(run_id: UUID, status: Status):
     """
@@ -256,9 +256,9 @@ def submit_run_status(run_id: UUID, status: Status):
         if response.status_code in [204]:
             print(f"Run status submitted successfully for run ID {run_id}")
         else:
-            raise Exception(f"Failed to submit run status for run ID {run_id}. Status code: {response.status_code}")
+            raise Exception(f"Failed to submit run status for run ID {run_id}. Response: {response}")
     except Exception as e:
-        print(f"Error submitting run status: {e}")
+        print(f"Error submitting run status: {e}, Response: {response}")
         
 
 def submit_run_result(run_id: UUID, result: str):
@@ -274,9 +274,9 @@ def submit_run_result(run_id: UUID, result: str):
         if response.status_code in [201]:
             print(f"Run result submitted successfully for run ID {run_id}")
         else:
-            raise Exception(f"Failed to submit run result for run ID {run_id}. Response {response}")
+            raise Exception(f"Failed to submit run result for run ID {run_id}. Response: {response}")
     except Exception as e:
-        print(f"Error submitting run result: {e}")
+        print(f"Error submitting run result: {e}, Response: {response}")
 
 def register_inspect_approvals(run_id: UUID, approval_file: str):
     """
@@ -422,7 +422,7 @@ def register_tools_and_supervisors(run_id: UUID, tools: Optional[List[Callable |
             supervision_context.update_tool_id(func, tool_id)
             print(f"Tool '{tool_name}' registered with ID: {tool_id}")
         else:
-            raise Exception(f"Failed to register tool '{tool_name}'. Status code: {tool_response}")
+            raise Exception(f"Failed to register tool '{tool_name}'. Response: {tool_response}")
 
         # Register supervisors and associate them with the tool
         supervisor_chain_ids: List[List[UUID]] = []
@@ -533,7 +533,7 @@ def get_human_supervision_decision_api(
         else:
             return SupervisionDecision(
                 decision=SupervisionDecisionType.ESCALATE,
-                explanation="Failed to retrieve supervision results."
+                explanation=f"Failed to retrieve supervision results. Response: {response}"
             )
     elif supervision_status == 'failed':
         return SupervisionDecision(decision=SupervisionDecisionType.ESCALATE,
@@ -602,7 +602,7 @@ def create_tool_request_group(tool_id: UUID, tool_requests: List[ToolRequest], c
         else:
             raise Exception(f"Failed to create tool request group. Response: {tool_request_group_response}")
     except Exception as e:
-        print(f"Error creating tool request group: {e}")
+        print(f"Error creating tool request group: {e}, Response: {tool_request_group_response}")
     
     return None
 
@@ -629,7 +629,7 @@ def get_tool_request_group(run_id: UUID, tool_id: UUID, client: Client) -> ToolR
         else:
             print(f"Failed to retrieve request groups for run ID {run_id}. Response: {response}")
     except Exception as e:
-        print(f"Error retrieving request groups: {e}")
+        print(f"Error retrieving request groups: {e}, Response: {response}")
 
     return None
 
@@ -685,7 +685,7 @@ def send_supervision_request(supervisor_id: UUID, supervisor_chain_id: UUID, req
         else:
             raise Exception(f"Failed to create supervision request. Response: {supervision_request_response}")
     except Exception as e:
-        print(f"Error creating supervision request: {e}")
+        print(f"Error creating supervision request: {e}, Response: {supervision_request_response}")
         raise
 
 def send_supervision_result(
@@ -741,7 +741,7 @@ def send_supervision_result(
         else:
             raise Exception(f"Failed to submit supervision result. Response: {response}")
     except Exception as e:
-        print(f"Error submitting supervision result: {e}")
+        print(f"Error submitting supervision result: {e}, Response: {response}")
         raise
 
 def register_supervisor(client: Client, supervisor_info: dict, project_id: UUID, supervision_context: SupervisionContext) -> UUID:
