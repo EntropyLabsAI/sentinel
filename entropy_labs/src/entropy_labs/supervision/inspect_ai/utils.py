@@ -86,29 +86,28 @@ async def generate_tool_call_suggestions(task_state: TaskState, n: int, call: To
     tool_options = [tool_jsonable(last_message.tool_calls[0])]
 
     # Generate alternative tool call suggestions
-    if n > 1:
-        model: Model = get_model()
-        # Prepare the conversation without the last message
-        messages_without_last = message_copy[:-1]
+    model: Model = get_model()
+    # Prepare the conversation without the last message
+    messages_without_last = message_copy[:-1]
+    
+        # Find the specified tool call in the last message
+    try:
+        call_index = next(i for i, tc in enumerate(last_message.tool_calls) if tc.id == call.id)
+    except StopIteration:
+        raise ValueError("Specified tool call not found in the last message.")
+
+    # Keep only the specified tool call in the last message
+    last_message.tool_calls = [last_message.tool_calls[call_index]]
+
+    for _ in range(n):
+        output = await model.generate(messages_without_last, tools=task_state.tools)
+        generated_message = output.message
         
-            # Find the specified tool call in the last message
-        try:
-            call_index = next(i for i, tc in enumerate(last_message.tool_calls) if tc.id == call.id)
-        except StopIteration:
-            raise ValueError("Specified tool call not found in the last message.")
-
-        # Keep only the specified tool call in the last message
-        last_message.tool_calls = [last_message.tool_calls[call_index]]
-
-        for _ in range(n - 1):
-            output = await model.generate(messages_without_last, tools=task_state.tools)
-            generated_message = output.message
-            
-            if hasattr(generated_message, 'tool_calls') and generated_message.tool_calls:
-                if len(generated_message.tool_calls) > 1:
-                    logging.warning("More than one tool call generated. Using only the first one. More than one tool call for n>1 is not supported yet.")
-            
-                last_messages.append(generated_message)
-                tool_options.append(tool_jsonable(generated_message.tool_calls[0]))
+        if hasattr(generated_message, 'tool_calls') and generated_message.tool_calls:
+            if len(generated_message.tool_calls) > 1:
+                logging.warning("More than one tool call generated. Using only the first one. More than one tool call for n>1 is not supported yet.")
+        
+            last_messages.append(generated_message)
+            tool_options.append(tool_jsonable(generated_message.tool_calls[0]))
 
     return last_messages, tool_options

@@ -62,6 +62,10 @@ from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervision.create
 from entropy_labs.sentinel_api_client.sentinel_api_client.api.request_group.create_tool_request import (
     sync_detailed as create_tool_request_sync_detailed,
 )
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.request_group.get_request_group_status import (
+    sync_detailed as get_request_group_status_sync_detailed,
+)
+
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.update_run_result_body import (
     UpdateRunResultBody
 )
@@ -545,7 +549,7 @@ def get_human_supervision_decision_api(
         return SupervisionDecision(decision=SupervisionDecisionType.ESCALATE,
                                    explanation="The human supervisor did not provide a decision within the timeout period.")
     elif supervision_status == 'pending':
-        return SupervisionDecision(decision=SupervisionDecisionType.APPROVE,
+        return SupervisionDecision(decision=SupervisionDecisionType.ESCALATE,
                                    explanation="The human supervisor has not yet provided a decision.")
     
     # Default return statement in case no conditions are met
@@ -606,7 +610,7 @@ def create_tool_request_group(tool_id: UUID, tool_requests: List[ToolRequest], c
     
     return None
 
-def get_tool_request_group(run_id: UUID, tool_id: UUID, client: Client) -> ToolRequestGroup | None:
+def get_tool_request_groups(run_id: UUID, tool_id: UUID, client: Client) -> List[ToolRequestGroup] | None:
     """
     Retrieve a list of request groups for the specified run ID and tool ID.
     """
@@ -616,13 +620,17 @@ def get_tool_request_group(run_id: UUID, tool_id: UUID, client: Client) -> ToolR
             client=client,
         )
         if response.status_code == 200 and response.parsed:
-            request_groups = response.parsed
+            request_groups = []
             print(f"Retrieved {len(request_groups)} request groups for run ID {run_id}")
-            for request_group in request_groups:
+            for request_group in response.parsed:
                 for tool_request in request_group.tool_requests:
                     if tool_request.tool_id == tool_id:
-                        return request_group
-            print(f"No request group found for tool ID {tool_id} and run ID {run_id}")
+                        request_groups.append(request_group)
+            if request_groups:
+                print(f"Retrieved {len(request_groups)} request groups for tool ID {tool_id} and run ID {run_id}")
+                return request_groups
+            else:
+                print(f"No request group found for tool ID {tool_id} and run ID {run_id}")
             return None
         elif response.status_code == 200:
             print(f"No request groups found for run ID {run_id}")
@@ -632,6 +640,25 @@ def get_tool_request_group(run_id: UUID, tool_id: UUID, client: Client) -> ToolR
         print(f"Error retrieving request groups: {e}, Response: {response}")
 
     return None
+
+def get_tool_request_group_status(request_group_id: UUID, client: Client) -> Status:
+    """
+    Get the status of a tool request group.
+    """
+    try:
+        response = get_request_group_status_sync_detailed(
+            request_group_id=request_group_id,
+            client=client,
+        )
+        if response.status_code == 200 and response.parsed:
+            return response.parsed
+        else:
+            print(f"Failed to retrieve tool request group status. Response: {response}")
+    except Exception as e:
+        print(f"Error retrieving tool request group status: {e}, Response: {response}")
+
+    return None
+
 
 def get_supervisor_chains_for_tool(tool_id: UUID, client: Client) -> List[SupervisorChain]:
     """
