@@ -56,6 +56,10 @@ func apiCreateProjectHandler(w http.ResponseWriter, r *http.Request, store Proje
 		CreatedAt:     time.Now(),
 	}
 
+	if request.RunResultTags == nil {
+		project.RunResultTags = []string{"passed", "failed"}
+	}
+
 	// Store the project in the global projects map
 	err = store.CreateProject(ctx, project)
 	if err != nil {
@@ -68,6 +72,7 @@ func apiCreateProjectHandler(w http.ResponseWriter, r *http.Request, store Proje
 }
 
 func apiCreateTaskHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, store Store) {
+	fmt.Println("apiCreateTaskHandler")
 	ctx := r.Context()
 
 	var request struct {
@@ -78,6 +83,7 @@ func apiCreateTaskHandler(w http.ResponseWriter, r *http.Request, projectId uuid
 		sendErrorResponse(w, http.StatusBadRequest, "Invalid request body", err.Error())
 		return
 	}
+	fmt.Println("request", request)
 
 	task := Task{
 		ProjectId:   projectId,
@@ -86,11 +92,15 @@ func apiCreateTaskHandler(w http.ResponseWriter, r *http.Request, projectId uuid
 		CreatedAt:   time.Now(),
 	}
 
+	fmt.Println("task", task)
+
 	id, err := store.CreateTask(ctx, task)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "Failed to create task", err.Error())
 		return
 	}
+
+	fmt.Println("id", id)
 
 	respondJSON(w, id.String(), http.StatusCreated)
 }
@@ -670,6 +680,7 @@ func apiGetHubStatsHandler(w http.ResponseWriter, _ *http.Request, hub *Hub) {
 
 // apiGetProjectsHandler returns all projects
 func apiGetProjectsHandler(w http.ResponseWriter, r *http.Request, store ProjectStore) {
+	fmt.Printf("apiGetProjectsHandler")
 	ctx := r.Context()
 
 	projects, err := store.GetProjects(ctx)

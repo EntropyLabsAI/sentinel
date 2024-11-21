@@ -17,6 +17,11 @@ services:
     build:
       context: ./server
       dockerfile: cmd/Dockerfile
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "${APPROVAL_WEBSERVER_PORT}:${APPROVAL_WEBSERVER_PORT}"
     volumes:
@@ -54,9 +59,39 @@ services:
     build:
       context: ../anthropic-quickstarts/computer-use-demo
       dockerfile: Dockerfile
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     volumes:
+      # Core application code
       - ../anthropic-quickstarts/computer-use-demo/computer_use_demo:/home/computeruse/computer_use_demo
-      - $HOME/.anthropic:/home/computeruse/.anthropic
+      
+      # Individual script files from image/
+      - ../anthropic-quickstarts/computer-use-demo/image/entrypoint.sh:/home/computeruse/entrypoint.sh
+      - ../anthropic-quickstarts/computer-use-demo/image/http_server.py:/home/computeruse/http_server.py
+      - ../anthropic-quickstarts/computer-use-demo/image/index.html:/home/computeruse/index.html
+      - ../anthropic-quickstarts/computer-use-demo/image/mutter_startup.sh:/home/computeruse/mutter_startup.sh
+      - ../anthropic-quickstarts/computer-use-demo/image/novnc_startup.sh:/home/computeruse/novnc_startup.sh
+      - ../anthropic-quickstarts/computer-use-demo/image/start_all.sh:/home/computeruse/start_all.sh
+      - ../anthropic-quickstarts/computer-use-demo/image/tint2_startup.sh:/home/computeruse/tint2_startup.sh
+      - ../anthropic-quickstarts/computer-use-demo/image/x11vnc_startup.sh:/home/computeruse/x11vnc_startup.sh
+      - ../anthropic-quickstarts/computer-use-demo/image/xvfb_startup.sh:/home/computeruse/xvfb_startup.sh
+      
+      # Directories from image/
+      - ../anthropic-quickstarts/computer-use-demo/image/computer_use_demo:/home/computeruse/computer_use_demo_image
+      - ../anthropic-quickstarts/computer-use-demo/image/static_content:/home/computeruse/static_content
+      
+      # Hidden directories
+      - ../anthropic-quickstarts/computer-use-demo/image/.anthropic:/home/computeruse/.anthropic
+      - ../anthropic-quickstarts/computer-use-demo/image/.cache:/home/computeruse/.cache
+      - ../anthropic-quickstarts/computer-use-demo/image/.config:/home/computeruse/.config
+      - ../anthropic-quickstarts/computer-use-demo/image/.streamlit:/home/computeruse/.streamlit
+      
+      # Original .anthropic config
+      - $HOME/.anthropic:/home/computeruse/.anthropic_host
+
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}

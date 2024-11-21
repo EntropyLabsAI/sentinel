@@ -31,7 +31,11 @@ func sendErrorResponse(w http.ResponseWriter, status int, message string, detail
 }
 
 func InitAPI(store Store) {
-	log.Println("Initializing API")
+	// Configure logging
+	log.SetFlags(log.LstdFlags)
+	log.SetOutput(os.Stdout) // Ensure logs go to stdout
+
+	log.Println("Server starting...")
 
 	humanReviewChan := make(chan SupervisionRequest, 100)
 
@@ -63,6 +67,11 @@ func InitAPI(store Store) {
 	// Register the WebSocket handler separately
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		serveWs(hub, w, r)
+	})
+
+	mux.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Test endpoint hit!")
+		w.Write([]byte("ok"))
 	})
 
 	// Start the server on the port specified
