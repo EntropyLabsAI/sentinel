@@ -28,7 +28,7 @@ do
     TASK=$(shuf -i 1-100 -n 1)
     # Escape double quotes in the task string
     ESCAPED_TASK=$(printf '%q' "$TASK")
-    tmux send-keys -t $SESSION_NAME.$i "python tau-bench/run.py --task-ids $TASK" C-m
+    tmux send-keys -t $SESSION_NAME.$i "python run.py" C-m
     #tmux send-keys -t $SESSION_NAME.$i "inspect eval run.py --approval $APPROVAL_YAML --model $MODEL --trace" C-m
     
     # Print the selected file for debugging
