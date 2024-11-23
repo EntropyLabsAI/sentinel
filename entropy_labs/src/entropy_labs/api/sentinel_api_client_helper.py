@@ -321,9 +321,14 @@ def register_inspect_approvals(run_id: UUID, approval_file: str):
         # Filter tools based on tools_pattern
         matching_tools = []
         for tool in tools:
-            tool_name = tool.__registry_info__.name
-            if fnmatch.fnmatch(tool_name, tools_pattern):
-                matching_tools.append(tool)
+            tool_name = tool.__registry_info__.name.removeprefix('inspect_ai/')
+            # tools_pattern may be a list of patterns
+            if isinstance(tools_pattern, list):
+                if any(fnmatch.fnmatch(tool_name, pattern) for pattern in tools_pattern):
+                    matching_tools.append(tool)
+            else:
+                if fnmatch.fnmatch(tool_name, tools_pattern):
+                    matching_tools.append(tool)
 
         # For each matching tool, add supervised function to the supervision context
         for tool in matching_tools:
@@ -333,6 +338,10 @@ def register_inspect_approvals(run_id: UUID, approval_file: str):
             # Get the supervisor function (approval function)
             approver_name = approver.get('name')
             approval_funcs = registry_find(lambda x: x.type == "approver" and x.name == approver_name)
+
+            if approver_name =='auto':
+                logging.info(f"Auto approval function '{approver_name}' found in the registry. Not registering approval function.")
+                continue
 
             if not approval_funcs:
                 logging.warning(f"Approval function '{approver_name}' not found in the registry.")
@@ -861,3 +870,17 @@ def _serialize_arguments(tool_args: list[Any], tool_kwargs: dict[str, Any]) -> d
             arguments_dict[key] = str(value)
 
     return arguments_dict
+
+
+def register_samples_with_entropy_labs(tasks, project_id, approval):
+    samples = []
+    for idx, sample in enumerate(tasks.dataset.samples):
+        # We need to assign an ID to each sample and register the task
+        if sample.id is None:
+            print(f"Each sample must have an ID, adding {idx} to the ID")
+            sample.id = f"{idx}"
+        task_id = register_task(project_id=project_id, task_name=sample.id)
+        run_id = create_run(project_id=project_id, task_id=task_id, run_name=sample.id)
+        register_inspect_approvals(run_id=run_id, approval_file=approval)
+        samples.append(sample)
+    return samples
