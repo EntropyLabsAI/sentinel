@@ -719,11 +719,11 @@ func (s *PostgresqlStore) CreateSupervisionRequest(
 
 func (s *PostgresqlStore) createMessage(ctx context.Context, tx *sql.Tx, message sentinel.Message) (*uuid.UUID, error) {
 	query := `
-		INSERT INTO message (id, role, content)
-		VALUES ($1, $2, $3)`
+		INSERT INTO message (id, role, content, type)
+		VALUES ($1, $2, $3, $4)`
 
 	id := uuid.New()
-	_, err := tx.ExecContext(ctx, query, id, message.Role, message.Content)
+	_, err := tx.ExecContext(ctx, query, id, message.Role, message.Content, message.Type)
 	if err != nil {
 		return nil, fmt.Errorf("error creating message: %w", err)
 	}
