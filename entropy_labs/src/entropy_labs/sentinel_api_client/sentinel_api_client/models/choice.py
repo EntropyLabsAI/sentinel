@@ -6,7 +6,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.assistant_message import AssistantMessage
+    from ..models.message import Message
 
 
 T = TypeVar("T", bound="Choice")
@@ -16,11 +16,11 @@ T = TypeVar("T", bound="Choice")
 class Choice:
     """
     Attributes:
-        message (AssistantMessage):
+        message (Message):
         stop_reason (Union[Unset, str]):
     """
 
-    message: "AssistantMessage"
+    message: "Message"
     stop_reason: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -43,10 +43,10 @@ class Choice:
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
-        from ..models.assistant_message import AssistantMessage
+        from ..models.message import Message
 
         d = src_dict.copy()
-        message = AssistantMessage.from_dict(d.pop("message"))
+        message = Message.from_dict(d.pop("message"))
 
         stop_reason = d.pop("stop_reason", UNSET)
 
