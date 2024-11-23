@@ -31,11 +31,7 @@ func sendErrorResponse(w http.ResponseWriter, status int, message string, detail
 }
 
 func InitAPI(store Store) {
-	// Configure logging
-	log.SetFlags(log.LstdFlags)
-	log.SetOutput(os.Stdout) // Ensure logs go to stdout
-
-	log.Println("Server starting...")
+	log.Println("Initializing API")
 
 	humanReviewChan := make(chan SupervisionRequest, 100)
 
