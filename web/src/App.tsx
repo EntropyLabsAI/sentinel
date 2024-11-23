@@ -12,7 +12,7 @@ import ToolDetails from '@/components/tool';
 import SupervisorDetails from '@/components/supervisor/supervisor';
 import Tasks from '@/components/tasks';
 import { Toaster } from '@/components/ui/toaster';
-
+import AudioBacktest from '@/components/audio_backtest';
 const App: React.FC = () => {
   return (
     <main className="relative flex min-h-svh flex-1 flex-col">
@@ -33,6 +33,8 @@ const App: React.FC = () => {
               <Route path="/tools/:toolId" element={<ToolDetails />} />
               <Route path="/supervisors" element={<SupervisorSelection />} />
               <Route path="/supervisors/:supervisorId" element={<SupervisorDetails />} />
+
+              <Route path="/audio_backtest" element={<AudioBacktest />} />
             </Routes>
           </Sidebar>
         </Router>

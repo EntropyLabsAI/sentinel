@@ -51,7 +51,7 @@ export default function ProjectList() {
         <LoadingSpinner />
       )}
 
-      <div className="grid col-span-1 grid-cols-1 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+      <div className="grid col-span-2 grid-cols-1 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-6">
 
         {projects.map((project) => (
           <div className="">

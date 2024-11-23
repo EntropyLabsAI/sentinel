@@ -42,6 +42,10 @@ func (s *PostgresqlStore) Close() error {
 
 // ProjectStore implementation
 func (s *PostgresqlStore) CreateProject(ctx context.Context, project sentinel.Project) error {
+	if project.RunResultTags == nil {
+		project.RunResultTags = []string{}
+	}
+
 	query := `
 		INSERT INTO project (id, name, created_at, run_result_tags)
 		VALUES ($1, $2, $3, $4)`

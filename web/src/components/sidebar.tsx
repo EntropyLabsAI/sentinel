@@ -1,5 +1,5 @@
 import * as React from "react"
-import { BookIcon, Check, ChevronsUpDown, PickaxeIcon, GithubIcon, InspectIcon, FileIcon, RailSymbol, Building2Icon, LucideBuilding, CogIcon, HistoryIcon, BarChartIcon, DoorOpenIcon, ScanEyeIcon, ListIcon } from "lucide-react"
+import { BookIcon, Check, ChevronsUpDown, PickaxeIcon, GithubIcon, InspectIcon, FileIcon, RailSymbol, Building2Icon, LucideBuilding, CogIcon, HistoryIcon, BarChartIcon, DoorOpenIcon, ScanEyeIcon, ListIcon, MicIcon } from "lucide-react"
 import { Link, useLocation } from 'react-router-dom'
 
 import {
@@ -147,6 +147,13 @@ export default function SidebarComponent({ children }: SidebarProps) {
             isActive: false,
             disabled: false,
             icon: <BookIcon />
+          },
+          {
+            title: "Audio Backtest",
+            url: "/audio_backtest",
+            isActive: false,
+            disabled: false,
+            icon: <MicIcon />
           },
         ],
       }
