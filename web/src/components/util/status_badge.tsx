@@ -118,11 +118,10 @@ export function SupervisorTypeBadge({ type }: { type: SupervisorType }) {
 };
 
 export function RunBadge({ runId }: { runId: string }) {
-  const projectId = useProject();
   if (!runId) {
     return
   }
-  return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap"><Link to={`/projects/${projectId.selectedProject}/runs/${runId}`}>Run {runId.slice(0, 8)}</Link></Badge>;
+  return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap"><Link to={`/runs/${runId}`}>Run {runId.slice(0, 8)}</Link></Badge>;
 }
 
 // TODO accept a tool object instead of ID, optionally.

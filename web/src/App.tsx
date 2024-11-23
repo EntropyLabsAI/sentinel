@@ -27,6 +27,7 @@ const App: React.FC = () => {
               <Route path="/projects/:projectId" element={<Tasks />} />
               <Route path="/tasks/:taskId" element={<Runs />} />
               <Route path="/tasks/:taskId/runs/:runId" element={<Executions />} />
+              <Route path="/runs/:runId" element={<Executions />} />
 
               <Route path="/tools" element={<Tools />} />
               <Route path="/tools/:toolId" element={<ToolDetails />} />
