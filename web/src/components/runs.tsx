@@ -119,6 +119,9 @@ function ToolsBadgeList({ runId }: { runId: string }) {
   const [tools, setTools] = useState<Tool[]>([]);
 
   function deduplicateTools(tools: Tool[]) {
+    // First, sort by name
+    tools.sort((a, b) => a.name.localeCompare(b.name));
+
     return tools.filter((tool, index, self) =>
       index === self.findIndex((t) => t.id === tool.id)
     );
