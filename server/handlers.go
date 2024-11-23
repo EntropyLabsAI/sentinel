@@ -13,8 +13,8 @@ import (
 
 // respondJSON writes a JSON response with status 200 OK
 func respondJSON(w http.ResponseWriter, data interface{}, status int) {
-	w.WriteHeader(status)
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
 
 	if err := json.NewEncoder(w).Encode(data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
