@@ -1,0 +1,7 @@
+package: client
+output: client.go
+generate:
+  models: true
+  std-http-server: true
+  embedded-spec: true
+  client: true
