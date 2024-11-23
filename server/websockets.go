@@ -127,7 +127,7 @@ func (h *Hub) assignReview(supervisionRequest SupervisionRequest) {
 		log.Fatalf("can't assign supervisor with nil ID")
 	}
 
-	log.Printf("Assigning review to client. SupervisionRequest.RequestId %s.", supervisionRequest.Id)
+	// log.Printf("Assigning review to client. SupervisionRequest.RequestId %s.", supervisionRequest.Id)
 
 	h.ClientsMutex.RLock()
 	defer h.ClientsMutex.RUnlock()
@@ -135,7 +135,7 @@ func (h *Hub) assignReview(supervisionRequest SupervisionRequest) {
 	// Attempt to assign the supervisor to a client
 	if !h.assignReviewToClient(supervisionRequest) {
 		// If no client is available, do nothing.
-		log.Printf("No available clients with capacity. SupervisionRequest.RequestId %s.", supervisionRequest.Id)
+		// log.Printf("No available clients with capacity. SupervisionRequest.RequestId %s.", supervisionRequest.Id)
 	}
 }
 
