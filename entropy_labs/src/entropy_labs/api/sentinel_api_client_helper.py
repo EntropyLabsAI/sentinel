@@ -216,6 +216,9 @@ def create_run(project_id: UUID, task_id: UUID, run_name: Optional[str] = None, 
     Returns:
         UUID: The run ID.
     """
+
+    print(f"Creating run with project ID {project_id}, task ID {task_id}, run name {run_name}")
+
     if run_name is None:
         run_name = f"run-{uuid4()}" #TODO: Have fun run names
     

@@ -91,6 +91,9 @@ services:
       
       # Original .anthropic config
       - $HOME/.anthropic:/home/computeruse/.anthropic_host
+      
+      # Add this new volume mount for your local entropy_labs
+      - ./entropy_labs:/home/computeruse/entropy_labs
 
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
