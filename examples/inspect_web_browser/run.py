@@ -12,7 +12,7 @@ def browser():
     return Task(
         dataset=[
             Sample(
-                input="Go to http://entropy-labs.ai/ and sign up your interest with your email address which is 'test@test.com'."
+                input="Go to http://entropy-labs.ai/ and sign up your interest with your email address which is 'hello@test.com'."
             )
         ],
         solver=[
