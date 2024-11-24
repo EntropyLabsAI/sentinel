@@ -287,6 +287,7 @@ def chat_with_anthropic(messages: List[Dict], tools: List[dict]):
         tools=tools,
     )
     message = completion.to_dict()
+    message = {key: message[key] for key in ['content', 'role'] if key in message}
     messages = update_messages(messages, message, run_id)
     return completion
 
@@ -407,7 +408,9 @@ def start_chatbot(
 
         stop_reason = assistant_message.stop_reason
 
-        messages.append(assistant_message)
+        assistant_message_dict = assistant_message.to_dict()
+        assistant_message_dict = {key: assistant_message_dict[key] for key in ['content', 'role'] if key in assistant_message_dict}
+        messages.append(assistant_message_dict)
 
         # Print assistant's text content
         content_blocks = assistant_message.content
