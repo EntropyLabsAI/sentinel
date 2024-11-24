@@ -51,7 +51,7 @@ export default function ProjectList() {
         <LoadingSpinner />
       )}
 
-      <div className="grid col-span-1 grid-cols-1 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
 
         {projects.map((project) => (
           <div className="">
@@ -63,7 +63,7 @@ export default function ProjectList() {
               <Card key={project.id} className="flex">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <FileIcon className="w-4 h-4" />
+                    <FileIcon className="w-4 h-4 min-w-4" />
                     {project.name}
                   </CardTitle>
                   <CardDescription className="flex flex-col">
