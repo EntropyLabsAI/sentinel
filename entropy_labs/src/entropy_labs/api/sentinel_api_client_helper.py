@@ -619,7 +619,7 @@ def create_tool_request_group(tool_id: UUID, tool_requests: List[ToolRequest], c
         else:
             raise Exception(f"Failed to create tool request group. Response: {tool_request_group_response}")
     except Exception as e:
-        print(f"Error creating tool request group: {e}, Response: {tool_request_group_response}")
+        raise Exception(f"Error creating tool request group: {e}")
     
     return None
 
