@@ -69,6 +69,7 @@ class SupervisionContext:
         self.metadata: Dict[str, Any] = {}
         self.inspect_ai_state: Optional[TaskState] = None
         self.openai_messages: List[Dict[str, Any]] = []
+        self.anthropic_messages: List[Dict[str, Any]] = []
         self.supervised_functions_registry: Dict[str, Dict[str, Any]] = pending_functions or {}
         self.registered_supervisors: Dict[str, UUID] = {}
         self.local_supervisors_by_id: Dict[UUID, Callable] = {}
@@ -161,7 +162,7 @@ class SupervisionContext:
 
     def _describe_openai_messages(self) -> str:
         """Converts the OpenAI messages into a textual description."""
-        messages = [convert_message(msg) for msg in self.openai_messages]
+        messages = [convert_openai_message(msg) for msg in self.openai_messages]
         texts = []
         texts.append("## OpenAI Messages:")
         for message in messages:
@@ -220,7 +221,7 @@ class SupervisionContext:
             return convert_task_state(self.inspect_ai_state)
         elif self.openai_messages: #TODO: this is when user uses directly openai messages, update
             # Convert OpenAI messages to TaskState
-            messages = [convert_message(msg) for msg in self.openai_messages]
+            messages = [convert_openai_message(msg) for msg in self.openai_messages]
             empty_output = ApiOutput(
                     model=UNSET,
                     choices=UNSET,
@@ -233,6 +234,21 @@ class SupervisionContext:
                     completed=False,
                     tool_choice=UNSET,
                 )
+        
+        elif self.anthropic_messages:
+            empty_output = ApiOutput(
+                    model=UNSET,
+                    choices=UNSET,
+                    usage=UNSET
+    )
+            return APITaskState(
+                messages=[convert_anthropic_message(msg) for msg in self.anthropic_messages],
+                tools=[],
+                output=empty_output,
+                completed=False,
+                tool_choice=UNSET,
+            )
+        
         elif self.langchain_events:
             messages = extract_messages_from_events(self.langchain_events)
 
@@ -262,22 +278,27 @@ class SupervisionContext:
         """Get the messages from the supervision context in the API client's Message model."""
         if self.openai_messages:
             # Convert OpenAI messages to ChatMessage objects
-            return [convert_message(msg) for msg in self.openai_messages]
+            return [convert_openai_message(msg) for msg in self.openai_messages]
+        elif self.anthropic_messages:
+            return [convert_anthropic_message(msg) for msg in self.anthropic_messages]
         elif self.langchain_events:
             # Extract messages from LangChain events
-            return [convert_inspect_ai_message(msg) for msg in extract_messages_from_events(self.langchain_events)]
+            return [convert_message(msg) for msg in extract_messages_from_events(self.langchain_events)]
         elif self.inspect_ai_state:
             # Use messages from inspect_ai_state
-            return [convert_inspect_ai_message(msg) for msg in self.inspect_ai_state.messages]
+            return [convert_message(msg) for msg in self.inspect_ai_state.messages]
         else:
             # No messages available
             return []
         
-    def update_messages(self, messages: List[Dict[str, Any]]):
+    def update_messages(self, messages: List[Dict[str, Any]], anthropic: bool = False):
         """Updates the context with a list of OpenAI messages."""
         with self.lock:
-            self.openai_messages = messages.copy()
-            
+            if anthropic:
+                self.anthropic_messages = messages.copy()
+            else:
+                self.openai_messages = messages.copy()
+
     def add_local_supervisor(self, supervisor_id: UUID, supervisor_func: Callable, supervisor_name: str):
         """Add a supervisor function to the config."""
         self.local_supervisors_by_id[supervisor_id] = supervisor_func
@@ -607,7 +628,7 @@ def convert_task_state(task_state: TaskState) -> APITaskState:
         tool_choice=tool_choice,
     )
 
-def convert_inspect_ai_message(msg: ChatMessage) -> Message:
+def convert_message(msg: ChatMessage) -> Message:
     """
     Converts a ChatMessage to a Message in the API model.
     """
@@ -643,6 +664,98 @@ def convert_inspect_ai_message(msg: ChatMessage) -> Message:
         type=MessageType.TEXT #TODO: Add support for audio messages and images
     )
 
+def convert_anthropic_message(msg: Dict) -> Message:
+    """
+    Converts an Anthropic message dict to a Message object in the API model.
+    """
+    from entropy_labs.sentinel_api_client.sentinel_api_client.models.message import Message
+    from entropy_labs.sentinel_api_client.sentinel_api_client.models.message_type import MessageType
+    from entropy_labs.sentinel_api_client.sentinel_api_client.models.message_role import MessageRole
+    from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_call import ToolCall as ApiToolCall
+    from entropy_labs.sentinel_api_client.sentinel_api_client.types import UNSET
+
+    # Extract role
+    role_str = msg.get('role', 'assistant')
+    role_mapping = {
+        'assistant': MessageRole.ASSISTANT,
+        'user': MessageRole.USER,
+        'system': MessageRole.SYSTEM,
+    }
+    role = role_mapping.get(role_str, MessageRole.ASSISTANT)
+
+    # Extract content
+    content = msg.get('content', '')
+
+    content_str = ''
+    tool_calls = []
+
+    if isinstance(content, str):
+        # Content is a simple string
+        content_str = content
+    elif isinstance(content, list):
+        # Content is a list of content blocks
+        for content_block in content:
+            block_type = content_block.get('type', 'text')
+            if block_type == 'text':
+                text = content_block.get('text', '')
+                content_str += text + '\n'
+            elif block_type == 'tool_use':
+                # Process as a tool use
+                tool_use = content_block
+                api_tool_call = convert_anthropic_tool_call(tool_use)
+                tool_calls.append(api_tool_call)
+            elif block_type == 'image':
+                # Optionally handle image content blocks; for now, we can skip or log
+                image_description = "<Image content omitted>"
+                content_str += image_description + '\n'
+            else:
+                # Handle other content block types if needed; for now, we skip
+                pass
+    else:
+        # Content is neither string nor list; convert to string
+        content_str = str(content)
+
+    # Remove trailing whitespace
+    content_str = content_str.strip()
+
+    # Construct the Message object
+    message = Message(
+        role=role,
+        content=content_str,
+        type=MessageType.TEXT,
+        tool_calls=tool_calls if tool_calls else UNSET,
+    )
+
+    return message
+
+
+def convert_anthropic_tool_call(tool_use: Dict) -> ApiToolCall:
+    """
+    Converts an Anthropic tool use dict to an ApiToolCall object.
+    """
+    from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_call import ToolCall as ApiToolCall
+    from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_call_arguments import ToolCallArguments
+    from entropy_labs.sentinel_api_client.sentinel_api_client.types import UNSET
+
+    id_ = tool_use.get('id', '')
+    name = tool_use.get('name', '')
+    input_args = tool_use.get('input', {})
+    type_ = 'tool_use'  # Define the type as 'tool_use'
+    parse_error = UNSET  # No parse error in this context
+
+    # Convert input_args to ToolCallArguments
+    arguments_obj = ToolCallArguments.from_dict(input_args)
+
+    tool_call = ApiToolCall(
+        id=id_ if id_ else UNSET,
+        function=name,
+        arguments=arguments_obj,
+        type=type_,
+        parse_error=parse_error,
+    )
+
+    return tool_call
+
 
 def convert_content(content: Content) -> str:
     # Convert Content to a string representation
@@ -671,7 +784,7 @@ def convert_output(output: ModelOutput) -> ApiOutput:
         usage=UNSET
     )
 
-def convert_message(openai_msg: Dict[str, Any]) -> Message:
+def convert_openai_message(openai_msg: Dict[str, Any]) -> Message:
     """
     Converts an OpenAI message dict to a Message object in the API model.
     """
@@ -707,7 +820,6 @@ def convert_message(openai_msg: Dict[str, Any]) -> Message:
                 content = item['image_url']['url']
                 if content.startswith("data"):
                     message_type = MessageType.IMAGE
-                
                 content = item['image_url']['url']
                 break
             elif item.get('type') == 'text':
