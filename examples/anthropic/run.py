@@ -336,7 +336,7 @@ def update_messages(
         List[Dict]: The updated list of messages.
     """
     supervision_context = get_supervision_context(run_id)
-    supervision_context.update_anthropic_messages(messages + [new_message])
+    supervision_context.update_messages(messages + [new_message], anthropic=True)
     return messages + [new_message]
 
 
