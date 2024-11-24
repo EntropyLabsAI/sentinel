@@ -1147,7 +1147,7 @@ components:
 
     MessageType:
       type: string
-      enum: [text, audio]
+      enum: [text, audio, image, image_url]
 
     Arguments:
       type: object

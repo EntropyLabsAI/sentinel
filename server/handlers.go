@@ -324,6 +324,7 @@ func apiCreateToolRequestGroupHandler(w http.ResponseWriter, r *http.Request, to
 		return
 	}
 
+	fmt.Printf("Request: %+v\n", request)
 	trg, err := store.CreateToolRequestGroup(ctx, toolId, request)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error creating tool request group", err.Error())
