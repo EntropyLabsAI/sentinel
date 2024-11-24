@@ -486,7 +486,7 @@ def update_messages(
     supervision_context = get_supervision_context(run_id)
     if isinstance(new_message, ChatCompletionMessage):
         new_message = new_message.to_dict()
-    supervision_context.update_openai_messages(messages + [new_message])
+    supervision_context.update_messages(messages + [new_message])
     return messages + [new_message]
 
 
