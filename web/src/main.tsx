@@ -7,7 +7,7 @@ import axios from 'axios';
 import { ProjectProvider } from '@/contexts/project_context';
 import { ConfigProvider } from './contexts/config_context';
 
-axios.defaults.baseURL = 'http://localhost:8099';
+axios.defaults.baseURL = 'http://localhost:8080';
 
 const queryClient = new QueryClient();
 
