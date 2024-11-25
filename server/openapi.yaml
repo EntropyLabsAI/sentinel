@@ -739,6 +739,33 @@ paths:
       tags:
         - Run
 
+  /api/run/{runId}:
+    parameters:
+      - name: runId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get a run
+      operationId: GetRun
+      responses:
+        "200":
+          description: Run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Run"
+        "404":
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - Run
+
   /api/run/{runId}/status:
     parameters:
       - name: runId

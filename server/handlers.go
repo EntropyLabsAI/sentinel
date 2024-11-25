@@ -142,6 +142,23 @@ func apiCreateRunHandler(w http.ResponseWriter, r *http.Request, taskId uuid.UUI
 	respondJSON(w, runID, http.StatusCreated)
 }
 
+func apiGetRunHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	run, err := store.GetRun(ctx, runId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "Error getting run", err.Error())
+		return
+	}
+
+	if run == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Run not found", "")
+		return
+	}
+
+	respondJSON(w, run, http.StatusOK)
+}
+
 func apiGetTaskRunsHandler(w http.ResponseWriter, r *http.Request, taskId uuid.UUID, store Store) {
 	ctx := r.Context()
 

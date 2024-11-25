@@ -117,6 +117,11 @@ func (s Server) GetProjectTasks(w http.ResponseWriter, r *http.Request, id uuid.
 	apiGetProjectTasksHandler(w, r, id, s.Store)
 }
 
+// GetRun
+func (s Server) GetRun(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetRunHandler(w, r, id, s.Store)
+}
+
 // GetTaskRuns
 func (s Server) GetTaskRuns(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	apiGetTaskRunsHandler(w, r, id, s.Store)
