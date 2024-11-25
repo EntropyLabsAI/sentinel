@@ -3,6 +3,7 @@ import React, { useRef, useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { MessagesSquareIcon } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 
 export function MessagesDisplay({ messages }: { messages: Message[] }) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -107,11 +108,29 @@ const MessageTypeDisplay = ({ message }: { message: Message }) => {
 
   switch (message.type) {
     case MessageType.image_url:
-      return <img src={message.content} alt="Image" />
+    case MessageType.image:
+      return (
+        <Dialog>
+          <DialogTrigger asChild>
+            <img
+              className="max-w-[500px] cursor-pointer hover:opacity-90 transition-opacity"
+              src={message.content}
+              alt="Image"
+            />
+          </DialogTrigger>
+          <DialogContent className="max-w-[90vw] max-h-[90vh] p-0">
+            <div className="w-full h-full max-h-[85vh] overflow-auto">
+              <img
+                className="w-full h-auto"
+                src={message.content}
+                alt="Image"
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      );
     case MessageType.text:
       return <div>{formatContent(message.content)}</div>
-    case MessageType.image:
-      return <img src={message.content} alt="Image" />
     case MessageType.audio:
       return <audio src={message.content} controls />
     default:
