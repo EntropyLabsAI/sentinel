@@ -13,8 +13,8 @@ import (
 
 // respondJSON writes a JSON response with status 200 OK
 func respondJSON(w http.ResponseWriter, data interface{}, status int) {
-	w.WriteHeader(status)
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
 
 	if err := json.NewEncoder(w).Encode(data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -140,6 +140,23 @@ func apiCreateRunHandler(w http.ResponseWriter, r *http.Request, taskId uuid.UUI
 	}
 
 	respondJSON(w, runID, http.StatusCreated)
+}
+
+func apiGetRunHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	run, err := store.GetRun(ctx, runId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "Error getting run", err.Error())
+		return
+	}
+
+	if run == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Run not found", "")
+		return
+	}
+
+	respondJSON(w, run, http.StatusOK)
 }
 
 func apiGetTaskRunsHandler(w http.ResponseWriter, r *http.Request, taskId uuid.UUID, store Store) {
@@ -324,6 +341,7 @@ func apiCreateToolRequestGroupHandler(w http.ResponseWriter, r *http.Request, to
 		return
 	}
 
+	fmt.Printf("Request: %+v\n", request)
 	trg, err := store.CreateToolRequestGroup(ctx, toolId, request)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error creating tool request group", err.Error())

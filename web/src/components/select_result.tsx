@@ -77,7 +77,7 @@ export default function SelectResult({ result, possibleResults, onResultChange, 
         {isOpen ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />}
       </Button>
       {isOpen && (
-        <div className="fixed mt-1 w-[150px] rounded-md bg-background shadow-lg ring-1 ring-black ring-opacity-5 z-50">
+        <div className="mt-1 w-[150px] rounded-md bg-background shadow-lg ring-1 ring-black ring-opacity-5 z-50">
           <div className="py-1" role="listbox">
             {possibleResults.map((option) => (
               <Button

@@ -1,62 +1,45 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
+from typing import Any, Dict, List, Type, TypeVar, Union
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-if TYPE_CHECKING:
-    from ..models.message import Message
-
-
-T = TypeVar("T", bound="Choice")
+T = TypeVar("T", bound="UpdateRunResultBody")
 
 
 @_attrs_define
-class Choice:
+class UpdateRunResultBody:
     """
     Attributes:
-        message (Message):
-        stop_reason (Union[Unset, str]):
+        result (Union[Unset, str]):
     """
 
-    message: "Message"
-    stop_reason: Union[Unset, str] = UNSET
+    result: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
-        message = self.message.to_dict()
-
-        stop_reason = self.stop_reason
+        result = self.result
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "message": message,
-            }
-        )
-        if stop_reason is not UNSET:
-            field_dict["stop_reason"] = stop_reason
+        field_dict.update({})
+        if result is not UNSET:
+            field_dict["result"] = result
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
-        from ..models.message import Message
-
         d = src_dict.copy()
-        message = Message.from_dict(d.pop("message"))
+        result = d.pop("result", UNSET)
 
-        stop_reason = d.pop("stop_reason", UNSET)
-
-        choice = cls(
-            message=message,
-            stop_reason=stop_reason,
+        update_run_result_body = cls(
+            result=result,
         )
 
-        choice.additional_properties = d
-        return choice
+        update_run_result_body.additional_properties = d
+        return update_run_result_body
 
     @property
     def additional_keys(self) -> List[str]:

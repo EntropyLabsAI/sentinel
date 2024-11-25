@@ -44,6 +44,7 @@ export type CreateTaskBody = {
 
 export type CreateProjectBody = {
   name: string;
+  run_result_tags: string[];
 };
 
 export interface Task {
@@ -109,15 +110,8 @@ export interface ToolCall {
   type: string;
 }
 
-export interface AssistantMessage {
-  content: string;
-  role: string;
-  source?: string;
-  tool_calls?: ToolCall[];
-}
-
 export interface Choice {
-  message: AssistantMessage;
+  message: Message;
   stop_reason?: string;
 }
 
@@ -134,22 +128,13 @@ export interface ToolChoice {
   type: string;
 }
 
-export interface StateMessage {
-  content: string;
-  function?: string;
-  role: string;
-  source?: string;
-  tool_call_id?: string;
-  tool_calls?: ToolCall[];
-}
-
 export type TaskStateStore = { [key: string]: unknown };
 
 export type TaskStateMetadata = { [key: string]: unknown };
 
 export interface TaskState {
   completed: boolean;
-  messages: StateMessage[];
+  messages: Message[];
   metadata?: TaskStateMetadata;
   output: Output;
   store?: TaskStateStore;
@@ -220,9 +205,25 @@ export interface SupervisionRequest {
 
 export interface Arguments { [key: string]: unknown }
 
+export type MessageType = typeof MessageType[keyof typeof MessageType];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const MessageType = {
+  text: 'text',
+  audio: 'audio',
+  image: 'image',
+  image_url: 'image_url',
+} as const;
+
 export interface Message {
   content: string;
+  id?: string;
   role: MessageRole;
+  source?: string;
+  tool_calls?: ToolCall[];
+  /** The type of content in the message, either text or b64 encoded audio */
+  type?: MessageType;
 }
 
 export interface ToolRequest {

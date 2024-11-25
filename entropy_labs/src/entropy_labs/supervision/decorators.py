@@ -67,7 +67,8 @@ def supervise(
             
             tool_requests = [ToolRequest(tool_id=tool_id, 
                                          message=supervision_context.get_api_messages()[-1],
-                                         arguments=Arguments.from_dict(arguments_dict),                                         task_state=supervision_context.to_task_state())]
+                                         arguments=Arguments.from_dict(arguments_dict), 
+                                         task_state=supervision_context.to_task_state())]
             tool_request_group = create_tool_request_group(tool_id, tool_requests, client)
             tool_request = tool_request_group.tool_requests[0] #TODO: Fix for n > 1
             supervisors_chains = get_supervisor_chains_for_tool(tool_id, client)

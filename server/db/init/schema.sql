@@ -78,7 +78,8 @@ CREATE TABLE tool (
 CREATE TABLE message (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     role TEXT DEFAULT 'user' CHECK (role IN ('system', 'user', 'assistant')),
-    content TEXT DEFAULT ''
+    content TEXT DEFAULT '',
+    type TEXT DEFAULT 'text' CHECK (type IN ('text', 'audio'))
 );
 
 CREATE TABLE user_project (

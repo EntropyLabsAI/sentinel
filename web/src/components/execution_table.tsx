@@ -126,7 +126,6 @@ export default function ExecutionTable({ runState }: { runState: RunState }) {
                             <div className="flex flex-row items-center gap-2 py-2">
                               <LinkIcon className="w-4 h-4" />
                               <p className="text-xs text-gray-500">
-                                Chain {chainIndex + 1} - Supervisors:{' '}
                                 {chain.chain.supervisors?.map((supervisor: Supervisor, idx: number) => (
                                   <span key={supervisor.id} className="inline-flex items-center gap-1">
                                     {idx > 0 && " → "}
@@ -156,15 +155,14 @@ export default function ExecutionTable({ runState }: { runState: RunState }) {
                                     <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
                                       <div className="flex flex-row w-full justify-between">
                                         <div className="flex flex-row gap-2">
-                                          <span className="text-sm">Supervisor #{supervisorIndex + 1}</span>
                                           <SupervisorBadge supervisorId={supervisor.id || ''} />
                                           {supervisionRequest ? (
                                             <>
-                                              is in status
+                                              is
                                               <StatusBadge status={supervisionRequest.status.status} />
                                               {supervisionRequest.result && (
                                                 <>
-                                                  because supervisor decided to
+                                                  with result
                                                   <DecisionBadge decision={supervisionRequest.result.decision} />
                                                 </>
                                               )}
@@ -186,40 +184,15 @@ export default function ExecutionTable({ runState }: { runState: RunState }) {
                                       )} */}
                                       {supervisionRequest ? (
                                         <>
-                                          <p className="text-xs text-gray-500">
-                                            Supervision info for request{" "}
-                                            <UUIDDisplay uuid={supervisionRequest.supervision_request.id || ''} />
-                                          </p>
-
-                                          {/* Tool Requests Section */}
-                                          <Accordion type="single" collapsible className="w-full">
-                                            <AccordionItem value="tool-requests" className="border border-gray-200 rounded-md">
-                                              <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
-                                                <div className="flex flex-row gap-4 text-center">
-                                                  <PickaxeIcon className="w-4 h-4" />
-                                                  Tool Requests
-                                                </div>
-                                              </AccordionTrigger>
-                                              <AccordionContent className="p-4">
-                                                {execution.request_group.tool_requests.map((tool_request, idx) => (
-                                                  <div key={idx} className="px-4">
-                                                    <JsonDisplay json={tool_request} />
-                                                  </div>
-                                                ))}
-                                              </AccordionContent>
-                                            </AccordionItem>
-                                          </Accordion>
-
-                                          <MessagesDisplay messages={execution.request_group.tool_requests[0]?.task_state?.messages || []} />
 
                                           {/* Supervision Result Card */}
                                           {supervisionRequest.result && (
                                             <Card>
                                               <CardHeader>
                                                 <CardTitle>
-                                                  Supervision Result:{" "}
+                                                  {/* Supervision Result:{" "}
                                                   <SupervisorBadge supervisorId={supervisionRequest.supervision_request.supervisor_id} />{" "}
-                                                  returned <DecisionBadge decision={supervisionRequest.result.decision} />
+                                                  returned <DecisionBadge decision={supervisionRequest.result.decision} /> */}
                                                 </CardTitle>
                                                 <CardDescription>
                                                   <CreatedAgo datetime={supervisionRequest.result.created_at} label="Supervision result occurred" />.
@@ -231,6 +204,34 @@ export default function ExecutionTable({ runState }: { runState: RunState }) {
                                               </CardContent>
                                             </Card>
                                           )}
+
+
+
+                                          <MessagesDisplay messages={execution.request_group.tool_requests[0]?.task_state?.messages || []} />
+
+                                          {/* Tool Requests Section */}
+                                          <Accordion type="single" collapsible className="w-full">
+                                            <AccordionItem value="tool-requests" className="border border-gray-200 rounded-md">
+                                              <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
+                                                <div className="flex flex-row gap-4 text-center">
+                                                  <PickaxeIcon className="w-4 h-4" />
+                                                  Tool Requests
+                                                </div>
+                                              </AccordionTrigger>
+                                              <AccordionContent className="p-4 max-w-[65vw]">
+                                                <div className="container max-w-full overflow-scroll">
+
+                                                  {execution.request_group.tool_requests.map((tool_request, idx) => (
+                                                    <div key={idx} className="px-4">
+                                                      <JsonDisplay json={tool_request} />
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </AccordionContent>
+                                            </AccordionItem>
+                                          </Accordion>
+
+
                                         </>
                                       ) : (
                                         <p className="text-sm text-muted-foreground">

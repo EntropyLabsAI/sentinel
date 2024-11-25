@@ -1,7 +1,6 @@
 """Contains all the data models used in inputs/outputs"""
 
 from .arguments import Arguments
-from .assistant_message import AssistantMessage
 from .chain_execution import ChainExecution
 from .chain_execution_state import ChainExecutionState
 from .chain_request import ChainRequest
@@ -17,12 +16,12 @@ from .hub_stats_assigned_reviews import HubStatsAssignedReviews
 from .hub_stats_review_distribution import HubStatsReviewDistribution
 from .message import Message
 from .message_role import MessageRole
+from .message_type import MessageType
 from .output import Output
 from .project import Project
 from .review_payload import ReviewPayload
 from .run import Run
 from .run_execution import RunExecution
-from .state_message import StateMessage
 from .status import Status
 from .supervision_request import SupervisionRequest
 from .supervision_request_state import SupervisionRequestState
@@ -48,7 +47,6 @@ from .usage import Usage
 
 __all__ = (
     "Arguments",
-    "AssistantMessage",
     "ChainExecution",
     "ChainExecutionState",
     "ChainRequest",
@@ -64,12 +62,12 @@ __all__ = (
     "HubStatsReviewDistribution",
     "Message",
     "MessageRole",
+    "MessageType",
     "Output",
     "Project",
     "ReviewPayload",
     "Run",
     "RunExecution",
-    "StateMessage",
     "Status",
     "SupervisionRequest",
     "SupervisionRequestState",

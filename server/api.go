@@ -31,6 +31,8 @@ func sendErrorResponse(w http.ResponseWriter, status int, message string, detail
 }
 
 func InitAPI(store Store) {
+	log.Println("Initializing API")
+
 	humanReviewChan := make(chan SupervisionRequest, 100)
 
 	// Initialize the WebSocket hub
@@ -113,6 +115,11 @@ func (s Server) CreateRun(w http.ResponseWriter, r *http.Request, taskId uuid.UU
 // GetProjectTasks
 func (s Server) GetProjectTasks(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	apiGetProjectTasksHandler(w, r, id, s.Store)
+}
+
+// GetRun
+func (s Server) GetRun(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetRunHandler(w, r, id, s.Store)
 }
 
 // GetTaskRuns

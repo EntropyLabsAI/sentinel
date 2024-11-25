@@ -739,6 +739,33 @@ paths:
       tags:
         - Run
 
+  /api/run/{runId}:
+    parameters:
+      - name: runId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get a run
+      operationId: GetRun
+      responses:
+        "200":
+          description: Run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Run"
+        "404":
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - Run
+
   /api/run/{runId}/status:
     parameters:
       - name: runId
@@ -1125,13 +1152,29 @@ components:
     Message:
       type: object
       properties:
+        id:
+          type: string
+          format: uuid
         role:
           $ref: "#/components/schemas/MessageRole"
         content:
           type: string
+        type:
+          description: The type of content in the message, either text or b64 encoded audio
+          $ref: "#/components/schemas/MessageType"
+        source:
+          type: string
+        tool_calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolCall"
       required:
-        - role
         - content
+        - role
+
+    MessageType:
+      type: string
+      enum: [text, audio, image, image_url]
 
     Arguments:
       type: object
@@ -1220,7 +1263,7 @@ components:
         messages:
           type: array
           items:
-            $ref: "#/components/schemas/StateMessage"
+            $ref: "#/components/schemas/Message"
         tools:
           type: array
           items:
@@ -1242,27 +1285,6 @@ components:
         - tools
         - output
         - completed
-
-    StateMessage:
-      type: object
-      properties:
-        content:
-          type: string
-        role:
-          type: string
-        source:
-          type: string
-        tool_calls:
-          type: array
-          items:
-            $ref: "#/components/schemas/ToolCall"
-        tool_call_id:
-          type: string
-        function:
-          type: string
-      required:
-        - content
-        - role
 
     ToolChoice:
       type: object
@@ -1297,28 +1319,11 @@ components:
       type: object
       properties:
         message:
-          $ref: "#/components/schemas/AssistantMessage"
+          $ref: "#/components/schemas/Message"
         stop_reason:
           type: string
       required:
         - message
-
-    AssistantMessage:
-      type: object
-      properties:
-        content:
-          type: string
-        source:
-          type: string
-        role:
-          type: string
-        tool_calls:
-          type: array
-          items:
-            $ref: "#/components/schemas/ToolCall"
-      required:
-        - content
-        - role
 
     ToolCall:
       type: object
