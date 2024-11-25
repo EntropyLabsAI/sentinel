@@ -578,6 +578,9 @@ class SupervisionConfig:
 # Global instance of SupervisionConfig
 supervision_config = SupervisionConfig()
 
+def get_supervision_config():
+    return supervision_config
+
 def get_supervision_context(run_id: UUID, project_name: Optional[str] = None, task_name: Optional[str] = None, run_name: Optional[str] = None) -> SupervisionContext:
     if project_name and task_name and run_name:
         run = supervision_config.get_run(project_name, task_name, run_name)

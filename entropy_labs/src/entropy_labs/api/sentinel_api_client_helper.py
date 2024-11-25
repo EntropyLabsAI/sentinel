@@ -11,6 +11,15 @@ from rich.console import Console
 from inspect_ai.util._console import input_screen
 import time
 from entropy_labs.sentinel_api_client.sentinel_api_client.client import Client
+from typing import Union
+from uuid import UUID
+
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.run.update_run_status import sync_detailed as update_run_status_sync_detailed
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.run.update_run_result import sync_detailed as update_run_result_sync_detailed
+from entropy_labs.sentinel_api_client.sentinel_api_client.api.run.get_run import sync_detailed as get_run_sync_detailed
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.status import Status
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.update_run_result_body import UpdateRunResultBody
+
 from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervision.get_supervision_request_status import (
     sync_detailed as get_supervision_status_sync_detailed,
 )
@@ -83,7 +92,7 @@ from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request im
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request_group import (
     ToolRequestGroup,
 )
- 
+from entropy_labs.sentinel_api_client.sentinel_api_client.models.run import Run 
 from entropy_labs.sentinel_api_client.sentinel_api_client.models.create_run_tool_body import (
     CreateRunToolBody,
 )
@@ -884,3 +893,123 @@ def register_samples_with_entropy_labs(tasks, project_id, approval):
         register_inspect_approvals(run_id=run_id, approval_file=approval)
         samples.append(sample)
     return samples
+
+def get_sample_result(sample_id: str, timeout: Optional[int] = 300) -> str:
+    """
+    Retrieves the result of a sample run by its sample ID.
+
+    Args:
+        sample_id (str): The ID of the sample.
+        client (Union[AuthenticatedClient, Client]): The client to use for the request.
+        timeout (Optional[int]): The maximum time to wait for the result. If None, wait indefinitely.
+
+    Returns:
+        str: The result of the run.
+    """
+    from entropy_labs.supervision.config import get_supervision_config
+    supervision_config = get_supervision_config()
+    local_run = supervision_config.get_run_by_name(sample_id)
+    run_id = local_run.run_id
+
+    i = 0
+    while timeout is None or i < timeout:
+        run = get_run(run_id, supervision_config.client)
+        if run.result != '':
+            logging.info(f"Run {run_id} is {run.result}")
+            return run.result
+        time.sleep(1)
+        i += 1
+
+    logging.warning(f"Timeout reached for run {run_id} without a result.")
+    return ''
+
+def update_run_status_by_sample_id(sample_id: str, status: Status) -> None:
+    """
+    Updates the status of a run by its sample ID.s
+
+    Args:
+        sample_id (str): The ID of the sample.
+        status (str): The new status to set.
+        client (Union[AuthenticatedClient, Client]): The client to use for the request.
+    """
+    from entropy_labs.supervision.config import get_supervision_config
+    supervision_config = get_supervision_config()
+    local_run = supervision_config.get_run_by_name(sample_id)
+    run_id = local_run.run_id
+    update_run_status(run_id, status, supervision_config.client)
+    logging.info(f"Updated run {run_id} status to {status}")
+
+
+def update_run_status(run_id: UUID, status: str, client: Client) -> None:
+    """
+    Update the status of a run.
+
+    Args:
+        run_id (UUID): The ID of the run to update.
+        status (str): The new status for the run. Must be one of the Status enum values.
+        client (Union[AuthenticatedClient, Client]): The API client instance.
+
+    Raises:
+        Exception: If the API response indicates a failure.
+    """
+    # Convert the status string to a Status enum
+    try:
+        status_enum = Status(status)
+    except ValueError:
+        raise ValueError(f"Invalid status '{status}'. Must be one of {list(Status)}.")
+
+    # Call the sync_detailed function from update_run_status.py
+    response = update_run_status_sync_detailed(
+        run_id=run_id,
+        client=client,
+        body=status_enum,
+    )
+
+    # Check the response status code
+    if response.status_code != 204:
+        raise Exception(f"Failed to update run status, response: {response}")
+
+def update_run_result(run_id: UUID, result: str, client: Client) -> None:
+    """
+    Update a run with a result.
+
+    Args:
+        run_id (UUID): The ID of the run to update.
+        result (str): The result to associate with the run.
+        client (Client): The API client instance.
+
+    Raises:
+        Exception: If the API response indicates a failure.
+    """
+    # Create an instance of UpdateRunResultBody with the result
+    body = UpdateRunResultBody(result=result)
+
+    # Call the sync_detailed function from update_run_result.py
+    response = update_run_result_sync_detailed(
+        run_id=run_id,
+        client=client,
+        body=body,
+    )
+
+    # Check the response status code
+    if response.status_code != 201:
+        raise Exception(f"Failed to update run result, response: {response}")
+
+def get_run(run_id: UUID, client: Client) -> Run:
+    """
+    Retrieves a run using the Sentinel API.
+
+    Args:
+        run_id (UUID): The ID of the run to retrieve.
+        client (Union[AuthenticatedClient, Client]): The client to use for the request.
+
+    Returns:
+        Union[ErrorResponse, Run]: The retrieved run or an error response.
+    """
+    try:
+        response = get_run_sync_detailed(run_id=run_id, client=client)
+        if not isinstance(response.parsed, Run):
+            raise Exception(f"Error retrieving run: {response.parsed}")
+        return response.parsed
+    except Exception as e:
+        raise Exception(f"Error retrieving run: {e}")
