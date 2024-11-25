@@ -668,10 +668,10 @@ def convert_anthropic_message(msg: Dict) -> Message:
     """
     Converts an Anthropic message dict to a Message object in the API model.
     """
+
     from entropy_labs.sentinel_api_client.sentinel_api_client.models.message import Message
     from entropy_labs.sentinel_api_client.sentinel_api_client.models.message_type import MessageType
     from entropy_labs.sentinel_api_client.sentinel_api_client.models.message_role import MessageRole
-    from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_call import ToolCall as ApiToolCall
     from entropy_labs.sentinel_api_client.sentinel_api_client.types import UNSET
 
     # Extract role
@@ -688,6 +688,7 @@ def convert_anthropic_message(msg: Dict) -> Message:
 
     content_str = ''
     tool_calls = []
+    message_type = MessageType.TEXT  # Default to text
 
     if isinstance(content, str):
         # Content is a simple string
@@ -696,7 +697,16 @@ def convert_anthropic_message(msg: Dict) -> Message:
         # Content is a list of content blocks
         for content_block in content:
             block_type = content_block.get('type', 'text')
-            if block_type == 'text':
+            if block_type == 'image':
+                # Process image content blocks
+                image_source = content_block.get('source', {})
+                image_data = image_source.get('data', '')
+                media_type = image_source.get('media_type', '')
+                # Format content as data URI
+                content_str = f"data:{media_type};base64,{image_data}"
+                message_type = MessageType.IMAGE
+                break  # Assume only one image per message
+            elif block_type == 'text':
                 text = content_block.get('text', '')
                 content_str += text + '\n'
             elif block_type == 'tool_use':
@@ -704,28 +714,24 @@ def convert_anthropic_message(msg: Dict) -> Message:
                 tool_use = content_block
                 api_tool_call = convert_anthropic_tool_call(tool_use)
                 tool_calls.append(api_tool_call)
-            elif block_type == 'image':
-                # Optionally handle image content blocks; for now, we can skip or log
-                image_description = "<Image content omitted>"
-                content_str += image_description + '\n'
             else:
                 # Handle other content block types if needed; for now, we skip
                 pass
+        else:
+            # No image found; set message type to text
+            content_str = content_str.strip()
+            message_type = MessageType.TEXT
     else:
         # Content is neither string nor list; convert to string
         content_str = str(content)
-
-    # Remove trailing whitespace
-    content_str = content_str.strip()
 
     # Construct the Message object
     message = Message(
         role=role,
         content=content_str,
-        type=MessageType.TEXT,
+        type=message_type,
         tool_calls=tool_calls if tool_calls else UNSET,
     )
-
     return message
 
 
