@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, List, Optional, Literal
+from typing import Any, Callable, Dict, List, LiteralString, Optional, Literal
 from entropy_labs.sentinel_api_client.sentinel_api_client.types import UNSET
 from enum import Enum
 import random
@@ -717,12 +717,33 @@ def convert_anthropic_message(msg: Dict) -> Message:
                 tool_use = content_block
                 api_tool_call = convert_anthropic_tool_call(tool_use)
                 tool_calls.append(api_tool_call)
+            elif block_type == 'tool_result':
+                # Process as a tool result
+                role=MessageRole.SYSTEM
+                content_str = content_block.get('content', '')
+                # if content_str is an instance of a list, get the first element
+                if isinstance(content_str, list) and len(content_str) > 0:
+                    content_str = content_str[0]
+                    # if instance of BetaImageBlockParam, give it the image treatment
+                    if content_str.get('type') == 'image':
+                        image_source = content_str.get('source', {})
+                        image_data = image_source.get('data', '')
+                        media_type = image_source.get('media_type', '')
+                        # Format content as data URI
+                        content_str = f"data:{media_type};base64,{image_data}"
+                        message_type = MessageType.IMAGE
+                        break
+                    else:
+                        content_str = content_str.get('text', '')
+                        message_type = MessageType.TEXT
+                else:   
+                    content_str = content_str.strip()
             else:
                 # Handle other content block types if needed; for now, we skip
+                print("Skipping unsupported content block type: ", block_type)
                 pass
         else:
             # No image found; set message type to text
-            content_str = content_str.strip()
             message_type = MessageType.TEXT
     else:
         # Content is neither string nor list; convert to string
@@ -736,6 +757,18 @@ def convert_anthropic_message(msg: Dict) -> Message:
         tool_calls=tool_calls if tool_calls else UNSET,
     )
     return message
+
+# Anthropic tool result block param
+# class BetaToolResultBlockParam(TypedDict, total=False):
+#     tool_use_id: Required[str]
+#     type: Required[Literal["tool_result"]]
+#     cache_control: Optional[BetaCacheControlEphemeralParam]
+#     content: Union[str, Iterable[Content]]
+#     is_error: bool
+def convert_anthropic_tool_result(tool_result: Dict) -> ApiToolCall:
+    """
+    Converts an Anthropic tool result dict to an ApiToolCall object.
+    """
 
 
 def convert_anthropic_tool_call(tool_use: Dict) -> ApiToolCall:
