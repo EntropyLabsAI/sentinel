@@ -136,13 +136,14 @@ class SupervisionContext:
 
         return "\n\n".join(texts)
 
-    def _describe_chat_message(self, message: ChatMessage) -> str:
+    def _describe_chat_message(self, message: Message) -> str:
         """Converts a chat message into a textual description."""
-        role = message.role.capitalize()
-        text_content = message.text.strip()
+        
+        role = str(message.role).capitalize()
+        text_content = message.content.strip()
         text = f"**{role}:**\n{text_content}"
 
-        if isinstance(message, ChatMessageAssistant) and message.tool_calls:
+        if message.tool_calls and message.tool_calls is not UNSET:
             text += "\n\n**Tool Calls:**"
             for tool_call in message.tool_calls:
                 tool_call_description = self._describe_tool_call(tool_call)
