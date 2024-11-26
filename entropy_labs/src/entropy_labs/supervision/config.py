@@ -737,9 +737,12 @@ def convert_anthropic_message(msg: Dict) -> Message:
                     else:
                         content_str = content_str.get('text', '')
                         message_type = MessageType.TEXT
-                else:   
-                    content_str = content_str.strip()
+                elif isinstance(content_str, list):
+                    content_str = "No content found for this tool result."
+                else:
+                    content_str = str(content_str)
             else:
+
                 # Handle other content block types if needed; for now, we skip
                 print("Skipping unsupported content block type: ", block_type)
                 pass
