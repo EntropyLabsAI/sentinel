@@ -151,12 +151,13 @@ class SupervisionContext:
 
         return text
 
-    def _describe_tool_call(self, tool_call: ToolCall) -> str:
+    def _describe_tool_call(self, tool_call: ApiToolCall) -> str:
         """Converts a ToolCall into a textual description."""
+        arguments_dict = tool_call.arguments.to_dict() if tool_call.arguments else {}
         description = (
             f"- **Tool Call ID:** {tool_call.id}\n"
             f"  - **Function:** {tool_call.function}\n"
-            f"  - **Arguments:** `{json.dumps(tool_call.arguments, indent=2)}`\n"
+            f"  - **Arguments:** `{json.dumps(arguments_dict, indent=2)}`\n"
             f"  - **Type:** {tool_call.type}"
         )
         return description

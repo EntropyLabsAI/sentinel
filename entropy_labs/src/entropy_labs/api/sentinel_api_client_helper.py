@@ -608,7 +608,6 @@ def _display_review_sent_message(console: Console, backend_api_endpoint: str, re
         f"You can view the review at: {FRONTEND_URL}/supervisor/human\n"
         f"Review ID: {review_id}"
     )
-    console.print(message)
 
 
 def create_tool_request_group(tool_id: UUID, tool_requests: List[ToolRequest], client: Client) -> Optional[ToolRequestGroup]:

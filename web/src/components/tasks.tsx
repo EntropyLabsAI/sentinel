@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useGetProjectTasks, Task } from "@/types";
 import { ListIcon } from "lucide-react";
@@ -13,14 +13,25 @@ import { CreatedAgo } from "./util/created_ago";
 export default function Tasks() {
   const { projectId } = useParams();
   const { data, isLoading, error } = useGetProjectTasks(projectId || '');
+  const [tasks, setTasks] = useState<Task[]>([]);
+
+  useEffect(() => {
+    if (data?.data) {
+      const unsortedTasks = data.data;
+      const sortedTasks = unsortedTasks.sort((a, b) => a.created_at.localeCompare(b.created_at));
+
+      setTasks(sortedTasks);
+    }
+  }, [data]);
+
 
   return (
-    <Page title="Tasks" icon={<ListIcon className="w-6 h-6" />} subtitle={<span>{data?.data?.length && data?.data?.length > 0 ? `${data?.data?.length} task${data?.data?.length === 1 ? "" : "s"}` : 'No tasks'} found for this project</span>}>
+    <Page title="Tasks" icon={<ListIcon className="w-6 h-6" />} subtitle={<span>{tasks?.length && tasks?.length > 0 ? `${tasks?.length} task${tasks?.length === 1 ? "" : "s"}` : 'No tasks'} found for this project</span>}>
       <div className="flex flex-col gap-4">
 
         {isLoading && <LoadingSpinner />}
         {error && <div>{error.message}</div>}
-        {data?.data?.map((task) => (
+        {tasks?.map((task) => (
           <CompactTask key={task.id} task={task} />
         ))}
       </div>
