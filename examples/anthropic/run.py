@@ -6,7 +6,9 @@ from uuid import UUID, uuid4
 
 import requests
 from bs4 import BeautifulSoup
-import anthropic
+import base64
+from litellm import completion
+import litellm
 from duckduckgo_search import DDGS
 
 from entropy_labs.supervision import supervise
@@ -20,7 +22,7 @@ from entropy_labs.supervision.config import (
 )
 
 # Initialize the Anthropic client
-client = anthropic.Anthropic()
+# client = anthropic.Anthropic()
 
 
 ENTROPY_LABS_EMAIL = "devs@entropy-labs.ai"
@@ -278,18 +280,27 @@ def create_anthropic_tool(func: Callable) -> Dict[str, Any]:
 
 def chat_with_anthropic(messages: List[Dict], tools: List[dict]):
     """
-    Interact with the Anthropic Claude model.
+    Interact with the model using LiteLLM.
     """
-    completion = client.messages.create(
+    response = completion(
         model="claude-3-opus-20240229",
-        max_tokens=1024,
         messages=messages,
         tools=tools,
+        max_tokens=1024,
     )
-    message = completion.to_dict()
-    message = {key: message[key] for key in ['content', 'role'] if key in message}
-    messages = update_messages(messages, message, run_id)
-    return completion
+
+    # If there isn't a choice, raise an error
+    if len(response.choices) == 0:
+        raise ValueError("No choices returned from the model")
+
+    # Need to access the actual message through choices[0].message
+    message = response.choices[0].message
+    new_message = {
+        "role": "assistant",
+        "content": message.content,
+    }
+    messages = update_messages(messages, new_message, run_id)
+    return response
 
 
 # ### Executing Tool Calls
@@ -301,7 +312,8 @@ def execute_tool_call(tool_use, tools):
     Execute a tool call as decided by the assistant.
     """
     function_name = tool_use.name
-    arguments = tool_use.input
+    # Parse the JSON string from arguments instead of accessing input
+    arguments = json.loads(tool_use.arguments)
     print(f"Executing tool call: {function_name} with arguments: {arguments}")
 
     # Map function names to actual functions
@@ -336,7 +348,7 @@ def update_messages(
         List[Dict]: The updated list of messages.
     """
     supervision_context = get_supervision_context(run_id)
-    supervision_context.update_messages(messages + [new_message], anthropic=True)
+    supervision_context.update_messages(messages + [new_message])
     return messages + [new_message]
 
 
@@ -355,6 +367,9 @@ def in_jupyter_notebook():
     except NameError:
         return False      # Probably standard Python interpreter
 
+def encode_image(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')
 
 def start_chatbot(
     start_prompt: str,
@@ -392,8 +407,7 @@ def start_chatbot(
         output_widget = None
         input_widget = None
 
-    # Initialize conversation messages
-    messages = []
+
 
     # Create Anthropic tool definitions
     anthropic_tools = [create_anthropic_tool(func) for func in tools]
@@ -406,54 +420,45 @@ def start_chatbot(
         """
         nonlocal messages, waiting_for_user_input
 
-        stop_reason = assistant_message.stop_reason
+        stop_reason = assistant_message.choices[0].finish_reason
+        message = assistant_message.choices[0].message
 
-        assistant_message_dict = assistant_message.to_dict()
-        assistant_message_dict = {key: assistant_message_dict[key] for key in ['content', 'role'] if key in assistant_message_dict}
-        messages.append(assistant_message_dict)
+        # Add assistant's message to conversation
+        messages.append({
+            "role": "assistant",
+            "content": message.content,
+            "tool_calls": message.tool_calls if hasattr(message, 'tool_calls') else None
+        })
 
-        # Print assistant's text content
-        content_blocks = assistant_message.content
-        for content_block in content_blocks:
-            if content_block.type == 'text':
-                text = content_block.text
-                if is_jupyter and output_widget:
-                    with output_widget:
-                        print(f"Assistant: {text}\n")
-                else:
-                    print(f"Assistant: {text}\n")
+        # Print assistant's content
+        if is_jupyter and output_widget:
+            with output_widget:
+                print(f"Assistant: {message.content}\n")
+        else:
+            print(f"Assistant: {message.content}\n")
 
-        if stop_reason == 'tool_use':
-            tool_use = next((c for c in content_blocks if c.type == 'tool_use'), None)
-            if tool_use:
-                # Execute the tool call
-                result = execute_tool_call(tool_use, tools)
+        # Check for tool calls
+        if stop_reason == "tool_calls" and message.tool_calls:
+            tool_call = message.tool_calls[0]  # Handle first tool call
+            if tool_call:
+                # Execute the tool call with parsed arguments
+                result = execute_tool_call(tool_call.function, tools)
 
-                # Prepare the tool result message
-                tool_result_message = {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": tool_use.id,
-                            "content": [
-                                {
-                                    "type": "text",
-                                    "text": result
-                                }
-                            ]
-                        }
-                    ]
-                }
-                messages.append(tool_result_message)
+                # Add tool result as a tool message
+                messages.append({
+                    "role": "tool",
+                    "content": str(result),
+                    "tool_call_id": tool_call.id,
+                    "name": tool_call.function.name,
+                })
 
                 # Get assistant's response to the tool result
                 message = chat_with_anthropic(messages, anthropic_tools)
                 process_assistant_response(message)
-            else:
-                waiting_for_user_input = True
         else:
             waiting_for_user_input = True
+
+    messages = []
 
     # Start the conversation
     user_message = {"role": "user", "content": start_prompt}
@@ -537,10 +542,6 @@ def start_chatbot(
     submit_run_status(run_id=run_id, status=Status.COMPLETED)
     submit_run_result(run_id=run_id, result="passed")
 
-
-
-
-
 # ## Running the Assistant
 # 
 # Finally, we set up the environment and start the assistant. You can now interact with the assistant by typing messages in the input box and see the supervisors in your web browser at: http://localhost:3000/.
@@ -562,7 +563,7 @@ tools = [
 ]
 
 # Register project, task, and run with Entropy Labs
-entropy_labs_backend_url = "http://localhost:8080"
+entropy_labs_backend_url = "http://localhost:8099"
 
 # Entropy Labs backend needs to be running
 project_id = register_project(
@@ -574,3 +575,5 @@ run_id = create_run(project_id=project_id, task_id=task_id, tools=tools)
 
 # Start the chatbot
 start_chatbot(start_prompt, tools, run_id)
+
+
