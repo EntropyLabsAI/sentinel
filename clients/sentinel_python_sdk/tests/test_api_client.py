@@ -5,8 +5,8 @@ Unit tests for the API client.
 import unittest
 from unittest.mock import patch, Mock
 from requests.exceptions import RequestException
-from sentinel.api.client import APIClient
 
+from sentinel.clients.api_client import APIClient
 class TestAPIClient(unittest.TestCase):
     def setUp(self):
         self.client = APIClient(api_key="test_api_key")

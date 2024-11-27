@@ -5,7 +5,7 @@ Integration tests for the full Sentinel SDK workflow.
 import unittest
 from unittest.mock import patch, MagicMock
 from openai import OpenAI
-from sentinel_python_sdk.src.sentinel import init
+from sentinel_python_sdk import init
 
 class TestFullWorkflow(unittest.TestCase):
     @patch('sentinel.api.client.APIClient.post')

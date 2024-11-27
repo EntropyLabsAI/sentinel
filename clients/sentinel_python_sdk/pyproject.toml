@@ -3,7 +3,7 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "sentinel-python-sdk"
+name = "sentinel_python_sdk"
 version = "0.1.0"
 description = "A Python SDK for Sentinel"
 authors = [
