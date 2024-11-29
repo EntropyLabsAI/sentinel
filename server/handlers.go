@@ -363,6 +363,23 @@ func apiGetRequestGroupHandler(w http.ResponseWriter, r *http.Request, requestGr
 	respondJSON(w, requestGroup, http.StatusOK)
 }
 
+func apiGetToolRequestHandler(w http.ResponseWriter, r *http.Request, toolRequestId uuid.UUID, store ToolRequestStore) {
+	ctx := r.Context()
+
+	toolRequest, err := store.GetToolRequest(ctx, toolRequestId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool request", err.Error())
+		return
+	}
+
+	if toolRequest == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Tool request not found", "")
+		return
+	}
+
+	respondJSON(w, toolRequest, http.StatusOK)
+}
+
 func apiCreateToolRequestHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store ToolRequestStore) {
 	ctx := r.Context()
 
