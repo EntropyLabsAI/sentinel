@@ -83,7 +83,6 @@ func (h *Hub) Run() {
 		case client := <-h.Unregister:
 			h.unregisterClient(client)
 		case supervisionRequest := <-h.ReviewChan:
-			// fmt.Printf("Received request for supervision from ReviewChan: %v\n", supervisionRequest.Id)
 			h.assignReview(supervisionRequest)
 		}
 	}
@@ -127,16 +126,11 @@ func (h *Hub) assignReview(supervisionRequest SupervisionRequest) {
 		log.Fatalf("can't assign supervisor with nil ID")
 	}
 
-	// log.Printf("Assigning review to client. SupervisionRequest.RequestId %s.", supervisionRequest.Id)
-
 	h.ClientsMutex.RLock()
 	defer h.ClientsMutex.RUnlock()
 
-	// Attempt to assign the supervisor to a client
-	if !h.assignReviewToClient(supervisionRequest) {
-		// If no client is available, do nothing.
-		// log.Printf("No available clients with capacity. SupervisionRequest.RequestId %s.", supervisionRequest.Id)
-	}
+	// Attempt to assign the supervisor to a client. Does nothing if no client is available
+	h.assignReviewToClient(supervisionRequest)
 }
 
 // assignReviewToClient attempts to assign a supervisor to a client if they have capacity

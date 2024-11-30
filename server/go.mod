@@ -7,7 +7,6 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/oapi-codegen/runtime v1.1.1
-	github.com/sashabaranov/go-openai v1.32.1
 )
 
 require (

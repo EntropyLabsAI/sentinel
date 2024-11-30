@@ -43,7 +43,6 @@ func InitAPI(store Store) {
 	processor := NewProcessor(store, humanReviewChan)
 	go processor.Start(context.Background())
 
-	// Create an instance of your ServerInterface implementation
 	server := Server{
 		Hub:   hub,
 		Store: store,
