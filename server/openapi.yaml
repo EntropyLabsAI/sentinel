@@ -555,7 +555,6 @@ paths:
       tags:
         - RequestGroup
 
-
   /api/tool/{toolId}:
     parameters:
       - name: toolId
@@ -914,27 +913,90 @@ paths:
       tags:
         - Supervision
 
-  # /api/chain_execution/{chainExecutionId}:
-  #   parameters:
-  #     - name: chainExecutionId
-  #       in: path
-  #       required: true
-  #       schema:
-  #         type: string
-  #         format: uuid
-  #   get:
-  #     summary: Get the state of a chain execution
-  #     operationId: GetChainExecutionState
-  #     responses:
-  #       "200":
-  #         description: Chain execution state
-  #         content:
-  #           application/json:
-  #             schema:
-  #               $ref: "#/components/schemas/ChainExecutionState"
+  # Unreleased routes
+  /api/run/{run_id}/new_chat_completion_request:
+    parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      summary: Create a new chat completion request from an existing run
+      operationId: CreateNewChatCompletionRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNewChatCompletionRequestBody"
+      responses:
+        "200":
+          description: New completion request created
+          content:
+            # Schema is arbitrary JSON object
+            application/json:
+              schema:
+                type: string
+                format: uuid
+      tags:
+        - Run
+
+  /api/run/{run_id}/new_chat_completion_response:
+    parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      summary: Create a new chat completion response from an existing run
+      operationId: CreateNewChatCompletionResponse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNewChatCompletionResponseBody"
+      responses:
+        "200":
+          description: New chat completion response created
+          content:
+            application/json:
+              schema:
+                type: string
+                format: uuid
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - Run
 
 components:
   schemas:
+    CreateNewChatCompletionRequestBody:
+      type: object
+      properties:
+        request_data:
+          type: string
+          format: base64
+      required:
+        - request_data
+
+    CreateNewChatCompletionResponseBody:
+      type: object
+      properties:
+        response_data:
+          type: string
+          format: base64
+      required:
+        - response_data
+
     ErrorResponse:
       type: object
       properties:

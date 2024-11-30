@@ -1,4 +1,6 @@
 -- First drop tables in reverse dependency order
+DROP TABLE IF EXISTS chat_response CASCADE;
+DROP TABLE IF EXISTS chat_request CASCADE;
 DROP TABLE IF EXISTS supervisionresult CASCADE;
 DROP TABLE IF EXISTS supervisionrequest_status CASCADE;
 DROP TABLE IF EXISTS supervisionrequest CASCADE;
@@ -138,4 +140,17 @@ CREATE TABLE supervisionresult (
     decision TEXT DEFAULT 'reject' CHECK (decision IN ('approve', 'reject', 'terminate', 'modify', 'escalate')),
     reasoning TEXT DEFAULT '',
     chosen_toolrequest_id UUID REFERENCES toolrequest(id) NULL
+);
+
+-- New tables
+CREATE TABLE chat_request (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    request_data JSONB DEFAULT '{}' NOT NULL
+);
+
+CREATE TABLE chat_response (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    response_data JSONB DEFAULT '{}' NOT NULL
 );
