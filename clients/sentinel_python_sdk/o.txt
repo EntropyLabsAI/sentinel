@@ -1,0 +1,198 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.7, pytest-8.3.3, pluggy-1.5.0
+rootdir: /home/joe/repos/sentinel-python-sdk
+configfile: pyproject.toml
+plugins: anyio-4.6.2.post1, cov-6.0.0
+collected 22 items
+
+tests/test_api_client.py ..                                              [  9%]
+tests/test_config.py ..                                                  [ 18%]
+tests/test_converters.py ..                                              [ 27%]
+tests/test_error_handling.py .FF.                                        [ 45%]
+tests/test_full_workflow.py F                                            [ 50%]
+tests/test_init.py F.F                                                   [ 63%]
+tests/test_registration.py ....                                          [ 81%]
+tests/test_wrappers/test_openai_wrapper.py ....                          [100%]
+
+=================================== FAILURES ===================================
+________________ TestErrorHandling.test_init_invalid_project_id ________________
+
+self = <test_error_handling.TestErrorHandling testMethod=test_init_invalid_project_id>
+
+    def test_init_invalid_project_id(self):
+        from sentinel import init
+>       with self.assertRaises(ValueError):
+E       AssertionError: ValueError not raised
+
+tests/test_error_handling.py:28: AssertionError
+_______________ TestErrorHandling.test_openai_wrapper_api_error ________________
+
+self = <test_error_handling.TestErrorHandling testMethod=test_openai_wrapper_api_error>
+mock_submit_response = <MagicMock name='submit_response' id='140496101882816'>
+mock_submit_request = <MagicMock name='submit_request' id='140496101879216'>
+
+    @patch('sentinel.wrappers.openai.submit_request')
+    @patch('sentinel.wrappers.openai.submit_response')
+    def test_openai_wrapper_api_error(self, mock_submit_response, mock_submit_request):
+        # Mock the original OpenAI method to raise an exception
+        with patch('openai.Completion.create') as mock_create:
+            mock_create.side_effect = Exception("API error")
+            with self.assertRaises(Exception):
+                openai.Completion.create(prompt="Hello")
+    
+            # Verify that submit_request was called, but submit_response was not
+>           mock_submit_request.assert_called_once()
+
+tests/test_error_handling.py:41: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <MagicMock name='submit_request' id='140496101879216'>
+
+    def assert_called_once(self):
+        """assert that the mock was called only once.
+        """
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to have been called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'submit_request' to have been called once. Called 0 times.
+
+../../miniconda3/lib/python3.12/unittest/mock.py:928: AssertionError
+_____________________ TestFullWorkflow.test_full_workflow ______________________
+
+self = <test_full_workflow.TestFullWorkflow testMethod=test_full_workflow>
+mock_register_project = <MagicMock name='register_project' id='140496102088416'>
+mock_openai_create = <MagicMock name='create' id='140496102092064'>
+mock_api_client_post = <MagicMock name='post' id='140496102095952'>
+
+    @patch('sentinel.api.client.APIClient.post')
+    @patch('openai.ChatCompletion.create')
+    @patch('sentinel.init.register_project')
+    def test_full_workflow(self, mock_register_project, mock_openai_create, mock_api_client_post):
+        # Mock the API client's post method
+        mock_api_client_post.return_value = MagicMock(status_code=200)
+        mock_register_project.return_value = "test_project_id"
+    
+        # Mock OpenAI's ChatCompletion.create
+        mock_openai_create.return_value = {"id": "test_chat_id", "choices": []}
+    
+        # Initialize the SDK
+        init(api_key="test_api_key")
+    
+        # Use OpenAI client as usual
+>       response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": "Hello, world!"}],
+            temperature=0.5
+        )
+
+tests/test_full_workflow.py:27: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/sentinel/wrappers/openai.py:58: in wrapped_chat_completion_create
+    response = _original_chat_completion_create(*args, **kwargs)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = APIRemovedInV1Proxy, _args = ()
+_kwargs = {'messages': [{'content': 'Hello, world!', 'role': 'user'}], 'model': 'gpt-3.5-turbo', 'temperature': 0.5}
+
+    def __call__(self, *_args: Any, **_kwargs: Any) -> Any:
+>       raise APIRemovedInV1(symbol=self._symbol)
+E       openai.lib._old_api.APIRemovedInV1: 
+E       
+E       You tried to access openai.ChatCompletion, but this is no longer supported in openai>=1.0.0 - see the README at https://github.com/openai/openai-python for the API.
+E       
+E       You can run `openai migrate` to automatically upgrade your codebase to use the 1.0.0 interface. 
+E       
+E       Alternatively, you can pin your installation to the old version, e.g. `pip install openai==0.28`
+E       
+E       A detailed migration guide is available here: https://github.com/openai/openai-python/discussions/742
+
+../../miniconda3/lib/python3.12/site-packages/openai/lib/_old_api.py:39: APIRemovedInV1
+__________________ TestInitialization.test_init_with_api_key ___________________
+
+self = <test_init.TestInitialization testMethod=test_init_with_api_key>
+mock_patch_clients = <MagicMock name='patch_all_clients' id='140496102086832'>
+mock_register_project = <MagicMock name='register_project' id='140496100547888'>
+
+    @patch('sentinel.init.register_project')
+    @patch('sentinel.wrappers.patch_all_clients')
+    def test_init_with_api_key(self, mock_patch_clients, mock_register_project):
+        mock_register_project.return_value = "test_project_id"
+        init(api_key="test_api_key")
+        self.assertEqual(settings.api_key, "test_api_key")
+        self.assertEqual(settings.project_id, "test_project_id")
+>       mock_patch_clients.assert_called_once()
+
+tests/test_init.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <MagicMock name='patch_all_clients' id='140496102086832'>
+
+    def assert_called_once(self):
+        """assert that the mock was called only once.
+        """
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to have been called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'patch_all_clients' to have been called once. Called 0 times.
+
+../../miniconda3/lib/python3.12/unittest/mock.py:928: AssertionError
+_________________ TestInitialization.test_init_with_project_id _________________
+
+self = <test_init.TestInitialization testMethod=test_init_with_project_id>
+mock_patch_clients = <MagicMock name='patch_all_clients' id='140496100553312'>
+
+    @patch('sentinel.wrappers.patch_all_clients')
+    def test_init_with_project_id(self, mock_patch_clients):
+        init(api_key="test_api_key", project_id="existing_project_id")
+        self.assertEqual(settings.api_key, "test_api_key")
+        self.assertEqual(settings.project_id, "existing_project_id")
+>       mock_patch_clients.assert_called_once()
+
+tests/test_init.py:30: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <MagicMock name='patch_all_clients' id='140496100553312'>
+
+    def assert_called_once(self):
+        """assert that the mock was called only once.
+        """
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to have been called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'patch_all_clients' to have been called once. Called 0 times.
+
+../../miniconda3/lib/python3.12/unittest/mock.py:928: AssertionError
+
+---------- coverage: platform linux, python 3.12.7-final-0 -----------
+Name                                          Stmts   Miss  Cover   Missing
+---------------------------------------------------------------------------
+src/sentinel/__init__.py                          3      0   100%
+src/sentinel/api/client.py                       12      0   100%
+src/sentinel/config.py                            5      0   100%
+src/sentinel/converters/format_converter.py       4      0   100%
+src/sentinel/init.py                             14      0   100%
+src/sentinel/registration/project.py             13      0   100%
+src/sentinel/registration/task.py                13      0   100%
+src/sentinel/wrappers/__init__.py                 7      0   100%
+src/sentinel/wrappers/anthropic.py                2      0   100%
+src/sentinel/wrappers/litellm.py                  2      0   100%
+src/sentinel/wrappers/openai.py                  27      0   100%
+---------------------------------------------------------------------------
+TOTAL                                           102      0   100%
+
+=========================== short test summary info ============================
+FAILED tests/test_error_handling.py::TestErrorHandling::test_init_invalid_project_id
+FAILED tests/test_error_handling.py::TestErrorHandling::test_openai_wrapper_api_error
+FAILED tests/test_full_workflow.py::TestFullWorkflow::test_full_workflow - op...
+FAILED tests/test_init.py::TestInitialization::test_init_with_api_key - Asser...
+FAILED tests/test_init.py::TestInitialization::test_init_with_project_id - As...
+========================= 5 failed, 17 passed in 2.05s =========================
