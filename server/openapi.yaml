@@ -528,6 +528,34 @@ paths:
       tags:
         - RequestGroup
 
+  /api/tool_request/{toolRequestId}:
+    parameters:
+      - name: toolRequestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get a tool request
+      operationId: GetToolRequest
+      responses:
+        "200":
+          description: Tool request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolRequest"
+        "404":
+          description: Tool request not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - RequestGroup
+
+
   /api/tool/{toolId}:
     parameters:
       - name: toolId

@@ -43,7 +43,6 @@ func InitAPI(store Store) {
 	processor := NewProcessor(store, humanReviewChan)
 	go processor.Start(context.Background())
 
-	// Create an instance of your ServerInterface implementation
 	server := Server{
 		Hub:   hub,
 		Store: store,
@@ -169,6 +168,11 @@ func (s Server) GetToolSupervisorChains(w http.ResponseWriter, r *http.Request, 
 // CreateToolRequestGroup
 func (s Server) CreateToolRequestGroup(w http.ResponseWriter, r *http.Request, toolId uuid.UUID) {
 	apiCreateToolRequestGroupHandler(w, r, toolId, s.Store)
+}
+
+// GetToolRequest
+func (s Server) GetToolRequest(w http.ResponseWriter, r *http.Request, toolRequestId uuid.UUID) {
+	apiGetToolRequestHandler(w, r, toolRequestId, s.Store)
 }
 
 // GetRunRequestGroups
