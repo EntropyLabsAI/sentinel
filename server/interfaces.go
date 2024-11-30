@@ -15,6 +15,7 @@ type Store interface {
 	SupervisorStore
 	SupervisionStore
 	TaskStore
+	ChatStore
 }
 
 type SupervisionStore interface {
@@ -92,4 +93,9 @@ type RunStore interface {
 	GetTaskRuns(ctx context.Context, taskId uuid.UUID) ([]Run, error)
 	UpdateRunStatus(ctx context.Context, runId uuid.UUID, status Status) error
 	UpdateRunResult(ctx context.Context, runId uuid.UUID, result string) error
+}
+
+type ChatStore interface {
+	CreateChatRequest(ctx context.Context, request []byte) (*uuid.UUID, error)
+	CreateChatResponse(ctx context.Context, response []byte) (*uuid.UUID, error)
 }
