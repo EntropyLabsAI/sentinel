@@ -31,7 +31,7 @@ func sendErrorResponse(w http.ResponseWriter, status int, message string, detail
 }
 
 func InitAPI(store Store) {
-	log.Println("Initializing API")
+	log.Println("Initializing API v1")
 
 	humanReviewChan := make(chan SupervisionRequest, 100)
 
@@ -56,8 +56,8 @@ func InitAPI(store Store) {
 
 	mux := http.NewServeMux()
 
-	// Register the wrapped API handler under the /api/ path
-	mux.Handle("/api/", corsHandler)
+	// Register the wrapped API handler under the /api/v1/ path
+	mux.Handle("/api/v1/", http.StripPrefix("/api/v1", corsHandler))
 
 	// Register the WebSocket handler separately
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
@@ -70,8 +70,7 @@ func InitAPI(store Store) {
 		log.Fatal("APPROVAL_WEBSERVER_PORT not set, failing out")
 	}
 
-	log.Printf("Server started on port %s", port)
-	// err := http.ListenAndServe(fmt.Sprintf(":%s", port), mux)
+	log.Printf("Server v1 started on port %s", port)
 	err := http.ListenAndServe(fmt.Sprintf(":%s", port), mux)
 	if err != nil {
 		log.Fatal("Error listening and serving: ", err)

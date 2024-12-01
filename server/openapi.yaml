@@ -1,10 +1,15 @@
 openapi: 3.0.1
 info:
   title: Sentinel API
-  version: 1.0.0
+  version: v1.0.0
+  description: Version 1 of the Sentinel API
+
+servers:
+  - url: /api/v1
+    description: Version 1 of the Sentinel API
 
 paths:
-  /api/openapi.yaml:
+  /openapi.yaml:
     get:
       summary: Get the OpenAPI schema
       operationId: GetOpenAPI
@@ -13,7 +18,7 @@ paths:
           description: OpenAPI schema
       tags:
         - API
-  /api/swagger-ui:
+  /swagger-ui:
     get:
       summary: Get the Swagger UI
       operationId: GetSwaggerDocs
@@ -23,7 +28,7 @@ paths:
       tags:
         - API
 
-  /api/project:
+  /project:
     get:
       summary: Get all projects
       operationId: GetProjects
@@ -81,7 +86,7 @@ paths:
       tags:
         - Project
 
-  /api/project/{projectId}:
+  /project/{projectId}:
     parameters:
       - name: projectId
         in: path
@@ -108,7 +113,7 @@ paths:
       tags:
         - Project
 
-  /api/project/{projectId}/tasks:
+  /project/{projectId}/tasks:
     parameters:
       - name: projectId
         in: path
@@ -163,7 +168,7 @@ paths:
       tags:
         - Task
 
-  /api/task/{taskId}:
+  /task/{taskId}:
     parameters:
       - name: taskId
         in: path
@@ -184,7 +189,7 @@ paths:
       tags:
         - Task
 
-  /api/task/{taskId}/run:
+  /task/{taskId}/run:
     parameters:
       - name: taskId
         in: path
@@ -220,7 +225,7 @@ paths:
       tags:
         - Run
 
-  /api/run/{runId}/tool:
+  /run/{runId}/tool:
     parameters:
       - name: runId
         in: path
@@ -287,7 +292,7 @@ paths:
       tags:
         - Tool
 
-  /api/supervisor/{supervisorId}:
+  /supervisor/{supervisorId}:
     parameters:
       - name: supervisorId
         in: path
@@ -308,7 +313,7 @@ paths:
       tags:
         - Supervisor
 
-  /api/project/{projectId}/supervisor:
+  /project/{projectId}/supervisor:
     parameters:
       - name: projectId
         in: path
@@ -356,7 +361,7 @@ paths:
       tags:
         - Supervisor
 
-  /api/tool/{toolId}/supervisors:
+  /tool/{toolId}/supervisors:
     parameters:
       - name: toolId
         in: path
@@ -402,7 +407,7 @@ paths:
       tags:
         - Supervisor
 
-  /api/tool/{toolId}/request_group:
+  /tool/{toolId}/request_group:
     parameters:
       - name: toolId
         in: path
@@ -435,7 +440,7 @@ paths:
       tags:
         - RequestGroup
 
-  /api/run/{runId}/request_groups:
+  /run/{runId}/request_groups:
     parameters:
       - name: runId
         in: path
@@ -458,7 +463,7 @@ paths:
       tags:
         - RequestGroup
 
-  /api/request_group/{requestGroupId}:
+  /request_group/{requestGroupId}:
     parameters:
       - name: requestGroupId
         in: path
@@ -479,7 +484,7 @@ paths:
       tags:
         - RequestGroup
 
-  /api/request_group/{requestGroupId}/status:
+  /request_group/{requestGroupId}/status:
     parameters:
       - name: requestGroupId
         in: path
@@ -500,7 +505,7 @@ paths:
       tags:
         - RequestGroup
 
-  /api/request_group/{requestGroupId}/tool_requests:
+  /request_group/{requestGroupId}/tool_requests:
     parameters:
       - name: requestGroupId
         in: path
@@ -528,7 +533,7 @@ paths:
       tags:
         - RequestGroup
 
-  /api/tool_request/{toolRequestId}:
+  /tool_request/{toolRequestId}:
     parameters:
       - name: toolRequestId
         in: path
@@ -555,7 +560,7 @@ paths:
       tags:
         - RequestGroup
 
-  /api/tool/{toolId}:
+  /tool/{toolId}:
     parameters:
       - name: toolId
         in: path
@@ -582,7 +587,7 @@ paths:
       tags:
         - Tool
 
-  /api/project/{projectId}/tools:
+  /project/{projectId}/tools:
     parameters:
       - name: projectId
         in: path
@@ -684,7 +689,7 @@ paths:
       tags:
         - Supervision
 
-  /api/supervision_request/{supervisionRequestId}/status:
+  /supervision_request/{supervisionRequestId}/status:
     parameters:
       - name: supervisionRequestId
         in: path
@@ -705,7 +710,7 @@ paths:
       tags:
         - Supervision
 
-  /api/supervision_request/{supervisionRequestId}/result:
+  /supervision_request/{supervisionRequestId}/result:
     parameters:
       - name: supervisionRequestId
         in: path
@@ -745,7 +750,7 @@ paths:
       tags:
         - Supervision
 
-  /api/run/{runId}/state:
+  /run/{runId}/state:
     parameters:
       - name: runId
         in: path
@@ -766,7 +771,7 @@ paths:
       tags:
         - Run
 
-  /api/run/{runId}:
+  /run/{runId}:
     parameters:
       - name: runId
         in: path
@@ -793,7 +798,7 @@ paths:
       tags:
         - Run
 
-  /api/run/{runId}/status:
+  /run/{runId}/status:
     parameters:
       - name: runId
         in: path
@@ -834,7 +839,7 @@ paths:
       tags:
         - Run
 
-  /api/run/{runId}/result:
+  /run/{runId}/result:
     parameters:
       - name: runId
         in: path
@@ -866,7 +871,7 @@ paths:
       tags:
         - Run
 
-  /api/stats:
+  /stats:
     get:
       summary: Get hub stats
       operationId: GetHubStats
@@ -886,7 +891,7 @@ paths:
       tags:
         - Stats
 
-  /api/supervision_request/{supervisionRequestId}/review_payload:
+  /supervision_request/{supervisionRequestId}/review_payload:
     parameters:
       - name: supervisionRequestId
         in: path
@@ -914,7 +919,7 @@ paths:
         - Supervision
 
   # Unreleased routes
-  /api/run/{run_id}/new_chat_completion_request:
+  /run/{run_id}/new_chat_completion_request:
     parameters:
       - name: run_id
         in: path
@@ -943,7 +948,7 @@ paths:
       tags:
         - Run
 
-  /api/run/{run_id}/new_chat_completion_response:
+  /run/{run_id}/new_chat_completion_response:
     parameters:
       - name: run_id
         in: path
