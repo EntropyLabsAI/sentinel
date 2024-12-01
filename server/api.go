@@ -272,9 +272,6 @@ func enableCorsMiddleware(handler http.Handler) http.Handler {
 	})
 }
 
-func (s Server) CreateNewChatCompletionRequest(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
-	apiCreateNewChatCompletionRequestHandler(w, r, runId, s.Store)
-}
-func (s Server) CreateNewChatCompletionResponse(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
-	apiCreateNewChatCompletionResponseHandler(w, r, runId, s.Store)
+func (s Server) CreateNewChat(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
+	apiCreateNewChatHandler(w, r, runId, s.Store)
 }

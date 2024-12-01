@@ -96,6 +96,5 @@ type RunStore interface {
 }
 
 type ChatStore interface {
-	CreateChatRequest(ctx context.Context, request []byte) (*uuid.UUID, error)
-	CreateChatResponse(ctx context.Context, response []byte) (*uuid.UUID, error)
+	CreateChatRequest(ctx context.Context, request []byte, response []byte, runId uuid.UUID) (*uuid.UUID, error)
 }

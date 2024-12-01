@@ -10,89 +10,62 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-func apiCreateNewChatCompletionRequestHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
+func apiCreateNewChatHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
 	ctx := r.Context()
 
-	// Get payload
-	var payload CreateNewChatCompletionRequestBody
-	err := json.NewDecoder(r.Body).Decode(&payload)
-	if err != nil {
+	var payload ChatCompletion
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
 		return
 	}
 
-	// b64 decode
-	decoded, err := base64.StdEncoding.DecodeString(payload.RequestData)
+	jsonRequest, err := validateAndDecodeRequest(payload.RequestData)
 	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Invalid base64 format", err.Error())
+		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Request: %s", err.Error()), "")
 		return
 	}
 
-	// Check that the request is valid
-	var v openai.ChatCompletionRequest
-	err = json.Unmarshal(decoded, &v)
+	jsonResponse, err := validateAndDecodeResponse(payload.ResponseData)
 	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Invalid request format", err.Error())
+		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Response: %s", err.Error()), "")
 		return
 	}
 
-	// Unmarshal into json
-	jsonRequest, err := json.Marshal(v)
+	id, err := store.CreateChatRequest(ctx, jsonRequest, jsonResponse, runId)
 	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Invalid request format", err.Error())
-		return
-	}
-
-	id, err := store.CreateChatRequest(ctx, jsonRequest)
-	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Error creating chat request", err.Error())
+		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Error creating chat request: %s", err.Error()), "")
 		return
 	}
 
 	respondJSON(w, id, http.StatusOK)
 }
 
-func apiCreateNewChatCompletionResponseHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
-	ctx := r.Context()
-
-	fmt.Printf("CreateNewChatCompletionResponseHandler: %v\n", runId)
-
-	// Get payload
-	var payload CreateNewChatCompletionResponseBody
-	err := json.NewDecoder(r.Body).Decode(&payload)
+// validateAndDecodeRequest handles the decoding and validation of the chat completion request
+func validateAndDecodeRequest(encodedData string) ([]byte, error) {
+	decodedRequest, err := base64.StdEncoding.DecodeString(encodedData)
 	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
-		return
+		return nil, fmt.Errorf("invalid base64 format: %w", err)
 	}
 
-	// b64 decode
-	decoded, err := base64.StdEncoding.DecodeString(payload.ResponseData)
-	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Invalid base64 format", err.Error())
-		return
+	var v openai.ChatCompletionRequest
+	if err = json.Unmarshal(decodedRequest, &v); err != nil {
+		return nil, fmt.Errorf("invalid request format: %w", err)
 	}
 
-	// Check that the response is valid
+	return json.Marshal(v)
+}
+
+// validateAndDecodeResponse handles the decoding and validation of the chat completion response
+func validateAndDecodeResponse(encodedData string) ([]byte, error) {
+	decodedResponse, err := base64.StdEncoding.DecodeString(encodedData)
+	if err != nil {
+		return nil, fmt.Errorf("invalid base64 format: %w", err)
+	}
+
 	var v openai.ChatCompletionResponse
-	err = json.Unmarshal(decoded, &v)
-	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Invalid response format", err.Error())
-		return
+	if err = json.Unmarshal(decodedResponse, &v); err != nil {
+		return nil, fmt.Errorf("invalid response format: %w", err)
 	}
 
-	jsonResponse, err := json.Marshal(v)
-	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Invalid response format", err.Error())
-		return
-	}
-
-	id, err := store.CreateChatResponse(ctx, jsonResponse)
-	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Error creating chat response", err.Error())
-		return
-	}
-
-	fmt.Printf("%s\n", string(jsonResponse))
-
-	respondJSON(w, id, http.StatusOK)
+	return json.Marshal(v)
 }
