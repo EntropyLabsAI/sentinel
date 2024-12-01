@@ -1694,31 +1694,25 @@ func (s *PostgresqlStore) UpdateRunResult(ctx context.Context, runId uuid.UUID, 
 	return nil
 }
 
-func (s *PostgresqlStore) CreateChatRequest(ctx context.Context, request []byte) (*uuid.UUID, error) {
+func (s *PostgresqlStore) CreateChatRequest(ctx context.Context, request []byte, response []byte, runId uuid.UUID) (*uuid.UUID, error) {
 	if len(request) == 0 {
 		return nil, fmt.Errorf("request is empty")
 	}
 
-	query := `INSERT INTO chat_request (request_data) VALUES ($1) RETURNING id`
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error starting transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	query := `
+		INSERT INTO chat (request_data, response_data, run_id) 
+		VALUES ($1, $2, $3) RETURNING id
+	`
 	var id uuid.UUID
-	err := s.db.QueryRowContext(ctx, query, request).Scan(&id)
+	err = tx.QueryRowContext(ctx, query, request, response, runId).Scan(&id)
 	if err != nil {
 		return nil, fmt.Errorf("error creating chat request: %w", err)
-	}
-
-	return &id, nil
-}
-
-func (s *PostgresqlStore) CreateChatResponse(ctx context.Context, response []byte) (*uuid.UUID, error) {
-	if len(response) == 0 {
-		return nil, fmt.Errorf("response is empty")
-	}
-
-	query := `INSERT INTO chat_response (response_data) VALUES ($1) RETURNING id`
-	var id uuid.UUID
-	err := s.db.QueryRowContext(ctx, query, response).Scan(&id)
-	if err != nil {
-		return nil, fmt.Errorf("error creating chat response: %w", err)
 	}
 
 	return &id, nil

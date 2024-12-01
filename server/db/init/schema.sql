@@ -142,15 +142,10 @@ CREATE TABLE supervisionresult (
     chosen_toolrequest_id UUID REFERENCES toolrequest(id) NULL
 );
 
--- New tables
-CREATE TABLE chat_request (
+CREATE TABLE chat (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    request_data JSONB DEFAULT '{}' NOT NULL
-);
-
-CREATE TABLE chat_response (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    response_data JSONB DEFAULT '{}' NOT NULL
+    request_data JSONB DEFAULT '{}' NOT NULL,
+    response_data JSONB DEFAULT '{}' NOT NULL,
+    run_id UUID REFERENCES run(id) NOT NULL
 );

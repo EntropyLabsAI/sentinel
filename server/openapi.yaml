@@ -919,7 +919,7 @@ paths:
         - Supervision
 
   # Unreleased routes
-  /run/{run_id}/new_chat_completion_request:
+  /run/{run_id}/chat:
     parameters:
       - name: run_id
         in: path
@@ -929,45 +929,16 @@ paths:
           format: uuid
     post:
       summary: Create a new chat completion request from an existing run
-      operationId: CreateNewChatCompletionRequest
+      operationId: CreateNewChat
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateNewChatCompletionRequestBody"
+              $ref: "#/components/schemas/ChatCompletion"
       responses:
         "200":
-          description: New completion request created
-          content:
-            # Schema is arbitrary JSON object
-            application/json:
-              schema:
-                type: string
-                format: uuid
-      tags:
-        - Run
-
-  /run/{run_id}/new_chat_completion_response:
-    parameters:
-      - name: run_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    post:
-      summary: Create a new chat completion response from an existing run
-      operationId: CreateNewChatCompletionResponse
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateNewChatCompletionResponseBody"
-      responses:
-        "200":
-          description: New chat completion response created
+          description: New chat completion created
           content:
             application/json:
               schema:
@@ -979,27 +950,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
       tags:
         - Run
 
 components:
   schemas:
-    CreateNewChatCompletionRequestBody:
+    ChatCompletion:
+      description: The raw b64 encoded JSON of the request and response data sent/received from the LLM.
       type: object
       properties:
         request_data:
           type: string
           format: base64
-      required:
-        - request_data
-
-    CreateNewChatCompletionResponseBody:
-      type: object
-      properties:
         response_data:
           type: string
           format: base64
       required:
+        - request_data
         - response_data
 
     ErrorResponse:
