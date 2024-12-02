@@ -935,7 +935,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ChatCompletion"
+              $ref: "#/components/schemas/SentinelChat"
       responses:
         "200":
           description: New chat completion created
@@ -961,20 +961,6 @@ paths:
 
 components:
   schemas:
-    ChatCompletion:
-      description: The raw b64 encoded JSON of the request and response data sent/received from the LLM.
-      type: object
-      properties:
-        request_data:
-          type: string
-          format: base64
-        response_data:
-          type: string
-          format: base64
-      required:
-        - request_data
-        - response_data
-
     ErrorResponse:
       type: object
       properties:
@@ -1227,15 +1213,14 @@ components:
           $ref: "#/components/schemas/MessageRole"
         content:
           type: string
-        type:
-          description: The type of content in the message, either text or b64 encoded audio
-          $ref: "#/components/schemas/MessageType"
         source:
           type: string
         tool_calls:
           type: array
           items:
-            $ref: "#/components/schemas/ToolCall"
+            $ref: "#/components/schemas/SentinelToolCall"
+        type:
+          $ref: "#/components/schemas/MessageType"
       required:
         - content
         - role
@@ -1393,26 +1378,6 @@ components:
       required:
         - message
 
-    ToolCall:
-      type: object
-      properties:
-        id:
-          type: string
-        function:
-          type: string
-        arguments:
-          type: object
-          additionalProperties: true
-        type:
-          type: string
-        parse_error:
-          type: string
-      required:
-        - id
-        - function
-        - arguments
-        - type
-
     Usage:
       type: object
       properties:
@@ -1511,3 +1476,77 @@ components:
         - project_id
         - name
         - created_at
+
+    SentinelChat:
+      description: The raw b64 encoded JSON of the request and response data sent/received from the LLM.
+      type: object
+      properties:
+        request_data:
+          type: string
+          format: base64
+        response_data:
+          type: string
+          format: base64
+      required:
+        - request_data
+        - response_data
+
+    SentinelMessage:
+      type: object
+      properties:
+        sentinel_id:
+          type: string
+        role:
+          type: string
+          enum: [system, user, assistant, function, tool]
+        content:
+          type: string
+        tool_calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/SentinelToolCall"
+        type:
+          description: The type of content in the message, either text or b64 encoded audio
+          $ref: "#/components/schemas/MessageType"
+      required:
+        - role
+        - content
+
+    SentinelToolCall:
+      type: object
+      properties:
+        id:
+          type: string
+        tool_id:
+          type: string
+        type:
+          type: string
+          enum: [function]
+        name:
+          type: string
+        arguments:
+          type: string
+          description: Arguments in JSON format
+      required:
+        - sentinel_id
+        - tool_id
+        - type
+        - function
+
+    SentinelChoice:
+      type: object
+      properties:
+        sentinel_id:
+          type: string
+        index:
+          type: integer
+        message:
+          $ref: "#/components/schemas/SentinelMessage"
+        finish_reason:
+          type: string
+          enum: [stop, length, function_call, tool_calls, content_filter, null]
+      required:
+        - sentinel_id
+        - index
+        - message
+        - finish_reason
