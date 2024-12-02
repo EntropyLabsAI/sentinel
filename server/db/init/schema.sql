@@ -1,6 +1,7 @@
 -- First drop tables in reverse dependency order
-DROP TABLE IF EXISTS chat_response CASCADE;
-DROP TABLE IF EXISTS chat_request CASCADE;
+DROP TABLE IF EXISTS msg CASCADE;
+DROP TABLE IF EXISTS choice CASCADE;
+DROP TABLE IF EXISTS chat CASCADE;
 DROP TABLE IF EXISTS supervisionresult CASCADE;
 DROP TABLE IF EXISTS supervisionrequest_status CASCADE;
 DROP TABLE IF EXISTS supervisionrequest CASCADE;
@@ -148,4 +149,18 @@ CREATE TABLE chat (
     request_data JSONB DEFAULT '{}' NOT NULL,
     response_data JSONB DEFAULT '{}' NOT NULL,
     run_id UUID REFERENCES run(id) NOT NULL
+);
+
+CREATE TABLE choice (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chat_id UUID REFERENCES chat(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    choice_data JSONB DEFAULT '{}' NOT NULL
+);
+
+CREATE TABLE msg (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    choice_id UUID REFERENCES choice(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    message_data JSONB DEFAULT '{}' NOT NULL
 );
