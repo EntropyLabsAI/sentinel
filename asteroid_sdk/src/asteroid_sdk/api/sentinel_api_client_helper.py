@@ -1,147 +1,154 @@
 import asyncio
-from entropy_labs.supervision.config import (
+from asteroid_sdk.supervision.config import (
     SupervisionDecision,
     SupervisionDecisionType,
     supervision_config,
+    ModifiedData
 )
 from langchain_core.tools.structured import StructuredTool
-from entropy_labs.supervision.inspect_ai._config import FRONTEND_URL
-from entropy_labs.supervision.supervisors import auto_approve_supervisor
+from asteroid_sdk.supervision.inspect_ai._config import FRONTEND_URL
+from asteroid_sdk.supervision.supervisors import auto_approve_supervisor
 from rich.console import Console
 from inspect_ai.util._console import input_screen
 import time
-from entropy_labs.sentinel_api_client.sentinel_api_client.client import Client
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.client import Client
 from typing import Union
 from uuid import UUID
 
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.run.update_run_status import sync_detailed as update_run_status_sync_detailed
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.run.update_run_result import sync_detailed as update_run_result_sync_detailed
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.run.get_run import sync_detailed as get_run_sync_detailed
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.status import Status
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.update_run_result_body import UpdateRunResultBody
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.run.update_run_status import sync_detailed as update_run_status_sync_detailed
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.run.update_run_result import sync_detailed as update_run_result_sync_detailed
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.run.get_run import sync_detailed as get_run_sync_detailed
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.status import Status
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.update_run_result_body import UpdateRunResultBody
 
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervision.get_supervision_request_status import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.supervision.get_supervision_request_status import (
     sync_detailed as get_supervision_status_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervision.get_supervision_result import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.supervision.get_supervision_result import (
     sync_detailed as get_supervision_result_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervision_result import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.supervision_result import (
     SupervisionResult
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.status import Status
-from entropy_labs.sentinel_api_client.sentinel_api_client.types import UNSET
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_type import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.status import Status
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.types import UNSET
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.supervisor_type import (
     SupervisorType,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.tool.create_run_tool import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.request_group.get_request_group import (
+    sync_detailed as get_request_group_sync_detailed,
+)
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.tool.create_run_tool import (
     sync_detailed as create_tool_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervisor.create_supervisor import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.supervisor.create_supervisor import (
     sync_detailed as create_supervisor_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor import Supervisor
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervisor.create_tool_supervisor_chains import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.supervisor import Supervisor
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.supervisor.create_tool_supervisor_chains import (
     sync_detailed as create_tool_supervisor_chains_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.run.update_run_status import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.run.update_run_status import (
     sync_detailed as update_run_status_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.task.create_task import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.task.create_task import (
     sync_detailed as create_task_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.run.update_run_result import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.run.update_run_result import (
     sync_detailed as update_run_result_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervisor.get_tool_supervisor_chains import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.supervisor.get_tool_supervisor_chains import (
     sync_detailed as get_tool_supervisor_chains_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.request_group.create_tool_request_group import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.request_group.create_tool_request_group import (
     sync_detailed as create_tool_request_group_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.request_group.get_run_request_groups import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.request_group.get_run_request_groups import (
     sync_detailed as get_request_groups_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.request_group.get_request_group_status import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.request_group.get_request_group_status import (
     sync_detailed as get_request_group_status_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervision.create_supervision_request import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.supervision.create_supervision_request import (
     sync_detailed as create_supervision_request_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.supervision.create_supervision_result import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.supervision.create_supervision_result import (
     sync_detailed as create_supervision_result_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.request_group.create_tool_request import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.request_group.create_tool_request import (
     sync_detailed as create_tool_request_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.request_group.get_request_group_status import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.request_group.get_request_group_status import (
     sync_detailed as get_request_group_status_sync_detailed,
 )
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.request_group.get_tool_request import (
+    sync_detailed as get_tool_request_sync_detailed,
+)
 
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.update_run_result_body import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.update_run_result_body import (
     UpdateRunResultBody
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.decision import Decision
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_attributes import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.decision import Decision
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.tool_attributes import (
     ToolAttributes,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.create_task_body import CreateTaskBody
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.create_task_body import CreateTaskBody
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.tool_request import (
     ToolRequest,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request_group import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.tool_request_group import (
     ToolRequestGroup,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.run import Run 
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.create_run_tool_body import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.run import Run 
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.create_run_tool_body import (
     CreateRunToolBody,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.create_run_tool_body_attributes import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.create_run_tool_body_attributes import (
     CreateRunToolBodyAttributes,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervision_request import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.supervision_request import (
     SupervisionRequest,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_attributes import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.supervisor_attributes import (
     SupervisorAttributes,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.chain_request import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.chain_request import (
     ChainRequest,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.arguments import Arguments
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_chain import SupervisorChain
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.arguments import Arguments
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.supervisor_chain import SupervisorChain
 from datetime import datetime, timezone
 import inspect
-from entropy_labs.utils.utils import get_function_code
+from asteroid_sdk.utils.utils import get_function_code
 from typing import List, Optional, Any, Callable
 from uuid import UUID, uuid4
-from entropy_labs.sentinel_api_client.sentinel_api_client.client import Client
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.project.create_project import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.client import Client
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.project.create_project import (
     sync_detailed as create_project_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.api.run.create_run import (
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.api.run.create_run import (
     sync_detailed as create_run_sync_detailed,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.create_project_body import CreateProjectBody
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.create_project_body import CreateProjectBody
 import logging
-from entropy_labs.supervision.config import supervision_config, SupervisionContext
+from asteroid_sdk.supervision.config import supervision_config, SupervisionContext
 from typing import Optional, List, Callable
 import yaml
 import fnmatch
 import copy
 
-def register_project(project_name: str, entropy_labs_backend_url: str, run_result_tags=["passed", "failed"]) -> UUID:
+def register_project(project_name: str, asteroid_backend_url: str, run_result_tags=["passed", "failed"]) -> UUID:
     """
     Registers a new project using the Sentinel API.
 
     Args:
         project_name (str): The name of the project to create.
-        entropy_labs_backend_url (str): The URL of the Entropy Labs backend.
+        asteroid_backend_url (str): The URL of the Asteroid backend.
 
     Returns:
         UUID: The project ID.
     """
-    client = Client(base_url=entropy_labs_backend_url)
+    client = Client(base_url=asteroid_backend_url)
     # Set the client in the supervision config
     supervision_config.client = client
 
@@ -201,7 +208,7 @@ def register_task(project_id: UUID, task_name: str, task_description: Optional[s
     return task_id
 
 
-def create_run(project_id: UUID, task_id: UUID, run_name: Optional[str] = None, entropy_labs_backend_url: Optional[str] = None,
+def create_run(project_id: UUID, task_id: UUID, run_name: Optional[str] = None, asteroid_backend_url: Optional[str] = None,
                tools: Optional[List[Callable]] = None) -> UUID:
     """
     Creates a new run for a task under a project using the Sentinel API.
@@ -210,7 +217,7 @@ def create_run(project_id: UUID, task_id: UUID, run_name: Optional[str] = None, 
         project_id (UUID): The ID of the project.
         task_id (UUID): The ID of the task.
         run_name (Optional[str]): The name of the run.
-        entropy_labs_backend_url (Optional[str]): The URL of the Entropy Labs backend.
+        asteroid_backend_url (Optional[str]): The URL of the Asteroid backend.
         tools (Optional[List[Callable]]): The tools to register. If None, all tools with @supervise() decorators are registered.
 
     Returns:
@@ -219,12 +226,12 @@ def create_run(project_id: UUID, task_id: UUID, run_name: Optional[str] = None, 
     if run_name is None:
         run_name = f"run-{uuid4()}" #TODO: Have fun run names
     
-    if entropy_labs_backend_url is None:
+    if asteroid_backend_url is None:
         client = supervision_config.client
         if client is None:
-            raise Exception("Client not set. Please provide the entropy_labs_backend_url or set the client in the supervision config.")
+            raise Exception("Client not set. Please provide the asteroid_backend_url or set the client in the supervision config.")
     else:
-        client = Client(base_url=entropy_labs_backend_url)
+        client = Client(base_url=asteroid_backend_url)
         supervision_config.client = client
 
     # Retrieve project and task by IDs
@@ -555,7 +562,7 @@ def get_human_supervision_decision_api(
         )
         if response.status_code == 200 and response.parsed:
             supervision_result = response.parsed
-            return map_result_to_decision(supervision_result)
+            return map_result_to_decision(supervision_result, client)
         else:
             return SupervisionDecision(
                 decision=SupervisionDecisionType.ESCALATE,
@@ -580,7 +587,7 @@ def get_human_supervision_decision_api(
         explanation="Unexpected supervision status."
     )
 
-def map_result_to_decision(result: SupervisionResult) -> SupervisionDecision:
+def map_result_to_decision(result: SupervisionResult, client: Client) -> SupervisionDecision:
     decision_map = {
         'approve': SupervisionDecisionType.APPROVE,
         'reject': SupervisionDecisionType.REJECT,
@@ -590,8 +597,12 @@ def map_result_to_decision(result: SupervisionResult) -> SupervisionDecision:
     }
     decision_type = decision_map.get(result.decision.value.lower(), SupervisionDecisionType.ESCALATE)
     modified_output = None
-    if decision_type == SupervisionDecisionType.MODIFY and result.toolrequest is not UNSET:  #TODO: Make the modified output work
-        modified_output = result.toolrequest  # Assuming toolrequest contains the modified output
+    if decision_type == SupervisionDecisionType.APPROVE and result.chosen_toolrequest_id:
+        decision_type = SupervisionDecisionType.MODIFY
+        # tool_request = get_request_group_sync_detailed(request_group_id=)        
+
+        tool_request = get_tool_request_sync_detailed(tool_request_id=result.chosen_toolrequest_id, client=client)
+        modified_output = ModifiedData(tool_kwargs=tool_request.arguments.to_dict())  # original_inspect_ai_call will be added later
     return SupervisionDecision(
         decision=decision_type,
         explanation=result.reasoning,
@@ -659,6 +670,24 @@ def get_tool_request_groups(run_id: UUID, tool_id: UUID, client: Client) -> List
             print(f"Failed to retrieve request groups for run ID {run_id}. Response: {response}")
     except Exception as e:
         print(f"Error retrieving request groups: {e}, Response: {response}")
+
+    return None
+
+def get_tool_request_group_by_id(request_group_id: UUID, client: Client) -> ToolRequestGroup | None:
+    """
+    Get a tool request group by its ID.
+    """
+    try:
+        response = get_request_group_by_id_sync_detailed(
+            request_group_id=request_group_id,
+            client=client,
+        )
+        if response.status_code == 200 and response.parsed:
+            return response.parsed
+        else:
+            print(f"Failed to retrieve tool request group. Response: {response}")
+    except Exception as e:
+        print(f"Error retrieving tool request group: {e}, Response: {response}")
 
     return None
 
@@ -881,7 +910,7 @@ def _serialize_arguments(tool_args: list[Any], tool_kwargs: dict[str, Any]) -> d
     return arguments_dict
 
 
-def register_samples_with_entropy_labs(tasks, project_id, approval):
+def register_samples_with_asteroid(tasks, project_id, approval):
     samples = []
     for idx, sample in enumerate(tasks.dataset.samples):
         # We need to assign an ID to each sample and register the task
@@ -906,7 +935,7 @@ def get_sample_result(sample_id: str, timeout: Optional[int] = 300) -> str:
     Returns:
         str: The result of the run.
     """
-    from entropy_labs.supervision.config import get_supervision_config
+    from asteroid_sdk.supervision.config import get_supervision_config
     supervision_config = get_supervision_config()
     local_run = supervision_config.get_run_by_name(sample_id)
     run_id = local_run.run_id
@@ -932,7 +961,7 @@ def update_run_status_by_sample_id(sample_id: str, status: Status) -> None:
         status (str): The new status to set.
         client (Union[AuthenticatedClient, Client]): The client to use for the request.
     """
-    from entropy_labs.supervision.config import get_supervision_config
+    from asteroid_sdk.supervision.config import get_supervision_config
     supervision_config = get_supervision_config()
     local_run = supervision_config.get_run_by_name(sample_id)
     run_id = local_run.run_id

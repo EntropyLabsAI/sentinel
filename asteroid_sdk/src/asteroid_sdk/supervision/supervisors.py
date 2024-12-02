@@ -10,7 +10,7 @@ import inspect
 import json
 from openai import OpenAI
 from inspect_ai.tool import ToolCall
-from entropy_labs.sentinel_api_client.sentinel_api_client.client import Client
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.client import Client
 from uuid import UUID
 
 client = OpenAI()

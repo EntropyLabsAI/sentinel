@@ -4,12 +4,12 @@ from typing import List, Dict, Optional, Tuple, Set, Literal
 from inspect_ai.solver import TaskState
 from inspect_ai.tool import ToolCall
 from inspect_ai.approval import Approval
-from entropy_labs.supervision.config import SupervisionDecision, SupervisionDecisionType
-from entropy_labs.api.sentinel_api_client_helper import get_human_supervision_decision_api
+from asteroid_sdk.supervision.config import SupervisionDecision, SupervisionDecisionType
+from asteroid_sdk.api.sentinel_api_client_helper import get_human_supervision_decision_api
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
-from entropy_labs.sentinel_api_client.sentinel_api_client.client import Client
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.client import Client
 from uuid import UUID
 
 def prompt_user_cli_approval(
@@ -249,7 +249,7 @@ def human_supervisor_wrapper(task_state: TaskState, call: ToolCall, timeout: int
 
 
 
-def _transform_entropy_labs_approval_to_inspect_ai_approval(approval_decision: SupervisionDecision) -> Approval:
+def _transform_asteroid_approval_to_inspect_ai_approval(approval_decision: SupervisionDecision) -> Approval:
     """
     Transform an EntropyLabs SupervisionDecision to an InspectAI Approval
     """

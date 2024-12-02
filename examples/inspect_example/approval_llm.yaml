@@ -1,5 +1,5 @@
 approvers:
-  - name: entropy_labs/llm_approver
+  - name: asteroid_sdk/llm_approver
     tools: "*"
     instructions: |
       As an overseeing agent, please follow these guidelines for each LLM tool action:

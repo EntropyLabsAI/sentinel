@@ -3,9 +3,10 @@ from inspect_ai import Task, eval, task
 from inspect_ai.dataset import Sample
 from inspect_ai.solver import generate, system_message, use_tools
 from inspect_ai.tool import bash, python
-from entropy_labs.api import register_project, create_run, register_inspect_approvals, register_task
+from asteroid_sdk.api import register_project, register_samples_with_asteroid
 import random
 import logging
+from inspect_ai.tool import web_browser
 
 
 # Set up logging
@@ -62,28 +63,15 @@ def approval_demo() -> Task:
         sandbox="docker",
     )
 
-def register_samples_with_entropy_labs(tasks, project_id, approval):
-    samples = []
-    for idx, sample in enumerate(tasks.dataset.samples):
-        # We need to assign an ID to each sample and register the task
-        if sample.id is None:
-            print(f"Each sample must have an ID, adding {idx} to the ID")
-            sample.id = f"{idx}"
-        task_id = register_task(project_id=project_id, task_name=sample.id)
-        run_id = create_run(project_id=project_id, task_id=task_id, run_name=sample.id)
-        register_inspect_approvals(run_id=run_id, approval_file=approval)
-        samples.append(sample)
-    return samples
-
 if __name__ == "__main__":
     approval_file_name = "approval_human.yaml"
     approval = (Path(__file__).parent / approval_file_name).as_posix()
     
     tasks = approval_demo()
     
-    # Register the project and create the run with Entropy Labs
-    project_id = register_project(project_name="inspect-example", entropy_labs_backend_url="http://localhost:8080")
-    tasks.dataset.samples = register_samples_with_entropy_labs(tasks, project_id, approval)
+    # Register the project and create the run with Asteroid
+    project_id = register_project(project_name="inspect-example", asteroid_backend_url="http://localhost:8080")
+    tasks.dataset.samples = register_samples_with_asteroid(tasks, project_id, approval)
     
     eval(tasks, approval=approval, trace=True, model="openai/gpt-4o-mini")
     

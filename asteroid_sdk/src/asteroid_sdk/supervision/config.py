@@ -1,25 +1,25 @@
 from typing import Any, Callable, Dict, List, Optional, Literal
-from entropy_labs.sentinel_api_client.sentinel_api_client.types import UNSET
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.types import UNSET
 from enum import Enum
 import random
 import json
 from pydantic import BaseModel, Field
-from entropy_labs.mocking.policies import MockPolicy
+from asteroid_sdk.mocking.policies import MockPolicy
 from threading import Lock
 from inspect_ai.solver import TaskState
 from inspect_ai.tool import ToolCall, Tool
 from inspect_ai.model import ChatMessage, ChatMessageAssistant, ChatMessageTool, ModelOutput, ChatMessageUser, ChatMessageSystem
 from uuid import UUID, uuid4
 from inspect_ai._util.content import Content, ContentText
-from entropy_labs.supervision.langchain.utils import extract_messages_from_events
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.task_state import TaskState as APITaskState
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.message import Message
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.message_role import MessageRole
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.message_type import MessageType
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_call import ToolCall as ApiToolCall
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_call_arguments import ToolCallArguments
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool import Tool as ApiTool
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.output import Output as ApiOutput
+from asteroid_sdk.supervision.langchain.utils import extract_messages_from_events
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.task_state import TaskState as APITaskState
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.message import Message
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.message_role import MessageRole
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.message_type import MessageType
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.tool_call import ToolCall as ApiToolCall
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.tool_call_arguments import ToolCallArguments
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.tool import Tool as ApiTool
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.output import Output as ApiOutput
 import json
 import copy
 import logging
@@ -608,8 +608,8 @@ def convert_task_state(task_state: TaskState) -> APITaskState:
     Converts Inspect AI TaskState object into the Sentinel API client's TaskState model.
     They should be identical when serialized.
     """
-    from entropy_labs.sentinel_api_client.sentinel_api_client.types import UNSET
-    from entropy_labs.sentinel_api_client.sentinel_api_client.models.task_state import TaskState as APITaskState
+    from asteroid_sdk.sentinel_api_client.sentinel_api_client.types import UNSET
+    from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.task_state import TaskState as APITaskState
 
     # Convert messages
     messages = [convert_message(msg) for msg in task_state.messages]
@@ -672,10 +672,10 @@ def convert_anthropic_message(msg: Dict) -> Message:
     Converts an Anthropic message dict to a Message object in the API model.
     """
 
-    from entropy_labs.sentinel_api_client.sentinel_api_client.models.message import Message
-    from entropy_labs.sentinel_api_client.sentinel_api_client.models.message_type import MessageType
-    from entropy_labs.sentinel_api_client.sentinel_api_client.models.message_role import MessageRole
-    from entropy_labs.sentinel_api_client.sentinel_api_client.types import UNSET
+    from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.message import Message
+    from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.message_type import MessageType
+    from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.message_role import MessageRole
+    from asteroid_sdk.sentinel_api_client.sentinel_api_client.types import UNSET
 
     # Extract role
     role_str = msg.get('role', 'assistant')
@@ -742,9 +742,9 @@ def convert_anthropic_tool_call(tool_use: Dict) -> ApiToolCall:
     """
     Converts an Anthropic tool use dict to an ApiToolCall object.
     """
-    from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_call import ToolCall as ApiToolCall
-    from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_call_arguments import ToolCallArguments
-    from entropy_labs.sentinel_api_client.sentinel_api_client.types import UNSET
+    from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.tool_call import ToolCall as ApiToolCall
+    from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.tool_call_arguments import ToolCallArguments
+    from asteroid_sdk.sentinel_api_client.sentinel_api_client.types import UNSET
 
     id_ = tool_use.get('id', '')
     name = tool_use.get('name', '')
@@ -785,7 +785,7 @@ def convert_tool_call(tool_call: ToolCall) -> ApiToolCall:
 
 
 def convert_output(output: ModelOutput) -> ApiOutput:
-    from entropy_labs.sentinel_api_client.sentinel_api_client.models.output import Output as ApiOutput
+    from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.output import Output as ApiOutput
 
     return ApiOutput(
         model=output.model if output.model else UNSET,
@@ -797,10 +797,10 @@ def convert_openai_message(openai_msg: Dict[str, Any]) -> Message:
     """
     Converts an OpenAI message dict to a Message object in the API model.
     """
-    from entropy_labs.sentinel_api_client.sentinel_api_client.models.message import Message
-    from entropy_labs.sentinel_api_client.sentinel_api_client.models.message_role import MessageRole
-    from entropy_labs.sentinel_api_client.sentinel_api_client.models.message_type import MessageType
-    from entropy_labs.sentinel_api_client.sentinel_api_client.types import UNSET
+    from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.message import Message
+    from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.message_role import MessageRole
+    from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.message_type import MessageType
+    from asteroid_sdk.sentinel_api_client.sentinel_api_client.types import UNSET
 
     role_str = openai_msg.get('role')
     content = openai_msg.get('content', '') or ''

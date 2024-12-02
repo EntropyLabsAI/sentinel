@@ -4,7 +4,7 @@ from inspect_ai.solver import generate, use_tools
 from inspect_ai.tool import web_browser
 from inspect_ai import Task, eval
 from pathlib import Path
-from entropy_labs.api import register_project, register_samples_with_entropy_labs, update_run_status_by_sample_id, get_sample_result
+from asteroid_sdk.api import register_project, register_samples_with_asteroid, update_run_status_by_sample_id, get_sample_result
 from inspect_ai.solver import TaskState
 from inspect_ai.scorer import (
     Score,
@@ -19,7 +19,7 @@ from typing import Optional
 
 
 @scorer(metrics=[accuracy(), stderr()])
-def entropy_labs_web_ui_scorer(timeout: Optional[int] = 300, wait_for_result: bool = True) -> Scorer:
+def asteroid_web_ui_scorer(timeout: Optional[int] = 300, wait_for_result: bool = True) -> Scorer:
     async def score(state: TaskState, target: Target) -> Score:
         
         # Update the run status to completed
@@ -44,14 +44,14 @@ def browser():
     return Task(
         dataset=[
             Sample(
-                input="Go to http://entropy-labs.ai/ and finish and sign up your interest with your email address which is 'hello@test.com'."
+                input="Go to http://asteroid.sh/ and finish and sign up your interest with your email address which is 'hello@test.com'."
             )
         ],
         solver=[
             use_tools(web_browser()),
             generate(),
         ],
-        scorer=entropy_labs_web_ui_scorer(),
+        scorer=asteroid_web_ui_scorer(),
         sandbox="docker",
     )
 
@@ -63,9 +63,9 @@ if __name__ == "__main__":
     
     tasks = browser()
     
-    # Register the project and create the run with Entropy Labs
-    project_id = register_project(project_name="inspect-web-browsing", entropy_labs_backend_url="http://localhost:8080")
-    tasks.dataset.samples = register_samples_with_entropy_labs(tasks, project_id, approval)
+    # Register the project and create the run with Asteroid
+    project_id = register_project(project_name="inspect-web-browsing", asteroid_ai_backend_url="http://localhost:8080")
+    tasks.dataset.samples = register_samples_with_asteroid(tasks, project_id, approval)
     
     eval(tasks, trace=True, model="openai/gpt-4o-mini", approval=approval)
     

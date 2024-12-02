@@ -3,11 +3,11 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "entropy_labs"
-version = "0.1.15"
-description = "Entropy Labs' Sentinel is an agent control plane that enables efficient oversight of thousands of parallel-running agents."
+name = "asteroid_sdk"
+version = "0.1.0"
+description = "Asteroid's Python SDK enables efficient control of thousands of agents."
 authors = [
-    {name = "Entropy Labs", email = "devs@entropy-labs.ai"},
+    {name = "Asteroid", email = "founders@asteroid.sh"},
 ]
 readme = "README.md"
 requires-python = ">=3.7"
@@ -24,15 +24,15 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/EntropyLabsAI/sentinel"
-Repository = "https://github.com/EntropyLabsAI/sentinel.git"
+Homepage = "https://asteroid.sh/"
+Repository = "https://github.com/asteroidai/sentinel"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
 packages = { find = { where = ["src"] } }
 
 [tool.setuptools.package-data]
-entropy_labs = ["py.typed", "**/*.py"]
+asteroid_sdk = ["py.typed", "**/*.py"]
 
 [project.entry-points.inspect_ai]
-entropy_labs = "entropy_labs.supervision.inspect_ai._registry"
+asteroid_sdk = "asteroid_sdk.supervision.inspect_ai._registry"

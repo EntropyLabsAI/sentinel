@@ -4,22 +4,22 @@ from inspect_ai.approval import Approval, Approver, approver
 from inspect_ai.solver import TaskState
 from inspect_ai.tool import ToolCall, ToolCallView
 from inspect_ai._util.registry import registry_lookup
-from entropy_labs.sentinel_api_client.sentinel_api_client.client import Client
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.client import Client
 from uuid import UUID
-from entropy_labs.supervision.config import supervision_config
-from entropy_labs.supervision.config import SupervisionDecision, SupervisionDecisionType
+from asteroid_sdk.supervision.config import supervision_config
+from asteroid_sdk.supervision.config import SupervisionDecision, SupervisionDecisionType
 from functools import wraps
-from entropy_labs.supervision.inspect_ai.utils import generate_tool_call_suggestions
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request import (
+from asteroid_sdk.supervision.inspect_ai.utils import generate_tool_call_suggestions
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.tool_request import (
     ToolRequest,
 )
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.status import Status
-from entropy_labs.supervision.inspect_ai.utils import tool_jsonable
-from entropy_labs.supervision.config import SupervisionContext, convert_message
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.status import Status
+from asteroid_sdk.supervision.inspect_ai.utils import tool_jsonable
+from asteroid_sdk.supervision.config import SupervisionContext, convert_message
 
 def prepare_approval(decision: SupervisionDecision) -> Approval:
-    from entropy_labs.supervision.common import _transform_entropy_labs_approval_to_inspect_ai_approval
-    return _transform_entropy_labs_approval_to_inspect_ai_approval(decision)
+    from asteroid_sdk.supervision.common import _transform_asteroid_approval_to_inspect_ai_approval
+    return _transform_asteroid_approval_to_inspect_ai_approval(decision)
 
 def get_tool_info(call_function: str, supervision_context: SupervisionContext) -> tuple[UUID, List[str]]:
     entry = supervision_context.get_supervised_function_entry(call_function)
@@ -30,10 +30,10 @@ def get_tool_info(call_function: str, supervision_context: SupervisionContext) -
     else:
         raise Exception(f"Tool ID for function {call_function} not found in the registry.")
 
-# Decorator for common Entropy Sentinel API interactions
-def with_entropy_supervision(supervisor_name_param: Optional[str] = None, n: Optional[int] = None):
+# Decorator for common Asteroid Sentinel API interactions
+def with_asteroid_supervision(supervisor_name_param: Optional[str] = None, n: Optional[int] = None):
     """
-    Decorator for common Entropy Sentinel API interactions.
+    Decorator for common Asteroid Sentinel API interactions.
     
     Args:
         supervisor_name_param: Name of the supervisor to use. If not provided, the name of the function will be used.
@@ -48,10 +48,10 @@ def with_entropy_supervision(supervisor_name_param: Optional[str] = None, n: Opt
             state: TaskState,
             **kwargs
         ) -> Approval:
-            from entropy_labs.api.sentinel_api_client_helper import SupervisorType
-            from entropy_labs.api.sentinel_api_client_helper import send_supervision_request
-            from entropy_labs.sentinel_api_client.sentinel_api_client.models.arguments import Arguments
-            from entropy_labs.api.sentinel_api_client_helper import (
+            from asteroid_sdk.api.sentinel_api_client_helper import SupervisorType
+            from asteroid_sdk.api.sentinel_api_client_helper import send_supervision_request
+            from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.arguments import Arguments
+            from asteroid_sdk.api.sentinel_api_client_helper import (
                 create_tool_request_group,
                 get_supervisor_chains_for_tool,
                 send_supervision_request,
@@ -210,7 +210,7 @@ def bash_approver(
         """
         Bash approver for Inspect AI.
         """
-        from entropy_labs.supervision.common import check_bash_command
+        from asteroid_sdk.supervision.common import check_bash_command
         command = str(next(iter(call.arguments.values()))).strip()
         is_approved, explanation = check_bash_command(
             command, allowed_commands, allow_sudo, command_specific_rules
@@ -235,7 +235,7 @@ def bash_approver(
     }
 
     # Apply decorator after setting attributes
-    decorated_approve = with_entropy_supervision(supervisor_name_param="bash_approver")(approve)
+    decorated_approve = with_asteroid_supervision(supervisor_name_param="bash_approver")(approve)
     return decorated_approve
 
 @approver
@@ -258,7 +258,7 @@ def python_approver(
         """
         Python approver for Inspect AI.
         """
-        from entropy_labs.supervision.common import check_python_code
+        from asteroid_sdk.supervision.common import check_python_code
         code = str(next(iter(call.arguments.values()))).strip()
         is_approved, explanation = check_python_code(
             code,
@@ -290,7 +290,7 @@ def python_approver(
     }
 
     # Apply decorator after setting attributes
-    decorated_approve = with_entropy_supervision(supervisor_name_param="python_approver")(approve)
+    decorated_approve = with_asteroid_supervision(supervisor_name_param="python_approver")(approve)
     return decorated_approve
 
 @approver
@@ -312,7 +312,7 @@ def human_approver(
         """
         Human approver for Inspect AI.
         """
-        from entropy_labs.supervision.common import human_supervisor_wrapper
+        from asteroid_sdk.supervision.common import human_supervisor_wrapper
         if state is None:
             return SupervisionDecision(
                 decision=SupervisionDecisionType.ESCALATE,
@@ -344,7 +344,7 @@ def human_approver(
     approve.supervisor_attributes = {"timeout": timeout, "n": n}
 
     # Apply decorator after setting attributes
-    decorated_approve = with_entropy_supervision(supervisor_name_param="human_approver", n=n)(approve)
+    decorated_approve = with_asteroid_supervision(supervisor_name_param="human_approver", n=n)(approve)
     return decorated_approve
 
 @approver
@@ -367,7 +367,7 @@ def llm_approver(
         """
         LLM approver for Inspect AI.
         """
-        from entropy_labs.supervision.supervisors import llm_supervisor
+        from asteroid_sdk.supervision.supervisors import llm_supervisor
         if state is None:
             return SupervisionDecision(
                 decision=SupervisionDecisionType.ESCALATE,
@@ -404,5 +404,5 @@ def llm_approver(
     }
 
     # Apply decorator after setting attributes
-    decorated_approve = with_entropy_supervision(supervisor_name_param="llm_approver")(approve)
+    decorated_approve = with_asteroid_supervision(supervisor_name_param="llm_approver")(approve)
     return decorated_approve
