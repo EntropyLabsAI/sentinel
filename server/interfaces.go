@@ -74,6 +74,7 @@ type ToolStore interface {
 	// GetToolFromValues(ctx context.Context, attributes map[string]interface{}, name string, description string, ignoredAttributes []string) (*Tool, error)
 	GetRunTools(ctx context.Context, id uuid.UUID) ([]Tool, error)
 	GetProjectTools(ctx context.Context, id uuid.UUID) ([]Tool, error)
+	GetToolFromName(ctx context.Context, name string) (*Tool, error)
 }
 
 type SupervisorStore interface {
@@ -96,5 +97,5 @@ type RunStore interface {
 }
 
 type ChatStore interface {
-	CreateChatRequest(ctx context.Context, request []byte, response []byte, runId uuid.UUID) (*uuid.UUID, error)
+	CreateChatRequest(ctx context.Context, runId uuid.UUID, request []byte, response []byte, choices []SentinelChoice) (*uuid.UUID, error)
 }

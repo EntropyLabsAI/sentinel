@@ -164,3 +164,10 @@ CREATE TABLE msg (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     message_data JSONB DEFAULT '{}' NOT NULL
 );
+
+CREATE TABLE tool_call (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    msg_id UUID REFERENCES msg(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    tool_call_data JSONB DEFAULT '{}' NOT NULL
+);

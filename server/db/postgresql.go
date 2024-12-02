@@ -100,6 +100,31 @@ func (s *PostgresqlStore) GetProjectFromName(ctx context.Context, name string) (
 	return &project, nil
 }
 
+func (s *PostgresqlStore) GetToolFromName(ctx context.Context, name string) (*sentinel.Tool, error) {
+	query := `
+		SELECT id, name, description, attributes, ignored_attributes, code
+		FROM tool
+		WHERE name = $1`
+
+	var tool sentinel.Tool
+	err := s.db.QueryRowContext(ctx, query, name).Scan(
+		&tool.Id,
+		&tool.Name,
+		&tool.Description,
+		&tool.Attributes,
+		pq.Array(&tool.IgnoredAttributes),
+		&tool.Code,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error getting tool from name: %w", err)
+	}
+
+	return &tool, nil
+}
+
 func (s *PostgresqlStore) GetToolFromValues(ctx context.Context, attributes map[string]interface{}, name string, description string, ignoredAttributes []string, code string) (*sentinel.Tool, error) {
 	query := `
 		SELECT id, name, description, attributes, ignored_attributes, code
@@ -424,9 +449,9 @@ func (s *PostgresqlStore) CreateToolRequestGroup(ctx context.Context, toolId uui
 		ToolRequests: make([]sentinel.ToolRequest, 0, len(request.ToolRequests)),
 	}
 
-	for _, toolRequest := range request.ToolRequests {
-		fmt.Printf("Creating tool request with type: %v and content: %s\n", *toolRequest.Message.Type, toolRequest.Message.Content)
-	}
+	// for _, toolRequest := range request.ToolRequests {
+	// 	fmt.Printf("Creating tool request with type: %v and content: %s\n", *toolRequest.Message.Type, toolRequest.Message.Content)
+	// }
 
 	// Create a new requestgroup
 	query := `
@@ -723,12 +748,12 @@ func (s *PostgresqlStore) CreateSupervisionRequest(
 
 func (s *PostgresqlStore) createMessage(ctx context.Context, tx *sql.Tx, message sentinel.Message) (*uuid.UUID, error) {
 	query := `
-		INSERT INTO message (id, role, content, type)
+		INSERT INTO msg ()
 		VALUES ($1, $2, $3, $4)`
 
-	fmt.Printf("Creating message with type: %v and content: %s\n", message.Type, message.Content)
+	// fmt.Printf("Creating message with type: %v and content: %s\n", message.Type, message.Content)
 	id := uuid.New()
-	_, err := tx.ExecContext(ctx, query, id, message.Role, message.Content, message.Type)
+	_, err := tx.ExecContext(ctx, query, id, message.Role, message.Content)
 	if err != nil {
 		return nil, fmt.Errorf("error creating message: %w", err)
 	}
@@ -1702,9 +1727,10 @@ func (s *PostgresqlStore) UpdateRunResult(ctx context.Context, runId uuid.UUID, 
 
 func (s *PostgresqlStore) CreateChatRequest(
 	ctx context.Context,
+	runId uuid.UUID,
 	request []byte,
 	response []byte,
-	runId uuid.UUID,
+	choices []sentinel.SentinelChoice,
 ) (*uuid.UUID, error) {
 	if len(request) == 0 {
 		return nil, fmt.Errorf("request is empty")
@@ -1726,9 +1752,95 @@ func (s *PostgresqlStore) CreateChatRequest(
 		return nil, fmt.Errorf("error creating chat entry: %w", err)
 	}
 
+	// Store the choices
+	err = s.createChatChoices(ctx, tx, id, choices)
+	if err != nil {
+		return nil, fmt.Errorf("error creating chat choices: %w", err)
+	}
+
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("error committing transaction: %w", err)
 	}
 
 	return &id, nil
+}
+
+func (s *PostgresqlStore) createChatChoices(
+	ctx context.Context,
+	tx *sql.Tx,
+	chatId uuid.UUID,
+	choices []sentinel.SentinelChoice,
+) error {
+	// Store the choices in the DB
+	for _, choice := range choices {
+		query := `
+			INSERT INTO choice (id, chat_id, choice_data)
+			VALUES ($1, $2, $3)
+		`
+
+		choiceData, err := json.Marshal(choice)
+		if err != nil {
+			return fmt.Errorf("error marshalling choice data: %w", err)
+		}
+
+		_, err = tx.ExecContext(ctx, query, choice.SentinelId, chatId, choiceData)
+		if err != nil {
+			return fmt.Errorf("error creating chat choice: %w", err)
+		}
+
+		// Store the message
+		query = `
+			INSERT INTO msg (id, choice_id, message_data)
+			VALUES ($1, $2, $3)
+		`
+		messageData, err := json.Marshal(choice.Message)
+		if err != nil {
+			return fmt.Errorf("error marshalling message data: %w", err)
+		}
+
+		msgId := choice.Message.SentinelId
+		if msgId == nil {
+			return fmt.Errorf("message ID is nil")
+		}
+
+		_, err = tx.ExecContext(ctx, query, *msgId, choice.SentinelId, messageData)
+		if err != nil {
+			return fmt.Errorf("error creating chat message: %w", err)
+		}
+
+		if choice.Message.ToolCalls != nil {
+			// Store the tool calls
+			err = s.createToolCalls(ctx, tx, *msgId, *choice.Message.ToolCalls)
+			if err != nil {
+				return fmt.Errorf("error creating tool calls: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *PostgresqlStore) createToolCalls(
+	ctx context.Context,
+	tx *sql.Tx,
+	choiceId string,
+	toolCalls []sentinel.SentinelToolCall,
+) error {
+	// Store the tool calls in the DB
+	for _, toolCall := range toolCalls {
+		query := `
+			INSERT INTO tool_call (id, choice_id, tool_call_data)
+			VALUES ($1, $2, $3)
+		`
+		toolCallData, err := json.Marshal(toolCall)
+		if err != nil {
+			return fmt.Errorf("error marshalling tool call data: %w", err)
+		}
+		_, err = tx.ExecContext(ctx, query, toolCall.Id, choiceId, toolCallData)
+		if err != nil {
+			return fmt.Errorf("error creating tool call: %w", err)
+		}
+	}
+
+	return nil
 }

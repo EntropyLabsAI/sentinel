@@ -1,6 +1,7 @@
 package sentinel
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -13,7 +14,7 @@ import (
 func apiCreateNewChatHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
 	ctx := r.Context()
 
-	var payload ChatCompletion
+	var payload SentinelChat
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
 		return
@@ -25,13 +26,16 @@ func apiCreateNewChatHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 		return
 	}
 
-	jsonResponse, err := validateAndDecodeResponse(payload.ResponseData)
+	jsonResponse, response, err := validateAndDecodeResponse(payload.ResponseData)
 	if err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Response: %s", err.Error()), "")
 		return
 	}
 
-	id, err := store.CreateChatRequest(ctx, jsonRequest, jsonResponse, runId)
+	// Parse out the choices into SentinelChoice objects
+	choices := convertChoices(ctx, response.Choices, store)
+
+	id, err := store.CreateChatRequest(ctx, runId, jsonRequest, jsonResponse, choices)
 	if err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Error creating chat request: %s", err.Error()), "")
 		return
@@ -56,16 +60,81 @@ func validateAndDecodeRequest(encodedData string) ([]byte, error) {
 }
 
 // validateAndDecodeResponse handles the decoding and validation of the chat completion response
-func validateAndDecodeResponse(encodedData string) ([]byte, error) {
+func validateAndDecodeResponse(encodedData string) ([]byte, *openai.ChatCompletionResponse, error) {
 	decodedResponse, err := base64.StdEncoding.DecodeString(encodedData)
 	if err != nil {
-		return nil, fmt.Errorf("invalid base64 format: %w", err)
+		return nil, nil, fmt.Errorf("invalid base64 format: %w", err)
 	}
 
 	var v openai.ChatCompletionResponse
 	if err = json.Unmarshal(decodedResponse, &v); err != nil {
-		return nil, fmt.Errorf("invalid response format: %w", err)
+		return nil, nil, fmt.Errorf("invalid response format: %w", err)
 	}
 
-	return json.Marshal(v)
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error marshalling response: %w", err)
+	}
+
+	return b, &v, nil
+}
+
+func convertChoices(ctx context.Context, choices []openai.ChatCompletionChoice, store ToolStore) []SentinelChoice {
+	var result []SentinelChoice
+	for _, choice := range choices {
+		message := convertMessage(ctx, choice.Message, store)
+
+		result = append(result, SentinelChoice{
+			Index:        choice.Index,
+			Message:      message,
+			FinishReason: SentinelChoiceFinishReason(choice.FinishReason),
+		})
+	}
+
+	return result
+}
+
+func convertMessage(ctx context.Context, message openai.ChatCompletionMessage, store ToolStore) SentinelMessage {
+	toolCalls := convertToolCalls(ctx, message.ToolCalls, store)
+
+	// Hardcode to text for now
+	t := Text
+
+	id := uuid.New().String()
+
+	return SentinelMessage{
+		SentinelId: &id,
+		Content:    message.Content,
+		Role:       SentinelMessageRole(message.Role),
+		ToolCalls:  &toolCalls,
+		Type:       &t,
+	}
+}
+
+func convertToolCalls(ctx context.Context, toolCalls []openai.ToolCall, store ToolStore) []SentinelToolCall {
+	var result []SentinelToolCall
+	for _, toolCall := range toolCalls {
+		toolCall := convertToolCall(ctx, toolCall, store)
+		if toolCall != nil {
+			result = append(result, *toolCall)
+		}
+	}
+	return result
+}
+
+func convertToolCall(ctx context.Context, toolCall openai.ToolCall, store ToolStore) *SentinelToolCall {
+	// Get this from the DB
+	tool, err := store.GetToolFromName(ctx, toolCall.Function.Name)
+	if err != nil {
+		return nil
+	}
+
+	id := uuid.New().String()
+	return &SentinelToolCall{
+		Id:        &id,
+		ToolId:    tool.Id.String(),
+		Type:      SentinelToolCallType(toolCall.Type),
+		Name:      &toolCall.Function.Name,
+		Arguments: &toolCall.Function.Arguments,
+	}
 }
