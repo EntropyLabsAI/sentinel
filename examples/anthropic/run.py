@@ -574,3 +574,7 @@ run_id = create_run(project_id=project_id, task_id=task_id, tools=tools)
 
 # Start the chatbot
 start_chatbot(start_prompt, tools, run_id)
+
+for run in runs:
+    run_id = sentinel_init(project, task, run)
+    agent.run(run_id)

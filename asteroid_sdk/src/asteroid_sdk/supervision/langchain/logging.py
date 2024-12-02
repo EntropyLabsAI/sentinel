@@ -11,7 +11,7 @@ from langchain.tools import BaseTool
 from langchain_core.messages import messages_to_dict
 import inspect
 
-from entropy_labs.supervision.config import supervision_config
+from asteroid_sdk.supervision.config import supervision_config
 
 class EntropyLabsCallbackHandler(BaseCallbackHandler):
     def __init__(self, tools: List[BaseTool], log_directory=".logs/langchain", single_log_file=False, log_filename=None, run_id: Optional[UUID] = None) -> None:

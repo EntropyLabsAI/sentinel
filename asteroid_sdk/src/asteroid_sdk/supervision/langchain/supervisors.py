@@ -1,7 +1,7 @@
 from typing import Callable, Dict, List, Optional, Set, Any
-from entropy_labs.supervision.config import SupervisionDecisionType, SupervisionDecision, supervision_config, SupervisionContext
+from asteroid_sdk.supervision.config import SupervisionDecisionType, SupervisionDecision, supervision_config, SupervisionContext
 from inspect_ai.tool import ToolCall
-from entropy_labs.sentinel_api_client.sentinel_api_client.client import Client
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.client import Client
 from uuid import UUID
 
 def human_supervisor(agent_id: str = "default_agent", timeout: int = 300, n: int = 1):
@@ -10,7 +10,7 @@ def human_supervisor(agent_id: str = "default_agent", timeout: int = 300, n: int
         """
         Human supervisor that requests approval via backend API or CLI.
         """
-        from entropy_labs.supervision.common import human_supervisor_wrapper
+        from asteroid_sdk.supervision.common import human_supervisor_wrapper
         
         context = supervision_config.context
         
@@ -47,7 +47,7 @@ def bash_supervisor(
         Callable: A supervisor function that checks bash commands.
     """
     def supervisor(func: Callable, ignored_attributes: List[str] = [], tool_kwargs: dict[str, Any] = {}) -> SupervisionDecision:
-        from entropy_labs.supervision.common import check_bash_command
+        from asteroid_sdk.supervision.common import check_bash_command
         
         command = tool_kwargs.get('command', '')
         is_approved, explanation = check_bash_command(
@@ -89,7 +89,7 @@ def python_supervisor(
         Callable: A supervisor function that checks Python code.
     """
     def supervisor(func: Callable, ignored_attributes: List[str] = [], tool_kwargs: dict[str, Any] = {}) -> SupervisionDecision:
-        from entropy_labs.supervision.common import check_python_code
+        from asteroid_sdk.supervision.common import check_python_code
         
         code = tool_kwargs.get('code', '')
         is_approved, explanation = check_python_code(

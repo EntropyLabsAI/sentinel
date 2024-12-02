@@ -8,12 +8,12 @@ from ..utils.utils import create_random_value
 from .llm_sampling import sample_from_llm
 import random
 from uuid import UUID, uuid4
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.supervisor_type import SupervisorType
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request import ToolRequest
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.arguments import Arguments
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.message import Message
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.task_state import TaskState
-from entropy_labs.sentinel_api_client.sentinel_api_client.models.tool_request_group import ToolRequestGroup
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.supervisor_type import SupervisorType
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.tool_request import ToolRequest
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.arguments import Arguments
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.message import Message
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.task_state import TaskState
+from asteroid_sdk.sentinel_api_client.sentinel_api_client.models.tool_request_group import ToolRequestGroup
 
 def supervise(
     mock_policy: Optional[MockPolicy] = None,
@@ -42,7 +42,7 @@ def supervise(
         @wraps(func)
         def wrapper(*tool_args, **tool_kwargs):
             
-            from entropy_labs.api.sentinel_api_client_helper import create_tool_request_group, get_supervisor_chains_for_tool, send_supervision_request, send_supervision_result, _serialize_arguments
+            from asteroid_sdk.api.sentinel_api_client_helper import create_tool_request_group, get_supervisor_chains_for_tool, send_supervision_request, send_supervision_result, _serialize_arguments
 
             supervision_context = supervision_config.get_all_runs()[0].supervision_context
             client = supervision_config.client  # Get the Sentinel API client

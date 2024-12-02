@@ -3,7 +3,7 @@
 
 # # AI Assistant with Supervisors Demo
 # 
-# Welcome to the AI Assistant with Supervisors demo! This notebook is designed to demonstrate how to use **Entropy Labs Supervisors** to supervise tool executions within an AI assistant. We'll walk through the code, explain key components, and show how to run the assistant.
+# Welcome to the AI Assistant with Supervisors demo! This notebook is designed to demonstrate how to use **Asteroid Supervisors** to supervise tool executions within an AI assistant. We'll walk through the code, explain key components, and show how to run the assistant.
 # 
 # ## Table of Contents
 # 
@@ -29,14 +29,14 @@
 # 
 # ## Introduction
 # 
-# In this demo, we'll create an AI assistant that can perform tasks like searching the internet, sending emails, creating calendar events, and booking flights. We'll use **Entropy Labs Supervisors** to supervise these tool executions, ensuring they comply with specified policies or require human approval when necessary.
+# In this demo, we'll create an AI assistant that can perform tasks like searching the internet, sending emails, creating calendar events, and booking flights. We'll use **Asteroid Supervisors** to supervise these tool executions, ensuring they comply with specified policies or require human approval when necessary.
 # 
-# **Important:** Before running the notebook, make sure that the Entropy Labs backend is running. You can start it with `docker compose up` in the root directory.
+# **Important:** Before running the notebook, make sure that the Asteroid backend is running. You can start it with `docker compose up` in the root directory.
 
 # ## Setup
 # First let's install the necessary libraries.
 
-# get_ipython().run_line_magic('pip', 'install entropy-labs inspect-ai openai duckduckgo-search bs4 ipywidgets')
+# get_ipython().run_line_magic('pip', 'install asteroid-sdk inspect-ai openai duckduckgo-search bs4 ipywidgets')
 
 
 # 
@@ -55,10 +55,10 @@ from openai import OpenAI
 from openai.types.chat import ChatCompletionMessage
 from duckduckgo_search import DDGS
 
-from entropy_labs.supervision import supervise
-from entropy_labs.api import register_project, create_run, register_task, submit_run_status, submit_run_result, Status
-from entropy_labs.supervision.supervisors import human_supervisor, llm_supervisor, Supervisor
-from entropy_labs.supervision.config import (
+from asteroid_sdk.supervision import supervise
+from asteroid_sdk.api import register_project, create_run, register_task, submit_run_status, submit_run_result, Status
+from asteroid_sdk.supervision.supervisors import human_supervisor, llm_supervisor, Supervisor
+from asteroid_sdk.supervision.config import (
     SupervisionDecision,
     SupervisionDecisionType,
     SupervisionContext,
@@ -70,7 +70,7 @@ client = OpenAI()
 
 # ## Supervisors
 # 
-# In Entropy Labs, **supervisors** are functions that can approve, modify, or escalate tool calls based on certain policies or checks.
+# In Asteroid, **supervisors** are functions that can approve, modify, or escalate tool calls based on certain policies or checks.
 
 # ### The `supervise()` Decorator
 # 
@@ -94,10 +94,10 @@ client = OpenAI()
 
 # ### Custom Supervisor: `check_email_address_supervisor`
 # 
-# Entropy labs provide multiple configurable supervisors, but you can also define your own specific to your application. Here we define a custom supervisor to check if an email address is in an email whitelist before sending an email.
+# Asteroid provide multiple configurable supervisors, but you can also define your own specific to your application. Here we define a custom supervisor to check if an email address is in an email whitelist before sending an email.
 
 # Constants
-ENTROPY_LABS_EMAIL = "devs@entropy-labs.ai"
+ASTEROID_EMAIL = "founders@asteroid.sh"
 
 def check_email_address_supervisor(whitelisted_emails: List[str]) -> Supervisor:
     """
@@ -256,7 +256,7 @@ EMAIL_INVITATION_POLICY = (
 
 
 @supervise(supervision_functions=[
-    [check_email_address_supervisor(whitelisted_emails=[ENTROPY_LABS_EMAIL])],
+    [check_email_address_supervisor(whitelisted_emails=[ASTEROID_EMAIL])],
     [llm_supervisor(instructions=EMAIL_INVITATION_POLICY), human_supervisor()]
 ])
 def send_email(to: str, subject: str, body: str):
@@ -708,13 +708,13 @@ tools = [
     book_flight
 ]
 
-# Register project, task, and run with Entropy Labs
-entropy_labs_backend_url = "http://localhost:8080"
+# Register project, task, and run with Asteroid
+asteroid_backend_url = "http://localhost:8080"
 
-# Entropy Labs backend needs to be running
+# Asteroid backend needs to be running
 project_id = register_project(
     project_name="Email Assistant",
-    entropy_labs_backend_url=entropy_labs_backend_url
+    asteroid_backend_url=asteroid_backend_url
 )
 task_id = register_task(project_id=project_id, task_name="Email Assistant")
 run_id = create_run(project_id=project_id, task_id=task_id, tools=tools)
@@ -741,4 +741,4 @@ start_chatbot(start_prompt, tools, run_id)
 
 # # Conclusion
 # 
-# In this notebook, we've demonstrated how to create basic AI assistant with calendar event creation, email sending, and flight booking with supervised tool executions using Entropy Labs Supervisors. By defining custom supervisors and utilizing built-in ones, we can ensure that tool calls conform to specified policies, enhancing the safety and reliability of AI assistants.
+# In this notebook, we've demonstrated how to create basic AI assistant with calendar event creation, email sending, and flight booking with supervised tool executions using Asteroid Supervisors. By defining custom supervisors and utilizing built-in ones, we can ensure that tool calls conform to specified policies, enhancing the safety and reliability of AI assistants.
