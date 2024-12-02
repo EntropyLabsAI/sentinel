@@ -597,8 +597,7 @@ def map_result_to_decision(result: SupervisionResult, client: Client) -> Supervi
     }
     decision_type = decision_map.get(result.decision.value.lower(), SupervisionDecisionType.ESCALATE)
     modified_output = None
-    if decision_type == SupervisionDecisionType.APPROVE and result.chosen_toolrequest_id:
-        decision_type = SupervisionDecisionType.MODIFY
+    if decision_type == SupervisionDecisionType.MODIFY and result.chosen_toolrequest_id:
         # tool_request = get_request_group_sync_detailed(request_group_id=)        
 
         tool_request = get_tool_request_sync_detailed(tool_request_id=result.chosen_toolrequest_id, client=client)
