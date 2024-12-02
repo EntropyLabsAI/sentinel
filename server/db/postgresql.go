@@ -1700,7 +1700,12 @@ func (s *PostgresqlStore) UpdateRunResult(ctx context.Context, runId uuid.UUID, 
 	return nil
 }
 
-func (s *PostgresqlStore) CreateChatRequest(ctx context.Context, request []byte, response []byte, runId uuid.UUID) (*uuid.UUID, error) {
+func (s *PostgresqlStore) CreateChatRequest(
+	ctx context.Context,
+	request []byte,
+	response []byte,
+	runId uuid.UUID,
+) (*uuid.UUID, error) {
 	if len(request) == 0 {
 		return nil, fmt.Errorf("request is empty")
 	}
@@ -1718,7 +1723,11 @@ func (s *PostgresqlStore) CreateChatRequest(ctx context.Context, request []byte,
 	var id uuid.UUID
 	err = tx.QueryRowContext(ctx, query, request, response, runId).Scan(&id)
 	if err != nil {
-		return nil, fmt.Errorf("error creating chat request: %w", err)
+		return nil, fmt.Errorf("error creating chat entry: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("error committing transaction: %w", err)
 	}
 
 	return &id, nil
