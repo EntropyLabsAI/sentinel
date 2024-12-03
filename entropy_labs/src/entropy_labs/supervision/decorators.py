@@ -127,10 +127,10 @@ def supervise(
                         break
                     elif decision.decision == SupervisionDecisionType.REJECT:
                         explanations = " ".join([f"Decision: {d.decision}, Explanation: {d.explanation}" for d in chain_decisions])
-                        return (f"The agent requested to execute {func.__qualname__} but it was rejected. "
+                        return maybe_return_awaitable( f"The agent requested to execute {func.__qualname__} but it was rejected. "
                                 f"Explanation: {decision.explanation}. "
                                 f"Chain Explanations: {explanations}\n"
-                                "This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior. You should try different action using the feedback!")
+                                "This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior. You should try different action using the feedback!", func)
                     elif decision.decision == SupervisionDecisionType.ESCALATE:
                         # if last decision in chain is escalate, we continue to the next supervisor chain
                         if position_in_chain == len(supervisors) - 1:
@@ -141,16 +141,16 @@ def supervise(
                         break
                     elif decision.decision == SupervisionDecisionType.TERMINATE:
                         explanations = " ".join([f"Decision: {d.decision}, Explanation: {d.explanation}" for d in chain_decisions])
-                        return (f"Execution of {func.__qualname__} should be terminated. "
+                        return maybe_return_awaitable(f"Execution of {func.__qualname__} should be terminated. "
                                 f"Explanation: {decision.explanation}. "
                                 f"Chain Explanations: {explanations}\n"
-                                "This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior. You should try different action using the feedback!")
+                                "This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior. You should try different action using the feedback!", func)
                     else:
                         print(f"Unknown decision: {decision.decision}. Cancelling execution.")
                         explanations = " ".join([f"Decision: {d.decision}, Explanation: {d.explanation}" for d in chain_decisions])
-                        return (f"Execution of {func.__qualname__} was cancelled due to an unknown supervision decision. "
+                        return maybe_return_awaitable(f"Execution of {func.__qualname__} was cancelled due to an unknown supervision decision. "
                                 f"Chain Explanations: {explanations}\n"
-                                "This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior. You should try different action using the feedback!")
+                                "This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior. You should try different action using the feedback!", func)
 
             # Check decisions and apply modifications if any
             if all(decision.decision in [SupervisionDecisionType.APPROVE, SupervisionDecisionType.MODIFY] for decision in all_decisions):
@@ -176,11 +176,20 @@ def supervise(
                 return func(*final_args, **final_kwargs)
             else:
                 explanations = " ".join([f"Supervisor {idx}: Decision: {d.decision}, Explanation: {d.explanation} \n" for idx, d in enumerate(all_decisions)])
-                return (f"The agent requested to execute a function but it was rejected by some supervisors.\n"
+                return maybe_return_awaitable(f"The agent requested to execute a function but it was rejected by some supervisors.\n"
                         f"Chain Explanations: \n{explanations}\n"
-                        "This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior. You should try something else!")
+                        "This is not a message from the user but from a supervisor system that is helping the agent to improve its behavior. You should try something else!", func)
         return wrapper
     return decorator
+
+
+def maybe_return_awaitable(result, func):
+    if asyncio.iscoroutinefunction(func):
+        async def async_result():
+            return result
+        return async_result()
+    else:
+        return result
 
 
 def call_supervisor_function(supervisor_func, func, supervision_context, supervision_request_id: UUID, ignored_attributes: List[str], tool_args: List[Any], tool_kwargs: dict[str, Any], decision: Optional[SupervisionDecision] = None):

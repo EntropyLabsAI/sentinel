@@ -35,7 +35,10 @@ export function MessagesDisplay({ messages }: { messages: Message[] }) {
         <AccordionContent className="">
           <Card className="border-none">
             <CardContent>
-              <div className="overflow-auto" ref={scrollAreaRef}>
+              <div
+                ref={scrollAreaRef}
+                className="max-h-[100vh] overflow-y-auto pr-2"
+              >
                 {messages.map((message, index) => (
                   <MessageDisplay key={index} message={message} index={index} />
                 ))}
@@ -55,7 +58,7 @@ interface MessageDisplayProps {
 
 export function MessageDisplay({ message, index }: MessageDisplayProps) {
   const getBubbleStyle = (role: string) => {
-    const baseStyle = "rounded-2xl p-3 mb-2 break-words";
+    const baseStyle = "rounded-2xl p-3 mb-2 break-words max-w-[800px]";
     switch (role.toLowerCase()) {
       case 'assistant':
         return `${baseStyle} bg-blue-500 text-white`;

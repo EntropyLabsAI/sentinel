@@ -64,7 +64,7 @@ if __name__ == "__main__":
     tasks = browser()
     
     # Register the project and create the run with Entropy Labs
-    project_id = register_project(project_name="inspect-web-browsing", entropy_labs_backend_url="http://localhost:8080")
+    project_id = register_project(project_name="inspect-web-browsing", entropy_labs_backend_url="http://localhost:8099")
     tasks.dataset.samples = register_samples_with_entropy_labs(tasks, project_id, approval)
     
     eval(tasks, trace=True, model="openai/gpt-4o-mini", approval=approval)
