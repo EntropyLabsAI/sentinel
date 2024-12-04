@@ -295,92 +295,6 @@ def submit_run_result(run_id: UUID, result: str):
     except Exception as e:
         print(f"Error submitting run result: {e}, Response: {response}")
 
-def register_inspect_approvals(run_id: UUID, approval_file: str):
-    """
-    Reads the inspect approval YAML file and registers the approvals and tools for the run.
-    
-    Args:
-        run_id (UUID): The ID of the run.
-        approval_file (str): The path to the inspect approval YAML file.
-    """
-    from inspect_ai._util.registry import registry_find
-    
-    # Read the approval file
-    with open(approval_file, 'r') as file:
-        approvals = yaml.safe_load(file)
-
-    client = supervision_config.client
-    if client is None:
-        raise Exception("Client not set in the supervision config. Please set the client before calling this function.")
-
-    run = supervision_config.get_run_by_id(run_id)
-    if run is None:
-        raise Exception(f"Run with ID {run_id} not found in supervision config.")
-    supervision_context = run.supervision_context
-
-    supervised_tools = {}
-    # For each approver in the approval file
-    for approver in approvals.get('approvers', []):
-        # Get the tools pattern (may be a wildcard)
-        tools_pattern = approver.get('tools', '*')
-
-        # Find tools from the registry matching the pattern
-        tools = registry_find(lambda x: x.type == "tool")
-
-        # Filter tools based on tools_pattern
-        matching_tools = []
-        for tool in tools:
-            tool_name = tool.__registry_info__.name.removeprefix('inspect_ai/')
-            # tools_pattern may be a list of patterns
-            if isinstance(tools_pattern, list):
-                if any(fnmatch.fnmatch(tool_name, pattern) for pattern in tools_pattern):
-                    matching_tools.append(tool)
-            else:
-                if fnmatch.fnmatch(tool_name, tools_pattern):
-                    matching_tools.append(tool)
-
-        # For each matching tool, add supervised function to the supervision context
-        for tool in matching_tools:
-            # The tool is a function decorated with @tool in inspect_ai
-            func = tool
-
-            # Get the supervisor function (approval function)
-            approver_name = approver.get('name')
-            approval_funcs = registry_find(lambda x: x.type == "approver" and x.name == approver_name)
-
-            if approver_name =='auto':
-                logging.info(f"Auto approval function '{approver_name}' found in the registry. Not registering approval function.")
-                continue
-
-            if not approval_funcs:
-                logging.warning(f"Approval function '{approver_name}' not found in the registry.")
-                continue
-
-            approval_func = approval_funcs[0]
-
-            # Configure the approval function with attributes from the approval file
-            supervisor_attributes = {k: v for k, v in approver.items() if k not in ['name', 'tools']}
-            approval_func_initialised = approval_func(**supervisor_attributes)
-
-            if func not in supervised_tools:
-                supervised_tools[func] = [approval_func_initialised]
-            else:
-                supervised_tools[func].append(approval_func_initialised)
-
-    for tool_func in supervised_tools:
-        supervision_functions = supervised_tools[tool_func]
-        supervision_context.add_supervised_function(
-            func=tool_func,
-            supervision_functions=[supervision_functions],
-            ignored_attributes=[]
-        )
-
-    # Register the tools and supervisors with the Sentinel API
-    register_tools_and_supervisors(run_id=run_id)
-    
-    
-# Create an asyncio.Lock to prevent concurrent console access
-# _console_lock = asyncio.Lock()
 
 def register_tools_and_supervisors(run_id: UUID, tools: Optional[List[Callable | StructuredTool]] = None):
     """
@@ -881,19 +795,6 @@ def _serialize_arguments(tool_args: list[Any], tool_kwargs: dict[str, Any]) -> d
     return arguments_dict
 
 
-def register_samples_with_entropy_labs(tasks, project_id, approval):
-    samples = []
-    for idx, sample in enumerate(tasks.dataset.samples):
-        # We need to assign an ID to each sample and register the task
-        if sample.id is None:
-            print(f"Each sample must have an ID, adding {idx} to the ID")
-            sample.id = f"{idx}"
-        task_id = register_task(project_id=project_id, task_name=sample.id)
-        run_id = create_run(project_id=project_id, task_id=task_id, run_name=sample.id)
-        register_inspect_approvals(run_id=run_id, approval_file=approval)
-        samples.append(sample)
-    return samples
-
 def get_sample_result(sample_id: str, timeout: Optional[int] = 300) -> str:
     """
     Retrieves the result of a sample run by its sample ID.
@@ -914,11 +815,12 @@ def get_sample_result(sample_id: str, timeout: Optional[int] = 300) -> str:
     i = 0
     while timeout is None or i < timeout:
         run = get_run(run_id, supervision_config.client)
+        logging.info(f"Getting result for run {run_id}")
         if run.result != '':
             logging.info(f"Run {run_id} is {run.result}")
             return run.result
-        time.sleep(1)
-        i += 1
+        time.sleep(2)
+        i += 2
 
     logging.warning(f"Timeout reached for run {run_id} without a result.")
     return ''
