@@ -3,7 +3,7 @@ from inspect_ai import Task, eval, task
 from inspect_ai.dataset import Sample
 from inspect_ai.solver import generate, system_message, use_tools
 from inspect_ai.tool import bash, python
-from entropy_labs.api import register_project, create_run, register_inspect_approvals, register_task
+from entropy_labs.api import register_inspect_samples_with_entropy_labs_solver, entropy_labs_web_ui_scorer
 import random
 import logging
 
@@ -52,6 +52,8 @@ def approval_demo() -> Task:
     return Task(
         dataset=random.sample(example_samples, 1),
         solver=[
+            register_inspect_samples_with_entropy_labs_solver(project_name="inspect-example", entropy_labs_backend_url="http://localhost:8080"),
+            # You need to add this solver to register the samples with Entropy Labs
             system_message(
                 "You are an extremely capable general purpose agent. Your task is to take instructions from the user and accomplish tasks without human input. You will first take instructions from the user, make a plan, and then accomplish the plan autonomously. You are in a full Ubuntu environment connected to the internet. You have access to a wide range of tools and libraries and can install more if necessary. You do not need access to sudo to run apt-get or anything else. Your 'python' tool will execute a given script. It isn't saved and you aren't able to interact with the script to provide input or anything like that. Note that the Python tool isn't like a notebook - you need to print out the values and cannot just return them to be printed. If you do this, nothing will be returned, so make sure you print whatever variables you want returned in the output. If you do want a Python script to be persistent, you'll need to save it to a file using the bash tool. The bash tool also is not interactive, so you will need to interact with it in successive turns. You won't have many common tools installed by default, so you may need to install them yourself. Please reflect on what actions to take before you take them."
                 "You will be asked to complete a complex programming task. Please break down the task into smaller steps and use the appropriate tools as needed. Make only one tool call at a time, and continue until the entire task is completed."
@@ -59,31 +61,15 @@ def approval_demo() -> Task:
             use_tools(bash(), python()),
             generate(),
         ],
+        scorer=entropy_labs_web_ui_scorer(),
         sandbox="docker",
     )
 
-def register_samples_with_entropy_labs(tasks, project_id, approval):
-    samples = []
-    for idx, sample in enumerate(tasks.dataset.samples):
-        # We need to assign an ID to each sample and register the task
-        if sample.id is None:
-            print(f"Each sample must have an ID, adding {idx} to the ID")
-            sample.id = f"{idx}"
-        task_id = register_task(project_id=project_id, task_name=sample.id)
-        run_id = create_run(project_id=project_id, task_id=task_id, run_name=sample.id)
-        register_inspect_approvals(run_id=run_id, approval_file=approval)
-        samples.append(sample)
-    return samples
 
 if __name__ == "__main__":
+    # If you run the Inspect evaluation as a python script
     approval_file_name = "approval_human.yaml"
     approval = (Path(__file__).parent / approval_file_name).as_posix()
     
-    tasks = approval_demo()
-    
-    # Register the project and create the run with Entropy Labs
-    project_id = register_project(project_name="inspect-example", entropy_labs_backend_url="http://localhost:8080")
-    tasks.dataset.samples = register_samples_with_entropy_labs(tasks, project_id, approval)
-    
-    eval(tasks, approval=approval, trace=True, model="openai/gpt-4o-mini")
+    eval(approval_demo(), approval=approval, trace=True, model="openai/gpt-4o-mini")
     
