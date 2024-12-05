@@ -84,7 +84,9 @@ func convertChoices(ctx context.Context, choices []openai.ChatCompletionChoice, 
 	for _, choice := range choices {
 		message := convertMessage(ctx, choice.Message, store)
 
+		id := uuid.New().String()
 		result = append(result, SentinelChoice{
+			SentinelId:   id,
 			Index:        choice.Index,
 			Message:      message,
 			FinishReason: SentinelChoiceFinishReason(choice.FinishReason),
