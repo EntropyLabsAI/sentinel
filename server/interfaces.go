@@ -69,7 +69,7 @@ type ToolRequestStore interface {
 }
 
 type ToolStore interface {
-	CreateTool(ctx context.Context, runId uuid.UUID, attributes map[string]interface{}, name string, description string, ignoredAttributes []string, code string) (uuid.UUID, error)
+	CreateTool(ctx context.Context, runId uuid.UUID, attributes map[string]interface{}, name string, description string, ignoredAttributes []string, code string) (*Tool, error)
 	GetTool(ctx context.Context, id uuid.UUID) (*Tool, error)
 	// GetToolFromValues(ctx context.Context, attributes map[string]interface{}, name string, description string, ignoredAttributes []string) (*Tool, error)
 	GetRunTools(ctx context.Context, id uuid.UUID) ([]Tool, error)

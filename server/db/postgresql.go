@@ -1246,11 +1246,11 @@ func (s *PostgresqlStore) CreateTool(
 	description string,
 	ignoredAttributes []string,
 	code string,
-) (uuid.UUID, error) {
+) (*sentinel.Tool, error) {
 	// Convert attributes to JSON if it's not already
 	attributesJSON, err := json.Marshal(attributes)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("error marshaling tool attributes: %w", err)
+		return nil, fmt.Errorf("error marshaling tool attributes: %w", err)
 	}
 
 	if ignoredAttributes == nil {
@@ -1272,10 +1272,20 @@ func (s *PostgresqlStore) CreateTool(
 		code,
 	)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("error creating tool: %w", err)
+		return nil, fmt.Errorf("error creating tool: %w", err)
 	}
 
-	return id, nil
+	tool := sentinel.Tool{
+		Id:                &id,
+		RunId:             runId,
+		Name:              name,
+		Description:       description,
+		Attributes:        attributes,
+		IgnoredAttributes: &ignoredAttributes,
+		Code:              code,
+	}
+
+	return &tool, nil
 }
 
 func (s *PostgresqlStore) GetRun(ctx context.Context, id uuid.UUID) (*sentinel.Run, error) {

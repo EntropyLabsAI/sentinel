@@ -280,15 +280,13 @@ paths:
           content:
             application/json:
               schema:
-                type: string
-                format: uuid
+                $ref: "#/components/schemas/Tool"
         "201":
           description: Tool created
           content:
             application/json:
               schema:
-                type: string
-                format: uuid
+                $ref: "#/components/schemas/Tool"
       tags:
         - Tool
 
@@ -1593,9 +1591,18 @@ components:
           type: string
         tool_call_ids:
           type: array
+          # Each item is a Tool call ID along with the Tool ID
           items:
-            type: string
+            $ref: "#/components/schemas/ToolCallIds"
       required:
         - choice_id
         - message_id
         - tool_call_ids
+
+    ToolCallIds:
+      type: object
+      properties:
+        tool_call_id:
+          type: string
+        tool_id:
+          type: string
