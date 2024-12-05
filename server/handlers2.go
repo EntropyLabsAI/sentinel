@@ -156,14 +156,16 @@ func extractChatIds(chatId uuid.UUID, choices []SentinelChoice) ChatIds {
 		choiceIds := ChoiceIds{
 			ChoiceId:    choice.SentinelId,
 			MessageId:   *choice.Message.SentinelId,
-			ToolCallIds: make([]string, 0),
+			ToolCallIds: make([]ToolCallIds, 0),
 		}
 
-		// Extract tool call IDs if they exist
 		if choice.Message.ToolCalls != nil {
 			for _, toolCall := range *choice.Message.ToolCalls {
 				if toolCall.Id != nil {
-					choiceIds.ToolCallIds = append(choiceIds.ToolCallIds, *toolCall.Id)
+					choiceIds.ToolCallIds = append(choiceIds.ToolCallIds, ToolCallIds{
+						ToolCallId: toolCall.Id,
+						ToolId:     &toolCall.ToolId,
+					})
 				}
 			}
 		}

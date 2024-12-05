@@ -219,13 +219,18 @@ func apiCreateRunToolHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 	// 	return
 	// }
 
-	toolId, err := store.CreateTool(ctx, runId, t.Attributes, t.Name, t.Description, t.IgnoredAttributes, t.Code)
+	tool, err := store.CreateTool(ctx, runId, t.Attributes, t.Name, t.Description, t.IgnoredAttributes, t.Code)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error creating tool", err.Error())
 		return
 	}
 
-	respondJSON(w, toolId, http.StatusCreated)
+	if tool == nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error creating tool", "tool is nil")
+		return
+	}
+
+	respondJSON(w, tool, http.StatusCreated)
 }
 
 func apiGetSupervisorHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store SupervisorStore) {
