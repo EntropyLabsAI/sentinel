@@ -942,8 +942,7 @@ paths:
           content:
             application/json:
               schema:
-                type: string
-                format: uuid
+                $ref: "#/components/schemas/ChatIds"
         "400":
           description: Bad request
           content:
@@ -1218,12 +1217,32 @@ components:
         tool_calls:
           type: array
           items:
-            $ref: "#/components/schemas/SentinelToolCall"
+            $ref: "#/components/schemas/ToolCall"
         type:
           $ref: "#/components/schemas/MessageType"
       required:
         - content
         - role
+
+    ToolCall:
+      type: object
+      properties:
+        id:
+          type: string
+        function:
+          type: string
+        arguments:
+          type: object
+          additionalProperties: true
+        type:
+          type: string
+        parse_error:
+          type: string
+      required:
+        - id
+        - function
+        - arguments
+        - type
 
     MessageType:
       type: string
@@ -1550,3 +1569,33 @@ components:
         - index
         - message
         - finish_reason
+
+    ChatIds:
+      type: object
+      properties:
+        chat_id:
+          type: string
+          format: uuid
+        choice_ids:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChoiceIds"
+      required:
+        - chat_id
+        - choice_ids
+
+    ChoiceIds:
+      type: object
+      properties:
+        choice_id:
+          type: string
+        message_id:
+          type: string
+        tool_call_ids:
+          type: array
+          items:
+            type: string
+      required:
+        - choice_id
+        - message_id
+        - tool_call_ids

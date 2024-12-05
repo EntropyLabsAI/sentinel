@@ -107,12 +107,14 @@ func (s *PostgresqlStore) GetToolFromName(ctx context.Context, name string) (*se
 		WHERE name = $1`
 
 	var tool sentinel.Tool
+	var attributesJSON []byte
+	var toolIgnoredAttributes []string
 	err := s.db.QueryRowContext(ctx, query, name).Scan(
 		&tool.Id,
 		&tool.Name,
 		&tool.Description,
-		&tool.Attributes,
-		pq.Array(&tool.IgnoredAttributes),
+		&attributesJSON,
+		pq.Array(&toolIgnoredAttributes),
 		&tool.Code,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -121,6 +123,17 @@ func (s *PostgresqlStore) GetToolFromName(ctx context.Context, name string) (*se
 	if err != nil {
 		return nil, fmt.Errorf("error getting tool from name: %w", err)
 	}
+
+	// Parse the JSON attributes if they exist
+	if len(attributesJSON) > 0 {
+		var attrs map[string]interface{}
+		if err := json.Unmarshal(attributesJSON, &attrs); err != nil {
+			return nil, fmt.Errorf("error parsing tool attributes: %w", err)
+		}
+		tool.Attributes = attrs
+	}
+
+	tool.IgnoredAttributes = &toolIgnoredAttributes
 
 	return &tool, nil
 }
@@ -1817,20 +1830,20 @@ func (s *PostgresqlStore) createChatChoices(
 func (s *PostgresqlStore) createToolCalls(
 	ctx context.Context,
 	tx *sql.Tx,
-	choiceId string,
+	msgId string,
 	toolCalls []sentinel.SentinelToolCall,
 ) error {
 	// Store the tool calls in the DB
 	for _, toolCall := range toolCalls {
 		query := `
-			INSERT INTO tool_call (id, choice_id, tool_call_data)
+			INSERT INTO tool_call (id, msg_id, tool_call_data)
 			VALUES ($1, $2, $3)
 		`
 		toolCallData, err := json.Marshal(toolCall)
 		if err != nil {
 			return fmt.Errorf("error marshalling tool call data: %w", err)
 		}
-		_, err = tx.ExecContext(ctx, query, toolCall.Id, choiceId, toolCallData)
+		_, err = tx.ExecContext(ctx, query, toolCall.Id, msgId, toolCallData)
 		if err != nil {
 			return fmt.Errorf("error creating tool call: %w", err)
 		}

@@ -41,7 +41,10 @@ func apiCreateNewChatHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 		return
 	}
 
-	respondJSON(w, id, http.StatusOK)
+	// Extract all IDs from the created chat structure
+	chatIds := extractChatIds(*id, choices)
+
+	respondJSON(w, chatIds, http.StatusOK)
 }
 
 // validateAndDecodeRequest handles the decoding and validation of the chat completion request
@@ -126,8 +129,10 @@ func convertToolCalls(ctx context.Context, toolCalls []openai.ToolCall, store To
 
 func convertToolCall(ctx context.Context, toolCall openai.ToolCall, store ToolStore) *SentinelToolCall {
 	// Get this from the DB
+	fmt.Printf("Tool call name: %s\n", toolCall.Function.Name)
 	tool, err := store.GetToolFromName(ctx, toolCall.Function.Name)
 	if err != nil {
+		fmt.Printf("Error getting tool: %s\n", err.Error())
 		return nil
 	}
 
@@ -139,4 +144,32 @@ func convertToolCall(ctx context.Context, toolCall openai.ToolCall, store ToolSt
 		Name:      &toolCall.Function.Name,
 		Arguments: &toolCall.Function.Arguments,
 	}
+}
+
+func extractChatIds(chatId uuid.UUID, choices []SentinelChoice) ChatIds {
+	result := ChatIds{
+		ChatId:    chatId,
+		ChoiceIds: make([]ChoiceIds, 0, len(choices)),
+	}
+
+	for _, choice := range choices {
+		choiceIds := ChoiceIds{
+			ChoiceId:    choice.SentinelId,
+			MessageId:   *choice.Message.SentinelId,
+			ToolCallIds: make([]string, 0),
+		}
+
+		// Extract tool call IDs if they exist
+		if choice.Message.ToolCalls != nil {
+			for _, toolCall := range *choice.Message.ToolCalls {
+				if toolCall.Id != nil {
+					choiceIds.ToolCallIds = append(choiceIds.ToolCallIds, *toolCall.Id)
+				}
+			}
+		}
+
+		result.ChoiceIds = append(result.ChoiceIds, choiceIds)
+	}
+
+	return result
 }
