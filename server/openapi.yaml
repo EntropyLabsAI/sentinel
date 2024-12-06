@@ -405,158 +405,136 @@ paths:
       tags:
         - Supervisor
 
-  /tool/{toolId}/request_group:
+  # /tool/{toolId}/request_group:
+  #   parameters:
+  #     - name: toolId
+  #       in: path
+  #       required: true
+  #       schema:
+  #         type: string
+  #         format: uuid
+  #   post:
+  #     summary: Create a new tool call for a tool
+  #     operationId: CreateToolCall
+  #     requestBody:
+  #       required: true
+  #       content:
+  #         application/json:
+  #           schema:
+  #             $ref: "#/components/schemas/ToolCall"
+  #     responses:
+  #       "201":
+  #         description: Request group created
+  #         content:
+  #           application/json:
+  #             schema:
+  #               $ref: "#/components/schemas/ToolCall"
+  #       "400":
+  #         description: Bad request
+  #         content:
+  #           application/json:
+  #             schema:
+  #               $ref: "#/components/schemas/ErrorResponse"
+  #     tags:
+  #       - ToolCall
+
+  # /run/{runId}/request_groups:
+  #   parameters:
+  #     - name: runId
+  #       in: path
+  #       required: true
+  #       schema:
+  #         type: string
+  #         format: uuid
+  #   get:
+  #     summary: Get all request groups for a run
+  #     operationId: GetRunRequestGroups
+  #     responses:
+  #       "200":
+  #         description: List of request groups
+  #         content:
+  #           application/json:
+  #             schema:
+  #               type: array
+  #               items:
+  #                 $ref: "#/components/schemas/ToolRequestGroup"
+  # tags:
+  #   - ToolCall
+
+  /tool_call/{toolCallId}:
     parameters:
-      - name: toolId
+      - name: toolCallId
         in: path
         required: true
         schema:
           type: string
           format: uuid
-    post:
-      summary: Create a new request group for a tool
-      operationId: CreateToolRequestGroup
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ToolRequestGroup"
+    get:
+      summary: Get a tool call
+      operationId: GetToolCall
       responses:
-        "201":
-          description: Request group created
+        "200":
+          description: Tool call
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ToolRequestGroup"
-        "400":
-          description: Bad request
+                $ref: "#/components/schemas/SentinelToolCall"
+        "404":
+          description: Tool call not found
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       tags:
-        - RequestGroup
+        - ToolCall
 
-  /run/{runId}/request_groups:
+  /tool_call/{toolCallId}/status:
     parameters:
-      - name: runId
+      - name: toolCallId
         in: path
         required: true
         schema:
           type: string
           format: uuid
     get:
-      summary: Get all request groups for a run
-      operationId: GetRunRequestGroups
+      summary: Get a tool call status
+      operationId: GetToolCallStatus
       responses:
         "200":
-          description: List of request groups
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/ToolRequestGroup"
-      tags:
-        - RequestGroup
-
-  /request_group/{requestGroupId}:
-    parameters:
-      - name: requestGroupId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    get:
-      summary: Get a request group
-      operationId: GetRequestGroup
-      responses:
-        "200":
-          description: Request group
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ToolRequestGroup"
-      tags:
-        - RequestGroup
-
-  /request_group/{requestGroupId}/status:
-    parameters:
-      - name: requestGroupId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    get:
-      summary: Get a request group status
-      operationId: GetRequestGroupStatus
-      responses:
-        "200":
-          description: Request group
+          description: Tool call
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Status"
       tags:
-        - RequestGroup
+        - ToolCall
 
-  /request_group/{requestGroupId}/tool_requests:
-    parameters:
-      - name: requestGroupId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    post:
-      summary: Create a new tool request for a request group
-      operationId: CreateToolRequest
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ToolRequest"
-      responses:
-        "201":
-          description: Tool request added to request group
-          content:
-            application/json:
-              schema:
-                type: string
-                format: uuid
-      tags:
-        - RequestGroup
-
-  /tool_request/{toolRequestId}:
-    parameters:
-      - name: toolRequestId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    get:
-      summary: Get a tool request
-      operationId: GetToolRequest
-      responses:
-        "200":
-          description: Tool request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ToolRequest"
-        "404":
-          description: Tool request not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-      tags:
-        - RequestGroup
+  # /tool_request/{toolRequestId}:
+  #   parameters:
+  #     - name: toolRequestId
+  #       in: path
+  #       required: true
+  #       schema:
+  #         type: string
+  #         format: uuid
+  #   get:
+  #     summary: Get a tool request
+  #     operationId: GetToolRequest
+  #     responses:
+  #       "200":
+  #         description: Tool request
+  #         content:
+  #           application/json:
+  #             schema:
+  #               $ref: "#/components/schemas/ToolRequest"
+  #       "404":
+  #         description: Tool request not found
+  #         content:
+  #           application/json:
+  #             schema:
+  #               $ref: "#/components/schemas/ErrorResponse"
+  #     tags:
+  #       - RequestGroup
 
   /tool/{toolId}:
     parameters:
@@ -608,36 +586,9 @@ paths:
       tags:
         - Tool
 
-  # /api/request_group/{requestGroupId}/chain/{chainId}/execution:
-  #   parameters:
-  #     - name: requestGroupId
-  #       in: path
-  #       required: true
-  #       schema:
-  #         type: string
-  #         format: uuid
-  #     - name: chainId
-  #       in: path
-  #       required: true
-  #       schema:
-  #         type: string
-  #         format: uuid
-  #   post:
-  #     summary: Create a new execution for a request group and chain
-  #     operationId: CreateChainExecution
-  #     responses:
-  #       "201":
-  #         description: Chain execution created
-  #       "400":
-  #         description: Bad request
-  #         content:
-  #           application/json:
-  #             schema:
-  #               $ref: "#/components/schemas/ErrorResponse"
-
-  ? /api/request_group/{requestGroupId}/chain/{chainId}/supervisor/{supervisorId}/supervision_request
+  ? /tool_call/{toolCallId}/chain/{chainId}/supervisor/{supervisorId}/supervision_request
   : parameters:
-      - name: requestGroupId
+      - name: toolCallId
         in: path
         required: true
         schema:
@@ -656,7 +607,7 @@ paths:
           type: string
           format: uuid
     post:
-      summary: Create a supervision request for a supervisor in a chain on a request group
+      summary: Create a supervision request for a supervisor in a chain on a tool call
       operationId: CreateSupervisionRequest
       requestBody:
         required: true
@@ -976,8 +927,8 @@ components:
     RunExecution:
       type: object
       properties:
-        request_group:
-          $ref: "#/components/schemas/ToolRequestGroup"
+        toolcall:
+          $ref: "#/components/schemas/ToolCall"
         chains:
           type: array
           items:
@@ -985,7 +936,7 @@ components:
         status:
           $ref: "#/components/schemas/Status"
       required:
-        - request_group
+        - toolcall
         - chains
         - status
 
@@ -1011,7 +962,7 @@ components:
         id:
           type: string
           format: uuid
-        request_group_id:
+        toolcall_id:
           type: string
           format: uuid
         chain_id:
@@ -1022,7 +973,7 @@ components:
           format: date-time
       required:
         - id
-        - request_group_id
+        - toolcall_id
         - chain_id
         - created_at
 
@@ -1160,45 +1111,45 @@ components:
         - chain_id
         - supervisors
 
-    ToolRequestGroup:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        created_at:
-          type: string
-          format: date-time
-        tool_requests:
-          type: array
-          items:
-            $ref: "#/components/schemas/ToolRequest"
-      required:
-        - tool_requests
+    # ToolRequestGroup:
+    #   type: object
+    #   properties:
+    #     id:
+    #       type: string
+    #       format: uuid
+    #     created_at:
+    #       type: string
+    #       format: date-time
+    #     tool_requests:
+    #       type: array
+    #       items:
+    #         $ref: "#/components/schemas/ToolRequest"
+    #   required:
+    #     - tool_requests
 
-    ToolRequest:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        requestgroup_id:
-          type: string
-          format: uuid
-        tool_id:
-          type: string
-          format: uuid
-        message:
-          $ref: "#/components/schemas/Message"
-        arguments:
-          $ref: "#/components/schemas/Arguments"
-        task_state:
-          $ref: "#/components/schemas/TaskState"
-      required:
-        - tool_id
-        - arguments
-        - message
-        - task_state
+    # ToolRequest:
+    #   type: object
+    #   properties:
+    #     id:
+    #       type: string
+    #       format: uuid
+    #     requestgroup_id:
+    #       type: string
+    #       format: uuid
+    #     tool_id:
+    #       type: string
+    #       format: uuid
+    #     message:
+    #       $ref: "#/components/schemas/Message"
+    #     arguments:
+    #       $ref: "#/components/schemas/Arguments"
+    #     task_state:
+    #       $ref: "#/components/schemas/TaskState"
+    #   required:
+    #     - tool_id
+    #     - arguments
+    #     - message
+    #     - task_state
 
     Message:
       type: object
@@ -1297,7 +1248,7 @@ components:
         supervision_request_id:
           type: string
           format: uuid
-        chosen_toolrequest_id:
+        toolcall_id:
           type: string
           format: uuid
         created_at:
@@ -1459,9 +1410,9 @@ components:
         chain_state:
           $ref: "#/components/schemas/ChainExecutionState"
           description: The state of the entire supervision chain, including previous supervision results
-        request_group:
-          $ref: "#/components/schemas/ToolRequestGroup"
-          description: The tool request group being supervised
+        toolcall:
+          $ref: "#/components/schemas/ToolCall"
+          description: The tool call being supervised
         run_id:
           type: string
           format: uuid
@@ -1511,7 +1462,7 @@ components:
     SentinelMessage:
       type: object
       properties:
-        sentinel_id:
+        id:
           type: string
         role:
           type: string
@@ -1525,6 +1476,9 @@ components:
         type:
           description: The type of content in the message, either text or b64 encoded audio
           $ref: "#/components/schemas/MessageType"
+        created_at:
+          type: string
+          format: date-time
       required:
         - role
         - content
@@ -1544,8 +1498,11 @@ components:
         arguments:
           type: string
           description: Arguments in JSON format
+        created_at:
+          type: string
+          format: date-time
       required:
-        - sentinel_id
+        - id
         - tool_id
         - type
         - function

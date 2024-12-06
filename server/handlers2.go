@@ -11,6 +11,21 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
+func apiGetToolCallHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
+	toolCall, err := store.GetToolCall(r.Context(), id)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool call", err.Error())
+		return
+	}
+
+	if toolCall == nil {
+		sendErrorResponse(w, http.StatusNotFound, "tool call not found", "")
+		return
+	}
+
+	respondJSON(w, toolCall, http.StatusOK)
+}
+
 func apiCreateNewChatHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
 	ctx := r.Context()
 
@@ -35,7 +50,7 @@ func apiCreateNewChatHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 	// Parse out the choices into SentinelChoice objects
 	choices := convertChoices(ctx, response.Choices, store)
 
-	id, err := store.CreateChatRequest(ctx, runId, jsonRequest, jsonResponse, choices)
+	id, err := store.CreateChatRequest(ctx, runId, jsonRequest, jsonResponse, choices, "openai")
 	if err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Error creating chat request: %s", err.Error()), "")
 		return
@@ -108,11 +123,11 @@ func convertMessage(ctx context.Context, message openai.ChatCompletionMessage, s
 	id := uuid.New().String()
 
 	return SentinelMessage{
-		SentinelId: &id,
-		Content:    message.Content,
-		Role:       SentinelMessageRole(message.Role),
-		ToolCalls:  &toolCalls,
-		Type:       &t,
+		Id:        &id,
+		Content:   message.Content,
+		Role:      SentinelMessageRole(message.Role),
+		ToolCalls: &toolCalls,
+		Type:      &t,
 	}
 }
 
@@ -138,7 +153,7 @@ func convertToolCall(ctx context.Context, toolCall openai.ToolCall, store ToolSt
 
 	id := uuid.New().String()
 	return &SentinelToolCall{
-		Id:        &id,
+		Id:        id,
 		ToolId:    tool.Id.String(),
 		Type:      SentinelToolCallType(toolCall.Type),
 		Name:      &toolCall.Function.Name,
@@ -155,18 +170,16 @@ func extractChatIds(chatId uuid.UUID, choices []SentinelChoice) ChatIds {
 	for _, choice := range choices {
 		choiceIds := ChoiceIds{
 			ChoiceId:    choice.SentinelId,
-			MessageId:   *choice.Message.SentinelId,
+			MessageId:   *choice.Message.Id,
 			ToolCallIds: make([]ToolCallIds, 0),
 		}
 
 		if choice.Message.ToolCalls != nil {
 			for _, toolCall := range *choice.Message.ToolCalls {
-				if toolCall.Id != nil {
-					choiceIds.ToolCallIds = append(choiceIds.ToolCallIds, ToolCallIds{
-						ToolCallId: toolCall.Id,
-						ToolId:     &toolCall.ToolId,
-					})
-				}
+				choiceIds.ToolCallIds = append(choiceIds.ToolCallIds, ToolCallIds{
+					ToolCallId: &toolCall.Id,
+					ToolId:     &toolCall.ToolId,
+				})
 			}
 		}
 
