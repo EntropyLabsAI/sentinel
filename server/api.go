@@ -164,25 +164,30 @@ func (s Server) GetToolSupervisorChains(w http.ResponseWriter, r *http.Request, 
 	apiGetToolSupervisorChainsHandler(w, r, toolId, s.Store)
 }
 
-// CreateToolRequestGroup
-func (s Server) CreateToolRequestGroup(w http.ResponseWriter, r *http.Request, toolId uuid.UUID) {
-	apiCreateToolRequestGroupHandler(w, r, toolId, s.Store)
-}
+// // CreateToolRequestGroup
+// func (s Server) CreateToolRequestGroup(w http.ResponseWriter, r *http.Request, toolId uuid.UUID) {
+// 	apiCreateToolRequestGroupHandler(w, r, toolId, s.Store)
+// }
 
-// GetToolRequest
-func (s Server) GetToolRequest(w http.ResponseWriter, r *http.Request, toolRequestId uuid.UUID) {
-	apiGetToolRequestHandler(w, r, toolRequestId, s.Store)
+// // GetToolRequest
+// func (s Server) GetToolRequest(w http.ResponseWriter, r *http.Request, toolRequestId uuid.UUID) {
+// 	apiGetToolRequestHandler(w, r, toolRequestId, s.Store)
+// }
+
+// GetToolCall
+func (s Server) GetToolCall(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetToolCallHandler(w, r, id, s.Store)
 }
 
 // GetRunRequestGroups
-func (s Server) GetRunRequestGroups(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
-	apiGetRunRequestGroupsHandler(w, r, runId, s.Store)
-}
+// func (s Server) GetRunRequestGroups(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
+// 	apiGetRunRequestGroupsHandler(w, r, runId, s.Store)
+// }
 
 // GetRequestGroup
-func (s Server) GetRequestGroup(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID) {
-	apiGetRequestGroupHandler(w, r, requestGroupId, s.Store)
-}
+// func (s Server) GetRequestGroup(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID) {
+// 	apiGetRequestGroupHandler(w, r, requestGroupId, s.Store)
+// }
 
 // GetProjectTools
 func (s Server) GetProjectTools(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
@@ -195,8 +200,8 @@ func (s Server) GetTool(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 }
 
 // CreateSupervisionRequest
-func (s Server) CreateSupervisionRequest(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, chainId uuid.UUID, supervisorId uuid.UUID) {
-	apiCreateSupervisionRequestHandler(w, r, requestGroupId, chainId, supervisorId, s.Store)
+func (s Server) CreateSupervisionRequest(w http.ResponseWriter, r *http.Request, toolCallId uuid.UUID, chainId uuid.UUID, supervisorId uuid.UUID) {
+	apiCreateSupervisionRequestHandler(w, r, toolCallId, chainId, supervisorId, s.Store)
 }
 
 // GetSupervisionRequestStatus
@@ -225,9 +230,9 @@ func (s Server) GetRunState(w http.ResponseWriter, r *http.Request, runId uuid.U
 }
 
 // CreateToolRequest
-func (s Server) CreateToolRequest(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID) {
-	apiCreateToolRequestHandler(w, r, requestGroupId, s.Store)
-}
+// func (s Server) CreateToolRequest(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID) {
+// 	apiCreateToolRequestHandler(w, r, requestGroupId, s.Store)
+// }
 
 // GetSupervisionReviewPayload
 func (s Server) GetSupervisionReviewPayload(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID) {
@@ -235,8 +240,13 @@ func (s Server) GetSupervisionReviewPayload(w http.ResponseWriter, r *http.Reque
 }
 
 // GetRequestGroupStatus
-func (s Server) GetRequestGroupStatus(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID) {
-	apiGetRequestGroupStatusHandler(w, r, requestGroupId, s.Store)
+// func (s Server) GetRequestGroupStatus(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID) {
+// 	apiGetRequestGroupStatusHandler(w, r, requestGroupId, s.Store)
+// }
+
+// GetToolCallStatus
+func (s Server) GetToolCallStatus(w http.ResponseWriter, r *http.Request, toolCallId uuid.UUID) {
+	apiGetToolCallStatusHandler(w, r, toolCallId, s.Store)
 }
 
 // GetRunStatus

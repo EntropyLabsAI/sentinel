@@ -20,7 +20,7 @@ type Store interface {
 
 type SupervisionStore interface {
 	// Requests
-	CreateSupervisionRequest(ctx context.Context, request SupervisionRequest, chainId uuid.UUID, requestGroupId uuid.UUID) (*uuid.UUID, error)
+	CreateSupervisionRequest(ctx context.Context, request SupervisionRequest, chainId uuid.UUID, toolCallId uuid.UUID) (*uuid.UUID, error)
 	GetSupervisionRequest(ctx context.Context, id uuid.UUID) (*SupervisionRequest, error)
 	GetSupervisionRequestsForStatus(ctx context.Context, status Status) ([]SupervisionRequest, error)
 
@@ -42,8 +42,8 @@ type SupervisionStore interface {
 
 	GetExecutionFromChainId(ctx context.Context, chainId uuid.UUID) (*uuid.UUID, error)
 	GetChainExecution(ctx context.Context, executionId uuid.UUID) (*uuid.UUID, *uuid.UUID, error)
-	GetChainExecutionFromChainAndRequestGroup(ctx context.Context, chainId uuid.UUID, requestGroupId uuid.UUID) (*uuid.UUID, error)
-	GetChainExecutionsFromRequestGroup(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error)
+	GetChainExecutionFromChainAndToolCall(ctx context.Context, chainId uuid.UUID, toolCallId uuid.UUID) (*uuid.UUID, error)
+	GetChainExecutionsFromToolCall(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error)
 	GetChainExecutionState(ctx context.Context, executionId uuid.UUID) (*ChainExecutionState, error)
 }
 
@@ -61,11 +61,11 @@ type ProjectStore interface {
 }
 
 type ToolRequestStore interface {
-	CreateToolRequestGroup(ctx context.Context, toolId uuid.UUID, request ToolRequestGroup) (*ToolRequestGroup, error)
-	GetRunRequestGroups(ctx context.Context, runId uuid.UUID, includeArgs bool) ([]ToolRequestGroup, error)
-	GetRequestGroup(ctx context.Context, id uuid.UUID, includeArgs bool) (*ToolRequestGroup, error)
-	CreateToolRequest(ctx context.Context, requestGroupId uuid.UUID, request ToolRequest) (*uuid.UUID, error)
-	GetToolRequest(ctx context.Context, id uuid.UUID) (*ToolRequest, error)
+	// CreateToolRequestGroup(ctx context.Context, toolId uuid.UUID, request ToolRequestGroup) (*ToolRequestGroup, error)
+	// GetRunRequestGroups(ctx context.Context, runId uuid.UUID, includeArgs bool) ([]ToolRequestGroup, error)
+	// GetRequestGroup(ctx context.Context, id uuid.UUID, includeArgs bool) (*ToolRequestGroup, error)
+	// CreateToolCall(ctx context.Context, toolCallId uuid.UUID, request ToolRequest) (*uuid.UUID, error)
+	GetToolCall(ctx context.Context, id uuid.UUID) (*SentinelToolCall, error)
 }
 
 type ToolStore interface {
@@ -97,5 +97,5 @@ type RunStore interface {
 }
 
 type ChatStore interface {
-	CreateChatRequest(ctx context.Context, runId uuid.UUID, request []byte, response []byte, choices []SentinelChoice) (*uuid.UUID, error)
+	CreateChatRequest(ctx context.Context, runId uuid.UUID, request []byte, response []byte, choices []SentinelChoice, format string) (*uuid.UUID, error)
 }
