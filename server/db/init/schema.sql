@@ -6,7 +6,8 @@ DROP TABLE IF EXISTS supervisionresult CASCADE;
 DROP TABLE IF EXISTS supervisionrequest_status CASCADE;
 -- DROP TABLE IF EXISTS supervisionrequest CASCADE;
 DROP TABLE IF EXISTS chainexecution CASCADE;
-DROP TABLE IF EXISTS toolrequest CASCADE;
+-- DROP TABLE IF EXISTS toolrequest CASCADE;
+DROP TABLE IF EXISTS toolcall CASCADE;
 DROP TABLE IF EXISTS chain_tool CASCADE;
 DROP TABLE IF EXISTS chain_supervisor CASCADE;
 DROP TABLE IF EXISTS message CASCADE;
@@ -113,6 +114,37 @@ CREATE TABLE chain_tool (
 --     task_state JSONB DEFAULT '{}' NOT NULL,
 --     requestgroup_id UUID REFERENCES requestgroup(id) NULL
 -- );
+CREATE TABLE chat (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    request_data JSONB DEFAULT '{}' NOT NULL,
+    response_data JSONB DEFAULT '{}' NOT NULL,
+    run_id UUID REFERENCES run(id) NOT NULL,
+    format TEXT DEFAULT 'openai' CHECK (format IN ('openai', 'anthropic')) NOT NULL
+);
+
+CREATE TABLE choice (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chat_id UUID REFERENCES chat(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    choice_data JSONB DEFAULT '{}' NOT NULL
+);
+
+
+CREATE TABLE msg (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    choice_id UUID REFERENCES choice(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    msg_data JSONB DEFAULT '{}' NOT NULL
+);
+
+CREATE TABLE toolcall (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tool_id UUID REFERENCES tool(id),
+    msg_id UUID REFERENCES msg(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    tool_call_data JSONB DEFAULT '{}' NOT NULL
+);
 
 CREATE TABLE chainexecution (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -145,33 +177,3 @@ CREATE TABLE supervisionresult (
     toolcall_id UUID REFERENCES toolcall(id) NULL
 );
 
-CREATE TABLE chat (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    request_data JSONB DEFAULT '{}' NOT NULL,
-    response_data JSONB DEFAULT '{}' NOT NULL,
-    run_id UUID REFERENCES run(id) NOT NULL,
-    format TEXT DEFAULT 'openai' CHECK (format IN ('openai', 'anthropic')) NOT NULL
-);
-
-CREATE TABLE choice (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    chat_id UUID REFERENCES chat(id),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    choice_data JSONB DEFAULT '{}' NOT NULL
-);
-
-CREATE TABLE msg (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    choice_id UUID REFERENCES choice(id),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    msg_data JSONB DEFAULT '{}' NOT NULL
-);
-
-CREATE TABLE toolcall (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tool_id UUID REFERENCES tool(id),
-    msg_id UUID REFERENCES msg(id),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    tool_call_data JSONB DEFAULT '{}' NOT NULL
-);
