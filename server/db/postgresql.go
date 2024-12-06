@@ -524,12 +524,8 @@ func (s *PostgresqlStore) GetToolCall(ctx context.Context, id uuid.UUID) (*senti
 		return nil, fmt.Errorf("error getting tool request: %w", err)
 	}
 
-	// Parse the arguments JSON if it exists
-	if len(toolCallDataJSON) > 0 {
-		if err := json.Unmarshal(toolCallDataJSON, &toolCall.Arguments); err != nil {
-			return nil, fmt.Errorf("error parsing tool call data: %w", err)
-		}
-	}
+	args := string(toolCallDataJSON)
+	toolCall.Arguments = &args
 
 	return &toolCall, nil
 }
@@ -756,20 +752,20 @@ func (s *PostgresqlStore) CreateSupervisionRequest(
 	return &requestID, nil
 }
 
-func (s *PostgresqlStore) createMessage(ctx context.Context, tx *sql.Tx, message sentinel.Message) (*uuid.UUID, error) {
-	query := `
-		INSERT INTO msg ()
-		VALUES ($1, $2, $3, $4)`
+// func (s *PostgresqlStore) createMessage(ctx context.Context, tx *sql.Tx, message sentinel.Message) (*uuid.UUID, error) {
+// 	query := `
+// 		INSERT INTO msg ()
+// 		VALUES ($1, $2, $3, $4)`
 
-	// fmt.Printf("Creating message with type: %v and content: %s\n", message.Type, message.Content)
-	id := uuid.New()
-	_, err := tx.ExecContext(ctx, query, id, message.Role, message.Content)
-	if err != nil {
-		return nil, fmt.Errorf("error creating message: %w", err)
-	}
+// 	// fmt.Printf("Creating message with type: %v and content: %s\n", message.Type, message.Content)
+// 	id := uuid.New()
+// 	_, err := tx.ExecContext(ctx, query, id, message.Role, message.Content)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("error creating message: %w", err)
+// 	}
 
-	return &id, nil
-}
+// 	return &id, nil
+// }
 
 // CreateToolRequest
 // func (s *PostgresqlStore) CreateToolRequest(ctx context.Context, requestGroupId uuid.UUID, request sentinel.ToolRequest) (*uuid.UUID, error) {
@@ -996,7 +992,7 @@ func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result se
 	defer func() { _ = tx.Rollback() }()
 
 	query := `
-		INSERT INTO supervisionresult (id, supervisionrequest_id, created_at, decision, reasoning, chosen_toolrequest_id)
+		INSERT INTO supervisionresult (id, supervisionrequest_id, created_at, decision, reasoning, toolcall_id)
 		VALUES ($1, $2, $3, $4, $5, $6)`
 
 	id := uuid.New()
@@ -1086,7 +1082,7 @@ func (s *PostgresqlStore) GetSupervisionRequestsForStatus(ctx context.Context, s
 
 func (s *PostgresqlStore) GetSupervisionResultFromRequestID(ctx context.Context, requestId uuid.UUID) (*sentinel.SupervisionResult, error) {
 	query := `
-		SELECT id, supervisionrequest_id, created_at, decision, reasoning, chosen_toolrequest_id
+		SELECT id, supervisionrequest_id, created_at, decision, reasoning, toolcall_id
 		FROM supervisionresult
 		WHERE supervisionrequest_id = $1`
 
@@ -1465,7 +1461,7 @@ func (s *PostgresqlStore) GetSupervisionStatusesForRequest(ctx context.Context, 
 
 func (s *PostgresqlStore) GetSupervisionResultsForChainExecution(ctx context.Context, executionId uuid.UUID) ([]sentinel.SupervisionResult, error) {
 	query := `
-        SELECT sr.id, sr.supervisionrequest_id, sr.created_at, sr.decision, sr.reasoning, sr.chosen_toolrequest_id
+        SELECT sr.id, sr.supervisionrequest_id, sr.created_at, sr.decision, sr.reasoning, sr.toolcall_id
         FROM supervisionresult sr
         INNER JOIN supervisionrequest sreq ON sr.supervisionrequest_id = sreq.id
         WHERE sreq.chainexecution_id = $1`
@@ -1850,7 +1846,7 @@ func (s *PostgresqlStore) createToolCalls(
 	// Store the tool calls in the DB
 	for _, toolCall := range toolCalls {
 		query := `
-			INSERT INTO tool_call (id, msg_id, tool_call_data, tool_id)
+			INSERT INTO toolcall (id, msg_id, tool_call_data, tool_id)
 			VALUES ($1, $2, $3, $4)
 		`
 		toolCallData, err := json.Marshal(toolCall)
