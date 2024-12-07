@@ -136,26 +136,28 @@ class SupervisionContext:
 
         return "\n\n".join(texts)
 
-    def _describe_chat_message(self, message: ChatMessage) -> str:
+    def _describe_chat_message(self, message: Message) -> str:
         """Converts a chat message into a textual description."""
-        role = message.role.capitalize()
-        text_content = message.text.strip()
+
+        role = str(message.role).capitalize()
+        text_content = message.content.strip()
         text = f"**{role}:**\n{text_content}"
 
-        if isinstance(message, ChatMessageAssistant) and message.tool_calls:
+        if message.tool_calls and message.tool_calls is not UNSET:
             text += "\n\n**Tool Calls:**"
             for tool_call in message.tool_calls:
                 tool_call_description = self._describe_tool_call(tool_call)
-                text += f"\n{tool_call_description}"
+                text += f"\n{tool_call_description}"    
 
         return text
 
-    def _describe_tool_call(self, tool_call: ToolCall) -> str:
+    def _describe_tool_call(self, tool_call: ApiToolCall) -> str:
         """Converts a ToolCall into a textual description."""
+        arguments_dict = tool_call.arguments.to_dict() if tool_call.arguments else {}
         description = (
             f"- **Tool Call ID:** {tool_call.id}\n"
             f"  - **Function:** {tool_call.function}\n"
-            f"  - **Arguments:** `{json.dumps(tool_call.arguments, indent=2)}`\n"
+            f"  - **Arguments:** `{json.dumps(arguments_dict, indent=2)}`\n"
             f"  - **Type:** {tool_call.type}"
         )
         return description
@@ -857,16 +859,17 @@ def convert_openai_tool_call(tool_call_dict: Dict[str, Any]) -> ApiToolCall:
     """
 
     id_ = tool_call_dict.get('id', '')
-    function = tool_call_dict.get('function', '')
-    arguments = tool_call_dict.get('arguments', {})
+    function = tool_call_dict.get('function', {})
+    function_name = function.get('name', '')
+    arguments = function.get('arguments', {})
     type_ = tool_call_dict.get('type', '')
     parse_error = tool_call_dict.get('parse_error', UNSET)
     
-    # Ensure 'function' is a string
-    if isinstance(function, dict):
-        function = function.get('name', '')
-    elif not isinstance(function, str):
-        function = str(function)
+    # # Ensure 'function' is a string
+    # if isinstance(function, dict):
+    #     function = function.get('name', '')
+    # elif not isinstance(function, str):
+    #     function = str(function)
 
     # Convert arguments to ToolCallArguments
     if isinstance(arguments, dict):
@@ -881,7 +884,7 @@ def convert_openai_tool_call(tool_call_dict: Dict[str, Any]) -> ApiToolCall:
 
     tool_call = ApiToolCall(
         id=id_,
-        function=function,
+        function=function_name,
         arguments=arguments_obj,
         type=type_,
         parse_error=parse_error,

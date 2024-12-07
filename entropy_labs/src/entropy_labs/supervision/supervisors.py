@@ -127,7 +127,7 @@ ModifiedData:
             # Convert SupervisionContext into a textual description
             context_description = supervision_context.to_text()
             instructions_content += f"""
-This is the conversation between the AI customer support assistant and the customer:
+This is the conversation between the AI assistant and the user:
 {context_description}
 """
 
