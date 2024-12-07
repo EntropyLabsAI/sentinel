@@ -7,7 +7,7 @@ import "swagger-ui-react/swagger-ui.css"
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const SwaggerUIComponent: React.FC = () => {
-  return <SwaggerUI url={`${API_BASE_URL}/api/openapi.yaml`} />;
+  return <SwaggerUI url={`${API_BASE_URL}/api/v1/openapi.yaml`} />;
 };
 
 export default SwaggerUIComponent;
