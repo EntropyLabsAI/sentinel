@@ -32,9 +32,9 @@ const (
 
 // Defines values for MessageRole.
 const (
-	Assistant MessageRole = "assistant"
-	System    MessageRole = "system"
-	User      MessageRole = "user"
+	MessageRoleAssistant MessageRole = "assistant"
+	MessageRoleSystem    MessageRole = "system"
+	MessageRoleUser      MessageRole = "user"
 )
 
 // Defines values for MessageType.
@@ -43,6 +43,30 @@ const (
 	Image    MessageType = "image"
 	ImageUrl MessageType = "image_url"
 	Text     MessageType = "text"
+)
+
+// Defines values for SentinelChoiceFinishReason.
+const (
+	ContentFilter SentinelChoiceFinishReason = "content_filter"
+	FunctionCall  SentinelChoiceFinishReason = "function_call"
+	Length        SentinelChoiceFinishReason = "length"
+	LessThannil   SentinelChoiceFinishReason = "<nil>"
+	Stop          SentinelChoiceFinishReason = "stop"
+	ToolCalls     SentinelChoiceFinishReason = "tool_calls"
+)
+
+// Defines values for SentinelMessageRole.
+const (
+	SentinelMessageRoleAssistant SentinelMessageRole = "assistant"
+	SentinelMessageRoleFunction  SentinelMessageRole = "function"
+	SentinelMessageRoleSystem    SentinelMessageRole = "system"
+	SentinelMessageRoleTool      SentinelMessageRole = "tool"
+	SentinelMessageRoleUser      SentinelMessageRole = "user"
+)
+
+// Defines values for SentinelToolCallType.
+const (
+	Function SentinelToolCallType = "function"
 )
 
 // Defines values for Status.
@@ -66,10 +90,10 @@ type Arguments map[string]interface{}
 
 // ChainExecution defines model for ChainExecution.
 type ChainExecution struct {
-	ChainId        openapi_types.UUID `json:"chain_id"`
-	CreatedAt      time.Time          `json:"created_at"`
-	Id             openapi_types.UUID `json:"id"`
-	RequestGroupId openapi_types.UUID `json:"request_group_id"`
+	ChainId    openapi_types.UUID `json:"chain_id"`
+	CreatedAt  time.Time          `json:"created_at"`
+	Id         openapi_types.UUID `json:"id"`
+	ToolcallId openapi_types.UUID `json:"toolcall_id"`
 }
 
 // ChainExecutionState defines model for ChainExecutionState.
@@ -85,10 +109,23 @@ type ChainRequest struct {
 	SupervisorIds *[]openapi_types.UUID `json:"supervisor_ids,omitempty"`
 }
 
+// ChatIds defines model for ChatIds.
+type ChatIds struct {
+	ChatId    openapi_types.UUID `json:"chat_id"`
+	ChoiceIds []ChoiceIds        `json:"choice_ids"`
+}
+
 // Choice defines model for Choice.
 type Choice struct {
 	Message    Message `json:"message"`
 	StopReason *string `json:"stop_reason,omitempty"`
+}
+
+// ChoiceIds defines model for ChoiceIds.
+type ChoiceIds struct {
+	ChoiceId    string        `json:"choice_id"`
+	MessageId   string        `json:"message_id"`
+	ToolCallIds []ToolCallIds `json:"tool_call_ids"`
 }
 
 // Decision defines model for Decision.
@@ -145,12 +182,12 @@ type Project struct {
 
 // ReviewPayload Contains all the information needed for a human reviewer to make a supervision decision
 type ReviewPayload struct {
-	ChainState   ChainExecutionState `json:"chain_state"`
-	RequestGroup ToolRequestGroup    `json:"request_group"`
+	ChainState ChainExecutionState `json:"chain_state"`
 
 	// RunId The ID of the run this review is for
 	RunId              openapi_types.UUID `json:"run_id"`
 	SupervisionRequest SupervisionRequest `json:"supervision_request"`
+	Toolcall           *ToolCall          `json:"toolcall,omitempty"`
 }
 
 // Run defines model for Run.
@@ -164,13 +201,57 @@ type Run struct {
 
 // RunExecution defines model for RunExecution.
 type RunExecution struct {
-	Chains       []ChainExecutionState `json:"chains"`
-	RequestGroup ToolRequestGroup      `json:"request_group"`
-	Status       Status                `json:"status"`
+	Chains   []ChainExecutionState `json:"chains"`
+	Status   Status                `json:"status"`
+	Toolcall ToolCall              `json:"toolcall"`
 }
 
 // RunState defines model for RunState.
 type RunState = []RunExecution
+
+// SentinelChat The raw b64 encoded JSON of the request and response data sent/received from the LLM.
+type SentinelChat struct {
+	RequestData  string `json:"request_data"`
+	ResponseData string `json:"response_data"`
+}
+
+// SentinelChoice defines model for SentinelChoice.
+type SentinelChoice struct {
+	FinishReason SentinelChoiceFinishReason `json:"finish_reason"`
+	Index        int                        `json:"index"`
+	Message      SentinelMessage            `json:"message"`
+	SentinelId   string                     `json:"sentinel_id"`
+}
+
+// SentinelChoiceFinishReason defines model for SentinelChoice.FinishReason.
+type SentinelChoiceFinishReason string
+
+// SentinelMessage defines model for SentinelMessage.
+type SentinelMessage struct {
+	Content   string              `json:"content"`
+	CreatedAt *time.Time          `json:"created_at,omitempty"`
+	Id        *string             `json:"id,omitempty"`
+	Role      SentinelMessageRole `json:"role"`
+	ToolCalls *[]SentinelToolCall `json:"tool_calls,omitempty"`
+	Type      *MessageType        `json:"type,omitempty"`
+}
+
+// SentinelMessageRole defines model for SentinelMessage.Role.
+type SentinelMessageRole string
+
+// SentinelToolCall defines model for SentinelToolCall.
+type SentinelToolCall struct {
+	// Arguments Arguments in JSON format
+	Arguments *string              `json:"arguments,omitempty"`
+	CreatedAt *time.Time           `json:"created_at,omitempty"`
+	Id        string               `json:"id"`
+	Name      *string              `json:"name,omitempty"`
+	ToolId    string               `json:"tool_id"`
+	Type      SentinelToolCallType `json:"type"`
+}
+
+// SentinelToolCallType defines model for SentinelToolCall.Type.
+type SentinelToolCallType string
 
 // Status defines model for Status.
 type Status string
@@ -193,12 +274,12 @@ type SupervisionRequestState struct {
 
 // SupervisionResult defines model for SupervisionResult.
 type SupervisionResult struct {
-	ChosenToolrequestId  *openapi_types.UUID `json:"chosen_toolrequest_id,omitempty"`
 	CreatedAt            time.Time           `json:"created_at"`
 	Decision             Decision            `json:"decision"`
 	Id                   *openapi_types.UUID `json:"id,omitempty"`
 	Reasoning            string              `json:"reasoning"`
 	SupervisionRequestId openapi_types.UUID  `json:"supervision_request_id"`
+	ToolcallId           *openapi_types.UUID `json:"toolcall_id,omitempty"`
 }
 
 // SupervisionStatus defines model for SupervisionStatus.
@@ -271,29 +352,18 @@ type ToolCall struct {
 	Type       string                 `json:"type"`
 }
 
+// ToolCallIds defines model for ToolCallIds.
+type ToolCallIds struct {
+	ToolCallId *string `json:"tool_call_id,omitempty"`
+	ToolId     *string `json:"tool_id,omitempty"`
+}
+
 // ToolChoice defines model for ToolChoice.
 type ToolChoice struct {
 	Arguments Arguments `json:"arguments"`
 	Function  string    `json:"function"`
 	Id        string    `json:"id"`
 	Type      string    `json:"type"`
-}
-
-// ToolRequest defines model for ToolRequest.
-type ToolRequest struct {
-	Arguments      Arguments           `json:"arguments"`
-	Id             *openapi_types.UUID `json:"id,omitempty"`
-	Message        Message             `json:"message"`
-	RequestgroupId *openapi_types.UUID `json:"requestgroup_id,omitempty"`
-	TaskState      TaskState           `json:"task_state"`
-	ToolId         openapi_types.UUID  `json:"tool_id"`
-}
-
-// ToolRequestGroup defines model for ToolRequestGroup.
-type ToolRequestGroup struct {
-	CreatedAt    *time.Time          `json:"created_at,omitempty"`
-	Id           *openapi_types.UUID `json:"id,omitempty"`
-	ToolRequests []ToolRequest       `json:"tool_requests"`
 }
 
 // Usage defines model for Usage.
@@ -341,12 +411,6 @@ type CreateSupervisorJSONRequestBody = Supervisor
 // CreateTaskJSONRequestBody defines body for CreateTask for application/json ContentType.
 type CreateTaskJSONRequestBody CreateTaskJSONBody
 
-// CreateSupervisionRequestJSONRequestBody defines body for CreateSupervisionRequest for application/json ContentType.
-type CreateSupervisionRequestJSONRequestBody = SupervisionRequest
-
-// CreateToolRequestJSONRequestBody defines body for CreateToolRequest for application/json ContentType.
-type CreateToolRequestJSONRequestBody = ToolRequest
-
 // UpdateRunResultJSONRequestBody defines body for UpdateRunResult for application/json ContentType.
 type UpdateRunResultJSONRequestBody UpdateRunResultJSONBody
 
@@ -356,125 +420,119 @@ type UpdateRunStatusJSONRequestBody = Status
 // CreateRunToolJSONRequestBody defines body for CreateRunTool for application/json ContentType.
 type CreateRunToolJSONRequestBody CreateRunToolJSONBody
 
+// CreateNewChatJSONRequestBody defines body for CreateNewChat for application/json ContentType.
+type CreateNewChatJSONRequestBody = SentinelChat
+
 // CreateSupervisionResultJSONRequestBody defines body for CreateSupervisionResult for application/json ContentType.
 type CreateSupervisionResultJSONRequestBody = SupervisionResult
-
-// CreateToolRequestGroupJSONRequestBody defines body for CreateToolRequestGroup for application/json ContentType.
-type CreateToolRequestGroupJSONRequestBody = ToolRequestGroup
 
 // CreateToolSupervisorChainsJSONRequestBody defines body for CreateToolSupervisorChains for application/json ContentType.
 type CreateToolSupervisorChainsJSONRequestBody = CreateToolSupervisorChainsJSONBody
 
+// CreateSupervisionRequestJSONRequestBody defines body for CreateSupervisionRequest for application/json ContentType.
+type CreateSupervisionRequestJSONRequestBody = SupervisionRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Get the OpenAPI schema
-	// (GET /api/openapi.yaml)
+	// (GET /openapi.yaml)
 	GetOpenAPI(w http.ResponseWriter, r *http.Request)
 	// Get all projects
-	// (GET /api/project)
+	// (GET /project)
 	GetProjects(w http.ResponseWriter, r *http.Request)
 	// Create a new project
-	// (POST /api/project)
+	// (POST /project)
 	CreateProject(w http.ResponseWriter, r *http.Request)
 	// Get a project
-	// (GET /api/project/{projectId})
+	// (GET /project/{projectId})
 	GetProject(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
 	// Get all supervisors
-	// (GET /api/project/{projectId}/supervisor)
+	// (GET /project/{projectId}/supervisor)
 	GetSupervisors(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
 	// Create a new supervisor
-	// (POST /api/project/{projectId}/supervisor)
+	// (POST /project/{projectId}/supervisor)
 	CreateSupervisor(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
 	// Get all tasks for a project
-	// (GET /api/project/{projectId}/tasks)
+	// (GET /project/{projectId}/tasks)
 	GetProjectTasks(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
 	// Create a new task
-	// (POST /api/project/{projectId}/tasks)
+	// (POST /project/{projectId}/tasks)
 	CreateTask(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
 	// Get all tools for a project
-	// (GET /api/project/{projectId}/tools)
+	// (GET /project/{projectId}/tools)
 	GetProjectTools(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
-	// Get a request group
-	// (GET /api/request_group/{requestGroupId})
-	GetRequestGroup(w http.ResponseWriter, r *http.Request, requestGroupId openapi_types.UUID)
-	// Create a supervision request for a supervisor in a chain on a request group
-	// (POST /api/request_group/{requestGroupId}/chain/{chainId}/supervisor/{supervisorId}/supervision_request)
-	CreateSupervisionRequest(w http.ResponseWriter, r *http.Request, requestGroupId openapi_types.UUID, chainId openapi_types.UUID, supervisorId openapi_types.UUID)
-	// Get a request group status
-	// (GET /api/request_group/{requestGroupId}/status)
-	GetRequestGroupStatus(w http.ResponseWriter, r *http.Request, requestGroupId openapi_types.UUID)
-	// Create a new tool request for a request group
-	// (POST /api/request_group/{requestGroupId}/tool_requests)
-	CreateToolRequest(w http.ResponseWriter, r *http.Request, requestGroupId openapi_types.UUID)
 	// Get a run
-	// (GET /api/run/{runId})
+	// (GET /run/{runId})
 	GetRun(w http.ResponseWriter, r *http.Request, runId openapi_types.UUID)
-	// Get all request groups for a run
-	// (GET /api/run/{runId}/request_groups)
-	GetRunRequestGroups(w http.ResponseWriter, r *http.Request, runId openapi_types.UUID)
 	// Update a run with a result
-	// (PUT /api/run/{runId}/result)
+	// (PUT /run/{runId}/result)
 	UpdateRunResult(w http.ResponseWriter, r *http.Request, runId openapi_types.UUID)
 	// Get the state of a run
-	// (GET /api/run/{runId}/state)
+	// (GET /run/{runId}/state)
 	GetRunState(w http.ResponseWriter, r *http.Request, runId openapi_types.UUID)
 	// Get the status of a run
-	// (GET /api/run/{runId}/status)
+	// (GET /run/{runId}/status)
 	GetRunStatus(w http.ResponseWriter, r *http.Request, runId openapi_types.UUID)
 	// Update the status of a run
-	// (PUT /api/run/{runId}/status)
+	// (PUT /run/{runId}/status)
 	UpdateRunStatus(w http.ResponseWriter, r *http.Request, runId openapi_types.UUID)
 	// Get all tools for a run
-	// (GET /api/run/{runId}/tool)
+	// (GET /run/{runId}/tool)
 	GetRunTools(w http.ResponseWriter, r *http.Request, runId openapi_types.UUID)
 	// Create a new tool for a run
-	// (POST /api/run/{runId}/tool)
+	// (POST /run/{runId}/tool)
 	CreateRunTool(w http.ResponseWriter, r *http.Request, runId openapi_types.UUID)
+	// Create a new chat completion request from an existing run
+	// (POST /run/{run_id}/chat)
+	CreateNewChat(w http.ResponseWriter, r *http.Request, runId openapi_types.UUID)
 	// Get hub stats
-	// (GET /api/stats)
+	// (GET /stats)
 	GetHubStats(w http.ResponseWriter, r *http.Request)
 	// Get a supervision result
-	// (GET /api/supervision_request/{supervisionRequestId}/result)
+	// (GET /supervision_request/{supervisionRequestId}/result)
 	GetSupervisionResult(w http.ResponseWriter, r *http.Request, supervisionRequestId openapi_types.UUID)
 	// Create a supervision result for a supervision request
-	// (POST /api/supervision_request/{supervisionRequestId}/result)
+	// (POST /supervision_request/{supervisionRequestId}/result)
 	CreateSupervisionResult(w http.ResponseWriter, r *http.Request, supervisionRequestId openapi_types.UUID)
 	// Get the review payload for a supervision request
-	// (GET /api/supervision_request/{supervisionRequestId}/review_payload)
+	// (GET /supervision_request/{supervisionRequestId}/review_payload)
 	GetSupervisionReviewPayload(w http.ResponseWriter, r *http.Request, supervisionRequestId openapi_types.UUID)
 	// Get a supervision request status
-	// (GET /api/supervision_request/{supervisionRequestId}/status)
+	// (GET /supervision_request/{supervisionRequestId}/status)
 	GetSupervisionRequestStatus(w http.ResponseWriter, r *http.Request, supervisionRequestId openapi_types.UUID)
 	// Get a supervisor
-	// (GET /api/supervisor/{supervisorId})
+	// (GET /supervisor/{supervisorId})
 	GetSupervisor(w http.ResponseWriter, r *http.Request, supervisorId openapi_types.UUID)
 	// Get the Swagger UI
-	// (GET /api/swagger-ui)
+	// (GET /swagger-ui)
 	GetSwaggerDocs(w http.ResponseWriter, r *http.Request)
 	// Get a task
-	// (GET /api/task/{taskId})
+	// (GET /task/{taskId})
 	GetTask(w http.ResponseWriter, r *http.Request, taskId openapi_types.UUID)
 	// Get all runs for a task
-	// (GET /api/task/{taskId}/run)
+	// (GET /task/{taskId}/run)
 	GetTaskRuns(w http.ResponseWriter, r *http.Request, taskId openapi_types.UUID)
 	// Create a new run for a task
-	// (POST /api/task/{taskId}/run)
+	// (POST /task/{taskId}/run)
 	CreateRun(w http.ResponseWriter, r *http.Request, taskId openapi_types.UUID)
 	// Get a tool
-	// (GET /api/tool/{toolId})
+	// (GET /tool/{toolId})
 	GetTool(w http.ResponseWriter, r *http.Request, toolId openapi_types.UUID)
-	// Create a new request group for a tool
-	// (POST /api/tool/{toolId}/request_group)
-	CreateToolRequestGroup(w http.ResponseWriter, r *http.Request, toolId openapi_types.UUID)
 	// Get all supervisors for a tool, in chain format
-	// (GET /api/tool/{toolId}/supervisors)
+	// (GET /tool/{toolId}/supervisors)
 	GetToolSupervisorChains(w http.ResponseWriter, r *http.Request, toolId openapi_types.UUID)
 	// Create new chains with supervisors for a tool
-	// (POST /api/tool/{toolId}/supervisors)
+	// (POST /tool/{toolId}/supervisors)
 	CreateToolSupervisorChains(w http.ResponseWriter, r *http.Request, toolId openapi_types.UUID)
-	// Get a tool request
-	// (GET /api/tool_request/{toolRequestId})
-	GetToolRequest(w http.ResponseWriter, r *http.Request, toolRequestId openapi_types.UUID)
+	// Get a tool call
+	// (GET /tool_call/{toolCallId})
+	GetToolCall(w http.ResponseWriter, r *http.Request, toolCallId openapi_types.UUID)
+	// Create a supervision request for a supervisor in a chain on a tool call
+	// (POST /tool_call/{toolCallId}/chain/{chainId}/supervisor/{supervisorId}/supervision_request)
+	CreateSupervisionRequest(w http.ResponseWriter, r *http.Request, toolCallId openapi_types.UUID, chainId openapi_types.UUID, supervisorId openapi_types.UUID)
+	// Get a tool call status
+	// (GET /tool_call/{toolCallId}/status)
+	GetToolCallStatus(w http.ResponseWriter, r *http.Request, toolCallId openapi_types.UUID)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -678,124 +736,6 @@ func (siw *ServerInterfaceWrapper) GetProjectTools(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
-// GetRequestGroup operation middleware
-func (siw *ServerInterfaceWrapper) GetRequestGroup(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "requestGroupId" -------------
-	var requestGroupId openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "requestGroupId", r.PathValue("requestGroupId"), &requestGroupId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "requestGroupId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetRequestGroup(w, r, requestGroupId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// CreateSupervisionRequest operation middleware
-func (siw *ServerInterfaceWrapper) CreateSupervisionRequest(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "requestGroupId" -------------
-	var requestGroupId openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "requestGroupId", r.PathValue("requestGroupId"), &requestGroupId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "requestGroupId", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "chainId" -------------
-	var chainId openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "chainId", r.PathValue("chainId"), &chainId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "chainId", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "supervisorId" -------------
-	var supervisorId openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "supervisorId", r.PathValue("supervisorId"), &supervisorId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "supervisorId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateSupervisionRequest(w, r, requestGroupId, chainId, supervisorId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetRequestGroupStatus operation middleware
-func (siw *ServerInterfaceWrapper) GetRequestGroupStatus(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "requestGroupId" -------------
-	var requestGroupId openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "requestGroupId", r.PathValue("requestGroupId"), &requestGroupId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "requestGroupId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetRequestGroupStatus(w, r, requestGroupId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// CreateToolRequest operation middleware
-func (siw *ServerInterfaceWrapper) CreateToolRequest(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "requestGroupId" -------------
-	var requestGroupId openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "requestGroupId", r.PathValue("requestGroupId"), &requestGroupId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "requestGroupId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateToolRequest(w, r, requestGroupId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // GetRun operation middleware
 func (siw *ServerInterfaceWrapper) GetRun(w http.ResponseWriter, r *http.Request) {
 
@@ -812,31 +752,6 @@ func (siw *ServerInterfaceWrapper) GetRun(w http.ResponseWriter, r *http.Request
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetRun(w, r, runId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetRunRequestGroups operation middleware
-func (siw *ServerInterfaceWrapper) GetRunRequestGroups(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "runId" -------------
-	var runId openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "runId", r.PathValue("runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetRunRequestGroups(w, r, runId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -987,6 +902,31 @@ func (siw *ServerInterfaceWrapper) CreateRunTool(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateRunTool(w, r, runId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateNewChat operation middleware
+func (siw *ServerInterfaceWrapper) CreateNewChat(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "run_id" -------------
+	var runId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run_id", r.PathValue("run_id"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateNewChat(w, r, runId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1249,31 +1189,6 @@ func (siw *ServerInterfaceWrapper) GetTool(w http.ResponseWriter, r *http.Reques
 	handler.ServeHTTP(w, r)
 }
 
-// CreateToolRequestGroup operation middleware
-func (siw *ServerInterfaceWrapper) CreateToolRequestGroup(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "toolId" -------------
-	var toolId openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "toolId", r.PathValue("toolId"), &toolId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "toolId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateToolRequestGroup(w, r, toolId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // GetToolSupervisorChains operation middleware
 func (siw *ServerInterfaceWrapper) GetToolSupervisorChains(w http.ResponseWriter, r *http.Request) {
 
@@ -1324,22 +1239,90 @@ func (siw *ServerInterfaceWrapper) CreateToolSupervisorChains(w http.ResponseWri
 	handler.ServeHTTP(w, r)
 }
 
-// GetToolRequest operation middleware
-func (siw *ServerInterfaceWrapper) GetToolRequest(w http.ResponseWriter, r *http.Request) {
+// GetToolCall operation middleware
+func (siw *ServerInterfaceWrapper) GetToolCall(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
-	// ------------- Path parameter "toolRequestId" -------------
-	var toolRequestId openapi_types.UUID
+	// ------------- Path parameter "toolCallId" -------------
+	var toolCallId openapi_types.UUID
 
-	err = runtime.BindStyledParameterWithOptions("simple", "toolRequestId", r.PathValue("toolRequestId"), &toolRequestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "toolCallId", r.PathValue("toolCallId"), &toolCallId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "toolRequestId", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "toolCallId", Err: err})
 		return
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetToolRequest(w, r, toolRequestId)
+		siw.Handler.GetToolCall(w, r, toolCallId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateSupervisionRequest operation middleware
+func (siw *ServerInterfaceWrapper) CreateSupervisionRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "toolCallId" -------------
+	var toolCallId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "toolCallId", r.PathValue("toolCallId"), &toolCallId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "toolCallId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "chainId" -------------
+	var chainId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "chainId", r.PathValue("chainId"), &chainId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "chainId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "supervisorId" -------------
+	var supervisorId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "supervisorId", r.PathValue("supervisorId"), &supervisorId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "supervisorId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateSupervisionRequest(w, r, toolCallId, chainId, supervisorId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetToolCallStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetToolCallStatus(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "toolCallId" -------------
+	var toolCallId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "toolCallId", r.PathValue("toolCallId"), &toolCallId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "toolCallId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetToolCallStatus(w, r, toolCallId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1469,42 +1452,39 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
-	m.HandleFunc("GET "+options.BaseURL+"/api/openapi.yaml", wrapper.GetOpenAPI)
-	m.HandleFunc("GET "+options.BaseURL+"/api/project", wrapper.GetProjects)
-	m.HandleFunc("POST "+options.BaseURL+"/api/project", wrapper.CreateProject)
-	m.HandleFunc("GET "+options.BaseURL+"/api/project/{projectId}", wrapper.GetProject)
-	m.HandleFunc("GET "+options.BaseURL+"/api/project/{projectId}/supervisor", wrapper.GetSupervisors)
-	m.HandleFunc("POST "+options.BaseURL+"/api/project/{projectId}/supervisor", wrapper.CreateSupervisor)
-	m.HandleFunc("GET "+options.BaseURL+"/api/project/{projectId}/tasks", wrapper.GetProjectTasks)
-	m.HandleFunc("POST "+options.BaseURL+"/api/project/{projectId}/tasks", wrapper.CreateTask)
-	m.HandleFunc("GET "+options.BaseURL+"/api/project/{projectId}/tools", wrapper.GetProjectTools)
-	m.HandleFunc("GET "+options.BaseURL+"/api/request_group/{requestGroupId}", wrapper.GetRequestGroup)
-	m.HandleFunc("POST "+options.BaseURL+"/api/request_group/{requestGroupId}/chain/{chainId}/supervisor/{supervisorId}/supervision_request", wrapper.CreateSupervisionRequest)
-	m.HandleFunc("GET "+options.BaseURL+"/api/request_group/{requestGroupId}/status", wrapper.GetRequestGroupStatus)
-	m.HandleFunc("POST "+options.BaseURL+"/api/request_group/{requestGroupId}/tool_requests", wrapper.CreateToolRequest)
-	m.HandleFunc("GET "+options.BaseURL+"/api/run/{runId}", wrapper.GetRun)
-	m.HandleFunc("GET "+options.BaseURL+"/api/run/{runId}/request_groups", wrapper.GetRunRequestGroups)
-	m.HandleFunc("PUT "+options.BaseURL+"/api/run/{runId}/result", wrapper.UpdateRunResult)
-	m.HandleFunc("GET "+options.BaseURL+"/api/run/{runId}/state", wrapper.GetRunState)
-	m.HandleFunc("GET "+options.BaseURL+"/api/run/{runId}/status", wrapper.GetRunStatus)
-	m.HandleFunc("PUT "+options.BaseURL+"/api/run/{runId}/status", wrapper.UpdateRunStatus)
-	m.HandleFunc("GET "+options.BaseURL+"/api/run/{runId}/tool", wrapper.GetRunTools)
-	m.HandleFunc("POST "+options.BaseURL+"/api/run/{runId}/tool", wrapper.CreateRunTool)
-	m.HandleFunc("GET "+options.BaseURL+"/api/stats", wrapper.GetHubStats)
-	m.HandleFunc("GET "+options.BaseURL+"/api/supervision_request/{supervisionRequestId}/result", wrapper.GetSupervisionResult)
-	m.HandleFunc("POST "+options.BaseURL+"/api/supervision_request/{supervisionRequestId}/result", wrapper.CreateSupervisionResult)
-	m.HandleFunc("GET "+options.BaseURL+"/api/supervision_request/{supervisionRequestId}/review_payload", wrapper.GetSupervisionReviewPayload)
-	m.HandleFunc("GET "+options.BaseURL+"/api/supervision_request/{supervisionRequestId}/status", wrapper.GetSupervisionRequestStatus)
-	m.HandleFunc("GET "+options.BaseURL+"/api/supervisor/{supervisorId}", wrapper.GetSupervisor)
-	m.HandleFunc("GET "+options.BaseURL+"/api/swagger-ui", wrapper.GetSwaggerDocs)
-	m.HandleFunc("GET "+options.BaseURL+"/api/task/{taskId}", wrapper.GetTask)
-	m.HandleFunc("GET "+options.BaseURL+"/api/task/{taskId}/run", wrapper.GetTaskRuns)
-	m.HandleFunc("POST "+options.BaseURL+"/api/task/{taskId}/run", wrapper.CreateRun)
-	m.HandleFunc("GET "+options.BaseURL+"/api/tool/{toolId}", wrapper.GetTool)
-	m.HandleFunc("POST "+options.BaseURL+"/api/tool/{toolId}/request_group", wrapper.CreateToolRequestGroup)
-	m.HandleFunc("GET "+options.BaseURL+"/api/tool/{toolId}/supervisors", wrapper.GetToolSupervisorChains)
-	m.HandleFunc("POST "+options.BaseURL+"/api/tool/{toolId}/supervisors", wrapper.CreateToolSupervisorChains)
-	m.HandleFunc("GET "+options.BaseURL+"/api/tool_request/{toolRequestId}", wrapper.GetToolRequest)
+	m.HandleFunc("GET "+options.BaseURL+"/openapi.yaml", wrapper.GetOpenAPI)
+	m.HandleFunc("GET "+options.BaseURL+"/project", wrapper.GetProjects)
+	m.HandleFunc("POST "+options.BaseURL+"/project", wrapper.CreateProject)
+	m.HandleFunc("GET "+options.BaseURL+"/project/{projectId}", wrapper.GetProject)
+	m.HandleFunc("GET "+options.BaseURL+"/project/{projectId}/supervisor", wrapper.GetSupervisors)
+	m.HandleFunc("POST "+options.BaseURL+"/project/{projectId}/supervisor", wrapper.CreateSupervisor)
+	m.HandleFunc("GET "+options.BaseURL+"/project/{projectId}/tasks", wrapper.GetProjectTasks)
+	m.HandleFunc("POST "+options.BaseURL+"/project/{projectId}/tasks", wrapper.CreateTask)
+	m.HandleFunc("GET "+options.BaseURL+"/project/{projectId}/tools", wrapper.GetProjectTools)
+	m.HandleFunc("GET "+options.BaseURL+"/run/{runId}", wrapper.GetRun)
+	m.HandleFunc("PUT "+options.BaseURL+"/run/{runId}/result", wrapper.UpdateRunResult)
+	m.HandleFunc("GET "+options.BaseURL+"/run/{runId}/state", wrapper.GetRunState)
+	m.HandleFunc("GET "+options.BaseURL+"/run/{runId}/status", wrapper.GetRunStatus)
+	m.HandleFunc("PUT "+options.BaseURL+"/run/{runId}/status", wrapper.UpdateRunStatus)
+	m.HandleFunc("GET "+options.BaseURL+"/run/{runId}/tool", wrapper.GetRunTools)
+	m.HandleFunc("POST "+options.BaseURL+"/run/{runId}/tool", wrapper.CreateRunTool)
+	m.HandleFunc("POST "+options.BaseURL+"/run/{run_id}/chat", wrapper.CreateNewChat)
+	m.HandleFunc("GET "+options.BaseURL+"/stats", wrapper.GetHubStats)
+	m.HandleFunc("GET "+options.BaseURL+"/supervision_request/{supervisionRequestId}/result", wrapper.GetSupervisionResult)
+	m.HandleFunc("POST "+options.BaseURL+"/supervision_request/{supervisionRequestId}/result", wrapper.CreateSupervisionResult)
+	m.HandleFunc("GET "+options.BaseURL+"/supervision_request/{supervisionRequestId}/review_payload", wrapper.GetSupervisionReviewPayload)
+	m.HandleFunc("GET "+options.BaseURL+"/supervision_request/{supervisionRequestId}/status", wrapper.GetSupervisionRequestStatus)
+	m.HandleFunc("GET "+options.BaseURL+"/supervisor/{supervisorId}", wrapper.GetSupervisor)
+	m.HandleFunc("GET "+options.BaseURL+"/swagger-ui", wrapper.GetSwaggerDocs)
+	m.HandleFunc("GET "+options.BaseURL+"/task/{taskId}", wrapper.GetTask)
+	m.HandleFunc("GET "+options.BaseURL+"/task/{taskId}/run", wrapper.GetTaskRuns)
+	m.HandleFunc("POST "+options.BaseURL+"/task/{taskId}/run", wrapper.CreateRun)
+	m.HandleFunc("GET "+options.BaseURL+"/tool/{toolId}", wrapper.GetTool)
+	m.HandleFunc("GET "+options.BaseURL+"/tool/{toolId}/supervisors", wrapper.GetToolSupervisorChains)
+	m.HandleFunc("POST "+options.BaseURL+"/tool/{toolId}/supervisors", wrapper.CreateToolSupervisorChains)
+	m.HandleFunc("GET "+options.BaseURL+"/tool_call/{toolCallId}", wrapper.GetToolCall)
+	m.HandleFunc("POST "+options.BaseURL+"/tool_call/{toolCallId}/chain/{chainId}/supervisor/{supervisorId}/supervision_request", wrapper.CreateSupervisionRequest)
+	m.HandleFunc("GET "+options.BaseURL+"/tool_call/{toolCallId}/status", wrapper.GetToolCallStatus)
 
 	return m
 }
@@ -1512,58 +1492,61 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

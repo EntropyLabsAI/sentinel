@@ -31,7 +31,7 @@ func sendErrorResponse(w http.ResponseWriter, status int, message string, detail
 }
 
 func InitAPI(store Store) {
-	log.Println("Initializing API")
+	log.Println("Initializing API v1")
 
 	humanReviewChan := make(chan SupervisionRequest, 100)
 
@@ -56,8 +56,8 @@ func InitAPI(store Store) {
 
 	mux := http.NewServeMux()
 
-	// Register the wrapped API handler under the /api/ path
-	mux.Handle("/api/", corsHandler)
+	// Register the wrapped API handler under the /api/v1/ path
+	mux.Handle("/api/v1/", http.StripPrefix("/api/v1", corsHandler))
 
 	// Register the WebSocket handler separately
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
@@ -70,8 +70,7 @@ func InitAPI(store Store) {
 		log.Fatal("APPROVAL_WEBSERVER_PORT not set, failing out")
 	}
 
-	log.Printf("Server started on port %s", port)
-	// err := http.ListenAndServe(fmt.Sprintf(":%s", port), mux)
+	log.Printf("Server v1 started on port %s", port)
 	err := http.ListenAndServe(fmt.Sprintf(":%s", port), mux)
 	if err != nil {
 		log.Fatal("Error listening and serving: ", err)
@@ -165,25 +164,30 @@ func (s Server) GetToolSupervisorChains(w http.ResponseWriter, r *http.Request, 
 	apiGetToolSupervisorChainsHandler(w, r, toolId, s.Store)
 }
 
-// CreateToolRequestGroup
-func (s Server) CreateToolRequestGroup(w http.ResponseWriter, r *http.Request, toolId uuid.UUID) {
-	apiCreateToolRequestGroupHandler(w, r, toolId, s.Store)
-}
+// // CreateToolRequestGroup
+// func (s Server) CreateToolRequestGroup(w http.ResponseWriter, r *http.Request, toolId uuid.UUID) {
+// 	apiCreateToolRequestGroupHandler(w, r, toolId, s.Store)
+// }
 
-// GetToolRequest
-func (s Server) GetToolRequest(w http.ResponseWriter, r *http.Request, toolRequestId uuid.UUID) {
-	apiGetToolRequestHandler(w, r, toolRequestId, s.Store)
+// // GetToolRequest
+// func (s Server) GetToolRequest(w http.ResponseWriter, r *http.Request, toolRequestId uuid.UUID) {
+// 	apiGetToolRequestHandler(w, r, toolRequestId, s.Store)
+// }
+
+// GetToolCall
+func (s Server) GetToolCall(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	apiGetToolCallHandler(w, r, id, s.Store)
 }
 
 // GetRunRequestGroups
-func (s Server) GetRunRequestGroups(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
-	apiGetRunRequestGroupsHandler(w, r, runId, s.Store)
-}
+// func (s Server) GetRunRequestGroups(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
+// 	apiGetRunRequestGroupsHandler(w, r, runId, s.Store)
+// }
 
 // GetRequestGroup
-func (s Server) GetRequestGroup(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID) {
-	apiGetRequestGroupHandler(w, r, requestGroupId, s.Store)
-}
+// func (s Server) GetRequestGroup(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID) {
+// 	apiGetRequestGroupHandler(w, r, requestGroupId, s.Store)
+// }
 
 // GetProjectTools
 func (s Server) GetProjectTools(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
@@ -196,8 +200,8 @@ func (s Server) GetTool(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 }
 
 // CreateSupervisionRequest
-func (s Server) CreateSupervisionRequest(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, chainId uuid.UUID, supervisorId uuid.UUID) {
-	apiCreateSupervisionRequestHandler(w, r, requestGroupId, chainId, supervisorId, s.Store)
+func (s Server) CreateSupervisionRequest(w http.ResponseWriter, r *http.Request, toolCallId uuid.UUID, chainId uuid.UUID, supervisorId uuid.UUID) {
+	apiCreateSupervisionRequestHandler(w, r, toolCallId, chainId, supervisorId, s.Store)
 }
 
 // GetSupervisionRequestStatus
@@ -226,9 +230,9 @@ func (s Server) GetRunState(w http.ResponseWriter, r *http.Request, runId uuid.U
 }
 
 // CreateToolRequest
-func (s Server) CreateToolRequest(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID) {
-	apiCreateToolRequestHandler(w, r, requestGroupId, s.Store)
-}
+// func (s Server) CreateToolRequest(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID) {
+// 	apiCreateToolRequestHandler(w, r, requestGroupId, s.Store)
+// }
 
 // GetSupervisionReviewPayload
 func (s Server) GetSupervisionReviewPayload(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID) {
@@ -236,8 +240,13 @@ func (s Server) GetSupervisionReviewPayload(w http.ResponseWriter, r *http.Reque
 }
 
 // GetRequestGroupStatus
-func (s Server) GetRequestGroupStatus(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID) {
-	apiGetRequestGroupStatusHandler(w, r, requestGroupId, s.Store)
+// func (s Server) GetRequestGroupStatus(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID) {
+// 	apiGetRequestGroupStatusHandler(w, r, requestGroupId, s.Store)
+// }
+
+// GetToolCallStatus
+func (s Server) GetToolCallStatus(w http.ResponseWriter, r *http.Request, toolCallId uuid.UUID) {
+	apiGetToolCallStatusHandler(w, r, toolCallId, s.Store)
 }
 
 // GetRunStatus
@@ -271,4 +280,8 @@ func enableCorsMiddleware(handler http.Handler) http.Handler {
 		// Call the next handler
 		handler.ServeHTTP(w, r)
 	})
+}
+
+func (s Server) CreateNewChat(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
+	apiCreateNewChatHandler(w, r, runId, s.Store)
 }

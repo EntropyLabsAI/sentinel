@@ -1,9 +1,13 @@
 -- First drop tables in reverse dependency order
+DROP TABLE IF EXISTS msg CASCADE;
+DROP TABLE IF EXISTS choice CASCADE;
+DROP TABLE IF EXISTS chat CASCADE;
 DROP TABLE IF EXISTS supervisionresult CASCADE;
 DROP TABLE IF EXISTS supervisionrequest_status CASCADE;
-DROP TABLE IF EXISTS supervisionrequest CASCADE;
+-- DROP TABLE IF EXISTS supervisionrequest CASCADE;
 DROP TABLE IF EXISTS chainexecution CASCADE;
-DROP TABLE IF EXISTS toolrequest CASCADE;
+-- DROP TABLE IF EXISTS toolrequest CASCADE;
+DROP TABLE IF EXISTS toolcall CASCADE;
 DROP TABLE IF EXISTS chain_tool CASCADE;
 DROP TABLE IF EXISTS chain_supervisor CASCADE;
 DROP TABLE IF EXISTS message CASCADE;
@@ -12,7 +16,7 @@ DROP TABLE IF EXISTS tool CASCADE;
 DROP TABLE IF EXISTS run CASCADE;
 DROP TABLE IF EXISTS chain CASCADE;
 DROP TABLE IF EXISTS supervisor CASCADE;
-DROP TABLE IF EXISTS requestgroup CASCADE;
+-- DROP TABLE IF EXISTS requestgroup CASCADE;
 DROP TABLE IF EXISTS project CASCADE;
 DROP TABLE IF EXISTS sentinel_user CASCADE;
 DROP TABLE IF EXISTS task CASCADE;
@@ -29,10 +33,10 @@ CREATE TABLE project (
     run_result_tags TEXT[] DEFAULT '{"success", "failure"}' NOT NULL
 );
 
-CREATE TABLE requestgroup (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+-- CREATE TABLE requestgroup (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+-- );
 
 CREATE TABLE supervisor (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -101,18 +105,51 @@ CREATE TABLE chain_tool (
     PRIMARY KEY (tool_id, chain_id)
 );
 
-CREATE TABLE toolrequest (
+-- Old table, replaced by toolcalls
+-- CREATE TABLE toolrequest (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     tool_id UUID REFERENCES tool(id),
+--     message_id UUID REFERENCES message(id) NULL,
+--     arguments JSONB DEFAULT '{}' NOT NULL,
+--     task_state JSONB DEFAULT '{}' NOT NULL,
+--     requestgroup_id UUID REFERENCES requestgroup(id) NULL
+-- );
+CREATE TABLE chat (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    request_data JSONB DEFAULT '{}' NOT NULL,
+    response_data JSONB DEFAULT '{}' NOT NULL,
+    run_id UUID REFERENCES run(id) NOT NULL,
+    format TEXT DEFAULT 'openai' CHECK (format IN ('openai', 'anthropic')) NOT NULL
+);
+
+CREATE TABLE choice (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chat_id UUID REFERENCES chat(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    choice_data JSONB DEFAULT '{}' NOT NULL
+);
+
+
+CREATE TABLE msg (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    choice_id UUID REFERENCES choice(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    msg_data JSONB DEFAULT '{}' NOT NULL
+);
+
+CREATE TABLE toolcall (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tool_id UUID REFERENCES tool(id),
-    message_id UUID REFERENCES message(id) NULL,
-    arguments JSONB DEFAULT '{}' NOT NULL,
-    task_state JSONB DEFAULT '{}' NOT NULL,
-    requestgroup_id UUID REFERENCES requestgroup(id) NULL
+    msg_id UUID REFERENCES msg(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    tool_call_data JSONB DEFAULT '{}' NOT NULL
 );
 
 CREATE TABLE chainexecution (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    requestgroup_id UUID REFERENCES requestgroup(id),
+    -- requestgroup_id UUID REFERENCES requestgroup(id),
+    toolcall_id UUID REFERENCES toolcall(id),
     chain_id UUID REFERENCES chain(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -137,5 +174,6 @@ CREATE TABLE supervisionresult (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     decision TEXT DEFAULT 'reject' CHECK (decision IN ('approve', 'reject', 'terminate', 'modify', 'escalate')),
     reasoning TEXT DEFAULT '',
-    chosen_toolrequest_id UUID REFERENCES toolrequest(id) NULL
+    toolcall_id UUID REFERENCES toolcall(id) NULL
 );
+
