@@ -100,16 +100,17 @@ func (s *PostgresqlStore) GetProjectFromName(ctx context.Context, name string) (
 	return &project, nil
 }
 
-func (s *PostgresqlStore) GetToolFromName(ctx context.Context, name string) (*sentinel.Tool, error) {
+func (s *PostgresqlStore) GetToolFromNameAndRunId(ctx context.Context, name string, runId uuid.UUID) (*sentinel.Tool, error) {
 	query := `
 		SELECT id, name, description, attributes, ignored_attributes, code
 		FROM tool
-		WHERE name = $1`
+		WHERE name = $1
+		AND run_id = $2`
 
 	var tool sentinel.Tool
 	var attributesJSON []byte
 	var toolIgnoredAttributes []string
-	err := s.db.QueryRowContext(ctx, query, name).Scan(
+	err := s.db.QueryRowContext(ctx, query, name, runId).Scan(
 		&tool.Id,
 		&tool.Name,
 		&tool.Description,
@@ -462,6 +463,7 @@ func (s *PostgresqlStore) GetSupervisorChains(ctx context.Context, toolId uuid.U
 // 		ToolRequests: make([]sentinel.ToolRequest, 0, len(request.ToolRequests)),
 // 	}
 
+// Create a new requestgroup
 // 	// for _, toolRequest := range request.ToolRequests {
 // 	// 	fmt.Printf("Creating tool request with type: %v and content: %s\n", *toolRequest.Message.Type, toolRequest.Message.Content)
 // 	// }
@@ -503,6 +505,7 @@ func (s *PostgresqlStore) GetSupervisorChains(ctx context.Context, toolId uuid.U
 //	tool_call_data JSONB DEFAULT '{}' NOT NULL
 //
 // );
+
 func (s *PostgresqlStore) GetToolCall(ctx context.Context, id uuid.UUID) (*sentinel.SentinelToolCall, error) {
 	query := `
 		SELECT id, created_at, tool_id, tool_call_data

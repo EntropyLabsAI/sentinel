@@ -18,9 +18,11 @@ export default function Tasks() {
     <Page title="Tasks" icon={<ListIcon className="w-6 h-6" />} subtitle={<span>{data?.data?.length && data?.data?.length > 0 ? `${data?.data?.length} task${data?.data?.length === 1 ? "" : "s"}` : 'No tasks'} found for this project</span>}>
       {isLoading && <LoadingSpinner />}
       {error && <div>{error.message}</div>}
-      {data?.data?.map((task) => (
-        <CompactTask key={task.id} task={task} />
-      ))}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        {data?.data?.map((task) => (
+          <CompactTask key={task.id} task={task} />
+        ))}
+      </div>
     </Page>
   )
 }
@@ -28,7 +30,7 @@ export default function Tasks() {
 function CompactTask({ task }: { task: Task }) {
   return (
     <Link to={`/tasks/${task.id}`}>
-      <Card className="w-64 shadow-none ">
+      <Card className="shadow-none h-full">
         <CardContent className="p-4">
           <div className="flex flex-col items-left gap-2">
             <div>

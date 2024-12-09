@@ -69,7 +69,7 @@ def llm_supervisor(
     if system_prompt is None:
         system_prompt = """
 Your goal is to review the agent's function call based on the provided policies, rules, and context. 
-You need to decide whether the function call should be approved, rejected, escalated, terminated, or modified. 
+You need to decide whether the function call should be "approve", "reject", "escalate", "terminate", or "modify" (use exactly these lowercase values).
 Provide your decision along with a clear explanation. If you choose to modify the function call, specify the modified arguments in the following format:
 
 ModifiedData:
@@ -183,26 +183,56 @@ ModifiedData:
             # Extract the function call arguments from the response
             message = completion.choices[0].message
             if message.function_call:
-                response_args = message.function_call.arguments
-                response_data = json.loads(response_args)
+                try:
+                    response_args = message.function_call.arguments
+                    response_data = json.loads(response_args)
+                    
+                    # Handle nested structure or direct structure
+                    decision_value = (
+                        response_data.get("_", {}).get("decision")  # Try nested structure
+                        or response_data.get("decision")  # Try direct structure
+                        or "escalate"  # Default if neither exists
+                    )
+
+                    # Parse the 'modified' field, only including fields that have changed
+                    modified_data = None
+                    modified_fields = (
+                        response_data.get("_", {}).get("modified")
+                        or response_data.get("modified")
+                    )
+                    if modified_fields:
+                        modified_data = ModifiedData(
+                            tool_args=modified_fields.get("tool_args", tool_args),
+                            tool_kwargs=modified_fields.get("tool_kwargs", tool_kwargs)
+                        )
+
+                    explanation = (
+                        response_data.get("_", {}).get("explanation")
+                        or response_data.get("explanation")
+                        or "No explanation provided"
+                    )
+
+                    decision = SupervisionDecision(
+                        decision=SupervisionDecisionType(decision_value.lower()),
+                        modified=modified_data,
+                        explanation=explanation
+                    )
+                    return decision
+
+                except (json.JSONDecodeError, ValueError, AttributeError) as e:
+                    print(f"Error parsing LLM response: {str(e)}")
+                    print(f"Raw response: {response_args}")
+                    return SupervisionDecision(
+                        decision=SupervisionDecisionType.ESCALATE,
+                        explanation=f"Error parsing LLM response: {str(e)}",
+                        modified=None
+                    )
             else:
-                raise ValueError("No valid function call in assistant's response.")
-
-            # Parse the 'modified' field, only including fields that have changed
-            modified_data = None
-            if response_data.get("modified"):
-                modified_fields = response_data["modified"]
-                modified_data = ModifiedData(
-                    tool_args=modified_fields.get("tool_args", tool_args),
-                    tool_kwargs=modified_fields.get("tool_kwargs", tool_kwargs)
+                return SupervisionDecision(
+                    decision=SupervisionDecisionType.ESCALATE,
+                    explanation="No valid function call in assistant's response",
+                    modified=None
                 )
-
-            decision = SupervisionDecision(
-                decision=response_data.get("decision"),
-                modified=modified_data,
-                explanation=response_data.get("explanation")
-            )
-            return decision
 
         except Exception as e:
             print(f"Error during LLM supervision: {str(e)}")
