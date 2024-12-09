@@ -29,13 +29,13 @@ export function MessagesDisplay({ messages }: { messages: Message[] }) {
         <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
           <div className="flex flex-row gap-4">
             <MessagesSquareIcon className="w-4 h-4" />
-            Messages & Task State
+            Messages
           </div>
         </AccordionTrigger>
         <AccordionContent className="">
           <Card className="border-none">
             <CardContent>
-              <div className="overflow-auto" ref={scrollAreaRef}>
+              <div className="max-h-[1000px] overflow-y-auto" ref={scrollAreaRef}>
                 {messages.map((message, index) => (
                   <MessageDisplay key={index} message={message} index={index} />
                 ))}
