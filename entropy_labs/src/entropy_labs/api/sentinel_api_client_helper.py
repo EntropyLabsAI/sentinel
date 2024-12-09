@@ -694,7 +694,7 @@ def send_supervision_result(
         raise ValueError(f"Unsupported decision type: {decision.decision}")
     
     new_tool_request_id = None
-    if decision.modified is not None:
+    if decision.decision == SupervisionDecisionType.MODIFY:
         tool_request.id = uuid4()
         if decision.modified.tool_kwargs is not None:
             tool_request.arguments = Arguments.from_dict(src_dict=decision.modified.tool_kwargs)
