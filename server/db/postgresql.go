@@ -1751,6 +1751,7 @@ func (s *PostgresqlStore) CreateChatRequest(
 	response []byte,
 	choices []sentinel.SentinelChoice,
 	format string,
+	requestMessages []sentinel.SentinelMessage,
 ) (*uuid.UUID, error) {
 	if len(request) == 0 {
 		return nil, fmt.Errorf("request is empty")
@@ -1773,7 +1774,7 @@ func (s *PostgresqlStore) CreateChatRequest(
 	}
 
 	// Store the choices
-	err = s.createChatChoices(ctx, tx, id, choices)
+	err = s.createChatChoices(ctx, tx, id, choices, requestMessages)
 	if err != nil {
 		return nil, fmt.Errorf("error creating chat choices: %w", err)
 	}
@@ -1785,11 +1786,80 @@ func (s *PostgresqlStore) CreateChatRequest(
 	return &id, nil
 }
 
+func (s *PostgresqlStore) createChatRequestMessages(
+	ctx context.Context,
+	tx *sql.Tx,
+	choiceId uuid.UUID,
+	requestMessages []sentinel.SentinelMessage,
+) error {
+	// For each message, store it in the DB
+	for _, message := range requestMessages {
+		query := `
+			INSERT INTO msg (id, choice_id, msg_data)
+			VALUES ($1, $2, $3)
+		`
+		msgData, err := json.Marshal(message)
+		if err != nil {
+			return fmt.Errorf("error marshalling message data: %w", err)
+		}
+		_, err = tx.ExecContext(ctx, query, message.Id, choiceId, msgData)
+		if err != nil {
+			return fmt.Errorf("error creating chat message: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// TODO: Assumes that there is only one
+func (s *PostgresqlStore) GetMessagesForRun(ctx context.Context, runId uuid.UUID) ([]sentinel.SentinelMessage, error) {
+	query := `
+		SELECT msg.id, msg.choice_id, msg.msg_data 
+		FROM msg 
+		INNER JOIN choice ON msg.choice_id = choice.id
+		INNER JOIN chat ON choice.chat_id = chat.id
+		WHERE chat.run_id = $1
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, runId)
+	if err != nil {
+		return nil, fmt.Errorf("error getting messages for run: %w", err)
+	}
+	defer rows.Close()
+
+	type msg struct {
+		Id       string
+		ChoiceId string
+		MsgData  []byte
+	}
+
+	// msg has a msg_data field that is a JSONB object. Get it and then unmarshal it into a sentinel.SentinelMessage
+	messages := make([]sentinel.SentinelMessage, 0)
+	for rows.Next() {
+		var msg msg
+		err := rows.Scan(&msg.Id, &msg.ChoiceId, &msg.MsgData)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning message: %w", err)
+		}
+
+		var message sentinel.SentinelMessage
+		err = json.Unmarshal(msg.MsgData, &message)
+		if err != nil {
+			return nil, fmt.Errorf("error unmarshalling message: %w", err)
+		}
+
+		messages = append(messages, message)
+	}
+
+	return messages, nil
+}
+
 func (s *PostgresqlStore) createChatChoices(
 	ctx context.Context,
 	tx *sql.Tx,
 	chatId uuid.UUID,
 	choices []sentinel.SentinelChoice,
+	requestMessages []sentinel.SentinelMessage,
 ) error {
 	// Store the choices in the DB
 	for _, choice := range choices {
@@ -1806,6 +1876,18 @@ func (s *PostgresqlStore) createChatChoices(
 		_, err = tx.ExecContext(ctx, query, choice.SentinelId, chatId, choiceData)
 		if err != nil {
 			return fmt.Errorf("error creating chat choice: %w", err)
+		}
+
+		// Convert the SentinelId to a uuid
+		choiceId, err := uuid.Parse(choice.SentinelId)
+		if err != nil {
+			return fmt.Errorf("error parsing SentinelId: %w", err)
+		}
+
+		// Store the request messages which are unique to the request that generated this choice
+		err = s.createChatRequestMessages(ctx, tx, choiceId, requestMessages)
+		if err != nil {
+			return fmt.Errorf("error creating chat request messages: %w", err)
 		}
 
 		// Store the message

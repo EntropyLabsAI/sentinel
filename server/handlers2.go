@@ -35,9 +35,18 @@ func apiCreateNewChatHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 		return
 	}
 
-	jsonRequest, err := validateAndDecodeRequest(payload.RequestData)
+	jsonRequest, requestMessages, err := validateAndDecodeRequest(ctx, payload.RequestData, runId, store)
 	if err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Request: %s", err.Error()), "")
+		return
+	}
+
+	// len(requestMessages) should be the same as the total number of messages in msg for this run
+	// (exluding unpicked choices)
+
+	newRequestMessages, err := filterRequestMessages(ctx, requestMessages, runId, store)
+	if err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Error filtering request messages: %s", err.Error()), "")
 		return
 	}
 
@@ -54,7 +63,7 @@ func apiCreateNewChatHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 		return
 	}
 
-	id, err := store.CreateChatRequest(ctx, runId, jsonRequest, jsonResponse, choices, "openai")
+	id, err := store.CreateChatRequest(ctx, runId, jsonRequest, jsonResponse, choices, "openai", newRequestMessages)
 	if err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Error creating chat request: %s", err.Error()), "")
 		return
@@ -66,19 +75,54 @@ func apiCreateNewChatHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 	respondJSON(w, chatIds, http.StatusOK)
 }
 
+// filterRequestMessages filters out the request messages that are not new in this request
+// by cutting off the first n messages, where n is the number of messages logged against choices in
+// this run already.
+func filterRequestMessages(ctx context.Context, requestMessages []SentinelMessage, runId uuid.UUID, store Store) ([]SentinelMessage, error) {
+	messagesForRun, err := store.GetMessagesForRun(ctx, runId)
+	if err != nil {
+		return nil, fmt.Errorf("error getting messages for run: %w", err)
+	}
+
+	// Get the number of messages logged against choices in this run
+	numMessagesLogged := len(messagesForRun)
+
+	// Cut off the first n messages
+	newRequestMessages := requestMessages[numMessagesLogged:]
+
+	return newRequestMessages, nil
+}
+
 // validateAndDecodeRequest handles the decoding and validation of the chat completion request
-func validateAndDecodeRequest(encodedData string) ([]byte, error) {
+// It splits out the messages and converts them to SentinelMessage objects
+func validateAndDecodeRequest(ctx context.Context, encodedData string, runId uuid.UUID, store ToolStore) ([]byte, []SentinelMessage, error) {
 	decodedRequest, err := base64.StdEncoding.DecodeString(encodedData)
 	if err != nil {
-		return nil, fmt.Errorf("invalid base64 format: %w", err)
+		return nil, nil, fmt.Errorf("invalid base64 format: %w", err)
 	}
 
 	var v openai.ChatCompletionRequest
 	if err = json.Unmarshal(decodedRequest, &v); err != nil {
-		return nil, fmt.Errorf("invalid request format: %w", err)
+		return nil, nil, fmt.Errorf("invalid request format: %w", err)
 	}
 
-	return json.Marshal(v)
+	// Extract messages from the request
+	messages := v.Messages
+	convertedMessages := make([]SentinelMessage, 0, len(messages))
+	for _, message := range messages {
+		convertedMessage, err := convertMessage(ctx, message, runId, store)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error converting messages: %w", err)
+		}
+		convertedMessages = append(convertedMessages, convertedMessage)
+	}
+
+	marshaledRequest, err := json.Marshal(v)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error marshalling request: %w", err)
+	}
+
+	return marshaledRequest, convertedMessages, nil
 }
 
 // validateAndDecodeResponse handles the decoding and validation of the chat completion response

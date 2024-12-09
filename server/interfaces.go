@@ -97,5 +97,14 @@ type RunStore interface {
 }
 
 type ChatStore interface {
-	CreateChatRequest(ctx context.Context, runId uuid.UUID, request []byte, response []byte, choices []SentinelChoice, format string) (*uuid.UUID, error)
+	CreateChatRequest(
+		ctx context.Context,
+		runId uuid.UUID,
+		request []byte,
+		response []byte,
+		choices []SentinelChoice,
+		format string,
+		requestMessages []SentinelMessage,
+	) (*uuid.UUID, error)
+	GetMessagesForRun(ctx context.Context, runId uuid.UUID) ([]SentinelMessage, error)
 }
