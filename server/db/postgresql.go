@@ -424,10 +424,6 @@ func (s *PostgresqlStore) CreateToolRequestGroup(ctx context.Context, toolId uui
 		ToolRequests: make([]sentinel.ToolRequest, 0, len(request.ToolRequests)),
 	}
 
-	for _, toolRequest := range request.ToolRequests {
-		fmt.Printf("Creating tool request with type: %v and content: %s\n", *toolRequest.Message.Type, toolRequest.Message.Content)
-	}
-
 	// Create a new requestgroup
 	query := `
 		INSERT INTO requestgroup (id)
@@ -726,7 +722,6 @@ func (s *PostgresqlStore) createMessage(ctx context.Context, tx *sql.Tx, message
 		INSERT INTO message (id, role, content, type)
 		VALUES ($1, $2, $3, $4)`
 
-	fmt.Printf("Creating message with type: %v and content: %s\n", message.Type, message.Content)
 	id := uuid.New()
 	_, err := tx.ExecContext(ctx, query, id, message.Role, message.Content, message.Type)
 	if err != nil {
@@ -776,7 +771,6 @@ func (s *PostgresqlStore) createToolRequest(ctx context.Context, tx *sql.Tx, req
 		INSERT INTO toolrequest (id, tool_id, message_id, arguments, task_state, requestgroup_id)
 		VALUES ($1, $2, $3, $4, $5, $6)`
 
-	fmt.Printf("Creating message with type: %v and content: %s\n", request.Message.Type, request.Message.Content)
 	messageID, err := s.createMessage(ctx, tx, request.Message)
 	if err != nil {
 		return fmt.Errorf("error creating message: %w", err)
