@@ -74,7 +74,7 @@ type ToolStore interface {
 	// GetToolFromValues(ctx context.Context, attributes map[string]interface{}, name string, description string, ignoredAttributes []string) (*Tool, error)
 	GetRunTools(ctx context.Context, id uuid.UUID) ([]Tool, error)
 	GetProjectTools(ctx context.Context, id uuid.UUID) ([]Tool, error)
-	GetToolFromName(ctx context.Context, name string) (*Tool, error)
+	GetToolFromNameAndRunId(ctx context.Context, name string, runId uuid.UUID) (*Tool, error)
 }
 
 type SupervisorStore interface {

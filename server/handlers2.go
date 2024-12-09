@@ -48,7 +48,7 @@ func apiCreateNewChatHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 	}
 
 	// Parse out the choices into SentinelChoice objects
-	choices, err := convertChoices(ctx, response.Choices, store)
+	choices, err := convertChoices(ctx, response.Choices, runId, store)
 	if err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Error converting choices: %s", err.Error()), "")
 		return
@@ -101,10 +101,10 @@ func validateAndDecodeResponse(encodedData string) ([]byte, *openai.ChatCompleti
 	return b, &v, nil
 }
 
-func convertChoices(ctx context.Context, choices []openai.ChatCompletionChoice, store ToolStore) ([]SentinelChoice, error) {
+func convertChoices(ctx context.Context, choices []openai.ChatCompletionChoice, runId uuid.UUID, store ToolStore) ([]SentinelChoice, error) {
 	var result []SentinelChoice
 	for _, choice := range choices {
-		message, err := convertMessage(ctx, choice.Message, store)
+		message, err := convertMessage(ctx, choice.Message, runId, store)
 		if err != nil {
 			return nil, fmt.Errorf("error converting message: %w", err)
 		}
@@ -121,8 +121,8 @@ func convertChoices(ctx context.Context, choices []openai.ChatCompletionChoice, 
 	return result, nil
 }
 
-func convertMessage(ctx context.Context, message openai.ChatCompletionMessage, store ToolStore) (SentinelMessage, error) {
-	toolCalls, err := convertToolCalls(ctx, message.ToolCalls, store)
+func convertMessage(ctx context.Context, message openai.ChatCompletionMessage, runId uuid.UUID, store ToolStore) (SentinelMessage, error) {
+	toolCalls, err := convertToolCalls(ctx, message.ToolCalls, runId, store)
 	if err != nil {
 		return SentinelMessage{}, fmt.Errorf("error converting tool calls: %w", err)
 	}
@@ -141,10 +141,10 @@ func convertMessage(ctx context.Context, message openai.ChatCompletionMessage, s
 	}, nil
 }
 
-func convertToolCalls(ctx context.Context, toolCalls []openai.ToolCall, store ToolStore) ([]SentinelToolCall, error) {
+func convertToolCalls(ctx context.Context, toolCalls []openai.ToolCall, runId uuid.UUID, store ToolStore) ([]SentinelToolCall, error) {
 	var result []SentinelToolCall
 	for _, toolCall := range toolCalls {
-		toolCall, err := convertToolCall(ctx, toolCall, store)
+		toolCall, err := convertToolCall(ctx, toolCall, runId, store)
 		if err != nil {
 			return nil, fmt.Errorf("error converting tool call: %w", err)
 		}
@@ -155,10 +155,10 @@ func convertToolCalls(ctx context.Context, toolCalls []openai.ToolCall, store To
 	return result, nil
 }
 
-func convertToolCall(ctx context.Context, toolCall openai.ToolCall, store ToolStore) (*SentinelToolCall, error) {
+func convertToolCall(ctx context.Context, toolCall openai.ToolCall, runId uuid.UUID, store ToolStore) (*SentinelToolCall, error) {
 	// Get this from the DB
 	fmt.Printf("Tool call name: %s\n", toolCall.Function.Name)
-	tool, err := store.GetToolFromName(ctx, toolCall.Function.Name)
+	tool, err := store.GetToolFromNameAndRunId(ctx, toolCall.Function.Name, runId)
 	if err != nil {
 		fmt.Printf("Error getting tool: %s\n", err.Error())
 		return nil, fmt.Errorf("error getting tool: %w", err)

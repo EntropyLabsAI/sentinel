@@ -100,16 +100,17 @@ func (s *PostgresqlStore) GetProjectFromName(ctx context.Context, name string) (
 	return &project, nil
 }
 
-func (s *PostgresqlStore) GetToolFromName(ctx context.Context, name string) (*sentinel.Tool, error) {
+func (s *PostgresqlStore) GetToolFromNameAndRunId(ctx context.Context, name string, runId uuid.UUID) (*sentinel.Tool, error) {
 	query := `
 		SELECT id, name, description, attributes, ignored_attributes, code
 		FROM tool
-		WHERE name = $1`
+		WHERE name = $1
+		AND run_id = $2`
 
 	var tool sentinel.Tool
 	var attributesJSON []byte
 	var toolIgnoredAttributes []string
-	err := s.db.QueryRowContext(ctx, query, name).Scan(
+	err := s.db.QueryRowContext(ctx, query, name, runId).Scan(
 		&tool.Id,
 		&tool.Name,
 		&tool.Description,
