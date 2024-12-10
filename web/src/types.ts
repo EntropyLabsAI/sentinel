@@ -48,6 +48,80 @@ export type CreateProjectBody = {
   run_result_tags: string[];
 };
 
+export interface ToolCallIds {
+  tool_call_id?: string;
+  tool_id?: string;
+}
+
+export interface ChoiceIds {
+  choice_id: string;
+  message_id: string;
+  tool_call_ids: ToolCallIds[];
+}
+
+export interface ChatIds {
+  chat_id: string;
+  choice_ids: ChoiceIds[];
+}
+
+export type SentinelChoiceFinishReason = typeof SentinelChoiceFinishReason[keyof typeof SentinelChoiceFinishReason];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const SentinelChoiceFinishReason = {
+  stop: 'stop',
+  length: 'length',
+  function_call: 'function_call',
+  tool_calls: 'tool_calls',
+  content_filter: 'content_filter',
+} as const;
+
+export interface SentinelChoice {
+  finish_reason: SentinelChoiceFinishReason;
+  index: number;
+  message: SentinelMessage;
+  sentinel_id: string;
+}
+
+export interface SentinelToolCall {
+  /** Arguments in JSON format */
+  arguments?: string;
+  created_at?: string;
+  id: string;
+  name?: string;
+  tool_id: string;
+}
+
+export type SentinelMessageRole = typeof SentinelMessageRole[keyof typeof SentinelMessageRole];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const SentinelMessageRole = {
+  system: 'system',
+  user: 'user',
+  assistant: 'assistant',
+  function: 'function',
+  tool: 'tool',
+} as const;
+
+export interface SentinelMessage {
+  content: string;
+  created_at?: string;
+  id?: string;
+  role: SentinelMessageRole;
+  tool_calls?: SentinelToolCall[];
+  /** The type of content in the message, either text or b64 encoded audio */
+  type?: MessageType;
+}
+
+/**
+ * The raw b64 encoded JSON of the request and response data sent/received from the LLM.
+ */
+export interface SentinelChat {
+  request_data: string;
+  response_data: string;
+}
+
 export interface Task {
   created_at: string;
   description?: string;
@@ -62,12 +136,12 @@ export interface Task {
 export interface ReviewPayload {
   /** The state of the entire supervision chain, including previous supervision results */
   chain_state: ChainExecutionState;
-  /** The tool request group being supervised */
-  request_group: ToolRequestGroup;
   /** The ID of the run this review is for */
   run_id: string;
   /** The current supervision request being reviewed */
   supervision_request: SupervisionRequest;
+  /** The tool call being supervised */
+  toolcall?: ToolCall;
 }
 
 export type MessageRole = typeof MessageRole[keyof typeof MessageRole];
@@ -99,21 +173,6 @@ export interface Usage {
   input_tokens: number;
   output_tokens: number;
   total_tokens: number;
-}
-
-export type ToolCallArguments = { [key: string]: unknown };
-
-export interface ToolCall {
-  arguments: ToolCallArguments;
-  function: string;
-  id: string;
-  parse_error?: string;
-  type: string;
-}
-
-export interface Choice {
-  message: Message;
-  stop_reason?: string;
 }
 
 export interface Output {
@@ -181,12 +240,12 @@ export const Status = {
 } as const;
 
 export interface SupervisionResult {
-  chosen_toolrequest_id?: string;
   created_at: string;
   decision: Decision;
   id?: string;
   reasoning: string;
   supervision_request_id: string;
+  toolcall_id?: string;
 }
 
 export interface SupervisionStatus {
@@ -217,29 +276,28 @@ export const MessageType = {
   image_url: 'image_url',
 } as const;
 
+export type ToolCallArguments = { [key: string]: unknown };
+
+export interface ToolCall {
+  arguments: ToolCallArguments;
+  function: string;
+  id: string;
+  parse_error?: string;
+  type: string;
+}
+
 export interface Message {
   content: string;
   id?: string;
   role: MessageRole;
   source?: string;
   tool_calls?: ToolCall[];
-  /** The type of content in the message, either text or b64 encoded audio */
   type?: MessageType;
 }
 
-export interface ToolRequest {
-  arguments: Arguments;
-  id?: string;
+export interface Choice {
   message: Message;
-  requestgroup_id?: string;
-  task_state: TaskState;
-  tool_id: string;
-}
-
-export interface ToolRequestGroup {
-  created_at?: string;
-  id?: string;
-  tool_requests: ToolRequest[];
+  stop_reason?: string;
 }
 
 export interface SupervisorChain {
@@ -301,7 +359,7 @@ export interface ChainExecution {
   chain_id: string;
   created_at: string;
   id: string;
-  request_group_id: string;
+  toolcall_id: string;
 }
 
 export interface ChainExecutionState {
@@ -312,8 +370,8 @@ export interface ChainExecutionState {
 
 export interface RunExecution {
   chains: ChainExecutionState[];
-  request_group: ToolRequestGroup;
   status: Status;
+  toolcall: SentinelToolCall;
 }
 
 export type RunState = RunExecution[];
@@ -321,14 +379,6 @@ export type RunState = RunExecution[];
 export interface ErrorResponse {
   details?: string;
   error: string;
-}
-
-export interface CreateNewChatCompletionResponseBody {
-  response_data: string;
-}
-
-export interface CreateNewChatCompletionRequestBody {
-  request_data: string;
 }
 
 
@@ -978,7 +1028,7 @@ export const useGetRunTools = <TData = Awaited<ReturnType<typeof getRunTools>>, 
 export const createRunTool = (
     runId: string,
     createRunToolBody: CreateRunToolBody, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<string>> => {
+ ): Promise<AxiosResponse<Tool>> => {
     
     return axios.post(
       `/run/${runId}/tool`,
@@ -1318,109 +1368,53 @@ export const useCreateToolSupervisorChains = <TError = AxiosError<unknown>,
     }
     
 /**
- * @summary Create a new request group for a tool
+ * @summary Get a tool call
  */
-export const createToolRequestGroup = (
-    toolId: string,
-    toolRequestGroup: ToolRequestGroup, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<ToolRequestGroup>> => {
-    
-    return axios.post(
-      `/tool/${toolId}/request_group`,
-      toolRequestGroup,options
-    );
-  }
-
-
-
-export const getCreateToolRequestGroupMutationOptions = <TError = AxiosError<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createToolRequestGroup>>, TError,{toolId: string;data: ToolRequestGroup}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof createToolRequestGroup>>, TError,{toolId: string;data: ToolRequestGroup}, TContext> => {
-const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createToolRequestGroup>>, {toolId: string;data: ToolRequestGroup}> = (props) => {
-          const {toolId,data} = props ?? {};
-
-          return  createToolRequestGroup(toolId,data,axiosOptions)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateToolRequestGroupMutationResult = NonNullable<Awaited<ReturnType<typeof createToolRequestGroup>>>
-    export type CreateToolRequestGroupMutationBody = ToolRequestGroup
-    export type CreateToolRequestGroupMutationError = AxiosError<ErrorResponse>
-
-    /**
- * @summary Create a new request group for a tool
- */
-export const useCreateToolRequestGroup = <TError = AxiosError<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createToolRequestGroup>>, TError,{toolId: string;data: ToolRequestGroup}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationResult<
-        Awaited<ReturnType<typeof createToolRequestGroup>>,
-        TError,
-        {toolId: string;data: ToolRequestGroup},
-        TContext
-      > => {
-
-      const mutationOptions = getCreateToolRequestGroupMutationOptions(options);
-
-      return useMutation(mutationOptions);
-    }
-    
-/**
- * @summary Get all request groups for a run
- */
-export const getRunRequestGroups = (
-    runId: string, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<ToolRequestGroup[]>> => {
+export const getToolCall = (
+    toolCallId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<SentinelToolCall>> => {
     
     return axios.get(
-      `/run/${runId}/request_groups`,options
+      `/tool_call/${toolCallId}`,options
     );
   }
 
 
-export const getGetRunRequestGroupsQueryKey = (runId: string,) => {
-    return [`/run/${runId}/request_groups`] as const;
+export const getGetToolCallQueryKey = (toolCallId: string,) => {
+    return [`/tool_call/${toolCallId}`] as const;
     }
 
     
-export const getGetRunRequestGroupsQueryOptions = <TData = Awaited<ReturnType<typeof getRunRequestGroups>>, TError = AxiosError<unknown>>(runId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunRequestGroups>>, TError, TData>, axios?: AxiosRequestConfig}
+export const getGetToolCallQueryOptions = <TData = Awaited<ReturnType<typeof getToolCall>>, TError = AxiosError<ErrorResponse>>(toolCallId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getToolCall>>, TError, TData>, axios?: AxiosRequestConfig}
 ) => {
 
 const {query: queryOptions, axios: axiosOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetRunRequestGroupsQueryKey(runId);
+  const queryKey =  queryOptions?.queryKey ?? getGetToolCallQueryKey(toolCallId);
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRunRequestGroups>>> = ({ signal }) => getRunRequestGroups(runId, { signal, ...axiosOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getToolCall>>> = ({ signal }) => getToolCall(toolCallId, { signal, ...axiosOptions });
 
       
 
       
 
-   return  { queryKey, queryFn, enabled: !!(runId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRunRequestGroups>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, enabled: !!(toolCallId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getToolCall>>, TError, TData> & { queryKey: QueryKey }
 }
 
-export type GetRunRequestGroupsQueryResult = NonNullable<Awaited<ReturnType<typeof getRunRequestGroups>>>
-export type GetRunRequestGroupsQueryError = AxiosError<unknown>
+export type GetToolCallQueryResult = NonNullable<Awaited<ReturnType<typeof getToolCall>>>
+export type GetToolCallQueryError = AxiosError<ErrorResponse>
 
 /**
- * @summary Get all request groups for a run
+ * @summary Get a tool call
  */
-export const useGetRunRequestGroups = <TData = Awaited<ReturnType<typeof getRunRequestGroups>>, TError = AxiosError<unknown>>(
- runId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunRequestGroups>>, TError, TData>, axios?: AxiosRequestConfig}
+export const useGetToolCall = <TData = Awaited<ReturnType<typeof getToolCall>>, TError = AxiosError<ErrorResponse>>(
+ toolCallId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getToolCall>>, TError, TData>, axios?: AxiosRequestConfig}
 
   ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
 
-  const queryOptions = getGetRunRequestGroupsQueryOptions(runId,options)
+  const queryOptions = getGetToolCallQueryOptions(toolCallId,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -1433,227 +1427,53 @@ export const useGetRunRequestGroups = <TData = Awaited<ReturnType<typeof getRunR
 
 
 /**
- * @summary Get a request group
+ * @summary Get a tool call status
  */
-export const getRequestGroup = (
-    requestGroupId: string, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<ToolRequestGroup>> => {
-    
-    return axios.get(
-      `/request_group/${requestGroupId}`,options
-    );
-  }
-
-
-export const getGetRequestGroupQueryKey = (requestGroupId: string,) => {
-    return [`/request_group/${requestGroupId}`] as const;
-    }
-
-    
-export const getGetRequestGroupQueryOptions = <TData = Awaited<ReturnType<typeof getRequestGroup>>, TError = AxiosError<unknown>>(requestGroupId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRequestGroup>>, TError, TData>, axios?: AxiosRequestConfig}
-) => {
-
-const {query: queryOptions, axios: axiosOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetRequestGroupQueryKey(requestGroupId);
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRequestGroup>>> = ({ signal }) => getRequestGroup(requestGroupId, { signal, ...axiosOptions });
-
-      
-
-      
-
-   return  { queryKey, queryFn, enabled: !!(requestGroupId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRequestGroup>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetRequestGroupQueryResult = NonNullable<Awaited<ReturnType<typeof getRequestGroup>>>
-export type GetRequestGroupQueryError = AxiosError<unknown>
-
-/**
- * @summary Get a request group
- */
-export const useGetRequestGroup = <TData = Awaited<ReturnType<typeof getRequestGroup>>, TError = AxiosError<unknown>>(
- requestGroupId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRequestGroup>>, TError, TData>, axios?: AxiosRequestConfig}
-
-  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
-
-  const queryOptions = getGetRequestGroupQueryOptions(requestGroupId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
-
-/**
- * @summary Get a request group status
- */
-export const getRequestGroupStatus = (
-    requestGroupId: string, options?: AxiosRequestConfig
+export const getToolCallStatus = (
+    toolCallId: string, options?: AxiosRequestConfig
  ): Promise<AxiosResponse<Status>> => {
     
     return axios.get(
-      `/request_group/${requestGroupId}/status`,options
+      `/tool_call/${toolCallId}/status`,options
     );
   }
 
 
-export const getGetRequestGroupStatusQueryKey = (requestGroupId: string,) => {
-    return [`/request_group/${requestGroupId}/status`] as const;
+export const getGetToolCallStatusQueryKey = (toolCallId: string,) => {
+    return [`/tool_call/${toolCallId}/status`] as const;
     }
 
     
-export const getGetRequestGroupStatusQueryOptions = <TData = Awaited<ReturnType<typeof getRequestGroupStatus>>, TError = AxiosError<unknown>>(requestGroupId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRequestGroupStatus>>, TError, TData>, axios?: AxiosRequestConfig}
+export const getGetToolCallStatusQueryOptions = <TData = Awaited<ReturnType<typeof getToolCallStatus>>, TError = AxiosError<unknown>>(toolCallId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getToolCallStatus>>, TError, TData>, axios?: AxiosRequestConfig}
 ) => {
 
 const {query: queryOptions, axios: axiosOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetRequestGroupStatusQueryKey(requestGroupId);
+  const queryKey =  queryOptions?.queryKey ?? getGetToolCallStatusQueryKey(toolCallId);
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRequestGroupStatus>>> = ({ signal }) => getRequestGroupStatus(requestGroupId, { signal, ...axiosOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getToolCallStatus>>> = ({ signal }) => getToolCallStatus(toolCallId, { signal, ...axiosOptions });
 
       
 
       
 
-   return  { queryKey, queryFn, enabled: !!(requestGroupId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRequestGroupStatus>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, enabled: !!(toolCallId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getToolCallStatus>>, TError, TData> & { queryKey: QueryKey }
 }
 
-export type GetRequestGroupStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getRequestGroupStatus>>>
-export type GetRequestGroupStatusQueryError = AxiosError<unknown>
+export type GetToolCallStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getToolCallStatus>>>
+export type GetToolCallStatusQueryError = AxiosError<unknown>
 
 /**
- * @summary Get a request group status
+ * @summary Get a tool call status
  */
-export const useGetRequestGroupStatus = <TData = Awaited<ReturnType<typeof getRequestGroupStatus>>, TError = AxiosError<unknown>>(
- requestGroupId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRequestGroupStatus>>, TError, TData>, axios?: AxiosRequestConfig}
+export const useGetToolCallStatus = <TData = Awaited<ReturnType<typeof getToolCallStatus>>, TError = AxiosError<unknown>>(
+ toolCallId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getToolCallStatus>>, TError, TData>, axios?: AxiosRequestConfig}
 
   ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
 
-  const queryOptions = getGetRequestGroupStatusQueryOptions(requestGroupId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
-
-/**
- * @summary Create a new tool request for a request group
- */
-export const createToolRequest = (
-    requestGroupId: string,
-    toolRequest: ToolRequest, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<string>> => {
-    
-    return axios.post(
-      `/request_group/${requestGroupId}/tool_requests`,
-      toolRequest,options
-    );
-  }
-
-
-
-export const getCreateToolRequestMutationOptions = <TError = AxiosError<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createToolRequest>>, TError,{requestGroupId: string;data: ToolRequest}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof createToolRequest>>, TError,{requestGroupId: string;data: ToolRequest}, TContext> => {
-const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createToolRequest>>, {requestGroupId: string;data: ToolRequest}> = (props) => {
-          const {requestGroupId,data} = props ?? {};
-
-          return  createToolRequest(requestGroupId,data,axiosOptions)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateToolRequestMutationResult = NonNullable<Awaited<ReturnType<typeof createToolRequest>>>
-    export type CreateToolRequestMutationBody = ToolRequest
-    export type CreateToolRequestMutationError = AxiosError<unknown>
-
-    /**
- * @summary Create a new tool request for a request group
- */
-export const useCreateToolRequest = <TError = AxiosError<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createToolRequest>>, TError,{requestGroupId: string;data: ToolRequest}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationResult<
-        Awaited<ReturnType<typeof createToolRequest>>,
-        TError,
-        {requestGroupId: string;data: ToolRequest},
-        TContext
-      > => {
-
-      const mutationOptions = getCreateToolRequestMutationOptions(options);
-
-      return useMutation(mutationOptions);
-    }
-    
-/**
- * @summary Get a tool request
- */
-export const getToolRequest = (
-    toolRequestId: string, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<ToolRequest>> => {
-    
-    return axios.get(
-      `/tool_request/${toolRequestId}`,options
-    );
-  }
-
-
-export const getGetToolRequestQueryKey = (toolRequestId: string,) => {
-    return [`/tool_request/${toolRequestId}`] as const;
-    }
-
-    
-export const getGetToolRequestQueryOptions = <TData = Awaited<ReturnType<typeof getToolRequest>>, TError = AxiosError<ErrorResponse>>(toolRequestId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getToolRequest>>, TError, TData>, axios?: AxiosRequestConfig}
-) => {
-
-const {query: queryOptions, axios: axiosOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetToolRequestQueryKey(toolRequestId);
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getToolRequest>>> = ({ signal }) => getToolRequest(toolRequestId, { signal, ...axiosOptions });
-
-      
-
-      
-
-   return  { queryKey, queryFn, enabled: !!(toolRequestId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getToolRequest>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetToolRequestQueryResult = NonNullable<Awaited<ReturnType<typeof getToolRequest>>>
-export type GetToolRequestQueryError = AxiosError<ErrorResponse>
-
-/**
- * @summary Get a tool request
- */
-export const useGetToolRequest = <TData = Awaited<ReturnType<typeof getToolRequest>>, TError = AxiosError<ErrorResponse>>(
- toolRequestId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getToolRequest>>, TError, TData>, axios?: AxiosRequestConfig}
-
-  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
-
-  const queryOptions = getGetToolRequestQueryOptions(toolRequestId,options)
+  const queryOptions = getGetToolCallStatusQueryOptions(toolCallId,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -1784,17 +1604,17 @@ export const useGetProjectTools = <TData = Awaited<ReturnType<typeof getProjectT
 
 
 /**
- * @summary Create a supervision request for a supervisor in a chain on a request group
+ * @summary Create a supervision request for a supervisor in a chain on a tool call
  */
 export const createSupervisionRequest = (
-    requestGroupId: string,
+    toolCallId: string,
     chainId: string,
     supervisorId: string,
     supervisionRequest: SupervisionRequest, options?: AxiosRequestConfig
  ): Promise<AxiosResponse<string>> => {
     
     return axios.post(
-      `/api/request_group/${requestGroupId}/chain/${chainId}/supervisor/${supervisorId}/supervision_request`,
+      `/tool_call/${toolCallId}/chain/${chainId}/supervisor/${supervisorId}/supervision_request`,
       supervisionRequest,options
     );
   }
@@ -1802,17 +1622,17 @@ export const createSupervisionRequest = (
 
 
 export const getCreateSupervisionRequestMutationOptions = <TError = AxiosError<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSupervisionRequest>>, TError,{requestGroupId: string;chainId: string;supervisorId: string;data: SupervisionRequest}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof createSupervisionRequest>>, TError,{requestGroupId: string;chainId: string;supervisorId: string;data: SupervisionRequest}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSupervisionRequest>>, TError,{toolCallId: string;chainId: string;supervisorId: string;data: SupervisionRequest}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof createSupervisionRequest>>, TError,{toolCallId: string;chainId: string;supervisorId: string;data: SupervisionRequest}, TContext> => {
 const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
 
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSupervisionRequest>>, {requestGroupId: string;chainId: string;supervisorId: string;data: SupervisionRequest}> = (props) => {
-          const {requestGroupId,chainId,supervisorId,data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSupervisionRequest>>, {toolCallId: string;chainId: string;supervisorId: string;data: SupervisionRequest}> = (props) => {
+          const {toolCallId,chainId,supervisorId,data} = props ?? {};
 
-          return  createSupervisionRequest(requestGroupId,chainId,supervisorId,data,axiosOptions)
+          return  createSupervisionRequest(toolCallId,chainId,supervisorId,data,axiosOptions)
         }
 
         
@@ -1825,14 +1645,14 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
     export type CreateSupervisionRequestMutationError = AxiosError<ErrorResponse>
 
     /**
- * @summary Create a supervision request for a supervisor in a chain on a request group
+ * @summary Create a supervision request for a supervisor in a chain on a tool call
  */
 export const useCreateSupervisionRequest = <TError = AxiosError<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSupervisionRequest>>, TError,{requestGroupId: string;chainId: string;supervisorId: string;data: SupervisionRequest}, TContext>, axios?: AxiosRequestConfig}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSupervisionRequest>>, TError,{toolCallId: string;chainId: string;supervisorId: string;data: SupervisionRequest}, TContext>, axios?: AxiosRequestConfig}
 ): UseMutationResult<
         Awaited<ReturnType<typeof createSupervisionRequest>>,
         TError,
-        {requestGroupId: string;chainId: string;supervisorId: string;data: SupervisionRequest},
+        {toolCallId: string;chainId: string;supervisorId: string;data: SupervisionRequest},
         TContext
       > => {
 
@@ -2425,31 +2245,31 @@ export const useGetSupervisionReviewPayload = <TData = Awaited<ReturnType<typeof
 /**
  * @summary Create a new chat completion request from an existing run
  */
-export const createNewChatCompletionRequest = (
+export const createNewChat = (
     runId: string,
-    createNewChatCompletionRequestBody: CreateNewChatCompletionRequestBody, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<string>> => {
+    sentinelChat: SentinelChat, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<ChatIds>> => {
     
     return axios.post(
-      `/run/${runId}/new_chat_completion_request`,
-      createNewChatCompletionRequestBody,options
+      `/run/${runId}/chat`,
+      sentinelChat,options
     );
   }
 
 
 
-export const getCreateNewChatCompletionRequestMutationOptions = <TError = AxiosError<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNewChatCompletionRequest>>, TError,{runId: string;data: CreateNewChatCompletionRequestBody}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof createNewChatCompletionRequest>>, TError,{runId: string;data: CreateNewChatCompletionRequestBody}, TContext> => {
+export const getCreateNewChatMutationOptions = <TError = AxiosError<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNewChat>>, TError,{runId: string;data: SentinelChat}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof createNewChat>>, TError,{runId: string;data: SentinelChat}, TContext> => {
 const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
 
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createNewChatCompletionRequest>>, {runId: string;data: CreateNewChatCompletionRequestBody}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createNewChat>>, {runId: string;data: SentinelChat}> = (props) => {
           const {runId,data} = props ?? {};
 
-          return  createNewChatCompletionRequest(runId,data,axiosOptions)
+          return  createNewChat(runId,data,axiosOptions)
         }
 
         
@@ -2457,80 +2277,142 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type CreateNewChatCompletionRequestMutationResult = NonNullable<Awaited<ReturnType<typeof createNewChatCompletionRequest>>>
-    export type CreateNewChatCompletionRequestMutationBody = CreateNewChatCompletionRequestBody
-    export type CreateNewChatCompletionRequestMutationError = AxiosError<unknown>
+    export type CreateNewChatMutationResult = NonNullable<Awaited<ReturnType<typeof createNewChat>>>
+    export type CreateNewChatMutationBody = SentinelChat
+    export type CreateNewChatMutationError = AxiosError<ErrorResponse>
 
     /**
  * @summary Create a new chat completion request from an existing run
  */
-export const useCreateNewChatCompletionRequest = <TError = AxiosError<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNewChatCompletionRequest>>, TError,{runId: string;data: CreateNewChatCompletionRequestBody}, TContext>, axios?: AxiosRequestConfig}
+export const useCreateNewChat = <TError = AxiosError<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNewChat>>, TError,{runId: string;data: SentinelChat}, TContext>, axios?: AxiosRequestConfig}
 ): UseMutationResult<
-        Awaited<ReturnType<typeof createNewChatCompletionRequest>>,
+        Awaited<ReturnType<typeof createNewChat>>,
         TError,
-        {runId: string;data: CreateNewChatCompletionRequestBody},
+        {runId: string;data: SentinelChat},
         TContext
       > => {
 
-      const mutationOptions = getCreateNewChatCompletionRequestMutationOptions(options);
+      const mutationOptions = getCreateNewChatMutationOptions(options);
 
       return useMutation(mutationOptions);
     }
     
 /**
- * @summary Create a new chat completion response from an existing run
+ * @summary Get the messages for a run
  */
-export const createNewChatCompletionResponse = (
-    runId: string,
-    createNewChatCompletionResponseBody: CreateNewChatCompletionResponseBody, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<string>> => {
+export const getRunMessages = (
+    runId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<SentinelMessage[]>> => {
     
-    return axios.post(
-      `/run/${runId}/new_chat_completion_response`,
-      createNewChatCompletionResponseBody,options
+    return axios.get(
+      `/run/${runId}/messages`,options
     );
   }
 
 
+export const getGetRunMessagesQueryKey = (runId: string,) => {
+    return [`/run/${runId}/messages`] as const;
+    }
 
-export const getCreateNewChatCompletionResponseMutationOptions = <TError = AxiosError<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNewChatCompletionResponse>>, TError,{runId: string;data: CreateNewChatCompletionResponseBody}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof createNewChatCompletionResponse>>, TError,{runId: string;data: CreateNewChatCompletionResponseBody}, TContext> => {
-const {mutation: mutationOptions, axios: axiosOptions} = options ?? {};
+    
+export const getGetRunMessagesQueryOptions = <TData = Awaited<ReturnType<typeof getRunMessages>>, TError = AxiosError<ErrorResponse>>(runId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunMessages>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRunMessagesQueryKey(runId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRunMessages>>> = ({ signal }) => getRunMessages(runId, { signal, ...axiosOptions });
 
       
 
+      
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createNewChatCompletionResponse>>, {runId: string;data: CreateNewChatCompletionResponseBody}> = (props) => {
-          const {runId,data} = props ?? {};
+   return  { queryKey, queryFn, enabled: !!(runId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRunMessages>>, TError, TData> & { queryKey: QueryKey }
+}
 
-          return  createNewChatCompletionResponse(runId,data,axiosOptions)
-        }
+export type GetRunMessagesQueryResult = NonNullable<Awaited<ReturnType<typeof getRunMessages>>>
+export type GetRunMessagesQueryError = AxiosError<ErrorResponse>
 
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateNewChatCompletionResponseMutationResult = NonNullable<Awaited<ReturnType<typeof createNewChatCompletionResponse>>>
-    export type CreateNewChatCompletionResponseMutationBody = CreateNewChatCompletionResponseBody
-    export type CreateNewChatCompletionResponseMutationError = AxiosError<ErrorResponse>
-
-    /**
- * @summary Create a new chat completion response from an existing run
+/**
+ * @summary Get the messages for a run
  */
-export const useCreateNewChatCompletionResponse = <TError = AxiosError<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNewChatCompletionResponse>>, TError,{runId: string;data: CreateNewChatCompletionResponseBody}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationResult<
-        Awaited<ReturnType<typeof createNewChatCompletionResponse>>,
-        TError,
-        {runId: string;data: CreateNewChatCompletionResponseBody},
-        TContext
-      > => {
+export const useGetRunMessages = <TData = Awaited<ReturnType<typeof getRunMessages>>, TError = AxiosError<ErrorResponse>>(
+ runId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunMessages>>, TError, TData>, axios?: AxiosRequestConfig}
 
-      const mutationOptions = getCreateNewChatCompletionResponseMutationOptions(options);
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
 
-      return useMutation(mutationOptions);
-    }
+  const queryOptions = getGetRunMessagesQueryOptions(runId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Get the state of a tool call
+ */
+export const getToolCallState = (
+    toolCallId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<RunExecution>> => {
     
+    return axios.get(
+      `/tool_call/${toolCallId}/state`,options
+    );
+  }
+
+
+export const getGetToolCallStateQueryKey = (toolCallId: string,) => {
+    return [`/tool_call/${toolCallId}/state`] as const;
+    }
+
+    
+export const getGetToolCallStateQueryOptions = <TData = Awaited<ReturnType<typeof getToolCallState>>, TError = AxiosError<unknown>>(toolCallId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getToolCallState>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetToolCallStateQueryKey(toolCallId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getToolCallState>>> = ({ signal }) => getToolCallState(toolCallId, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(toolCallId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getToolCallState>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetToolCallStateQueryResult = NonNullable<Awaited<ReturnType<typeof getToolCallState>>>
+export type GetToolCallStateQueryError = AxiosError<unknown>
+
+/**
+ * @summary Get the state of a tool call
+ */
+export const useGetToolCallState = <TData = Awaited<ReturnType<typeof getToolCallState>>, TError = AxiosError<unknown>>(
+ toolCallId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getToolCallState>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetToolCallStateQueryOptions(toolCallId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+

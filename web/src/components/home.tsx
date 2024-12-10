@@ -16,17 +16,17 @@ export default function Home() {
         </CardHeader>
         <CardContent className="text-center">
           <p className="mb-6">
-            Sentinel is an experimental platform for supervision of agentic systems. We want to make it easy to safely deploy and oversee clusters of millions of agents, that do useful work on the internet. Our mission is to make agentic systems reliable, beneficial and simple.
+            Sentinel is a platform for supervision of agentic systems. We want to make it easy to safely deploy and oversee clusters of millions of agents, that do useful work on the internet. Our mission is to make agentic systems reliable, beneficial and simple.
           </p>
           <div className="flex justify-center gap-4">
 
             <Button asChild className="mb-4">
-              <a href="https://docs.entropy-labs.ai">
+              <a href="https://docs.asteroid.ai">
                 Documentation
               </a>
             </Button>
             <Button asChild className="mb-4">
-              <a href="https://github.com/EntropyLabsAI/sentinel">
+              <a href="https://github.com/asteroidai/sentinel">
                 GitHub
               </a>
             </Button>
@@ -35,8 +35,8 @@ export default function Home() {
         <CardFooter className="flex justify-center text-center">
           <p className="text-sm text-muted-foreground">
             We're excited to have you here. If you need anything, please contact us at{' '}
-            <a href="mailto:devs@entropy-labs.ai" className="text-primary hover:underline">
-              devs@entropy-labs.ai
+            <a href="mailto:founders@asteroid.ai" className="text-primary hover:underline">
+              founders@asteroid.ai
             </a>
           </p>
         </CardFooter>

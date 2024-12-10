@@ -4,8 +4,17 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { MessagesSquareIcon } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { SentinelMessage } from "@/types";
+import { Badge } from "@/components/ui/badge";
 
-export function MessagesDisplay({ messages }: { messages: Message[] }) {
+// Props
+interface MessagesDisplayProps {
+  expanded: boolean;
+  messages: SentinelMessage[];
+  onToolCallClick: (toolCallId: string) => void;
+}
+
+export function MessagesDisplay({ expanded, messages, onToolCallClick }: MessagesDisplayProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -24,7 +33,7 @@ export function MessagesDisplay({ messages }: { messages: Message[] }) {
   }, [messages, isLoaded]);
 
   return (
-    <Accordion type="single" collapsible className="w-full">
+    <Accordion type="single" collapsible className="w-full" defaultValue={expanded ? "messages" : undefined}>
       <AccordionItem value="messages" className="border border-gray-200 rounded-md">
         <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
           <div className="flex flex-row gap-4">
@@ -37,7 +46,7 @@ export function MessagesDisplay({ messages }: { messages: Message[] }) {
             <CardContent>
               <div className="max-h-[1000px] overflow-y-auto" ref={scrollAreaRef}>
                 {messages.map((message, index) => (
-                  <MessageDisplay key={index} message={message} index={index} />
+                  <MessageDisplay key={index} message={message} index={index} onToolCallClick={onToolCallClick} />
                 ))}
               </div>
             </CardContent>
@@ -49,11 +58,12 @@ export function MessagesDisplay({ messages }: { messages: Message[] }) {
 }
 
 interface MessageDisplayProps {
-  message: Message;
+  message: SentinelMessage;
   index: number;
+  onToolCallClick: (toolCallId: string) => void;
 }
 
-export function MessageDisplay({ message, index }: MessageDisplayProps) {
+export function MessageDisplay({ message, index, onToolCallClick }: MessageDisplayProps) {
   const getBubbleStyle = (role: string) => {
     const baseStyle = "rounded-2xl p-3 mb-2 break-words";
     switch (role.toLowerCase()) {
@@ -65,28 +75,26 @@ export function MessageDisplay({ message, index }: MessageDisplayProps) {
         return `${baseStyle} bg-gray-300 text-gray-800 italic`;
       default:
         return `${baseStyle} bg-amber-400 text-white`;
-
     }
   };
+
+  console.log(message);
 
   return (
     <div key={index} className={`flex flex-col ${message.role.toLowerCase() === 'user' ? 'items-end' : 'items-start'} mb-4 last:mb-0`}>
       <div className={getBubbleStyle(message.role)}>
         <p className="text-sm font-semibold mb-1">{message.role}</p>
         <MessageTypeDisplay message={message} />
-        {message.source && (
-          <p className="text-xs opacity-70 mt-1">Source: {message.source}</p>
-        )}
-        {message.tool_calls && (
+        {message.tool_calls && message.tool_calls.length > 0 && (
           <div className="mt-2">
-            <p className="text-xs font-semibold">Tool Calls:</p>
-            <code>
+            <p className="text-xs font-semibold">{message.tool_calls.length} tool call{message.tool_calls.length === 1 ? "" : "s"} in this message</p>
+            <div className="flex flex-wrap mt-2">
               {message.tool_calls.map((toolCall, idx) => (
-                <div key={idx} className="ml-2 text-xs">
-                  <span className="font-semibold">{toolCall.function}:</span> {JSON.stringify(toolCall.arguments)}
-                </div>
+                <Badge key={idx} className="mr-2 mb-2 cursor-pointer" onClick={() => onToolCallClick(toolCall.id)}>
+                  {toolCall.name || 'No name provided'}
+                </Badge>
               ))}
-            </code>
+            </div>
           </div>
         )}
       </div>
@@ -94,7 +102,7 @@ export function MessageDisplay({ message, index }: MessageDisplayProps) {
   )
 }
 
-const MessageTypeDisplay = ({ message }: { message: Message }) => {
+const MessageTypeDisplay = ({ message }: { message: SentinelMessage }) => {
   if (!message.type) {
     return null;
   }

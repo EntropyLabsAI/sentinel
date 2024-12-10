@@ -63,7 +63,7 @@ export default function ChainStateDisplay({ chainState, currentRequestId }: Chai
                       <div>Chain ID: <UUIDDisplay uuid={chainState.chain.chain_id} /></div>
                       <div>Execution ID: <UUIDDisplay uuid={chainState.chain_execution.id} /></div>
                       <div>Created: {new Date(chainState.chain_execution.created_at).toLocaleString()}</div>
-                      <div>Request Group: <UUIDDisplay uuid={chainState.chain_execution.request_group_id} /></div>
+                      <div>Toolcall ID: <UUIDDisplay uuid={chainState.chain_execution.toolcall_id} /></div>
                     </div>
                   </div>
 
@@ -117,10 +117,10 @@ export default function ChainStateDisplay({ chainState, currentRequestId }: Chai
                                 <div className="text-sm">
                                   <span className="font-medium">Decision:</span> {request.result.decision}
                                 </div>
-                                {request.result.chosen_toolrequest_id && (
+                                {request.result.toolcall_id && (
                                   <div className="text-sm">
-                                    <span className="font-medium">Chosen Tool Request:</span>
-                                    <UUIDDisplay uuid={request.result.chosen_toolrequest_id} />
+                                    <span className="font-medium">Tool Call:</span>
+                                    <UUIDDisplay uuid={request.result.toolcall_id} />
                                   </div>
                                 )}
                                 <div className="text-sm">

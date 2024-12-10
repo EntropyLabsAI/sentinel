@@ -1,4 +1,4 @@
-import { useGetProjects, Project, useGetTaskRuns, Run, useGetProject, useGetRunTools, Tool, useGetRunRequestGroups } from "@/types";
+import { useGetProjects, Project, useGetTaskRuns, Run, useGetProject, useGetRunTools, Tool } from "@/types";
 import React, { useEffect, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import Page from "./util/page";
@@ -44,7 +44,7 @@ export default function Runs() {
 
   return (
     <Page title={`Runs`}
-      subtitle={<span>{runs.length > 0 ? `${runs.length} runs` : 'No runs'} found for task <TaskBadge taskId={taskId ?? ''} /></span>}
+      subtitle={<span>{runs.length > 0 ? `${runs.length} runs` : 'No runs'} found for <TaskBadge taskId={taskId ?? ''} /></span>}
       icon={<RailSymbol className="w-6 h-6" />}
     >
       {runs.length === 0 &&
@@ -57,7 +57,6 @@ export default function Runs() {
               <TableRow>
                 <TableHead className="w-[100px]">Run ID</TableHead>
                 <TableHead className="">Tools Assigned</TableHead>
-                <TableHead className="w-[100px] text-right">Tool Executions</TableHead>
                 <TableHead className="w-[100px] text-right">Created</TableHead>
                 <TableHead className="w-[100px] text-right">Status</TableHead>
                 <TableHead className="w-[100px] text-right">Result</TableHead>
@@ -72,9 +71,6 @@ export default function Runs() {
                   </TableCell>
                   <TableCell>
                     <ToolsBadgeList runId={run.id} />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <ExecutionsCount runId={run.id} />
                   </TableCell>
                   <TableCell className="text-right">
                     <CreatedAgo datetime={run.created_at} label='' />
@@ -143,16 +139,5 @@ function ToolsBadgeList({ runId }: { runId: string }) {
         <ToolBadges tools={tools} maxTools={4} />
       </div>
     </div>
-  )
-}
-
-function ExecutionsCount({ runId }: { runId: string }) {
-  const { data: executionsData, isLoading: executionsLoading, error: executionsError } = useGetRunRequestGroups(runId || '');
-  return (
-    <>
-      {executionsLoading && <p>Loading...</p>}
-      {executionsError && <p>Error: {executionsError.message}</p>}
-      <p>{executionsData?.data?.length || 0}</p>
-    </>
   )
 }

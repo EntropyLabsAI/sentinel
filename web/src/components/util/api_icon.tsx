@@ -3,7 +3,7 @@ import React from 'react';
 export default function APIIcon() {
   return (
     <a
-      href={`https://docs.entropy-labs.ai`}
+      href={`https://docs.asteroid.ai`}
       target="_blank"
       rel="noopener noreferrer"
       className="ml-4"
