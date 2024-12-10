@@ -249,6 +249,11 @@ func (s Server) GetToolCallStatus(w http.ResponseWriter, r *http.Request, toolCa
 	apiGetToolCallStatusHandler(w, r, toolCallId, s.Store)
 }
 
+// GetToolCallState
+func (s Server) GetToolCallState(w http.ResponseWriter, r *http.Request, toolCallId uuid.UUID) {
+	apiGetToolCallStateHandler(w, r, toolCallId, s.Store)
+}
+
 // GetRunStatus
 func (s Server) GetRunStatus(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
 	apiGetRunStatusHandler(w, r, runId, s.Store)
@@ -284,4 +289,8 @@ func enableCorsMiddleware(handler http.Handler) http.Handler {
 
 func (s Server) CreateNewChat(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
 	apiCreateNewChatHandler(w, r, runId, s.Store)
+}
+
+func (s Server) GetRunMessages(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
+	apiGetRunMessagesHandler(w, r, runId, s.Store)
 }

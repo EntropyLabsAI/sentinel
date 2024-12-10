@@ -907,6 +907,56 @@ paths:
       tags:
         - Run
 
+  /run/{run_id}/messages:
+    parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get the messages for a run
+      operationId: GetRunMessages
+      responses:
+        "200":
+          description: Run messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SentinelMessage"
+        "404":
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - Run
+
+  /tool_call/{toolCallId}/state:
+    parameters:
+      - name: toolCallId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get the state of a tool call
+      operationId: GetToolCallState
+      responses:
+        "200":
+          description: Tool call state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunExecution"
+      tags:
+        - ToolCall
+
 components:
   schemas:
     ErrorResponse:
@@ -928,7 +978,7 @@ components:
       type: object
       properties:
         toolcall:
-          $ref: "#/components/schemas/ToolCall"
+          $ref: "#/components/schemas/SentinelToolCall"
         chains:
           type: array
           items:

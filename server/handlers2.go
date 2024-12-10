@@ -84,6 +84,10 @@ func filterRequestMessages(ctx context.Context, requestMessages []SentinelMessag
 		return nil, fmt.Errorf("error getting messages for run: %w", err)
 	}
 
+	if len(messagesForRun) != len(requestMessages) {
+		return nil, fmt.Errorf("messages for run length mismatch: db count: %d != request count: %d", len(messagesForRun), len(requestMessages))
+	}
+
 	// Get the number of messages logged against choices in this run
 	numMessagesLogged := len(messagesForRun)
 
@@ -217,7 +221,6 @@ func convertToolCall(ctx context.Context, toolCall openai.ToolCall, runId uuid.U
 	return &SentinelToolCall{
 		Id:        id,
 		ToolId:    tool.Id.String(),
-		Type:      SentinelToolCallType(toolCall.Type),
 		Name:      &toolCall.Function.Name,
 		Arguments: &toolCall.Function.Arguments,
 	}, nil
@@ -249,4 +252,81 @@ func extractChatIds(chatId uuid.UUID, choices []SentinelChoice) ChatIds {
 	}
 
 	return result
+}
+
+// GetRunMessagesHandler gets the messages for a run
+func apiGetRunMessagesHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	messages, err := store.GetMessagesForRun(ctx, runId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting messages for run", err.Error())
+		return
+	}
+
+	for _, message := range messages {
+		fmt.Printf("Message: %+v\n", message)
+	}
+
+	respondJSON(w, messages, http.StatusOK)
+}
+
+func apiGetToolCallStateHandler(w http.ResponseWriter, r *http.Request, toolCallId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	// First verify the run exists
+	toolCall, err := store.GetToolCall(ctx, toolCallId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool call", err.Error())
+		return
+	}
+	if toolCall == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Run not found", "")
+		return
+	}
+
+	execution := RunExecution{
+		Chains:   make([]ChainExecutionState, 0),
+		Toolcall: *toolCall,
+	}
+
+	toolId, err := uuid.Parse(toolCall.ToolId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error parsing tool id", err.Error())
+		return
+	}
+
+	// Get all chains for this tool
+	chains, err := store.GetSupervisorChains(ctx, toolId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting chains", err.Error())
+		return
+	}
+
+	for _, chain := range chains {
+		// Get the chain execution from the chain ID + tool call ID
+		chainExecutionId, err := store.GetChainExecutionFromChainAndToolCall(ctx, chain.ChainId, toolCallId)
+		if err != nil {
+			sendErrorResponse(w, http.StatusInternalServerError, "error getting chain execution", err.Error())
+			return
+		}
+
+		ceState, err := store.GetChainExecutionState(ctx, *chainExecutionId)
+		if err != nil {
+			sendErrorResponse(w, http.StatusInternalServerError, "error getting chain execution state", err.Error())
+			return
+		}
+
+		execution.Chains = append(execution.Chains, *ceState)
+	}
+
+	status, err := getToolCallStatus(ctx, toolCallId, store)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool call status", err.Error())
+		return
+	}
+
+	execution.Status = status
+
+	respondJSON(w, execution, http.StatusOK)
 }

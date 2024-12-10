@@ -1616,7 +1616,7 @@ func (s *PostgresqlStore) GetChainExecutionState(ctx context.Context, executionI
 	// First, get the chain execution record
 	var chainExecution sentinel.ChainExecution
 	err := s.db.QueryRowContext(ctx, `
-        SELECT id, requestgroup_id, chain_id, created_at
+        SELECT id, toolcall_id, chain_id, created_at
         FROM chainexecution
         WHERE id = $1
 				ORDER BY id ASC
@@ -1841,6 +1841,8 @@ func (s *PostgresqlStore) GetMessagesForRun(ctx context.Context, runId uuid.UUID
 		if err != nil {
 			return nil, fmt.Errorf("error scanning message: %w", err)
 		}
+
+		fmt.Printf("MsgData: %s\n", string(msg.MsgData))
 
 		var message sentinel.SentinelMessage
 		err = json.Unmarshal(msg.MsgData, &message)
