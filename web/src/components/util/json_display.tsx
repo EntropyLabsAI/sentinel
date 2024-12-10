@@ -22,7 +22,7 @@ export default function JsonDisplay({ json }: { json: any }) {
         <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
           <div className="flex flex-row gap-4 items-center">
             <FileJsonIcon className="w-4 h-4" />
-            Tool Call Supervision JSON
+            Supervision JSON
           </div>
         </AccordionTrigger>
         <AccordionContent className="p-4">

@@ -1,7 +1,7 @@
 import { RunExecution, useGetToolCallState } from '@/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@radix-ui/react-accordion';
 import { Card } from '@radix-ui/themes';
-import { MessagesSquareIcon } from 'lucide-react';
+import { DrillIcon, MessagesSquareIcon } from 'lucide-react';
 import * as React from 'react';
 import { CardContent } from './ui/card';
 import RunExecutionViewer from './chain_execution_viewer';
@@ -19,8 +19,8 @@ export function ToolCallState({ toolCallId }: ToolCallStateProps) {
     <Accordion type="single" collapsible className="w-full" defaultValue={toolCallStateData ? "messages" : undefined}>
       <AccordionItem value="messages" className="border border-gray-200 rounded-md">
         <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
-          <div className="flex flex-row gap-4">
-            <MessagesSquareIcon className="w-4 h-4" />
+          <div className="flex flex-row gap-4 items-center">
+            <DrillIcon className="w-4 h-4" />
             Tool Call Information
           </div>
         </AccordionTrigger>

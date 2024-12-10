@@ -1,20 +1,22 @@
 import { Message, MessageType } from "@/types";
 import React, { useRef, useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { MessagesSquareIcon } from "lucide-react";
+import { Key, MessagesSquareIcon } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { SentinelMessage } from "@/types";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 // Props
 interface MessagesDisplayProps {
   expanded: boolean;
   messages: SentinelMessage[];
   onToolCallClick: (toolCallId: string) => void;
+  selectedToolCallId?: string;
 }
 
-export function MessagesDisplay({ expanded, messages, onToolCallClick }: MessagesDisplayProps) {
+export function MessagesDisplay({ expanded, messages, onToolCallClick, selectedToolCallId }: MessagesDisplayProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -32,11 +34,14 @@ export function MessagesDisplay({ expanded, messages, onToolCallClick }: Message
     }
   }, [messages, isLoaded]);
 
+  // If the selectedToolCallId is set, highlight the tool call in the messages
+  const highlightedToolCallId = selectedToolCallId ? selectedToolCallId : undefined;
+
   return (
     <Accordion type="single" collapsible className="w-full" defaultValue={expanded ? "messages" : undefined}>
       <AccordionItem value="messages" className="border border-gray-200 rounded-md">
         <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
-          <div className="flex flex-row gap-4">
+          <div className="flex flex-row gap-4 items-center">
             <MessagesSquareIcon className="w-4 h-4" />
             Messages
           </div>
@@ -46,7 +51,13 @@ export function MessagesDisplay({ expanded, messages, onToolCallClick }: Message
             <CardContent>
               <div className="max-h-[1000px] overflow-y-auto" ref={scrollAreaRef}>
                 {messages.map((message, index) => (
-                  <MessageDisplay key={index} message={message} index={index} onToolCallClick={onToolCallClick} />
+                  <MessageDisplay
+                    key={`${index}-${highlightedToolCallId}`}
+                    message={message}
+                    index={index}
+                    onToolCallClick={onToolCallClick}
+                    highlightedToolCallId={highlightedToolCallId}
+                  />
                 ))}
               </div>
             </CardContent>
@@ -61,9 +72,10 @@ interface MessageDisplayProps {
   message: SentinelMessage;
   index: number;
   onToolCallClick: (toolCallId: string) => void;
+  highlightedToolCallId?: string;
 }
 
-export function MessageDisplay({ message, index, onToolCallClick }: MessageDisplayProps) {
+export function MessageDisplay({ message, index, onToolCallClick, highlightedToolCallId }: MessageDisplayProps) {
   const getBubbleStyle = (role: string) => {
     const baseStyle = "rounded-2xl p-3 mb-2 break-words";
     switch (role.toLowerCase()) {
@@ -90,7 +102,7 @@ export function MessageDisplay({ message, index, onToolCallClick }: MessageDispl
             <p className="text-xs font-semibold">{message.tool_calls.length} tool call{message.tool_calls.length === 1 ? "" : "s"} in this message</p>
             <div className="flex flex-wrap mt-2">
               {message.tool_calls.map((toolCall, idx) => (
-                <Badge key={idx} className="mr-2 mb-2 cursor-pointer" onClick={() => onToolCallClick(toolCall.id)}>
+                <Badge key={`${index}-${idx}`} className={cn(`mr-2 mb-2 cursor-pointer`, highlightedToolCallId === toolCall.id ? "bg-teal-100 text-teal-800" : "bg-gray-100 text-gray-800")} onClick={() => onToolCallClick(toolCall.id)}>
                   {toolCall.name || 'No name provided'}
                 </Badge>
               ))}
