@@ -1842,8 +1842,6 @@ func (s *PostgresqlStore) GetMessagesForRun(ctx context.Context, runId uuid.UUID
 			return nil, fmt.Errorf("error scanning message: %w", err)
 		}
 
-		fmt.Printf("MsgData: %s\n", string(msg.MsgData))
-
 		var message sentinel.SentinelMessage
 		err = json.Unmarshal(msg.MsgData, &message)
 		if err != nil {

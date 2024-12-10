@@ -84,10 +84,6 @@ func filterRequestMessages(ctx context.Context, requestMessages []SentinelMessag
 		return nil, fmt.Errorf("error getting messages for run: %w", err)
 	}
 
-	if len(messagesForRun) != len(requestMessages) {
-		return nil, fmt.Errorf("messages for run length mismatch: db count: %d != request count: %d", len(messagesForRun), len(requestMessages))
-	}
-
 	// Get the number of messages logged against choices in this run
 	numMessagesLogged := len(messagesForRun)
 
@@ -114,6 +110,7 @@ func validateAndDecodeRequest(ctx context.Context, encodedData string, runId uui
 	messages := v.Messages
 	convertedMessages := make([]SentinelMessage, 0, len(messages))
 	for _, message := range messages {
+		fmt.Printf("Message in OpenAI format: %+v\n", message)
 		convertedMessage, err := convertMessage(ctx, message, runId, store)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error converting messages: %w", err)
@@ -175,17 +172,33 @@ func convertMessage(ctx context.Context, message openai.ChatCompletionMessage, r
 		return SentinelMessage{}, fmt.Errorf("error converting tool calls: %w", err)
 	}
 
-	// Hardcode to text for now
-	t := Text
+	// If the message has an image in it, it will look like this:
+	// {Role:user Content: Refusal: MultiContent:[{Type:image_url Text: ImageURL:0xc000220320}] Name: FunctionCall:<nil> ToolCalls:[] ToolCallID:}
+	// We need to convert this to a SentinelMessage with a type of ImageURL
+	// and the content being the image URL
+
+	var msgType MessageType
+	var msgContent string
+	if message.MultiContent != nil {
+		for _, content := range message.MultiContent {
+			if content.Type == "image_url" {
+				msgType = ImageUrl
+				msgContent = string(content.ImageURL.URL)
+			}
+		}
+	} else {
+		msgType = Text
+		msgContent = message.Content
+	}
 
 	id := uuid.New().String()
 
 	return SentinelMessage{
 		Id:        &id,
-		Content:   message.Content,
 		Role:      SentinelMessageRole(message.Role),
 		ToolCalls: &toolCalls,
-		Type:      &t,
+		Type:      &msgType,
+		Content:   msgContent,
 	}, nil
 }
 
@@ -205,14 +218,11 @@ func convertToolCalls(ctx context.Context, toolCalls []openai.ToolCall, runId uu
 
 func convertToolCall(ctx context.Context, toolCall openai.ToolCall, runId uuid.UUID, store ToolStore) (*SentinelToolCall, error) {
 	// Get this from the DB
-	fmt.Printf("Tool call name: %s\n", toolCall.Function.Name)
 	tool, err := store.GetToolFromNameAndRunId(ctx, toolCall.Function.Name, runId)
 	if err != nil {
-		fmt.Printf("Error getting tool: %s\n", err.Error())
 		return nil, fmt.Errorf("error getting tool: %w", err)
 	}
 	if tool == nil {
-		fmt.Printf("Tool not found: %s\n", toolCall.Function.Name)
 		return nil, fmt.Errorf("tool not found: %s", toolCall.Function.Name)
 	}
 
@@ -262,10 +272,6 @@ func apiGetRunMessagesHandler(w http.ResponseWriter, r *http.Request, runId uuid
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting messages for run", err.Error())
 		return
-	}
-
-	for _, message := range messages {
-		fmt.Printf("Message: %+v\n", message)
 	}
 
 	respondJSON(w, messages, http.StatusOK)

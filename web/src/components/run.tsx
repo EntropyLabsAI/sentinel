@@ -68,7 +68,7 @@ export default function Run() {
         }>
         <div className="grid grid-cols-1 xl:grid-cols-4 lg:grid-cols-4 gap-4">
           <div className="xl:col-span-2 lg:col-span-2">
-            <MessagesDisplay expanded={true} messages={messages} onToolCallClick={setSelectedToolCallId} />
+            <MessagesDisplay expanded={true} messages={messages} onToolCallClick={setSelectedToolCallId} selectedToolCallId={selectedToolCallId || undefined} />
           </div>
           <div className="xl:col-span-2 lg:col-span-2">
             <ToolCallState toolCallId={selectedToolCallId || undefined} />
@@ -88,9 +88,3 @@ export default function Run() {
     </>
   );
 }
-
-// <span className="text-sm text-muted-foreground">
-//   The agent has made {runState?.length} tool execution{runState?.length === 1 ? "" : "s"} for run{' '}
-//   <UUIDDisplay uuid={runId} />{' '}
-//   across {tools.length} tool{tools.length === 1 ? "" : "s"}. To see more details for each tool execution, inspect the rows in the table below.
-// </span>
