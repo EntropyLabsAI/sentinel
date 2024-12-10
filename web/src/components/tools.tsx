@@ -54,11 +54,14 @@ export default function Tools() {
       {error && (
         <div>Error loading tools: {error.message}</div>
       )}
-      {(tools as Tool[]).map((tool) => (
-        <div className="col-span-1">
-          <ToolCard key={tool.id} tool={tool} />
-        </div>
-      ))}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+
+        {(tools as Tool[]).map((tool) => (
+          <div className="col-span-1">
+            <ToolCard key={tool.id} tool={tool} />
+          </div>
+        ))}
+      </div>
     </Page>
   );
 }

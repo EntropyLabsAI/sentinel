@@ -909,7 +909,10 @@ func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*sentinel.
 
 func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UUID) ([]sentinel.Tool, error) {
 	query := `
-		SELECT id FROM run WHERE project_id = $1`
+		SELECT DISTINCT r.id
+		FROM run r
+		INNER JOIN task t ON t.id = r.task_id
+		WHERE t.project_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, query, projectId)
 	if err != nil {
