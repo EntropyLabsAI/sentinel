@@ -135,7 +135,7 @@ CREATE TABLE msg (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     choice_id UUID REFERENCES choice(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    msg_data JSONB DEFAULT '{}' NOT NULL
+    msg_data JSONB DEFAULT '{}' NOT NULL,
 );
 
 CREATE TABLE toolcall (

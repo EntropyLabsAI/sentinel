@@ -1814,18 +1814,61 @@ func (s *PostgresqlStore) createChatRequestMessages(
 	return nil
 }
 
-// TODO: Assumes that there is only one
-func (s *PostgresqlStore) GetMessagesForRun(ctx context.Context, runId uuid.UUID) ([]sentinel.SentinelMessage, error) {
+func (s *PostgresqlStore) GetMessage(ctx context.Context, id uuid.UUID) (*sentinel.SentinelMessage, error) {
 	query := `
-		SELECT msg.id, msg.choice_id, msg.msg_data 
+		SELECT msg_data FROM msg WHERE id = $1
+	`
+	var msgData []byte
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&msgData)
+	if err != nil {
+		return nil, fmt.Errorf("error getting message: %w", err)
+	}
+
+	var message sentinel.SentinelMessage
+	err = json.Unmarshal(msgData, &message)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshalling message: %w", err)
+	}
+
+	return &message, nil
+}
+
+func (s *PostgresqlStore) UpdateMessage(ctx context.Context, id uuid.UUID, message sentinel.SentinelMessage) error {
+	query := `
+		UPDATE msg SET msg_data = $1 WHERE id = $2	
+	`
+	msgData, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("error marshalling message data: %w", err)
+	}
+	_, err = s.db.ExecContext(ctx, query, msgData, id)
+	if err != nil {
+		return fmt.Errorf("error updating message: %w", err)
+	}
+	return nil
+}
+
+// TODO: Assumes that there is only one choice
+func (s *PostgresqlStore) GetMessagesForRun(
+	ctx context.Context,
+	runId uuid.UUID,
+	includeInvalidated bool,
+) ([]sentinel.SentinelMessage, error) {
+	fmt.Printf("GetMessagesForRun: Starting with runId=%s, includeInvalidated=%v\n", runId, includeInvalidated)
+
+	query := `
+		SELECT msg.id, msg.choice_id, msg.msg_data
 		FROM msg 
 		INNER JOIN choice ON msg.choice_id = choice.id
 		INNER JOIN chat ON choice.chat_id = chat.id
 		WHERE chat.run_id = $1
+		ORDER BY msg.created_at ASC
 	`
+	fmt.Printf("GetMessagesForRun: Executing query: %s\n", query)
 
 	rows, err := s.db.QueryContext(ctx, query, runId)
 	if err != nil {
+		fmt.Printf("GetMessagesForRun: Error querying database: %v\n", err)
 		return nil, fmt.Errorf("error getting messages for run: %w", err)
 	}
 	defer rows.Close()
@@ -1836,24 +1879,46 @@ func (s *PostgresqlStore) GetMessagesForRun(ctx context.Context, runId uuid.UUID
 		MsgData  []byte
 	}
 
-	// msg has a msg_data field that is a JSONB object. Get it and then unmarshal it into a sentinel.SentinelMessage
 	messages := make([]sentinel.SentinelMessage, 0)
+	rowCount := 0
 	for rows.Next() {
+		rowCount++
 		var msg msg
 		err := rows.Scan(&msg.Id, &msg.ChoiceId, &msg.MsgData)
 		if err != nil {
+			fmt.Printf("GetMessagesForRun: Error scanning row %d: %v\n", rowCount, err)
 			return nil, fmt.Errorf("error scanning message: %w", err)
 		}
+
+		fmt.Printf("GetMessagesForRun: Processing row %d - ID: %s, ChoiceID: %s, MsgData length: %d\n",
+			rowCount, msg.Id, msg.ChoiceId, len(msg.MsgData))
 
 		var message sentinel.SentinelMessage
 		err = json.Unmarshal(msg.MsgData, &message)
 		if err != nil {
+			fmt.Printf("GetMessagesForRun: Error unmarshalling message data for row %d: %v\n", rowCount, err)
 			return nil, fmt.Errorf("error unmarshalling message: %w", err)
 		}
 
+		fmt.Printf("GetMessagesForRun: Unmarshalled message - Role: %s, Content length: %d\n",
+			message.Role, len(message.Content))
+
+		if !includeInvalidated && message.Role == sentinel.SentinelMessageRoleSentinel {
+			fmt.Printf("GetMessagesForRun: Skipping assistant message (invalidated)\n")
+			continue
+		}
+
 		messages = append(messages, message)
+		fmt.Printf("GetMessagesForRun: Added message to result array. Current count: %d\n", len(messages))
 	}
 
+	if err = rows.Err(); err != nil {
+		fmt.Printf("GetMessagesForRun: Error after row iteration: %v\n", err)
+		return nil, fmt.Errorf("error iterating messages: %w", err)
+	}
+
+	fmt.Printf("GetMessagesForRun: Completed. Total rows processed: %d, Messages returned: %d\n",
+		rowCount, len(messages))
 	return messages, nil
 }
 
@@ -1893,6 +1958,7 @@ func (s *PostgresqlStore) createChatChoices(
 			return fmt.Errorf("error creating chat request messages: %w", err)
 		}
 
+		fmt.Printf("Choice message: %+v\n", choice.Message)
 		// Store the message
 		query = `
 			INSERT INTO msg (id, choice_id, msg_data)
@@ -1928,7 +1994,7 @@ func (s *PostgresqlStore) createChatChoices(
 func (s *PostgresqlStore) createToolCalls(
 	ctx context.Context,
 	tx *sql.Tx,
-	msgId string,
+	msgId uuid.UUID,
 	toolCalls []sentinel.SentinelToolCall,
 ) error {
 	// Store the tool calls in the DB

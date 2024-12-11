@@ -35,18 +35,31 @@ func apiCreateNewChatHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 		return
 	}
 
-	jsonRequest, requestMessages, err := validateAndDecodeRequest(ctx, payload.RequestData, runId, store)
+	jsonRequest, requestMessages, err := validateAndDecodeRequest(payload.RequestData)
 	if err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Request: %s", err.Error()), "")
 		return
 	}
 
-	// len(requestMessages) should be the same as the total number of messages in msg for this run
-	// (exluding unpicked choices)
-
-	newRequestMessages, err := filterRequestMessages(ctx, requestMessages, runId, store)
+	// We need to get the new messages that were appended to the messages array by the client since the last time they
+	// sent a request.
+	// To do this, we load all of the current messages in msg for this run, then we iterate over the requestMessages
+	// and compare the b64 encdoed JSON of the db message and the request message.
+	// We handle the following cases:
+	// If len(requestMessages) = len(dbMessages)
+	// --> if len(requestMessages) == 0 error out
+	// --> Check if all of the messages are the same, if so do nothing(?)
+	// --> Most likely, the last message in the request no longer matches the last message in the db
+	// --> We need to invalidate the messages in the database and add the new message
+	// If len(requestMessages) > len(dbMessages)
+	// --> Ensure everything up to requestMessages[len(dbMessages)-1] is the same, else error out
+	// --> Add the new messages to the database
+	// If len(dbMessages) > len(requestMessages)
+	// --> Ensure everything up to dbMessages[len(requestMessages)-1] is the same, else error out
+	// --> Invalidate the messages in the database after dbMessages[len(requestMessages)-1]
+	newRequestMessages, err := newMessagesInRequest(ctx, requestMessages, runId, store)
 	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Error filtering request messages: %s", err.Error()), "")
+		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Error adding new messages to DB: %s", err.Error()), "")
 		return
 	}
 
@@ -75,27 +88,202 @@ func apiCreateNewChatHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 	respondJSON(w, chatIds, http.StatusOK)
 }
 
-// filterRequestMessages filters out the request messages that are not new in this request
-// by cutting off the first n messages, where n is the number of messages logged against choices in
-// this run already.
-func filterRequestMessages(ctx context.Context, requestMessages []SentinelMessage, runId uuid.UUID, store Store) ([]SentinelMessage, error) {
-	messagesForRun, err := store.GetMessagesForRun(ctx, runId)
+func newMessagesInRequest(
+	ctx context.Context,
+	requestMessages []openai.ChatCompletionMessage,
+	runId uuid.UUID,
+	store Store,
+) ([]SentinelMessage, error) {
+	fmt.Printf("[DEBUG] Starting newMessagesInRequest for runId: %s\n", runId)
+	fmt.Printf("[DEBUG] Number of request messages: %d\n", len(requestMessages))
+
+	toAdd := make([]SentinelMessage, 0)
+
+	dbMessages, err := store.GetMessagesForRun(ctx, runId, false)
 	if err != nil {
+		fmt.Printf("[ERROR] Failed to get messages for run: %v\n", err)
 		return nil, fmt.Errorf("error getting messages for run: %w", err)
 	}
+	fmt.Printf("[DEBUG] Number of DB messages: %d\n", len(dbMessages))
 
-	// Get the number of messages logged against choices in this run
-	numMessagesLogged := len(messagesForRun)
+	type dbMsg struct {
+		Id  uuid.UUID
+		Msg openai.ChatCompletionMessage
+	}
 
-	// Cut off the first n messages
-	newRequestMessages := requestMessages[numMessagesLogged:]
+	var backupMessages []openai.ChatCompletionMessage
+	var dbChatMessages []dbMsg
+	for i, message := range dbMessages {
+		fmt.Printf("[DEBUG] Processing DB message %d\n", i)
+		var v openai.ChatCompletionMessage
+		decoded, err := base64.StdEncoding.DecodeString(*message.Data)
+		if err != nil {
+			fmt.Printf("[ERROR] Failed to decode message %d: %v\n", i, err)
+			return nil, fmt.Errorf("error decoding message: %w", err)
+		}
 
-	return newRequestMessages, nil
+		if err := json.Unmarshal(decoded, &v); err != nil {
+			fmt.Printf("[ERROR] Failed to unmarshal message %d: %v\n", i, err)
+			return nil, fmt.Errorf("error unmarshalling message: %w", err)
+		}
+
+		dbChatMessages = append(dbChatMessages, dbMsg{
+			Id:  *message.Id,
+			Msg: v,
+		})
+		backupMessages = append(backupMessages, v)
+		fmt.Printf("[DEBUG] Successfully processed DB message %d with role: %s\n", i, v.Role)
+	}
+
+	switch {
+	case len(requestMessages) == len(dbChatMessages):
+		fmt.Printf("[DEBUG] Case: Equal lengths (request=%d, db=%d)\n", len(requestMessages), len(dbChatMessages))
+		if len(requestMessages) == 0 {
+			fmt.Printf("[ERROR] No messages found in request\n")
+			return nil, fmt.Errorf("no messages parsed out of LLM request JSON")
+		}
+
+		invalidatedLastMessage := false
+		for i, message := range requestMessages {
+			fmt.Printf("[DEBUG] Comparing message %d\n", i)
+			equal, err := deepEqual(message, dbChatMessages[i].Msg)
+			if err != nil {
+				fmt.Printf("[ERROR] Failed to compare messages at index %d: %v\n", i, err)
+				return nil, fmt.Errorf("error comparing messages: %w", err)
+			}
+			if !equal {
+				fmt.Printf("[DEBUG] Message mismatch at index %d\n", i)
+				if i != len(requestMessages)-1 {
+					fmt.Printf("[ERROR] Mismatch occurred before last message at index %d\n", i)
+					return nil, fmt.Errorf("message content mismatch at index %d", i)
+				}
+
+				fmt.Printf("[DEBUG] Invalidating last message with ID: %s\n", dbChatMessages[i].Id)
+				err = invalidateMessage(ctx, store, dbChatMessages[i].Id)
+				if err != nil {
+					fmt.Printf("[ERROR] Failed to invalidate message: %v\n", err)
+					return nil, fmt.Errorf("error invalidating message: %w", err)
+				}
+
+				invalidatedLastMessage = true
+			}
+		}
+
+		if !invalidatedLastMessage {
+			fmt.Printf("[DEBUG] All messages are identical\n")
+			return nil, fmt.Errorf("all messages in the db and request are the same, strange")
+		}
+	case len(requestMessages) > len(dbChatMessages):
+		fmt.Printf("[DEBUG] Case: More request messages than DB (request=%d, db=%d)\n", len(requestMessages), len(dbChatMessages))
+
+		for i, message := range requestMessages {
+			if i < len(dbChatMessages) {
+				fmt.Printf("[DEBUG] Comparing existing message %d\n", i)
+				equal, err := deepEqual(message, dbChatMessages[i].Msg)
+				if err != nil {
+					fmt.Printf("[ERROR] Failed to compare messages at index %d: %v\n", i, err)
+					return nil, fmt.Errorf("error comparing messages: %w", err)
+				}
+				if !equal {
+					fmt.Printf("[ERROR] Message mismatch at index %d\n", i)
+					// JSON stringify both arrays for debugging
+					wanted, _ := json.MarshalIndent(requestMessages, "", "  ")
+					got, _ := json.MarshalIndent(backupMessages, "", "  ")
+					fmt.Printf("[DEBUG] Wanted:\n%+v\n, Got:\n%+v\n", string(wanted), string(got))
+					return nil, fmt.Errorf("message content mismatch at index %d: wanted:\n%+v\n, got:\n%+v\n", i, string(wanted), string(got))
+				}
+			} else {
+				break
+			}
+		}
+
+		fmt.Printf("[DEBUG] Processing %d new messages\n", len(requestMessages)-len(dbChatMessages))
+		for i, message := range requestMessages[len(dbChatMessages):] {
+			fmt.Printf("[DEBUG] Converting new message %d\n", i)
+			sentinelMsg, err := convertMessage(ctx, message, runId, store)
+			if err != nil {
+				fmt.Printf("[ERROR] Failed to convert message %d: %v\n", i, err)
+				return nil, fmt.Errorf("error converting message: %w", err)
+			}
+			toAdd = append(toAdd, sentinelMsg)
+		}
+
+	case len(dbChatMessages) > len(requestMessages):
+		fmt.Printf("[DEBUG] Case: More DB messages than request (request=%d, db=%d)\n", len(requestMessages), len(dbChatMessages))
+
+		for i, message := range requestMessages {
+			fmt.Printf("[DEBUG] Comparing message %d\n", i)
+			if i < len(dbChatMessages) {
+				equal, err := deepEqual(message, dbChatMessages[i].Msg)
+				if err != nil {
+					fmt.Printf("[ERROR] Failed to compare messages at index %d: %v\n", i, err)
+					return nil, fmt.Errorf("error comparing messages: %w", err)
+				}
+				if !equal {
+					fmt.Printf("[ERROR] Message mismatch at index %d\n", i)
+					return nil, fmt.Errorf("message content mismatch at index %d", i)
+				}
+			}
+		}
+
+		fmt.Printf("[DEBUG] Invalidating %d messages\n", len(dbChatMessages)-len(requestMessages))
+		for i, message := range dbChatMessages[len(requestMessages):] {
+			fmt.Printf("[DEBUG] Invalidating message %d with ID: %s\n", i, message.Id)
+			err = invalidateMessage(ctx, store, message.Id)
+			if err != nil {
+				fmt.Printf("[ERROR] Failed to invalidate message %d: %v\n", i, err)
+				return nil, fmt.Errorf("error invalidating message: %w", err)
+			}
+		}
+	}
+
+	fmt.Printf("[DEBUG] Completed successfully. Number of new messages to add: %d\n", len(toAdd))
+	return toAdd, nil
+}
+
+func invalidateMessage(ctx context.Context, store Store, id uuid.UUID) error {
+	msg, err := store.GetMessage(ctx, id)
+	if err != nil {
+		return fmt.Errorf("error getting message: %w", err)
+	}
+
+	if msg.Role == SentinelMessageRoleSentinel {
+		return nil
+	}
+
+	msg.Role = SentinelMessageRoleSentinel
+
+	err = store.UpdateMessage(ctx, id, *msg)
+	if err != nil {
+		return fmt.Errorf("error updating message: %w", err)
+	}
+
+	fmt.Printf("[DEBUG] Successfully invalidated message with ID: %s\n", id)
+
+	return nil
+}
+
+func deepEqual(a, b openai.ChatCompletionMessage) (bool, error) {
+	jsonA, err := json.Marshal(a)
+	if err != nil {
+		return false, fmt.Errorf("error marshalling message A: %w", err)
+	}
+
+	jsonB, err := json.Marshal(b)
+	if err != nil {
+		return false, fmt.Errorf("error marshalling message B: %w", err)
+	}
+
+	if string(jsonA) != string(jsonB) {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 // validateAndDecodeRequest handles the decoding and validation of the chat completion request
 // It splits out the messages and converts them to SentinelMessage objects
-func validateAndDecodeRequest(ctx context.Context, encodedData string, runId uuid.UUID, store ToolStore) ([]byte, []SentinelMessage, error) {
+func validateAndDecodeRequest(encodedData string) ([]byte, []openai.ChatCompletionMessage, error) {
 	decodedRequest, err := base64.StdEncoding.DecodeString(encodedData)
 	if err != nil {
 		return nil, nil, fmt.Errorf("invalid base64 format: %w", err)
@@ -106,24 +294,12 @@ func validateAndDecodeRequest(ctx context.Context, encodedData string, runId uui
 		return nil, nil, fmt.Errorf("invalid request format: %w", err)
 	}
 
-	// Extract messages from the request
-	messages := v.Messages
-	convertedMessages := make([]SentinelMessage, 0, len(messages))
-	for _, message := range messages {
-		fmt.Printf("Message in OpenAI format: %+v\n", message)
-		convertedMessage, err := convertMessage(ctx, message, runId, store)
-		if err != nil {
-			return nil, nil, fmt.Errorf("error converting messages: %w", err)
-		}
-		convertedMessages = append(convertedMessages, convertedMessage)
-	}
-
 	marshaledRequest, err := json.Marshal(v)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error marshalling request: %w", err)
 	}
 
-	return marshaledRequest, convertedMessages, nil
+	return marshaledRequest, v.Messages, nil
 }
 
 // validateAndDecodeResponse handles the decoding and validation of the chat completion response
@@ -191,15 +367,28 @@ func convertMessage(ctx context.Context, message openai.ChatCompletionMessage, r
 		msgContent = message.Content
 	}
 
-	id := uuid.New().String()
+	originalMessageJSON, err := json.Marshal(message)
+	if err != nil {
+		return SentinelMessage{}, fmt.Errorf("error marshalling original message: %w", err)
+	}
+	b64 := base64.StdEncoding.EncodeToString(originalMessageJSON)
 
-	return SentinelMessage{
+	id := uuid.New()
+
+	sMsg := SentinelMessage{
 		Id:        &id,
 		Role:      SentinelMessageRole(message.Role),
 		ToolCalls: &toolCalls,
 		Type:      &msgType,
 		Content:   msgContent,
-	}, nil
+		Data:      &b64,
+	}
+
+	// fmt.Printf("\n\nMessage ID: %+v\n", message.ToolCallID)
+	// fmt.Printf("Message content: %+v\n", message.Content)
+	// fmt.Printf("Sentinel message: %+v\n", sMsg.Content)
+
+	return sMsg, nil
 }
 
 func convertToolCalls(ctx context.Context, toolCalls []openai.ToolCall, runId uuid.UUID, store ToolStore) ([]SentinelToolCall, error) {
@@ -245,7 +434,7 @@ func extractChatIds(chatId uuid.UUID, choices []SentinelChoice) ChatIds {
 	for _, choice := range choices {
 		choiceIds := ChoiceIds{
 			ChoiceId:    choice.SentinelId,
-			MessageId:   *choice.Message.Id,
+			MessageId:   choice.Message.Id.String(),
 			ToolCallIds: make([]ToolCallIds, 0),
 		}
 
@@ -268,7 +457,7 @@ func extractChatIds(chatId uuid.UUID, choices []SentinelChoice) ChatIds {
 func apiGetRunMessagesHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
 	ctx := r.Context()
 
-	messages, err := store.GetMessagesForRun(ctx, runId)
+	messages, err := store.GetMessagesForRun(ctx, runId, true)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting messages for run", err.Error())
 		return

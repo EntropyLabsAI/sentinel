@@ -106,5 +106,7 @@ type ChatStore interface {
 		format string,
 		requestMessages []SentinelMessage,
 	) (*uuid.UUID, error)
-	GetMessagesForRun(ctx context.Context, runId uuid.UUID) ([]SentinelMessage, error)
+	GetMessagesForRun(ctx context.Context, runId uuid.UUID, includeInvalidated bool) ([]SentinelMessage, error)
+	GetMessage(ctx context.Context, id uuid.UUID) (*SentinelMessage, error)
+	UpdateMessage(ctx context.Context, id uuid.UUID, message SentinelMessage) error
 }

@@ -1448,7 +1448,7 @@ components:
 
     MessageRole:
       type: string
-      enum: [system, user, assistant]
+      enum: [system, user, assistant, ]
 
     ReviewPayload:
       type: object
@@ -1514,9 +1514,10 @@ components:
       properties:
         id:
           type: string
+          format: uuid
         role:
           type: string
-          enum: [system, user, assistant, function, tool]
+          enum: [system, user, assistant, function, tool, sentinel]
         content:
           type: string
         tool_calls:
@@ -1529,6 +1530,10 @@ components:
         created_at:
           type: string
           format: date-time
+        data:
+          type: string
+          format: base64
+          description: The raw b64 encoded JSON of the message objects in its original form 
       required:
         - role
         - content

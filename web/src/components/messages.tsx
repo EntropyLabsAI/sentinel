@@ -85,6 +85,8 @@ export function MessageDisplay({ message, index, onToolCallClick, highlightedToo
         return `${baseStyle} bg-gray-200 text-gray-800`;
       case 'system':
         return `${baseStyle} bg-gray-300 text-gray-800 italic`;
+      case 'sentinel':
+        return `${baseStyle} bg-teal-800 text-white`;
       default:
         return `${baseStyle} bg-amber-400 text-white`;
     }
