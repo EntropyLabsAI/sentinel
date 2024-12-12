@@ -13,7 +13,7 @@ Sentinel is an agent control plane built by [Entropy Labs](http://entropy-labs.a
 ## Sentinel Demo Video
 [![Sentinel Demo Video](thumb.png)](https://www.youtube.com/watch?v=pOfnYkdLk18)
 
-🚀 Want to see Sentinel in action or chat about agent supervision? [Book a demo with us]([https://calendly.com/david-mlcoch-entropy-labs/entropy-labs-demo)](https://calendly.com/founders-asteroid-hhaf/30min)!
+🚀 Want to see Sentinel in action or chat about agent supervision? [Book a demo with us](https://calendly.com/founders-asteroid-hhaf/30min)!
 
 We're starting with manual reviews for agent actions, but we'll add ways to automatically approve known safe actions in the future.
 
