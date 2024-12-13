@@ -250,7 +250,7 @@ func (s Server) GetToolCallStatus(w http.ResponseWriter, r *http.Request, toolCa
 }
 
 // GetToolCallState
-func (s Server) GetToolCallState(w http.ResponseWriter, r *http.Request, toolCallId uuid.UUID) {
+func (s Server) GetToolCallState(w http.ResponseWriter, r *http.Request, toolCallId string) {
 	apiGetToolCallStateHandler(w, r, toolCallId, s.Store)
 }
 

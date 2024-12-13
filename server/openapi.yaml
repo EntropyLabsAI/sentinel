@@ -943,7 +943,6 @@ paths:
         required: true
         schema:
           type: string
-          format: uuid
     get:
       summary: Get the state of a tool call
       operationId: GetToolCallState
@@ -1448,7 +1447,7 @@ components:
 
     MessageRole:
       type: string
-      enum: [system, user, assistant, ]
+      enum: [system, user, assistant]
 
     ReviewPayload:
       type: object
@@ -1533,7 +1532,7 @@ components:
         data:
           type: string
           format: base64
-          description: The raw b64 encoded JSON of the message objects in its original form 
+          description: The raw b64 encoded JSON of the message objects in its original form
       required:
         - role
         - content
@@ -1542,6 +1541,9 @@ components:
       type: object
       properties:
         id:
+          type: string
+          format: uuid
+        call_id:
           type: string
         tool_id:
           type: string

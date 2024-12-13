@@ -86,6 +86,7 @@ export interface SentinelChoice {
 export interface SentinelToolCall {
   /** Arguments in JSON format */
   arguments?: string;
+  call_id?: string;
   created_at?: string;
   id: string;
   name?: string;
@@ -102,11 +103,14 @@ export const SentinelMessageRole = {
   assistant: 'assistant',
   function: 'function',
   tool: 'tool',
+  sentinel: 'sentinel',
 } as const;
 
 export interface SentinelMessage {
   content: string;
   created_at?: string;
+  /** The raw b64 encoded JSON of the message objects in its original form */
+  data?: string;
   id?: string;
   role: SentinelMessageRole;
   tool_calls?: SentinelToolCall[];

@@ -66,6 +66,7 @@ type ToolRequestStore interface {
 	// GetRequestGroup(ctx context.Context, id uuid.UUID, includeArgs bool) (*ToolRequestGroup, error)
 	// CreateToolCall(ctx context.Context, toolCallId uuid.UUID, request ToolRequest) (*uuid.UUID, error)
 	GetToolCall(ctx context.Context, id uuid.UUID) (*SentinelToolCall, error)
+	GetToolCallFromCallId(ctx context.Context, id string) (*SentinelToolCall, error)
 }
 
 type ToolStore interface {
@@ -106,7 +107,8 @@ type ChatStore interface {
 		format string,
 		requestMessages []SentinelMessage,
 	) (*uuid.UUID, error)
-	GetMessagesForRun(ctx context.Context, runId uuid.UUID, includeInvalidated bool) ([]SentinelMessage, error)
+	// GetMessagesForRun(ctx context.Context, runId uuid.UUID, includeInvalidated bool) ([]SentinelMessage, error)
+	GetLatestChat(ctx context.Context, runId uuid.UUID) ([]byte, []byte, error)
 	GetMessage(ctx context.Context, id uuid.UUID) (*SentinelMessage, error)
 	UpdateMessage(ctx context.Context, id uuid.UUID, message SentinelMessage) error
 }

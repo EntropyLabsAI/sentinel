@@ -104,7 +104,7 @@ export function MessageDisplay({ message, index, onToolCallClick, highlightedToo
             <p className="text-xs font-semibold">{message.tool_calls.length} tool call{message.tool_calls.length === 1 ? "" : "s"} in this message</p>
             <div className="flex flex-wrap mt-2">
               {message.tool_calls.map((toolCall, idx) => (
-                <Badge key={`${index}-${idx}`} className={cn(`mr-2 mb-2 cursor-pointer`, highlightedToolCallId === toolCall.id ? "bg-teal-100 text-teal-800" : "bg-gray-100 text-gray-800")} onClick={() => onToolCallClick(toolCall.id)}>
+                <Badge key={`${index}-${idx}`} className={cn(`mr-2 mb-2 cursor-pointer`, highlightedToolCallId === toolCall.call_id ? "bg-teal-100 text-teal-800" : "bg-gray-100 text-gray-800")} onClick={() => onToolCallClick(toolCall.call_id || "")}>
                   {toolCall.name || 'No name provided'}
                 </Badge>
               ))}

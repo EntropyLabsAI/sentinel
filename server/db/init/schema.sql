@@ -140,6 +140,7 @@ CREATE TABLE msg (
 
 CREATE TABLE toolcall (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    call_id TEXT DEFAULT '' NOT NULL,
     tool_id UUID REFERENCES tool(id),
     msg_id UUID REFERENCES msg(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

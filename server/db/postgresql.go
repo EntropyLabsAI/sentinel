@@ -506,9 +506,38 @@ func (s *PostgresqlStore) GetSupervisorChains(ctx context.Context, toolId uuid.U
 //
 // );
 
+func (s *PostgresqlStore) GetToolCallFromCallId(ctx context.Context, id string) (*sentinel.SentinelToolCall, error) {
+	query := `
+		SELECT id, call_id, created_at, tool_id, tool_call_data
+		FROM toolcall
+		WHERE call_id = $1`
+
+	var toolCall sentinel.SentinelToolCall
+	var toolCallDataJSON []byte
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
+		&toolCall.Id,
+		&toolCall.CallId,
+		&toolCall.CreatedAt,
+		&toolCall.ToolId,
+		&toolCallDataJSON,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error getting tool request: %w", err)
+	}
+
+	args := string(toolCallDataJSON)
+	toolCall.Arguments = &args
+	toolCall.CallId = &id
+
+	return &toolCall, nil
+}
+
 func (s *PostgresqlStore) GetToolCall(ctx context.Context, id uuid.UUID) (*sentinel.SentinelToolCall, error) {
 	query := `
-		SELECT id, created_at, tool_id, tool_call_data
+		SELECT id, call_id, created_at, tool_id, tool_call_data
 		FROM toolcall
 		WHERE id = $1`
 
@@ -516,6 +545,7 @@ func (s *PostgresqlStore) GetToolCall(ctx context.Context, id uuid.UUID) (*senti
 	var toolCallDataJSON []byte
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&toolCall.Id,
+		&toolCall.CallId,
 		&toolCall.CreatedAt,
 		&toolCall.ToolId,
 		&toolCallDataJSON,
@@ -1848,79 +1878,100 @@ func (s *PostgresqlStore) UpdateMessage(ctx context.Context, id uuid.UUID, messa
 	return nil
 }
 
-// TODO: Assumes that there is only one choice
-func (s *PostgresqlStore) GetMessagesForRun(
+func (s *PostgresqlStore) GetLatestChat(
 	ctx context.Context,
 	runId uuid.UUID,
-	includeInvalidated bool,
-) ([]sentinel.SentinelMessage, error) {
-	fmt.Printf("GetMessagesForRun: Starting with runId=%s, includeInvalidated=%v\n", runId, includeInvalidated)
-
+) ([]byte, []byte, error) {
 	query := `
-		SELECT msg.id, msg.choice_id, msg.msg_data
-		FROM msg 
-		INNER JOIN choice ON msg.choice_id = choice.id
-		INNER JOIN chat ON choice.chat_id = chat.id
-		WHERE chat.run_id = $1
-		ORDER BY msg.created_at ASC
+		SELECT request_data, response_data
+		FROM chat
+		WHERE run_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1
 	`
-	fmt.Printf("GetMessagesForRun: Executing query: %s\n", query)
 
-	rows, err := s.db.QueryContext(ctx, query, runId)
+	var requestData, responseData []byte
+	err := s.db.QueryRowContext(ctx, query, runId).Scan(&requestData, &responseData)
 	if err != nil {
-		fmt.Printf("GetMessagesForRun: Error querying database: %v\n", err)
-		return nil, fmt.Errorf("error getting messages for run: %w", err)
-	}
-	defer rows.Close()
-
-	type msg struct {
-		Id       string
-		ChoiceId string
-		MsgData  []byte
+		return nil, nil, fmt.Errorf("error getting message: %w", err)
 	}
 
-	messages := make([]sentinel.SentinelMessage, 0)
-	rowCount := 0
-	for rows.Next() {
-		rowCount++
-		var msg msg
-		err := rows.Scan(&msg.Id, &msg.ChoiceId, &msg.MsgData)
-		if err != nil {
-			fmt.Printf("GetMessagesForRun: Error scanning row %d: %v\n", rowCount, err)
-			return nil, fmt.Errorf("error scanning message: %w", err)
-		}
-
-		fmt.Printf("GetMessagesForRun: Processing row %d - ID: %s, ChoiceID: %s, MsgData length: %d\n",
-			rowCount, msg.Id, msg.ChoiceId, len(msg.MsgData))
-
-		var message sentinel.SentinelMessage
-		err = json.Unmarshal(msg.MsgData, &message)
-		if err != nil {
-			fmt.Printf("GetMessagesForRun: Error unmarshalling message data for row %d: %v\n", rowCount, err)
-			return nil, fmt.Errorf("error unmarshalling message: %w", err)
-		}
-
-		fmt.Printf("GetMessagesForRun: Unmarshalled message - Role: %s, Content length: %d\n",
-			message.Role, len(message.Content))
-
-		if !includeInvalidated && message.Role == sentinel.SentinelMessageRoleSentinel {
-			fmt.Printf("GetMessagesForRun: Skipping assistant message (invalidated)\n")
-			continue
-		}
-
-		messages = append(messages, message)
-		fmt.Printf("GetMessagesForRun: Added message to result array. Current count: %d\n", len(messages))
-	}
-
-	if err = rows.Err(); err != nil {
-		fmt.Printf("GetMessagesForRun: Error after row iteration: %v\n", err)
-		return nil, fmt.Errorf("error iterating messages: %w", err)
-	}
-
-	fmt.Printf("GetMessagesForRun: Completed. Total rows processed: %d, Messages returned: %d\n",
-		rowCount, len(messages))
-	return messages, nil
+	return requestData, responseData, nil
 }
+
+// TODO: Assumes that there is only one choice
+// func (s *PostgresqlStore) GetMessagesForRun(
+// 	ctx context.Context,
+// 	runId uuid.UUID,
+// 	includeInvalidated bool,
+// ) ([]sentinel.SentinelMessage, error) {
+// 	fmt.Printf("GetMessagesForRun: Starting with runId=%s, includeInvalidated=%v\n", runId, includeInvalidated)
+
+// 	query := `
+// 		SELECT msg.id, msg.choice_id, msg.msg_data
+// 		FROM msg
+// 		INNER JOIN choice ON msg.choice_id = choice.id
+// 		INNER JOIN chat ON choice.chat_id = chat.id
+// 		WHERE chat.run_id = $1
+// 		ORDER BY msg.created_at ASC
+// 	`
+// 	fmt.Printf("GetMessagesForRun: Executing query: %s\n", query)
+
+// 	rows, err := s.db.QueryContext(ctx, query, runId)
+// 	if err != nil {
+// 		fmt.Printf("GetMessagesForRun: Error querying database: %v\n", err)
+// 		return nil, fmt.Errorf("error getting messages for run: %w", err)
+// 	}
+// 	defer rows.Close()
+
+// 	type msg struct {
+// 		Id       string
+// 		ChoiceId string
+// 		MsgData  []byte
+// 	}
+
+// 	messages := make([]sentinel.SentinelMessage, 0)
+// 	rowCount := 0
+// 	for rows.Next() {
+// 		rowCount++
+// 		var msg msg
+// 		err := rows.Scan(&msg.Id, &msg.ChoiceId, &msg.MsgData)
+// 		if err != nil {
+// 			fmt.Printf("GetMessagesForRun: Error scanning row %d: %v\n", rowCount, err)
+// 			return nil, fmt.Errorf("error scanning message: %w", err)
+// 		}
+
+// 		fmt.Printf("GetMessagesForRun: Processing row %d - ID: %s, ChoiceID: %s, MsgData length: %d\n",
+// 			rowCount, msg.Id, msg.ChoiceId, len(msg.MsgData))
+
+// 		var message sentinel.SentinelMessage
+// 		err = json.Unmarshal(msg.MsgData, &message)
+// 		if err != nil {
+// 			fmt.Printf("GetMessagesForRun: Error unmarshalling message data for row %d: %v\n", rowCount, err)
+// 			return nil, fmt.Errorf("error unmarshalling message: %w", err)
+// 		}
+
+// 		fmt.Printf("GetMessagesForRun: Unmarshalled message - Role: %s, Content length: %d\n",
+// 			message.Role, len(message.Content))
+
+// 		if !includeInvalidated && message.Role == sentinel.SentinelMessageRoleSentinel {
+// 			fmt.Printf("GetMessagesForRun: Skipping assistant message (invalidated)\n")
+// 			continue
+// 		}
+
+// 		messages = append(messages, message)
+// 		fmt.Printf("GetMessagesForRun: Added message to result array. Current count: %d\n", len(messages))
+// 	}
+
+// 	if err = rows.Err(); err != nil {
+// 		fmt.Printf("GetMessagesForRun: Error after row iteration: %v\n", err)
+// 		return nil, fmt.Errorf("error iterating messages: %w", err)
+// 	}
+
+// 	fmt.Printf("GetMessagesForRun: Completed. Total rows processed: %d, Messages returned: %d\n",
+// 		rowCount, len(messages))
+// 	return messages, nil
+// }
 
 func (s *PostgresqlStore) createChatChoices(
 	ctx context.Context,
@@ -2000,14 +2051,14 @@ func (s *PostgresqlStore) createToolCalls(
 	// Store the tool calls in the DB
 	for _, toolCall := range toolCalls {
 		query := `
-			INSERT INTO toolcall (id, msg_id, tool_call_data, tool_id)
-			VALUES ($1, $2, $3, $4)
+			INSERT INTO toolcall (id, call_id, msg_id, tool_call_data, tool_id)
+			VALUES ($1, $2, $3, $4, $5)
 		`
 		toolCallData, err := json.Marshal(toolCall)
 		if err != nil {
 			return fmt.Errorf("error marshalling tool call data: %w", err)
 		}
-		_, err = tx.ExecContext(ctx, query, toolCall.Id, msgId, toolCallData, toolCall.ToolId)
+		_, err = tx.ExecContext(ctx, query, toolCall.Id, toolCall.CallId, msgId, toolCallData, toolCall.ToolId)
 		if err != nil {
 			return fmt.Errorf("error creating tool call: %w", err)
 		}
