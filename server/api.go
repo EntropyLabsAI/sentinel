@@ -224,16 +224,6 @@ func (s Server) GetHubStats(w http.ResponseWriter, r *http.Request) {
 	apiGetHubStatsHandler(w, r, s.Hub)
 }
 
-// GetRunState
-func (s Server) GetRunState(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
-	apiGetRunStateHandler(w, r, runId, s.Store)
-}
-
-// CreateToolRequest
-// func (s Server) CreateToolRequest(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID) {
-// 	apiCreateToolRequestHandler(w, r, requestGroupId, s.Store)
-// }
-
 // GetSupervisionReviewPayload
 func (s Server) GetSupervisionReviewPayload(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID) {
 	apiGetSupervisionReviewPayloadHandler(w, r, supervisionRequestId, s.Store)

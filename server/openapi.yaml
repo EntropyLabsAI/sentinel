@@ -699,27 +699,6 @@ paths:
       tags:
         - Supervision
 
-  /run/{runId}/state:
-    parameters:
-      - name: runId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    get:
-      summary: Get the state of a run
-      operationId: GetRunState
-      responses:
-        "200":
-          description: Run state
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RunState"
-      tags:
-        - Run
-
   /run/{runId}:
     parameters:
       - name: runId
@@ -1460,17 +1439,23 @@ components:
           $ref: "#/components/schemas/ChainExecutionState"
           description: The state of the entire supervision chain, including previous supervision results
         toolcall:
-          $ref: "#/components/schemas/ToolCall"
+          $ref: "#/components/schemas/SentinelToolCall"
           description: The tool call being supervised
         run_id:
           type: string
           format: uuid
           description: The ID of the run this review is for
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/SentinelMessage"
+          description: The messages in the run 
       required:
         - supervision_request
         - chain_state
-        - request_group
+        - toolcall
         - run_id
+        - messages
 
     Task:
       type: object
@@ -1547,6 +1532,7 @@ components:
           type: string
         tool_id:
           type: string
+          format: uuid
         name:
           type: string
         arguments:

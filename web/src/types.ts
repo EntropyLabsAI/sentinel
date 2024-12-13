@@ -140,12 +140,14 @@ export interface Task {
 export interface ReviewPayload {
   /** The state of the entire supervision chain, including previous supervision results */
   chain_state: ChainExecutionState;
+  /** The messages in the run */
+  messages: SentinelMessage[];
   /** The ID of the run this review is for */
   run_id: string;
   /** The current supervision request being reviewed */
   supervision_request: SupervisionRequest;
   /** The tool call being supervised */
-  toolcall?: ToolCall;
+  toolcall: SentinelToolCall;
 }
 
 export type MessageRole = typeof MessageRole[keyof typeof MessageRole];
@@ -1839,65 +1841,6 @@ export const useCreateSupervisionResult = <TError = AxiosError<unknown>,
       return useMutation(mutationOptions);
     }
     
-/**
- * @summary Get the state of a run
- */
-export const getRunState = (
-    runId: string, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<RunState>> => {
-    
-    return axios.get(
-      `/run/${runId}/state`,options
-    );
-  }
-
-
-export const getGetRunStateQueryKey = (runId: string,) => {
-    return [`/run/${runId}/state`] as const;
-    }
-
-    
-export const getGetRunStateQueryOptions = <TData = Awaited<ReturnType<typeof getRunState>>, TError = AxiosError<unknown>>(runId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunState>>, TError, TData>, axios?: AxiosRequestConfig}
-) => {
-
-const {query: queryOptions, axios: axiosOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetRunStateQueryKey(runId);
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRunState>>> = ({ signal }) => getRunState(runId, { signal, ...axiosOptions });
-
-      
-
-      
-
-   return  { queryKey, queryFn, enabled: !!(runId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRunState>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetRunStateQueryResult = NonNullable<Awaited<ReturnType<typeof getRunState>>>
-export type GetRunStateQueryError = AxiosError<unknown>
-
-/**
- * @summary Get the state of a run
- */
-export const useGetRunState = <TData = Awaited<ReturnType<typeof getRunState>>, TError = AxiosError<unknown>>(
- runId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunState>>, TError, TData>, axios?: AxiosRequestConfig}
-
-  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
-
-  const queryOptions = getGetRunStateQueryOptions(runId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
-
 /**
  * @summary Get a run
  */

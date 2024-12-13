@@ -20,11 +20,11 @@ export function ToolCallState({ toolCallId }: ToolCallStateProps) {
   const { data: toolCallStateData } = useGetToolCallState(toolCallId || '');
   const [expanded, setExpanded] = useState<boolean>(false);
 
-  useEffect(() => {
-    if (toolCallStateData?.data) {
-      setExpanded(true);
-    }
-  }, [toolCallStateData]);
+  // useEffect(() => {
+  //   if (toolCallStateData?.data) {
+  //     setExpanded(true);
+  //   }
+  // }, [toolCallStateData]);
 
   return (
     <>

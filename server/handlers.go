@@ -720,186 +720,87 @@ func apiGetProjectHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, 
 	respondJSON(w, project, http.StatusOK)
 }
 
-func apiGetRunStateHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
-	// ctx := r.Context()
-
-	// // First verify the run exists
-	// run, err := store.GetRun(ctx, runId)
-	// if err != nil {
-	// 	sendErrorResponse(w, http.StatusInternalServerError, "error getting run", err.Error())
-	// 	return
-	// }
-	// if run == nil {
-	// 	sendErrorResponse(w, http.StatusNotFound, "Run not found", "")
-	// 	return
-	// }
-
-	// Get all request groups for this run
-	// requestGroups, err := store.GetRunRequestGroups(ctx, runId, false)
-	// if err != nil {
-	// 	sendErrorResponse(w, http.StatusInternalServerError, "error getting request groups", err.Error())
-	// 	return
-	// }
-
-	// // Build the run state
-	// runState := make([]RunExecution, 0)
-
-	// // For each request group
-	// for _, requestGroup := range requestGroups {
-	// 	execution := RunExecution{
-	// 		// RequestGroup: requestGroup,
-	// 		Chains:       make([]ChainExecutionState, 0),
-	// 	}
-
-	// 	// Get all tools from this request group
-	// 	for _, toolRequest := range requestGroup.ToolRequests {
-	// 		// Get all chains for this tool
-	// 		chains, err := store.GetSupervisorChains(ctx, toolRequest.ToolId)
-	// 		if err != nil {
-	// 			sendErrorResponse(w, http.StatusInternalServerError, "error getting chains", err.Error())
-	// 			return
-	// 		}
-
-	// 		// For each chain
-	// 		for _, chain := range chains {
-	// 			chainState := ChainExecutionState{
-	// 				Chain:               chain,
-	// 				SupervisionRequests: make([]SupervisionRequestState, 0),
-	// 			}
-
-	// 			// Get the chain execution from the chain ID + request group ID
-	// 			chainExecutionId, err := store.GetChainExecutionFromChainAndRequestGroup(ctx, chain.ChainId, *requestGroup.Id)
-	// 			if err != nil {
-	// 				sendErrorResponse(w, http.StatusInternalServerError, "error getting chain execution", err.Error())
-	// 				return
-	// 			}
-
-	// 			var supervisionRequests []SupervisionRequest
-
-	// 			// Get all supervision requests for this chain
-	// 			if chainExecutionId != nil {
-	// 				supervisionRequests, err = store.GetChainExecutionSupervisionRequests(ctx, *chainExecutionId)
-	// 				if err != nil {
-	// 					sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision requests", err.Error())
-	// 					return
-	// 				}
-	// 			}
-
-	// 			// For each supervision request
-	// 			for _, request := range supervisionRequests {
-	// 				// Get the status
-	// 				status, err := store.GetSupervisionRequestStatus(ctx, *request.Id)
-	// 				if err != nil {
-	// 					sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision status", err.Error())
-	// 					return
-	// 				}
-
-	// 				// Get the result if it exists
-	// 				var result *SupervisionResult
-	// 				if status.Status == "completed" {
-	// 					result, err = store.GetSupervisionResultFromRequestID(ctx, *request.Id)
-	// 					if err != nil {
-	// 						sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision result", err.Error())
-	// 						return
-	// 					}
-	// 				}
-
-	// 				requestState := SupervisionRequestState{
-	// 					SupervisionRequest: request,
-	// 					Status:             *status,
-	// 					Result:             result,
-	// 				}
-
-	// 				chainState.SupervisionRequests = append(chainState.SupervisionRequests, requestState)
-	// 			}
-
-	// 			execution.Chains = append(execution.Chains, chainState)
-	// 		}
-	// 	}
-
-	// TODO This seems super inefficient as it loads a bunch of duplicate stuff
-	// 	status, err := getRequestGroupStatus(ctx, *requestGroup.Id, store)
-	// 	if err != nil {
-	// 		sendErrorResponse(w, http.StatusInternalServerError, "error getting request group status", err.Error())
-	// 		return
-	// 	}
-
-	// 	execution.Status = status
-
-	// 	runState = append(runState, execution)
-	// }
-
-	// Not implemented
-	sendErrorResponse(w, http.StatusNotImplemented, "Not implemented", "")
-}
-
 func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID, store Store) {
-	// ctx := r.Context()
+	ctx := r.Context()
 
-	// // Get the supervision request
-	// supervisionRequest, err := store.GetSupervisionRequest(ctx, supervisionRequestId)
-	// if err != nil {
-	// 	sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision request", err.Error())
-	// 	return
-	// }
-	// if supervisionRequest == nil {
-	// 	sendErrorResponse(w, http.StatusNotFound, "Supervision request not found", "")
-	// 	return
-	// }
+	// Get the supervision request
+	supervisionRequest, err := store.GetSupervisionRequest(ctx, supervisionRequestId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision request", err.Error())
+		return
+	}
+	if supervisionRequest == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Supervision request not found", "")
+		return
+	}
 
-	// // Get the chain execution
-	// _, requestGroupId, err := store.GetChainExecution(ctx, *supervisionRequest.ChainexecutionId)
-	// if err != nil {
-	// 	sendErrorResponse(w, http.StatusInternalServerError, "error getting chain execution", err.Error())
-	// 	return
-	// }
+	// Get the chain execution
+	_, toolCallId, err := store.GetChainExecution(ctx, *supervisionRequest.ChainexecutionId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting chain execution", err.Error())
+		return
+	}
 
-	// // Get the request group
-	// requestGroup, err := store.GetRequestGroup(ctx, *requestGroupId, true)
-	// if err != nil {
-	// 	sendErrorResponse(w, http.StatusInternalServerError, "error getting request group", err.Error())
-	// 	return
-	// }
+	if toolCallId == nil {
+		sendErrorResponse(
+			w,
+			http.StatusInternalServerError,
+			"tool call ID is required",
+			fmt.Sprintf("No tool call ID found for supervision request %s", supervisionRequestId),
+		)
+		return
+	}
 
-	// // Get the chain state (all supervision requests and results for this chain execution)
-	// chainState, err := store.GetChainExecutionState(ctx, *supervisionRequest.ChainexecutionId)
-	// if err != nil {
-	// 	sendErrorResponse(w, http.StatusInternalServerError, "error getting chain state", err.Error())
-	// 	return
-	// }
+	// Get the tool call
+	toolCall, err := store.GetToolCall(ctx, *toolCallId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool call", err.Error())
+		return
+	}
 
-	// if len(requestGroup.ToolRequests) == 0 {
-	// 	sendErrorResponse(w, http.StatusInternalServerError, "request group has no tool requests", "")
-	// 	return
-	// }
+	// Get the chain state (all supervision requests and results for this chain execution)
+	chainState, err := store.GetChainExecutionState(ctx, *supervisionRequest.ChainexecutionId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting chain state", err.Error())
+		return
+	}
 
-	// if requestGroup.ToolRequests[0].Id == nil {
-	// 	sendErrorResponse(w, http.StatusInternalServerError, "tool request ID is required", "")
-	// 	return
-	// }
+	// Get the tool to find the run ID
+	tool, err := store.GetTool(ctx, toolCall.ToolId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool", err.Error())
+		return
+	}
 
-	// // Get the tool to find the run ID
-	// tool, err := store.GetTool(ctx, requestGroup.ToolRequests[0].ToolId)
-	// if err != nil {
-	// 	sendErrorResponse(w, http.StatusInternalServerError, "error getting tool", err.Error())
-	// 	return
-	// }
+	if tool == nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "can't find run ID from tool", "")
+		return
+	}
 
-	// if tool == nil {
-	// 	sendErrorResponse(w, http.StatusInternalServerError, "can't find run ID from tool", "")
-	// 	return
-	// }
+	requestData, responseData, err := store.GetLatestChat(ctx, tool.RunId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting messages for run", err.Error())
+		return
+	}
 
-	// // Build the review payload
-	// reviewPayload := ReviewPayload{
-	// 	SupervisionRequest: *supervisionRequest,
-	// 	ChainState:         *chainState,
-	// 	RequestGroup:       *requestGroup,
-	// 	RunId:              tool.RunId,
-	// }
+	converter := OpenAIConverter{store}
 
-	// Not implemented
-	sendErrorResponse(w, http.StatusNotImplemented, "Not implemented", "")
+	sentinelMsgs, err := converter.ToSentinelMessages(ctx, requestData, responseData, tool.RunId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error converting messages", err.Error())
+		return
+	}
+
+	// Build the review payload
+	reviewPayload := ReviewPayload{
+		SupervisionRequest: *supervisionRequest,
+		ChainState:         *chainState,
+		Toolcall:           *toolCall,
+		RunId:              tool.RunId,
+		Messages:           sentinelMsgs,
+	}
+
+	respondJSON(w, reviewPayload, http.StatusOK)
 }
 
 // determineChainStatus checks if a supervision chain has completed

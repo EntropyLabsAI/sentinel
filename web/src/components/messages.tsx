@@ -24,15 +24,15 @@ export function MessagesDisplay({ expanded, messages, onToolCallClick, selectedT
     setIsLoaded(true);
   }, []);
 
-  useEffect(() => {
-    if (isLoaded && scrollAreaRef.current) {
-      setTimeout(() => {
-        if (scrollAreaRef.current) {
-          scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
-        }
-      }, 100);
-    }
-  }, [messages, isLoaded]);
+  // useEffect(() => {
+  //   if (isLoaded && scrollAreaRef.current) {
+  //     setTimeout(() => {
+  //       if (scrollAreaRef.current) {
+  //         scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+  //       }
+  //     }, 100);
+  //   }
+  // }, [messages, isLoaded]);
 
   // If the selectedToolCallId is set, highlight the tool call in the messages
   const highlightedToolCallId = selectedToolCallId ? selectedToolCallId : undefined;
@@ -55,8 +55,8 @@ export function MessagesDisplay({ expanded, messages, onToolCallClick, selectedT
                     key={`${index}-${highlightedToolCallId}`}
                     message={message}
                     index={index}
-                    onToolCallClick={onToolCallClick}
                     highlightedToolCallId={highlightedToolCallId}
+                    onToolCallClick={onToolCallClick}
                   />
                 ))}
               </div>
@@ -71,11 +71,11 @@ export function MessagesDisplay({ expanded, messages, onToolCallClick, selectedT
 interface MessageDisplayProps {
   message: SentinelMessage;
   index: number;
-  onToolCallClick: (toolCallId: string) => void;
   highlightedToolCallId?: string;
+  onToolCallClick: (toolCallId: string) => void;
 }
 
-export function MessageDisplay({ message, index, onToolCallClick, highlightedToolCallId }: MessageDisplayProps) {
+export function MessageDisplay({ message, index, highlightedToolCallId, onToolCallClick }: MessageDisplayProps) {
   const getBubbleStyle = (role: string) => {
     const baseStyle = "rounded-2xl p-3 mb-2 break-words";
     switch (role.toLowerCase()) {
@@ -95,7 +95,7 @@ export function MessageDisplay({ message, index, onToolCallClick, highlightedToo
   console.log(message);
 
   return (
-    <div key={index} className={`flex flex-col ${message.role.toLowerCase() === 'user' ? 'items-end' : 'items-start'} mb-4 last:mb-0`}>
+    <div key={index} className={`flex flex-col ${message.role.toLowerCase() === 'user' ? 'items-end' : 'items-start'} mb-4 pr-4 last:mb-0`}>
       <div className={getBubbleStyle(message.role)}>
         <p className="text-sm font-semibold mb-1">{message.role}</p>
         <MessageTypeDisplay message={message} />
@@ -104,7 +104,11 @@ export function MessageDisplay({ message, index, onToolCallClick, highlightedToo
             <p className="text-xs font-semibold">{message.tool_calls.length} tool call{message.tool_calls.length === 1 ? "" : "s"} in this message</p>
             <div className="flex flex-wrap mt-2">
               {message.tool_calls.map((toolCall, idx) => (
-                <Badge key={`${index}-${idx}`} className={cn(`mr-2 mb-2 cursor-pointer`, highlightedToolCallId === toolCall.call_id ? "bg-teal-100 text-teal-800" : "bg-gray-100 text-gray-800")} onClick={() => onToolCallClick(toolCall.call_id || "")}>
+                <Badge
+                  key={`${index}-${idx}`}
+                  className={cn(`mr-2 mb-2 cursor-pointer`, highlightedToolCallId === toolCall.call_id ? "bg-teal-100 text-teal-800" : "bg-gray-100 text-gray-800")}
+                  onClick={() => onToolCallClick(toolCall.call_id || '')}
+                >
                   {toolCall.name || 'No name provided'}
                 </Badge>
               ))}
@@ -117,15 +121,45 @@ export function MessageDisplay({ message, index, onToolCallClick, highlightedToo
 }
 
 const MessageTypeDisplay = ({ message }: { message: SentinelMessage }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const MAX_CHARS = 1000;
+
   if (!message.type) {
     return null;
   }
 
   const formatContent = (content: string) => {
-    // Split the content by newlines and wrap each line in a <p> tag
-    return content.split('\n').map((line, index) => (
-      <p key={index} className="whitespace-pre-wrap">{line}</p>
-    ));
+    if (message.type === MessageType.text && content.length > MAX_CHARS && !isExpanded) {
+      // Show truncated content with "Show More" button
+      return (
+        <>
+          <p className="whitespace-pre-wrap">
+            {content.slice(0, MAX_CHARS)}...
+          </p>
+          <button
+            onClick={() => setIsExpanded(true)}
+            className="text-sm underline mt-1 opacity-80 hover:opacity-100"
+          >
+            Show More
+          </button>
+        </>
+      );
+    }
+
+    // Show full content with "Show Less" button if expanded
+    return (
+      <>
+        <p className="whitespace-pre-wrap">{content}</p>
+        {message.type === MessageType.text && content.length > MAX_CHARS && (
+          <button
+            onClick={() => setIsExpanded(false)}
+            className="text-sm underline mt-2 opacity-80 hover:opacity-100"
+          >
+            Show Less
+          </button>
+        )}
+      </>
+    );
   };
 
   switch (message.type) {

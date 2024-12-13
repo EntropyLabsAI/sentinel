@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
   SupervisionResult,
-  ToolRequest,
   Decision,
   ReviewPayload,
   SupervisionRequest,
-  useGetSupervisionReviewPayload
+  useGetSupervisionReviewPayload,
+  SentinelToolCall
 } from '@/types';
 import ReviewRequestDisplay from '@/components/supervisor/review_request';
 import { HubStatsAccordion } from '../util/hub_stats';
@@ -21,6 +21,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { ToolCallState } from '../tool_call_state';
 
 interface ReviewSectionProps {
   supervisor: Supervisor;
@@ -51,7 +52,7 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
 
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
-  const [pendingToolChoice, setPendingToolChoice] = useState<ToolRequest | null>(null);
+  const [pendingToolCall, setPendingToolCall] = useState<SentinelToolCall | null>(null);
 
   // Hook to fetch payload for the next request in queue
   const nextRequestId = requestQueue[0];
@@ -137,7 +138,7 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
   }, [WEBSOCKET_BASE_URL, API_BASE_URL]);
 
   // Send response and remove the review
-  const sendResponse = (decision: Decision, requestId: string, toolChoice: ToolRequest, feedback?: string) => {
+  const sendResponse = (decision: Decision, requestId: string, toolCall: SentinelToolCall, feedback?: string) => {
     if (socket?.readyState === WebSocket.OPEN) {
 
       var feedbackText = "Human decided via interface";
@@ -150,7 +151,7 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
         reasoning: feedbackText,
         created_at: new Date().toISOString(),
         supervision_request_id: requestId,
-        chosen_toolrequest_id: toolChoice.id,
+        toolcall_id: toolCall.id
       };
       socket.send(JSON.stringify(response));
 
@@ -204,7 +205,7 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
                     <div className="flex flex-col gap-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-1">
                         <span>Agent wants to use</span>
-                        <ToolBadge toolId={payload.request_group.tool_requests[0].tool_id || ''} />
+                        <ToolBadge toolId={payload.toolcall.tool_id || ''} />
                       </div>
                     </div>
                   </li>
@@ -222,12 +223,12 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
               <div id="content" className="space-y-6 break-words">
                 <ReviewRequestDisplay
                   reviewPayload={selectedReviewPayload}
-                  sendResponse={(decision: Decision, toolChoice: ToolRequest, feedback?: string) => {
+                  sendResponse={(decision: Decision, toolCall: SentinelToolCall, feedback?: string) => {
                     if (decision === Decision.reject) {
                       setShowFeedbackDialog(true);
-                      setPendingToolChoice(toolChoice);
+                      setPendingToolCall(toolCall);
                     } else {
-                      sendResponse(decision, selectedReviewPayload.supervision_request.id || '', toolChoice);
+                      sendResponse(decision, selectedReviewPayload.supervision_request.id || '', toolCall);
                     }
                   }}
                 />
@@ -249,17 +250,17 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
                     <button
                       className="px-4 py-2 bg-red-500 text-white rounded"
                       onClick={() => {
-                        if (pendingToolChoice) {
+                        if (pendingToolCall) {
                           sendResponse(
                             Decision.reject,
                             selectedReviewPayload.supervision_request.id || '',
-                            pendingToolChoice,
+                            pendingToolCall,
                             feedbackText
                           );
                         }
                         setShowFeedbackDialog(false);
                         setFeedbackText("");
-                        setPendingToolChoice(null);
+                        setPendingToolCall(null);
                       }}
                     >
                       Submit Rejection
@@ -269,7 +270,7 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
                       onClick={() => {
                         setShowFeedbackDialog(false);
                         setFeedbackText("");
-                        setPendingToolChoice(null);
+                        setPendingToolCall(null);
                       }}
                     >
                       Cancel
