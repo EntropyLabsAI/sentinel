@@ -143,7 +143,7 @@ class SupervisionContext:
         text_content = message.content.strip()
         text = f"**{role}:**\n{text_content}"
 
-        if message.tool_calls and message.tool_calls is not UNSET:
+        if hasattr(message, 'tool_calls') and message.tool_calls is not UNSET:
             text += "\n\n**Tool Calls:**"
             for tool_call in message.tool_calls:
                 tool_call_description = self._describe_tool_call(tool_call)
@@ -153,7 +153,13 @@ class SupervisionContext:
 
     def _describe_tool_call(self, tool_call: ApiToolCall) -> str:
         """Converts a ToolCall into a textual description."""
-        arguments_dict = tool_call.arguments.to_dict() if tool_call.arguments else {}
+        if hasattr(tool_call, 'arguments') and tool_call.arguments:
+            if isinstance(tool_call.arguments, dict):
+                arguments_dict = tool_call.arguments
+            else:
+                arguments_dict = tool_call.arguments.to_dict()
+        else:
+            arguments_dict = {}
         description = (
             f"- **Tool Call ID:** {tool_call.id}\n"
             f"  - **Function:** {tool_call.function}\n"
