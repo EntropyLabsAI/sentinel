@@ -53,7 +53,7 @@ export default function ExecutionTable({ runState }: { runState: RunState }) {
   return (
     <>
       <Slideover isOpen={isSlideoverOpen} setIsOpen={setIsSlideoverOpen} />
-      <Table>
+      <Table className="max-w-[75vw]">
         <TableHeader>
           <TableRow>
             <TableHead className="w-[100px]">Request</TableHead>
