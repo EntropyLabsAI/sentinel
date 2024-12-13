@@ -61,7 +61,7 @@ os.environ["ASTEROID_API_URL"] = "http://localhost:8080/api/v1"
 
 from asteroid_sdk.supervision import supervise
 from asteroid_sdk.supervision.supervisors import human_supervisor, llm_supervisor, ToolCallSupervisor
-from asteroid_sdk.wrappers.openai import asteroid_openai_client, asteroid_init
+from asteroid_sdk.wrappers.openai import asteroid_end, asteroid_openai_client, asteroid_init
 from asteroid_sdk.supervision.config import (
     SupervisionDecision,
     SupervisionDecisionType,
@@ -257,7 +257,6 @@ EMAIL_INVITATION_POLICY = (
 
 
 @supervise(supervision_functions=[
-    [check_email_address_supervisor(whitelisted_emails=[ASTEROID_EMAIL])],
     [llm_supervisor(instructions=EMAIL_INVITATION_POLICY), human_supervisor()]
 ])
 def send_email(to: str, subject: str, body: str):
@@ -468,80 +467,32 @@ def execute_tool_call(tool_call, tools):
 # 
 # The main loop that starts the chatbot and handles user interaction.
 
-def in_jupyter_notebook():
-    try:
-        from IPython import get_ipython
-        shell = get_ipython().__class__.__name__
-        if shell == 'ZMQInteractiveShell':
-            return True   # Jupyter notebook or qtconsole
-        else:
-            return False  # Other type (likely standard Python interpreter)
-    except NameError:
-        return False      # Probably standard Python interpreter
-
-
 def start_chatbot(
     start_prompt: str,
     tools: List[Callable],
     run_id: UUID,
     client: OpenAI
-):
+) -> List[Dict]:  # Modified to return messages
     """
-    Start the chatbot interaction, working both in Jupyter Notebook and standard Python script.
+    Run the chatbot interaction without CLI/Jupyter interface.
 
     Parameters:
         start_prompt (str): The initial prompt for the assistant.
         tools (List[Callable]): The list of available tool functions.
         run_id (UUID): The ID of the current run.
+        client (OpenAI): The OpenAI client instance.
 
     Returns:
-        None
+        List[Dict]: The conversation history
     """
-    # Detect environment
-    is_jupyter = in_jupyter_notebook()
-
-    if is_jupyter:
-        # Import Jupyter-specific modules inside the conditional block
-        import ipywidgets as widgets
-        from IPython.display import display
-
-        # Create the output and input widgets
-        output_widget = widgets.Output(layout={'border': '1px solid black'})
-        input_widget = widgets.Text(
-            value='',
-            placeholder='Type your message here...',
-            description='You:',
-            disabled=False,
-            continuous_update=False  # Update value only when Enter is pressed
-        )
-
-        # Display the widgets
-        display(output_widget)
-        display(input_widget)
-
-        # Clear the output widget to avoid duplicate messages
-        output_widget.clear_output()
-    else:
-        output_widget = None
-        input_widget = None
-
     # Initialize conversation messages
     messages = [{"role": "system", "content": "You are a helpful assistant."}]
 
     # Create OpenAI tool definitions
     openai_tools = [create_openai_tool(func) for func in tools]
 
-    waiting_for_user_input = False
-
     def process_assistant_response(assistant_message):
-        nonlocal messages, waiting_for_user_input
-
-        if assistant_message.content:
-            if is_jupyter and output_widget:
-                with output_widget:
-                    print(f"Assistant: {assistant_message.content}\n")
-            else:
-                print(f"Assistant: {assistant_message.content}\n")
+        nonlocal messages
 
         # Check if the assistant is making a tool call
         if assistant_message.tool_calls:
@@ -565,18 +516,10 @@ def start_chatbot(
 
             # Process the assistant's response recursively
             process_assistant_response(assistant_message)
-        else:
-            # Assistant is not making a tool call, wait for user input
-            waiting_for_user_input = True
 
     # Start the conversation
     user_message = {"role": "user", "content": start_prompt}
     messages = messages + [user_message]
-    if is_jupyter and output_widget:
-        with output_widget:
-            print(f"You: {start_prompt}\n")
-    else:
-        print(f"You: {start_prompt}\n")
 
     # Get assistant's initial response
     response = chat_with_openai(messages, openai_tools, client)
@@ -584,78 +527,7 @@ def start_chatbot(
     messages = messages + [assistant_message]
     process_assistant_response(assistant_message)
 
-    # Input handling
-    if is_jupyter and input_widget:
-        # Remove existing event handlers to prevent multiple triggers
-        input_widget.unobserve_all()
-
-        def handle_submit(change):
-            nonlocal messages, waiting_for_user_input
-
-            # Proceed only if value changed (Enter was pressed)
-            if not waiting_for_user_input or not change['new']:
-                return  # Ignore input if not waiting for user or empty input
-
-            user_input = change['new']
-            input_widget.value = ''  # Clear input box
-
-            if user_input.lower() == 'exit':
-                input_widget.disabled = True
-                if output_widget:
-                    with output_widget:
-                        print("Goodbye! 👋")
-                else:
-                    print("Goodbye! 👋")
-                return
-
-            # Add user message to conversation
-            user_message = {"role": "user", "content": user_input}
-            messages = messages + [user_message]
-
-            if output_widget:
-                with output_widget:
-                    print(f"You: {user_input}\n")
-            else:
-                print(f"You: {user_input}\n")
-
-            waiting_for_user_input = False
-
-            # Get assistant response
-            response = chat_with_openai(messages, openai_tools, client)
-            assistant_message = response.choices[0].message
-            messages = messages + [assistant_message]
-
-            process_assistant_response(assistant_message)
-
-        # Register the event handler
-        input_widget.observe(handle_submit, names='value')
-    else:
-        # Standard input/output loop
-        while True:
-            if waiting_for_user_input:
-                user_input = input("You: ").strip()
-                if user_input.lower() == 'exit':
-                    print("Goodbye! 👋")
-                    break
-                if not user_input:
-                    continue  # Ignore empty input
-
-                # Add user message to conversation
-                user_message = {"role": "user", "content": user_input}
-                messages = messages + [user_message]
-
-                print(f"You: {user_input}\n")
-                waiting_for_user_input = False
-
-                # Get assistant response
-                response = chat_with_openai(messages, openai_tools, client)
-                assistant_message = response.choices[0].message
-                messages = messages + [assistant_message]
-
-                process_assistant_response(assistant_message)
-            else:
-                # If the assistant is processing, wait until it's ready for user input
-                pass
+    return messages
 
 
 # ## Running the Assistant
@@ -665,9 +537,10 @@ def start_chatbot(
 # Define the initial prompt for the chatbot
 start_prompt = (
     "Go and find the most interesting events happening in AI next week in San Francisco. "
-    "Then create a calendar event for the most interesting one. When done, ask me email addresses "
-    "where you should send invitations for that event. After the email is sent, book me a flight ticket "
+    "Then create a calendar event for the most interesting one. When done, invite joe@asteroid.ai to the event."
+    "where you should send invitations for that event. After the email is sent, submit a flight booking request for me"
     "from London to San Francisco to attend that event. Make sure that the flight price is less than 1000 GBP."
+    "You don't need to ask permission for the flight booking, just book it using your best judgement."
 )
 
 # List of tools available to the assistant
@@ -689,7 +562,7 @@ wrapped_client = asteroid_openai_client(client, run_id)
 # Start the chatbot
 start_chatbot(start_prompt, tools, run_id, wrapped_client)
 
-
+asteroid_end(run_id)
 # In the web browser, you should see the supervisors in action at http://localhost:3000/.
 # 1. Click on Projects
 # 2. Click on the View Project button for "Email Assistant"
