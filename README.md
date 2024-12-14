@@ -1,10 +1,10 @@
 # Sentinel 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Report Card](https://goreportcard.com/badge/github.com/EntropyLabsAI/sentinel/server)](https://goreportcard.com/report/github.com/EntropyLabsAI/sentinel/server)
-[![GitHub stars](https://img.shields.io/github/stars/EntropyLabsAI/sentinel?style=social)](https://github.com/EntropyLabsAI/sentinel/stargazers)
+[![Go Report Card](https://goreportcard.com/badge/github.com/asteroidai/sentinel/server)](https://goreportcard.com/report/github.com/asteroidai/sentinel/server)
+[![GitHub stars](https://img.shields.io/github/stars/asteroidai/sentinel?style=social)](https://github.com/asteroidai/sentinel/stargazers)
 [![PyPI version](https://badge.fury.io/py/asteroid-sdk.svg)](https://badge.fury.io/py/asteroid-sdk)
-[![Downloads](https://pepy.tech/badge/entropy-labs)](https://pepy.tech/project/entropy-labs)
+[![Downloads](https://pepy.tech/badge/asteroid-sdk)](https://pepy.tech/project/asteroid-sdk)
 
 Sentinel is an agent control plane built by [Asteroid](http://asteroid.ai/) that allows you to efficiently oversee thousands of agents running in parallel.
 
@@ -30,11 +30,22 @@ source .env          # Pick up the environment variables
 docker compose up    # Start the server and frontend
 ```
 
-2. Run an agent that is pointing at Sentinel via our [SDK](/asteroid/README.md). See the [examples](/examples) for more details.
+2. Run an agent that is pointing at Sentinel via our SDK. See the [examples](/examples) for more details.
 
 For more details, see our [docs](https://docs.asteroid.ai/introduction).
 
 ## Examples
 We have a number of example containing agents that are using the Sentinel SDK. These are ready to try out of the box:
-- [OpenAI](https://docs.asteroid.ai/openai)
 - [Inspect](https://docs.asteroid.ai/inspect)
+- [OpenAI](https://docs.asteroid.ai/openai)
+
+## Development
+
+See https://docs.asteroid.ai/development
+
+## Release
+
+```bash
+git tag v0.0.1
+git push origin v0.0.1
+```
