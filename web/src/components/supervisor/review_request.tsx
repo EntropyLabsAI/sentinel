@@ -1,6 +1,6 @@
 import { Check, X, SkullIcon, MessagesSquareIcon, ClockIcon, CodeIcon, Copy } from "lucide-react"
-import { ReviewPayload, ToolRequest, Decision } from "@/types"
-import ToolChoiceDisplay from "../tool_call"
+import { ReviewPayload, Decision, SentinelToolCall } from "@/types"
+// import ToolChoiceDisplay from "../tool_call"
 import React, { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import ToolsDisplay from "../tool_display"
@@ -8,29 +8,23 @@ import { MessagesDisplay } from "../messages"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../ui/accordion"
 import ChainStateDisplay from "../chain_state_display"
 import CopyButton from "../util/copy_button"
+import { ToolCallState } from "../tool_call_state"
 
 interface ReviewRequestProps {
   reviewPayload: ReviewPayload;
-  sendResponse: (decision: Decision, toolChoice: ToolRequest, feedback?: string) => void;
+  sendResponse: (decision: Decision, toolcall: SentinelToolCall, feedback?: string) => void;
 }
 
 export default function ReviewRequestDisplay({ reviewPayload, sendResponse }: ReviewRequestProps) {
-  const { supervision_request, request_group, chain_state } = reviewPayload;
+  const { supervision_request, toolcall, chain_state } = reviewPayload;
   const [selectedToolIndex, setSelectedToolIndex] = useState(0);
 
   useEffect(() => {
     setSelectedToolIndex(0); // Initialize the first tool as selected
   }, [reviewPayload]);
 
-  const toolRequests = request_group.tool_requests || [];
-
-  function handleToolChoiceChange(updatedToolChoice: ToolRequest, index: number) {
-    // TODO: handle editting tool choice
-  }
-
   function handleSendResponse(decision: Decision, feedback?: string) {
-    const selectedToolChoice = toolRequests[selectedToolIndex];
-    sendResponse(decision, selectedToolChoice, feedback);
+    sendResponse(decision, toolcall, feedback);
   }
 
   return (
@@ -66,26 +60,24 @@ export default function ReviewRequestDisplay({ reviewPayload, sendResponse }: Re
         </div>
 
         {/* Tool Choices */}
-        <div className="space-y-4">
-          {toolRequests.map((toolChoice, index) => (
-            <ToolChoiceDisplay
-              key={index}
-              toolChoice={toolChoice}
-              lastMessage={toolChoice.message}
-              onToolChoiceChange={(updatedToolChoice) =>
-                handleToolChoiceChange(updatedToolChoice, index)
-              }
+        {/* <div className="space-y-4">
+          <ToolChoiceDisplay
+            toolChoice={toolcall}
+            lastMessage={toolcall.message}
+            onToolChoiceChange={(updatedToolChoice) =>
+              handleToolChoiceChange(updatedToolChoice, index)
+            }
               isSelected={selectedToolIndex === index}
               onSelect={() => setSelectedToolIndex(index)}
               index={index + 1}
               runId={reviewPayload.run_id}
             />
-          ))}
-        </div>
+        </div> */}
       </div>
+      <ToolCallState toolCallId={toolcall.call_id} />
 
       {/* Context Display */}
-      <MessagesDisplay messages={toolRequests[selectedToolIndex].task_state.messages} />
+      <MessagesDisplay messages={reviewPayload.messages} onToolCallClick={() => { }} expanded={true} />
 
       {/* Chain State Display */}
       <ChainStateDisplay
@@ -93,28 +85,10 @@ export default function ReviewRequestDisplay({ reviewPayload, sendResponse }: Re
         currentRequestId={supervision_request.id}
       />
 
-      {/* Tools */}
+      {/* Tools
       {toolRequests[selectedToolIndex].task_state.tools && toolRequests[selectedToolIndex].task_state.tools.length > 0 && (
         <ToolsDisplay tools={toolRequests[selectedToolIndex].task_state.tools} />
-      )}
-
-      {/* Raw JSON */}
-      <Accordion type="single" collapsible className="w-full">
-        <AccordionItem value="messages" className="border border-gray-200 rounded-md">
-          <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
-            <div className="flex flex-row gap-4 items-center justify-between w-full">
-              <div className="flex flex-row gap-4">
-                <CodeIcon className="w-4 h-4" />
-                Raw Task State JSON
-              </div>
-              <CopyButton className="mr-4 bg-gray-100 hover:bg-gray-200 text-gray-800" text={JSON.stringify(toolRequests[selectedToolIndex].task_state, null, 2)} />
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="p-4">
-            <pre className="overflow-scroll">{JSON.stringify(toolRequests[selectedToolIndex].task_state, null, 2)}</pre>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+      )} */}
 
     </div>
   )

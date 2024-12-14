@@ -136,14 +136,14 @@ export default function SidebarComponent({ children }: SidebarProps) {
           },
           {
             title: "GitHub",
-            url: "https://github.com/EntropyLabsAI/sentinel",
+            url: "https://github.com/asteroidai/sentinel",
             isActive: false,
             disabled: false,
             icon: <GithubIcon />
           },
           {
             title: "Documentation",
-            url: "https://docs.entropy-labs.ai",
+            url: "https://docs.asteroid.ai",
             isActive: false,
             disabled: false,
             icon: <BookIcon />

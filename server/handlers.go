@@ -219,13 +219,18 @@ func apiCreateRunToolHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 	// 	return
 	// }
 
-	toolId, err := store.CreateTool(ctx, runId, t.Attributes, t.Name, t.Description, t.IgnoredAttributes, t.Code)
+	tool, err := store.CreateTool(ctx, runId, t.Attributes, t.Name, t.Description, t.IgnoredAttributes, t.Code)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error creating tool", err.Error())
 		return
 	}
 
-	respondJSON(w, toolId, http.StatusCreated)
+	if tool == nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error creating tool", "tool is nil")
+		return
+	}
+
+	respondJSON(w, tool, http.StatusCreated)
 }
 
 func apiGetSupervisorHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store SupervisorStore) {
@@ -331,72 +336,73 @@ func apiGetRunToolsHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID,
 	respondJSON(w, tools, http.StatusOK)
 }
 
-func apiCreateToolRequestGroupHandler(w http.ResponseWriter, r *http.Request, toolId uuid.UUID, store ToolRequestStore) {
-	ctx := r.Context()
+// func apiCreateToolRequestGroupHandler(w http.ResponseWriter, r *http.Request, toolId uuid.UUID, store ToolRequestStore) {
+// 	ctx := r.Context()
 
-	var request ToolRequestGroup
-	err := json.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
-		return
-	}
+// 	var request ToolRequestGroup
+// 	err := json.NewDecoder(r.Body).Decode(&request)
+// 	if err != nil {
+// 		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
+// 		return
+// 	}
 
-	trg, err := store.CreateToolRequestGroup(ctx, toolId, request)
-	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "error creating tool request group", err.Error())
-		return
-	}
+// 	fmt.Printf("Request: %+v\n", request)
+// 	trg, err := store.CreateToolRequestGroup(ctx, toolId, request)
+// 	if err != nil {
+// 		sendErrorResponse(w, http.StatusInternalServerError, "error creating tool request group", err.Error())
+// 		return
+// 	}
 
-	respondJSON(w, trg, http.StatusCreated)
-}
+// 	respondJSON(w, trg, http.StatusCreated)
+// }
 
-func apiGetRequestGroupHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store Store) {
-	ctx := r.Context()
+// func apiGetRequestGroupHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store Store) {
+// 	ctx := r.Context()
 
-	requestGroup, err := store.GetRequestGroup(ctx, requestGroupId, true)
-	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "error getting request group", err.Error())
-		return
-	}
+// 	requestGroup, err := store.GetRequestGroup(ctx, requestGroupId, true)
+// 	if err != nil {
+// 		sendErrorResponse(w, http.StatusInternalServerError, "error getting request group", err.Error())
+// 		return
+// 	}
 
-	respondJSON(w, requestGroup, http.StatusOK)
-}
+// 	respondJSON(w, requestGroup, http.StatusOK)
+// }
 
-func apiGetToolRequestHandler(w http.ResponseWriter, r *http.Request, toolRequestId uuid.UUID, store ToolRequestStore) {
-	ctx := r.Context()
+// func apiGetToolRequestHandler(w http.ResponseWriter, r *http.Request, toolRequestId uuid.UUID, store ToolRequestStore) {
+// 	ctx := r.Context()
 
-	toolRequest, err := store.GetToolRequest(ctx, toolRequestId)
-	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool request", err.Error())
-		return
-	}
+// 	toolRequest, err := store.GetToolRequest(ctx, toolRequestId)
+// 	if err != nil {
+// 		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool request", err.Error())
+// 		return
+// 	}
 
-	if toolRequest == nil {
-		sendErrorResponse(w, http.StatusNotFound, "Tool request not found", "")
-		return
-	}
+// 	if toolRequest == nil {
+// 		sendErrorResponse(w, http.StatusNotFound, "Tool request not found", "")
+// 		return
+// 	}
 
-	respondJSON(w, toolRequest, http.StatusOK)
-}
+// 	respondJSON(w, toolRequest, http.StatusOK)
+// }
 
-func apiCreateToolRequestHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store ToolRequestStore) {
-	ctx := r.Context()
+// func apiCreateToolRequestHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store ToolRequestStore) {
+// 	ctx := r.Context()
 
-	var request ToolRequest
-	err := json.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
-		return
-	}
+// 	var request ToolRequest
+// 	err := json.NewDecoder(r.Body).Decode(&request)
+// 	if err != nil {
+// 		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
+// 		return
+// 	}
 
-	toolRequestId, err := store.CreateToolRequest(ctx, requestGroupId, request)
-	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "error creating tool request", err.Error())
-		return
-	}
+// 	toolRequestId, err := store.CreateToolRequest(ctx, requestGroupId, request)
+// 	if err != nil {
+// 		sendErrorResponse(w, http.StatusInternalServerError, "error creating tool request", err.Error())
+// 		return
+// 	}
 
-	respondJSON(w, toolRequestId, http.StatusCreated)
-}
+// 	respondJSON(w, toolRequestId, http.StatusCreated)
+// }
 
 func apiGetSupervisionResultHandler(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID, store Store) {
 	ctx := r.Context()
@@ -422,28 +428,28 @@ func apiGetSupervisionResultHandler(w http.ResponseWriter, r *http.Request, supe
 	respondJSON(w, supervisionResult, http.StatusOK)
 }
 
-func apiGetRunRequestGroupsHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
-	ctx := r.Context()
+// func apiGetRunRequestGroupsHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
+// 	ctx := r.Context()
 
-	run, err := store.GetRun(ctx, runId)
-	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "error getting run", err.Error())
-		return
-	}
+// 	run, err := store.GetRun(ctx, runId)
+// 	if err != nil {
+// 		sendErrorResponse(w, http.StatusInternalServerError, "error getting run", err.Error())
+// 		return
+// 	}
 
-	if run == nil {
-		sendErrorResponse(w, http.StatusNotFound, "Run not found", "")
-		return
-	}
+// 	if run == nil {
+// 		sendErrorResponse(w, http.StatusNotFound, "Run not found", "")
+// 		return
+// 	}
 
-	requestGroups, err := store.GetRunRequestGroups(ctx, runId, true)
-	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "error getting run request groups", err.Error())
-		return
-	}
+// 	requestGroups, err := store.GetRunRequestGroups(ctx, runId, true)
+// 	if err != nil {
+// 		sendErrorResponse(w, http.StatusInternalServerError, "error getting run request groups", err.Error())
+// 		return
+// 	}
 
-	respondJSON(w, requestGroups, http.StatusOK)
-}
+// 	respondJSON(w, requestGroups, http.StatusOK)
+// }
 
 func apiGetSupervisorsHandler(w http.ResponseWriter, r *http.Request, projectId uuid.UUID, store Store) {
 	ctx := r.Context()
@@ -517,7 +523,7 @@ func apiGetSupervisionRequestStatusHandler(w http.ResponseWriter, r *http.Reques
 func apiCreateSupervisionRequestHandler(
 	w http.ResponseWriter,
 	r *http.Request,
-	requestGroupId uuid.UUID,
+	toolCallId uuid.UUID,
 	chainId uuid.UUID,
 	supervisorId uuid.UUID,
 	store Store,
@@ -533,19 +539,14 @@ func apiCreateSupervisionRequestHandler(
 	}
 
 	// Check that the request, chain and supervisor exist
-	requestGroup, err := store.GetRequestGroup(ctx, requestGroupId, false)
+	toolCall, err := store.GetToolCall(ctx, toolCallId)
 	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "error getting request group", err.Error())
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool call", err.Error())
 		return
 	}
 
-	if requestGroup == nil {
+	if toolCall == nil {
 		sendErrorResponse(w, http.StatusNotFound, "Request group not found", "")
-		return
-	}
-
-	if len(requestGroup.ToolRequests) > 1 {
-		sendErrorResponse(w, http.StatusBadRequest, "Request group must contain only one tool request", "")
 		return
 	}
 
@@ -593,7 +594,7 @@ func apiCreateSupervisionRequestHandler(
 	}
 
 	// Check that the chainexecution entry exists
-	foundExecutionId, err := store.GetChainExecutionFromChainAndRequestGroup(ctx, chainId, requestGroupId)
+	foundExecutionId, err := store.GetChainExecutionFromChainAndToolCall(ctx, chainId, toolCallId)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting execution from chain ID", err.Error())
 		return
@@ -612,7 +613,12 @@ func apiCreateSupervisionRequestHandler(
 
 	if request.ChainexecutionId != nil && foundExecutionId != nil {
 		if *request.ChainexecutionId != *foundExecutionId {
-			sendErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("chain execution ID mismatch for chain %s, request group %s, and supervisor %s", chainId, requestGroupId, supervisorId), "")
+			sendErrorResponse(
+				w,
+				http.StatusInternalServerError,
+				fmt.Sprintf("chain execution ID mismatch for chain %s, tool call %s, and supervisor %s", chainId, toolCallId, supervisorId),
+				"",
+			)
 			return
 		}
 	}
@@ -622,7 +628,7 @@ func apiCreateSupervisionRequestHandler(
 	}
 
 	// Store the supervision in the database
-	reviewID, err := store.CreateSupervisionRequest(ctx, request, chainId, requestGroupId)
+	reviewID, err := store.CreateSupervisionRequest(ctx, request, chainId, toolCallId)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error creating supervision request", err.Error())
 		return
@@ -647,19 +653,19 @@ func apiCreateSupervisionResultHandler(
 	}
 
 	if result.Decision == Modify || result.Decision == Approve {
-		if result.ChosenToolrequestId == nil {
-			sendErrorResponse(w, http.StatusBadRequest, "Chosen tool request ID is required if you wish to modify or approve a given tool request", "")
+		if result.ToolcallId == nil {
+			sendErrorResponse(w, http.StatusBadRequest, "Chosen tool call ID is required if you wish to modify or approve a given tool call", "")
 			return
 		}
 
-		toolRequest, err := store.GetToolRequest(ctx, *result.ChosenToolrequestId)
+		toolCall, err := store.GetToolCall(ctx, *result.ToolcallId)
 		if err != nil {
-			sendErrorResponse(w, http.StatusInternalServerError, "error getting tool request", err.Error())
+			sendErrorResponse(w, http.StatusInternalServerError, "error getting tool call", err.Error())
 			return
 		}
 
-		if toolRequest == nil {
-			sendErrorResponse(w, http.StatusNotFound, fmt.Sprintf("Tool request %s not found", *result.ChosenToolrequestId), "")
+		if toolCall == nil {
+			sendErrorResponse(w, http.StatusNotFound, fmt.Sprintf("Tool call %s not found", *result.ToolcallId), "")
 			return
 		}
 	}
@@ -714,118 +720,6 @@ func apiGetProjectHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, 
 	respondJSON(w, project, http.StatusOK)
 }
 
-func apiGetRunStateHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
-	ctx := r.Context()
-
-	// First verify the run exists
-	run, err := store.GetRun(ctx, runId)
-	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "error getting run", err.Error())
-		return
-	}
-	if run == nil {
-		sendErrorResponse(w, http.StatusNotFound, "Run not found", "")
-		return
-	}
-
-	// Get all request groups for this run
-	requestGroups, err := store.GetRunRequestGroups(ctx, runId, false)
-	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "error getting request groups", err.Error())
-		return
-	}
-
-	// Build the run state
-	runState := make([]RunExecution, 0)
-
-	// For each request group
-	for _, requestGroup := range requestGroups {
-		execution := RunExecution{
-			RequestGroup: requestGroup,
-			Chains:       make([]ChainExecutionState, 0),
-		}
-
-		// Get all tools from this request group
-		for _, toolRequest := range requestGroup.ToolRequests {
-			// Get all chains for this tool
-			chains, err := store.GetSupervisorChains(ctx, toolRequest.ToolId)
-			if err != nil {
-				sendErrorResponse(w, http.StatusInternalServerError, "error getting chains", err.Error())
-				return
-			}
-
-			// For each chain
-			for _, chain := range chains {
-				chainState := ChainExecutionState{
-					Chain:               chain,
-					SupervisionRequests: make([]SupervisionRequestState, 0),
-				}
-
-				// Get the chain execution from the chain ID + request group ID
-				chainExecutionId, err := store.GetChainExecutionFromChainAndRequestGroup(ctx, chain.ChainId, *requestGroup.Id)
-				if err != nil {
-					sendErrorResponse(w, http.StatusInternalServerError, "error getting chain execution", err.Error())
-					return
-				}
-
-				var supervisionRequests []SupervisionRequest
-
-				// Get all supervision requests for this chain
-				if chainExecutionId != nil {
-					supervisionRequests, err = store.GetChainExecutionSupervisionRequests(ctx, *chainExecutionId)
-					if err != nil {
-						sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision requests", err.Error())
-						return
-					}
-				}
-
-				// For each supervision request
-				for _, request := range supervisionRequests {
-					// Get the status
-					status, err := store.GetSupervisionRequestStatus(ctx, *request.Id)
-					if err != nil {
-						sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision status", err.Error())
-						return
-					}
-
-					// Get the result if it exists
-					var result *SupervisionResult
-					if status.Status == "completed" {
-						result, err = store.GetSupervisionResultFromRequestID(ctx, *request.Id)
-						if err != nil {
-							sendErrorResponse(w, http.StatusInternalServerError, "error getting supervision result", err.Error())
-							return
-						}
-					}
-
-					requestState := SupervisionRequestState{
-						SupervisionRequest: request,
-						Status:             *status,
-						Result:             result,
-					}
-
-					chainState.SupervisionRequests = append(chainState.SupervisionRequests, requestState)
-				}
-
-				execution.Chains = append(execution.Chains, chainState)
-			}
-		}
-
-		// TODO This seems super inefficient as it loads a bunch of duplicate stuff
-		status, err := getRequestGroupStatus(ctx, *requestGroup.Id, store)
-		if err != nil {
-			sendErrorResponse(w, http.StatusInternalServerError, "error getting request group status", err.Error())
-			return
-		}
-
-		execution.Status = status
-
-		runState = append(runState, execution)
-	}
-
-	respondJSON(w, runState, http.StatusOK)
-}
-
 func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Request, supervisionRequestId uuid.UUID, store Store) {
 	ctx := r.Context()
 
@@ -841,16 +735,26 @@ func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Get the chain execution
-	_, requestGroupId, err := store.GetChainExecution(ctx, *supervisionRequest.ChainexecutionId)
+	_, toolCallId, err := store.GetChainExecution(ctx, *supervisionRequest.ChainexecutionId)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting chain execution", err.Error())
 		return
 	}
 
-	// Get the request group
-	requestGroup, err := store.GetRequestGroup(ctx, *requestGroupId, true)
+	if toolCallId == nil {
+		sendErrorResponse(
+			w,
+			http.StatusInternalServerError,
+			"tool call ID is required",
+			fmt.Sprintf("No tool call ID found for supervision request %s", supervisionRequestId),
+		)
+		return
+	}
+
+	// Get the tool call
+	toolCall, err := store.GetToolCall(ctx, *toolCallId)
 	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "error getting request group", err.Error())
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool call", err.Error())
 		return
 	}
 
@@ -861,18 +765,8 @@ func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if len(requestGroup.ToolRequests) == 0 {
-		sendErrorResponse(w, http.StatusInternalServerError, "request group has no tool requests", "")
-		return
-	}
-
-	if requestGroup.ToolRequests[0].Id == nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "tool request ID is required", "")
-		return
-	}
-
 	// Get the tool to find the run ID
-	tool, err := store.GetTool(ctx, requestGroup.ToolRequests[0].ToolId)
+	tool, err := store.GetTool(ctx, toolCall.ToolId)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool", err.Error())
 		return
@@ -883,12 +777,27 @@ func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	requestData, responseData, err := store.GetLatestChat(ctx, tool.RunId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting messages for run", err.Error())
+		return
+	}
+
+	converter := OpenAIConverter{store}
+
+	sentinelMsgs, err := converter.ToSentinelMessages(ctx, requestData, responseData, tool.RunId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error converting messages", err.Error())
+		return
+	}
+
 	// Build the review payload
 	reviewPayload := ReviewPayload{
 		SupervisionRequest: *supervisionRequest,
 		ChainState:         *chainState,
-		RequestGroup:       *requestGroup,
+		Toolcall:           *toolCall,
 		RunId:              tool.RunId,
+		Messages:           sentinelMsgs,
 	}
 
 	respondJSON(w, reviewPayload, http.StatusOK)
@@ -936,8 +845,8 @@ func determineChainStatus(requests []SupervisionRequestState, totalSupervisors i
 	return Pending
 }
 
-func getRequestGroupStatus(ctx context.Context, requestGroupId uuid.UUID, store Store) (Status, error) {
-	chainExecutions, err := store.GetChainExecutionsFromRequestGroup(ctx, requestGroupId)
+func getToolCallStatus(ctx context.Context, toolCallId uuid.UUID, store Store) (Status, error) {
+	chainExecutions, err := store.GetChainExecutionsFromToolCall(ctx, toolCallId)
 	if err != nil {
 		return Pending, fmt.Errorf("error getting chain executions: %w", err)
 	}
@@ -964,12 +873,12 @@ func getRequestGroupStatus(ctx context.Context, requestGroupId uuid.UUID, store 
 	return status, nil
 }
 
-func apiGetRequestGroupStatusHandler(w http.ResponseWriter, r *http.Request, requestGroupId uuid.UUID, store Store) {
+func apiGetToolCallStatusHandler(w http.ResponseWriter, r *http.Request, toolCallId uuid.UUID, store Store) {
 	ctx := r.Context()
 
-	status, err := getRequestGroupStatus(ctx, requestGroupId, store)
+	status, err := getToolCallStatus(ctx, toolCallId, store)
 	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "error getting request group status", err.Error())
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool call status", err.Error())
 		return
 	}
 
@@ -1084,4 +993,175 @@ func apiUpdateRunResultHandler(w http.ResponseWriter, r *http.Request, runId uui
 	}
 
 	respondJSON(w, nil, http.StatusCreated)
+}
+
+func apiGetToolCallHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID, store Store) {
+	toolCall, err := store.GetToolCall(r.Context(), id)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool call", err.Error())
+		return
+	}
+
+	if toolCall == nil {
+		sendErrorResponse(w, http.StatusNotFound, "tool call not found", "")
+		return
+	}
+
+	respondJSON(w, toolCall, http.StatusOK)
+}
+
+func apiCreateNewChatHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	var payload SentinelChat
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
+		return
+	}
+
+	converter := OpenAIConverter{store}
+
+	jsonRequest, err := converter.ValidateB64EncodedRequest(payload.RequestData)
+	if err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Request: %s", err.Error()), "")
+		return
+	}
+
+	jsonResponse, err := converter.ValidateB64EncodedResponse(payload.ResponseData)
+	if err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Response: %s", err.Error()), "")
+		return
+	}
+
+	// Parse out the choices into SentinelChoice objects
+	sentinelChoices, err := converter.ToSentinelChoices(ctx, jsonResponse, runId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Error converting choices: %s", err.Error()), "")
+		return
+	}
+
+	id, err := store.CreateChatRequest(
+		ctx,
+		runId,
+		jsonRequest,
+		jsonResponse,
+		sentinelChoices,
+		"openai",
+		[]SentinelMessage{},
+	)
+	if err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Error creating chat request: %s", err.Error()), "")
+		return
+	}
+
+	// Extract all IDs from the created chat structure
+	chatIds := extractChatIds(*id, sentinelChoices)
+
+	respondJSON(w, chatIds, http.StatusOK)
+}
+
+func extractChatIds(chatId uuid.UUID, choices []SentinelChoice) ChatIds {
+	result := ChatIds{
+		ChatId:    chatId,
+		ChoiceIds: make([]ChoiceIds, 0, len(choices)),
+	}
+
+	for _, choice := range choices {
+		choiceIds := ChoiceIds{
+			ChoiceId:    choice.SentinelId,
+			MessageId:   choice.Message.Id.String(),
+			ToolCallIds: make([]ToolCallIds, 0),
+		}
+
+		if choice.Message.ToolCalls != nil {
+			for _, toolCall := range *choice.Message.ToolCalls {
+				id := toolCall.Id.String()
+				toolId := toolCall.ToolId.String()
+				choiceIds.ToolCallIds = append(choiceIds.ToolCallIds, ToolCallIds{
+					ToolCallId: &id,
+					ToolId:     &toolId,
+				})
+			}
+		}
+
+		result.ChoiceIds = append(result.ChoiceIds, choiceIds)
+	}
+
+	return result
+}
+
+// GetRunMessagesHandler gets the messages for a run
+func apiGetRunMessagesHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
+	ctx := r.Context()
+
+	requestData, responseData, err := store.GetLatestChat(ctx, runId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting messages for run", err.Error())
+		return
+	}
+
+	converter := OpenAIConverter{store}
+
+	sentinelMsgs, err := converter.ToSentinelMessages(ctx, requestData, responseData, runId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error converting messages", err.Error())
+		return
+	}
+
+	respondJSON(w, sentinelMsgs, http.StatusOK)
+}
+
+func apiGetToolCallStateHandler(w http.ResponseWriter, r *http.Request, toolCallId string, store Store) {
+	ctx := r.Context()
+
+	// First verify the run exists by using the toolCallId (provided by OpenAI) to get our ToolCall object
+	// which will have our Sentinel-generated UUID (Id)
+	toolCall, err := store.GetToolCallFromCallId(ctx, toolCallId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool call", err.Error())
+		return
+	}
+	if toolCall == nil {
+		sendErrorResponse(w, http.StatusNotFound, "Tool call was not found", "")
+		return
+	}
+
+	execution := RunExecution{
+		Chains:   make([]ChainExecutionState, 0),
+		Toolcall: *toolCall,
+	}
+
+	// Get all chains for this tool
+	chains, err := store.GetSupervisorChains(ctx, toolCall.ToolId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting chains", err.Error())
+		return
+	}
+
+	for _, chain := range chains {
+		// Get the chain execution from the chain ID + tool call ID
+		chainExecutionId, err := store.GetChainExecutionFromChainAndToolCall(ctx, chain.ChainId, toolCall.Id)
+		if err != nil {
+			sendErrorResponse(w, http.StatusInternalServerError, "error getting chain execution", err.Error())
+			return
+		}
+
+		ceState, err := store.GetChainExecutionState(ctx, *chainExecutionId)
+		if err != nil {
+			sendErrorResponse(w, http.StatusInternalServerError, "error getting chain execution state", err.Error())
+			return
+		}
+
+		execution.Chains = append(execution.Chains, *ceState)
+	}
+
+	status, err := getToolCallStatus(ctx, toolCall.Id, store)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool call status", err.Error())
+		return
+	}
+
+	execution.Status = status
+
+	respondJSON(w, execution, http.StatusOK)
 }

@@ -100,6 +100,45 @@ func (s *PostgresqlStore) GetProjectFromName(ctx context.Context, name string) (
 	return &project, nil
 }
 
+func (s *PostgresqlStore) GetToolFromNameAndRunId(ctx context.Context, name string, runId uuid.UUID) (*sentinel.Tool, error) {
+	query := `
+		SELECT id, name, description, attributes, ignored_attributes, code
+		FROM tool
+		WHERE name = $1
+		AND run_id = $2`
+
+	var tool sentinel.Tool
+	var attributesJSON []byte
+	var toolIgnoredAttributes []string
+	err := s.db.QueryRowContext(ctx, query, name, runId).Scan(
+		&tool.Id,
+		&tool.Name,
+		&tool.Description,
+		&attributesJSON,
+		pq.Array(&toolIgnoredAttributes),
+		&tool.Code,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error getting tool from name: %w", err)
+	}
+
+	// Parse the JSON attributes if they exist
+	if len(attributesJSON) > 0 {
+		var attrs map[string]interface{}
+		if err := json.Unmarshal(attributesJSON, &attrs); err != nil {
+			return nil, fmt.Errorf("error parsing tool attributes: %w", err)
+		}
+		tool.Attributes = attrs
+	}
+
+	tool.IgnoredAttributes = &toolIgnoredAttributes
+
+	return &tool, nil
+}
+
 func (s *PostgresqlStore) GetToolFromValues(ctx context.Context, attributes map[string]interface{}, name string, description string, ignoredAttributes []string, code string) (*sentinel.Tool, error) {
 	query := `
 		SELECT id, name, description, attributes, ignored_attributes, code
@@ -411,65 +450,20 @@ func (s *PostgresqlStore) GetSupervisorChains(ctx context.Context, toolId uuid.U
 	return chains, nil
 }
 
-func (s *PostgresqlStore) CreateToolRequestGroup(ctx context.Context, toolId uuid.UUID, request sentinel.ToolRequestGroup) (*sentinel.ToolRequestGroup, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error starting transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	groupId := uuid.New()
-	trg := sentinel.ToolRequestGroup{
-		Id:           &groupId,
-		ToolRequests: make([]sentinel.ToolRequest, 0, len(request.ToolRequests)),
-	}
-
-	// Create a new requestgroup
+func (s *PostgresqlStore) GetToolCallFromCallId(ctx context.Context, id string) (*sentinel.SentinelToolCall, error) {
 	query := `
-		INSERT INTO requestgroup (id)
-		VALUES ($1)`
-	_, err = tx.ExecContext(ctx, query, groupId)
-	if err != nil {
-		return nil, fmt.Errorf("error creating requestgroup: %w", err)
-	}
+		SELECT id, call_id, created_at, tool_id, tool_call_data
+		FROM toolcall
+		WHERE call_id = $1`
 
-	// For each tool request, create a tool request
-	for _, toolRequest := range request.ToolRequests {
-		id := uuid.New()
-		toolRequest.Id = &id
-		toolRequest.RequestgroupId = &groupId
-		err = s.createToolRequest(ctx, tx, toolRequest)
-		if err != nil {
-			return nil, fmt.Errorf("error creating tool request: %w", err)
-		}
-		trg.ToolRequests = append(trg.ToolRequests, toolRequest)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("error committing transaction: %w", err)
-	}
-
-	return &trg, nil
-}
-
-func (s *PostgresqlStore) GetToolRequest(ctx context.Context, id uuid.UUID) (*sentinel.ToolRequest, error) {
-	query := `
-		SELECT tr.id, tr.tool_id, m.role, m.content, tr.arguments, tr.task_state, tr.requestgroup_id
-		FROM toolrequest tr 
-		INNER JOIN message m ON tr.message_id = m.id
-		WHERE tr.id = $1`
-
-	var toolRequest sentinel.ToolRequest
-	var taskStateJSON []byte
-	var argumentsJSON []byte
+	var toolCall sentinel.SentinelToolCall
+	var toolCallDataJSON []byte
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
-		&toolRequest.Id,
-		&toolRequest.ToolId,
-		&toolRequest.Message.Role,
-		&toolRequest.Message.Content,
-		&argumentsJSON,
-		&taskStateJSON,
-		&toolRequest.RequestgroupId,
+		&toolCall.Id,
+		&toolCall.CallId,
+		&toolCall.CreatedAt,
+		&toolCall.ToolId,
+		&toolCallDataJSON,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -478,30 +472,48 @@ func (s *PostgresqlStore) GetToolRequest(ctx context.Context, id uuid.UUID) (*se
 		return nil, fmt.Errorf("error getting tool request: %w", err)
 	}
 
-	// Parse the arguments JSON if it exists
-	if len(argumentsJSON) > 0 {
-		if err := json.Unmarshal(argumentsJSON, &toolRequest.Arguments); err != nil {
-			return nil, fmt.Errorf("error parsing tool request arguments: %w", err)
-		}
-	}
+	args := string(toolCallDataJSON)
+	toolCall.Arguments = &args
+	toolCall.CallId = &id
 
-	// Parse the task state JSON if it exists
-	if len(taskStateJSON) > 0 {
-		if err := json.Unmarshal(taskStateJSON, &toolRequest.TaskState); err != nil {
-			return nil, fmt.Errorf("error parsing tool request task state: %w", err)
-		}
-	}
-
-	return &toolRequest, nil
+	return &toolCall, nil
 }
 
-func (s *PostgresqlStore) GetChainExecutionsFromRequestGroup(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {
+func (s *PostgresqlStore) GetToolCall(ctx context.Context, id uuid.UUID) (*sentinel.SentinelToolCall, error) {
 	query := `
-			SELECT id FROM chainexecution WHERE requestgroup_id = $1`
+		SELECT id, call_id, created_at, tool_id, tool_call_data
+		FROM toolcall
+		WHERE id = $1`
+
+	var toolCall sentinel.SentinelToolCall
+	var toolCallDataJSON []byte
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
+		&toolCall.Id,
+		&toolCall.CallId,
+		&toolCall.CreatedAt,
+		&toolCall.ToolId,
+		&toolCallDataJSON,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error getting tool request: %w", err)
+	}
+
+	args := string(toolCallDataJSON)
+	toolCall.Arguments = &args
+
+	return &toolCall, nil
+}
+
+func (s *PostgresqlStore) GetChainExecutionsFromToolCall(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {
+	query := `
+			SELECT id FROM chainexecution WHERE toolcall_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, query, id)
 	if err != nil {
-		return nil, fmt.Errorf("error getting chain executions from requestgroup ID: %w", err)
+		return nil, fmt.Errorf("error getting chain executions from tool call ID: %w", err)
 	}
 	defer rows.Close()
 
@@ -517,111 +529,6 @@ func (s *PostgresqlStore) GetChainExecutionsFromRequestGroup(ctx context.Context
 	}
 
 	return ids, nil
-}
-
-func (s *PostgresqlStore) GetRequestGroup(ctx context.Context, id uuid.UUID, includeArgs bool) (*sentinel.ToolRequestGroup, error) {
-	// Sometimes we don't need the arguments, and loading them kills performance on large runs
-	var query string
-	if includeArgs {
-		query = `
-			SELECT tr.id, tr.tool_id, tr.arguments, tr.task_state, tr.requestgroup_id, m.role, m.content, rg.created_at
-			FROM toolrequest tr
-			INNER JOIN message m ON tr.message_id = m.id
-			INNER JOIN requestgroup rg ON tr.requestgroup_id = rg.id
-			WHERE tr.requestgroup_id = $1`
-	} else {
-		query = `
-			SELECT tr.id, tr.tool_id, NULL as arguments, tr.task_state, tr.requestgroup_id, m.role, m.content, rg.created_at
-			FROM toolrequest tr
-			INNER JOIN message m ON tr.message_id = m.id
-			INNER JOIN requestgroup rg ON tr.requestgroup_id = rg.id
-			WHERE tr.requestgroup_id = $1`
-	}
-
-	var createdAt time.Time
-	toolRequestGroup := sentinel.ToolRequestGroup{
-		Id:           &id,
-		CreatedAt:    &createdAt,
-		ToolRequests: make([]sentinel.ToolRequest, 0),
-	}
-
-	rows, err := s.db.QueryContext(ctx, query, id)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("error getting request group: %w", err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var toolRequest sentinel.ToolRequest
-		var taskStateJSON []byte
-		var argumentsJSON []byte
-		if err := rows.Scan(
-			&toolRequest.Id,
-			&toolRequest.ToolId,
-			&argumentsJSON,
-			&taskStateJSON,
-			&toolRequest.RequestgroupId,
-			&toolRequest.Message.Role,
-			&toolRequest.Message.Content,
-			&createdAt,
-		); err != nil {
-			return nil, fmt.Errorf("error scanning tool request: %w", err)
-		}
-
-		// Parse the task state JSON if it exists
-		if len(taskStateJSON) > 0 {
-			if err := json.Unmarshal(taskStateJSON, &toolRequest.TaskState); err != nil {
-				return nil, fmt.Errorf("error parsing task state: %w", err)
-			}
-		}
-
-		// Parse the arguments JSON if it exists
-		if len(argumentsJSON) > 0 {
-			if err := json.Unmarshal(argumentsJSON, &toolRequest.Arguments); err != nil {
-				return nil, fmt.Errorf("error parsing tool request arguments: %w", err)
-			}
-		}
-
-		toolRequestGroup.ToolRequests = append(toolRequestGroup.ToolRequests, toolRequest)
-	}
-
-	return &toolRequestGroup, nil
-}
-
-func (s *PostgresqlStore) GetRunRequestGroups(ctx context.Context, runId uuid.UUID, withToolRequestArgs bool) ([]sentinel.ToolRequestGroup, error) {
-	// First get all of the tool request groups for the run by linking through the tool request table to the run table
-	query := `
-		SELECT rg.id
-		FROM requestgroup rg
-		INNER JOIN toolrequest tr ON rg.id = tr.requestgroup_id
-		INNER JOIN tool t ON tr.tool_id = t.id
-		WHERE t.run_id = $1`
-
-	rows, err := s.db.QueryContext(ctx, query, runId)
-	if err != nil {
-		return nil, fmt.Errorf("error getting run request groups: %w", err)
-	}
-	defer rows.Close()
-
-	requestGroups := make([]sentinel.ToolRequestGroup, 0)
-	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
-			return nil, fmt.Errorf("error scanning request group: %w", err)
-		}
-
-		requestGroup, err := s.GetRequestGroup(ctx, id, withToolRequestArgs)
-		if err != nil {
-			return nil, fmt.Errorf("error getting request group: %w", err)
-		}
-
-		requestGroups = append(requestGroups, *requestGroup)
-	}
-
-	return requestGroups, nil
 }
 
 func (s *PostgresqlStore) GetExecutionFromChainId(ctx context.Context, chainId uuid.UUID) (*uuid.UUID, error) {
@@ -645,15 +552,15 @@ func (s *PostgresqlStore) GetExecutionFromChainId(ctx context.Context, chainId u
 func (s *PostgresqlStore) createChainExecution(
 	ctx context.Context,
 	chainId uuid.UUID,
-	requestGroupId uuid.UUID,
+	toolCallId uuid.UUID,
 	tx *sql.Tx,
 ) (*uuid.UUID, error) {
 	query := `
-		INSERT INTO chainexecution (id, chain_id, requestgroup_id)
+		INSERT INTO chainexecution (id, chain_id, toolcall_id)
 		VALUES ($1, $2, $3)`
 
 	id := uuid.New()
-	_, err := tx.ExecContext(ctx, query, id, chainId, requestGroupId)
+	_, err := tx.ExecContext(ctx, query, id, chainId, toolCallId)
 	if err != nil {
 		return nil, fmt.Errorf("error creating chain execution: %w", err)
 	}
@@ -665,7 +572,7 @@ func (s *PostgresqlStore) CreateSupervisionRequest(
 	ctx context.Context,
 	request sentinel.SupervisionRequest,
 	chainId uuid.UUID,
-	requestGroupId uuid.UUID,
+	toolCallId uuid.UUID,
 ) (*uuid.UUID, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -676,7 +583,7 @@ func (s *PostgresqlStore) CreateSupervisionRequest(
 	// Sanity check that we're recording this against a valid chain execution group that already exists
 	if request.ChainexecutionId == nil && request.PositionInChain == 0 {
 		// Create a new chain execution for the first supervisor in the chain
-		ceId, err := s.createChainExecution(ctx, chainId, requestGroupId, tx)
+		ceId, err := s.createChainExecution(ctx, chainId, toolCallId, tx)
 		if err != nil {
 			return nil, fmt.Errorf("error creating chain execution: %w", err)
 		}
@@ -715,85 +622,6 @@ func (s *PostgresqlStore) CreateSupervisionRequest(
 	}
 
 	return &requestID, nil
-}
-
-func (s *PostgresqlStore) createMessage(ctx context.Context, tx *sql.Tx, message sentinel.Message) (*uuid.UUID, error) {
-	query := `
-		INSERT INTO message (id, role, content, type)
-		VALUES ($1, $2, $3, $4)`
-
-	id := uuid.New()
-	_, err := tx.ExecContext(ctx, query, id, message.Role, message.Content, message.Type)
-	if err != nil {
-		return nil, fmt.Errorf("error creating message: %w", err)
-	}
-
-	return &id, nil
-}
-
-// CreateToolRequest
-func (s *PostgresqlStore) CreateToolRequest(ctx context.Context, requestGroupId uuid.UUID, request sentinel.ToolRequest) (*uuid.UUID, error) {
-	if requestGroupId == uuid.Nil {
-		return nil, fmt.Errorf("request group ID is required")
-	}
-
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error starting transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	if request.RequestgroupId == nil {
-		request.RequestgroupId = &requestGroupId
-	}
-
-	if request.Id == nil {
-		id := uuid.New()
-		request.Id = &id
-	}
-
-	err = s.createToolRequest(ctx, tx, request)
-	if err != nil {
-		return nil, fmt.Errorf("error creating tool request: %w", err)
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return nil, fmt.Errorf("error committing transaction: %w", err)
-	}
-
-	return request.Id, nil
-}
-
-func (s *PostgresqlStore) createToolRequest(ctx context.Context, tx *sql.Tx, request sentinel.ToolRequest) error {
-
-	query := `
-		INSERT INTO toolrequest (id, tool_id, message_id, arguments, task_state, requestgroup_id)
-		VALUES ($1, $2, $3, $4, $5, $6)`
-
-	messageID, err := s.createMessage(ctx, tx, request.Message)
-	if err != nil {
-		return fmt.Errorf("error creating message: %w", err)
-	}
-
-	taskStateJSON, err := json.Marshal(request.TaskState)
-	if err != nil {
-		return fmt.Errorf("error marshalling task state: %w", err)
-	}
-
-	argumentsJSON, err := json.Marshal(request.Arguments)
-	if err != nil {
-		return fmt.Errorf("error marshalling tool request arguments: %w", err)
-	}
-
-	_, err = tx.ExecContext(
-		ctx, query, request.Id, request.ToolId, messageID, argumentsJSON, taskStateJSON, request.RequestgroupId,
-	)
-	if err != nil {
-		return fmt.Errorf("error creating tool request: %w", err)
-	}
-
-	return nil
 }
 
 func (s *PostgresqlStore) CreateSupervisionStatus(ctx context.Context, requestID uuid.UUID, status sentinel.SupervisionStatus) error {
@@ -869,7 +697,10 @@ func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*sentinel.
 
 func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UUID) ([]sentinel.Tool, error) {
 	query := `
-		SELECT id FROM run WHERE project_id = $1`
+		SELECT DISTINCT r.id
+		FROM run r
+		INNER JOIN task t ON t.id = r.task_id
+		WHERE t.project_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, query, projectId)
 	if err != nil {
@@ -955,7 +786,7 @@ func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result se
 	defer func() { _ = tx.Rollback() }()
 
 	query := `
-		INSERT INTO supervisionresult (id, supervisionrequest_id, created_at, decision, reasoning, chosen_toolrequest_id)
+		INSERT INTO supervisionresult (id, supervisionrequest_id, created_at, decision, reasoning, toolcall_id)
 		VALUES ($1, $2, $3, $4, $5, $6)`
 
 	id := uuid.New()
@@ -967,7 +798,7 @@ func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result se
 		result.CreatedAt,
 		result.Decision,
 		result.Reasoning,
-		result.ChosenToolrequestId,
+		result.ToolcallId,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error creating supervision result: %w", err)
@@ -1045,7 +876,7 @@ func (s *PostgresqlStore) GetSupervisionRequestsForStatus(ctx context.Context, s
 
 func (s *PostgresqlStore) GetSupervisionResultFromRequestID(ctx context.Context, requestId uuid.UUID) (*sentinel.SupervisionResult, error) {
 	query := `
-		SELECT id, supervisionrequest_id, created_at, decision, reasoning, chosen_toolrequest_id
+		SELECT id, supervisionrequest_id, created_at, decision, reasoning, toolcall_id
 		FROM supervisionresult
 		WHERE supervisionrequest_id = $1`
 
@@ -1056,7 +887,7 @@ func (s *PostgresqlStore) GetSupervisionResultFromRequestID(ctx context.Context,
 		&result.CreatedAt,
 		&result.Decision,
 		&result.Reasoning,
-		&result.ChosenToolrequestId,
+		&result.ToolcallId,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -1208,11 +1039,11 @@ func (s *PostgresqlStore) CreateTool(
 	description string,
 	ignoredAttributes []string,
 	code string,
-) (uuid.UUID, error) {
+) (*sentinel.Tool, error) {
 	// Convert attributes to JSON if it's not already
 	attributesJSON, err := json.Marshal(attributes)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("error marshaling tool attributes: %w", err)
+		return nil, fmt.Errorf("error marshaling tool attributes: %w", err)
 	}
 
 	if ignoredAttributes == nil {
@@ -1234,10 +1065,20 @@ func (s *PostgresqlStore) CreateTool(
 		code,
 	)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("error creating tool: %w", err)
+		return nil, fmt.Errorf("error creating tool: %w", err)
 	}
 
-	return id, nil
+	tool := sentinel.Tool{
+		Id:                &id,
+		RunId:             runId,
+		Name:              name,
+		Description:       description,
+		Attributes:        attributes,
+		IgnoredAttributes: &ignoredAttributes,
+		Code:              code,
+	}
+
+	return &tool, nil
 }
 
 func (s *PostgresqlStore) GetRun(ctx context.Context, id uuid.UUID) (*sentinel.Run, error) {
@@ -1414,7 +1255,7 @@ func (s *PostgresqlStore) GetSupervisionStatusesForRequest(ctx context.Context, 
 
 func (s *PostgresqlStore) GetSupervisionResultsForChainExecution(ctx context.Context, executionId uuid.UUID) ([]sentinel.SupervisionResult, error) {
 	query := `
-        SELECT sr.id, sr.supervisionrequest_id, sr.created_at, sr.decision, sr.reasoning, sr.chosen_toolrequest_id
+        SELECT sr.id, sr.supervisionrequest_id, sr.created_at, sr.decision, sr.reasoning, sr.toolcall_id
         FROM supervisionresult sr
         INNER JOIN supervisionrequest sreq ON sr.supervisionrequest_id = sreq.id
         WHERE sreq.chainexecution_id = $1`
@@ -1434,7 +1275,7 @@ func (s *PostgresqlStore) GetSupervisionResultsForChainExecution(ctx context.Con
 			&result.CreatedAt,
 			&result.Decision,
 			&result.Reasoning,
-			&result.ChosenToolrequestId,
+			&result.ToolcallId,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning supervision result: %w", err)
@@ -1547,10 +1388,10 @@ func (s *PostgresqlStore) GetSupervisionRequestStatus(ctx context.Context, reque
 }
 
 func (s *PostgresqlStore) GetChainExecution(ctx context.Context, executionId uuid.UUID) (*uuid.UUID, *uuid.UUID, error) {
-	query := `SELECT chain_id, requestgroup_id FROM chainexecution WHERE id = $1`
+	query := `SELECT chain_id, toolcall_id FROM chainexecution WHERE id = $1`
 
-	var chainId, requestGroupId uuid.UUID
-	err := s.db.QueryRowContext(ctx, query, executionId).Scan(&chainId, &requestGroupId)
+	var chainId, toolCallId uuid.UUID
+	err := s.db.QueryRowContext(ctx, query, executionId).Scan(&chainId, &toolCallId)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil, nil
 	}
@@ -1558,7 +1399,7 @@ func (s *PostgresqlStore) GetChainExecution(ctx context.Context, executionId uui
 		return nil, nil, fmt.Errorf("error getting chain ID from execution ID: %w", err)
 	}
 
-	return &chainId, &requestGroupId, nil
+	return &chainId, &toolCallId, nil
 }
 
 // GetChainExecutionState returns the chain state for a given chain execution ID
@@ -1566,13 +1407,13 @@ func (s *PostgresqlStore) GetChainExecutionState(ctx context.Context, executionI
 	// First, get the chain execution record
 	var chainExecution sentinel.ChainExecution
 	err := s.db.QueryRowContext(ctx, `
-        SELECT id, requestgroup_id, chain_id, created_at
+        SELECT id, toolcall_id, chain_id, created_at
         FROM chainexecution
         WHERE id = $1
 				ORDER BY id ASC
     `, executionId).Scan(
 		&chainExecution.Id,
-		&chainExecution.RequestGroupId,
+		&chainExecution.ToolcallId,
 		&chainExecution.ChainId,
 		&chainExecution.CreatedAt,
 	)
@@ -1615,7 +1456,7 @@ func (s *PostgresqlStore) GetChainExecutionState(ctx context.Context, executionI
 		// Get the result, if any
 		result := &sentinel.SupervisionResult{}
 		err = s.db.QueryRowContext(ctx, `
-            SELECT id, supervisionrequest_id, created_at, decision, reasoning, chosen_toolrequest_id
+            SELECT id, supervisionrequest_id, created_at, decision, reasoning, toolcall_id
             FROM supervisionresult
             WHERE supervisionrequest_id = $1
         `, request.Id).Scan(
@@ -1624,7 +1465,7 @@ func (s *PostgresqlStore) GetChainExecutionState(ctx context.Context, executionI
 			&result.CreatedAt,
 			&result.Decision,
 			&result.Reasoning,
-			&result.ChosenToolrequestId,
+			&result.ToolcallId,
 		)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -1652,21 +1493,21 @@ func (s *PostgresqlStore) GetChainExecutionState(ctx context.Context, executionI
 	return &state, nil
 }
 
-// GetChainExecutionFromChainAndRequestGroup gets the chain execution ID for a given chain ID and request group ID
-func (s *PostgresqlStore) GetChainExecutionFromChainAndRequestGroup(ctx context.Context, chainId uuid.UUID, requestGroupId uuid.UUID) (*uuid.UUID, error) {
+// GetChainExecutionFromChainAndToolCall gets the chain execution ID for a given chain ID and tool call ID
+func (s *PostgresqlStore) GetChainExecutionFromChainAndToolCall(ctx context.Context, chainId uuid.UUID, toolCallId uuid.UUID) (*uuid.UUID, error) {
 	query := `
         SELECT id FROM chainexecution
         WHERE chain_id = $1 
-				AND requestgroup_id = $2
+				AND toolcall_id = $2
     `
 
 	var executionId uuid.UUID
-	err := s.db.QueryRowContext(ctx, query, chainId, requestGroupId).Scan(&executionId)
+	err := s.db.QueryRowContext(ctx, query, chainId, toolCallId).Scan(&executionId)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get chain execution from chain and request group: %w", err)
+		return nil, fmt.Errorf("failed to get chain execution from chain and tool call: %w", err)
 	}
 
 	return &executionId, nil
@@ -1689,6 +1530,222 @@ func (s *PostgresqlStore) UpdateRunResult(ctx context.Context, runId uuid.UUID, 
 	_, err := s.db.ExecContext(ctx, query, result, runId)
 	if err != nil {
 		return fmt.Errorf("error creating run result: %w", err)
+	}
+
+	return nil
+}
+
+func (s *PostgresqlStore) CreateChatRequest(
+	ctx context.Context,
+	runId uuid.UUID,
+	request []byte,
+	response []byte,
+	choices []sentinel.SentinelChoice,
+	format string,
+	requestMessages []sentinel.SentinelMessage,
+) (*uuid.UUID, error) {
+	if len(request) == 0 {
+		return nil, fmt.Errorf("request is empty")
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error starting transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	query := `
+		INSERT INTO chat (request_data, response_data, run_id, format)
+		VALUES ($1, $2, $3, $4) RETURNING id
+	`
+	var id uuid.UUID
+	err = tx.QueryRowContext(ctx, query, request, response, runId, format).Scan(&id)
+	if err != nil {
+		return nil, fmt.Errorf("error creating chat entry: %w", err)
+	}
+
+	// Store the choices
+	err = s.createChatChoices(ctx, tx, id, choices, requestMessages)
+	if err != nil {
+		return nil, fmt.Errorf("error creating chat choices: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("error committing transaction: %w", err)
+	}
+
+	return &id, nil
+}
+
+func (s *PostgresqlStore) createChatRequestMessages(
+	ctx context.Context,
+	tx *sql.Tx,
+	choiceId uuid.UUID,
+	requestMessages []sentinel.SentinelMessage,
+) error {
+	// For each message, store it in the DB
+	for _, message := range requestMessages {
+		query := `
+			INSERT INTO msg (id, choice_id, msg_data)
+			VALUES ($1, $2, $3)
+		`
+		msgData, err := json.Marshal(message)
+		if err != nil {
+			return fmt.Errorf("error marshalling message data: %w", err)
+		}
+		_, err = tx.ExecContext(ctx, query, message.Id, choiceId, msgData)
+		if err != nil {
+			return fmt.Errorf("error creating chat message: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (s *PostgresqlStore) GetMessage(ctx context.Context, id uuid.UUID) (*sentinel.SentinelMessage, error) {
+	query := `
+		SELECT msg_data FROM msg WHERE id = $1
+	`
+	var msgData []byte
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&msgData)
+	if err != nil {
+		return nil, fmt.Errorf("error getting message: %w", err)
+	}
+
+	var message sentinel.SentinelMessage
+	err = json.Unmarshal(msgData, &message)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshalling message: %w", err)
+	}
+
+	return &message, nil
+}
+
+func (s *PostgresqlStore) UpdateMessage(ctx context.Context, id uuid.UUID, message sentinel.SentinelMessage) error {
+	query := `
+		UPDATE msg SET msg_data = $1 WHERE id = $2	
+	`
+	msgData, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("error marshalling message data: %w", err)
+	}
+	_, err = s.db.ExecContext(ctx, query, msgData, id)
+	if err != nil {
+		return fmt.Errorf("error updating message: %w", err)
+	}
+	return nil
+}
+
+func (s *PostgresqlStore) GetLatestChat(
+	ctx context.Context,
+	runId uuid.UUID,
+) ([]byte, []byte, error) {
+	query := `
+		SELECT request_data, response_data
+		FROM chat
+		WHERE run_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+
+	var requestData, responseData []byte
+	err := s.db.QueryRowContext(ctx, query, runId).Scan(&requestData, &responseData)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error getting message: %w", err)
+	}
+
+	return requestData, responseData, nil
+}
+
+func (s *PostgresqlStore) createChatChoices(
+	ctx context.Context,
+	tx *sql.Tx,
+	chatId uuid.UUID,
+	choices []sentinel.SentinelChoice,
+	requestMessages []sentinel.SentinelMessage,
+) error {
+	// Store the choices in the DB
+	for _, choice := range choices {
+		query := `
+			INSERT INTO choice (id, chat_id, choice_data)
+			VALUES ($1, $2, $3)
+		`
+
+		choiceData, err := json.Marshal(choice)
+		if err != nil {
+			return fmt.Errorf("error marshalling choice data: %w", err)
+		}
+
+		_, err = tx.ExecContext(ctx, query, choice.SentinelId, chatId, choiceData)
+		if err != nil {
+			return fmt.Errorf("error creating chat choice: %w", err)
+		}
+
+		// Convert the SentinelId to a uuid
+		choiceId, err := uuid.Parse(choice.SentinelId)
+		if err != nil {
+			return fmt.Errorf("error parsing SentinelId: %w", err)
+		}
+
+		// Store the request messages which are unique to the request that generated this choice
+		err = s.createChatRequestMessages(ctx, tx, choiceId, requestMessages)
+		if err != nil {
+			return fmt.Errorf("error creating chat request messages: %w", err)
+		}
+
+		fmt.Printf("Choice message: %+v\n", choice.Message)
+		// Store the message
+		query = `
+			INSERT INTO msg (id, choice_id, msg_data)
+			VALUES ($1, $2, $3)
+		`
+		messageData, err := json.Marshal(choice.Message)
+		if err != nil {
+			return fmt.Errorf("error marshalling message data: %w", err)
+		}
+
+		msgId := choice.Message.Id
+		if msgId == nil {
+			return fmt.Errorf("message ID is nil")
+		}
+
+		_, err = tx.ExecContext(ctx, query, *msgId, choice.SentinelId, messageData)
+		if err != nil {
+			return fmt.Errorf("error creating chat message: %w", err)
+		}
+
+		if choice.Message.ToolCalls != nil {
+			// Store the tool calls
+			err = s.createToolCalls(ctx, tx, *msgId, *choice.Message.ToolCalls)
+			if err != nil {
+				return fmt.Errorf("error creating tool calls: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *PostgresqlStore) createToolCalls(
+	ctx context.Context,
+	tx *sql.Tx,
+	msgId uuid.UUID,
+	toolCalls []sentinel.SentinelToolCall,
+) error {
+	// Store the tool calls in the DB
+	for _, toolCall := range toolCalls {
+		query := `
+			INSERT INTO toolcall (id, call_id, msg_id, tool_call_data, tool_id)
+			VALUES ($1, $2, $3, $4, $5)
+		`
+		toolCallData, err := json.Marshal(toolCall)
+		if err != nil {
+			return fmt.Errorf("error marshalling tool call data: %w", err)
+		}
+		_, err = tx.ExecContext(ctx, query, toolCall.Id, toolCall.CallId, msgId, toolCallData, toolCall.ToolId)
+		if err != nil {
+			return fmt.Errorf("error creating tool call: %w", err)
+		}
 	}
 
 	return nil

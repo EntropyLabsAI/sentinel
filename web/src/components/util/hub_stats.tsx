@@ -1,30 +1,28 @@
 import React, { useEffect, useState } from 'react';
 
-import { HubStats as HubStatsType } from '@/types';
+import { HubStats as HubStatsType, useGetHubStats } from '@/types';
 import * as Accordion from '@radix-ui/react-accordion';
 import { ChevronDownIcon } from 'lucide-react'; // Using Lucide Icons for the Chevron
 
 export const HubStatsAccordion: React.FC<{ API_BASE_URL: string }> = ({ API_BASE_URL }) => {
   const [hubStats, setHubStats] = useState<HubStatsType | null>(null);
-  // Fetch hub stats every second
+  const { data, isLoading, error } = useGetHubStats(
+    {
+      query: {
+        enabled: true,
+        refetchInterval: 1000,
+      },
+    }
+  );
+
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/stats`);
-        const data: HubStatsType = await response.json();
-        setHubStats(data);
-      } catch (error) {
-        console.error('Error fetching hub stats:', error);
-      }
-    };
+    if (data?.data) {
+      setHubStats(data.data);
+    } else {
+      setHubStats(null);
+    }
+  }, [data]);
 
-    fetchStats();
-    const statsInterval = setInterval(fetchStats, 1000);
-
-    return () => {
-      clearInterval(statsInterval);
-    };
-  }, []);
   return (
     <Accordion.Root type="single" collapsible className="w-full">
       <Accordion.Item value="hub-stats" className="border border-gray-200 rounded-md mb-4">
