@@ -51,12 +51,14 @@ export default function Runs() {
         <p className="text-sm text-gray-500">No runs found for this project. When you run an agent, it will appear here.</p>
       }
       {runs.length > 0 && (
-        <div className="col-span-3">
+        // Display the tools of the first run 
+
+        <div className="col-span-3 flex flex-col gap-4">
+          <ToolsBadgeList runId={runs[0].id} />
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[100px]">Run ID</TableHead>
-                <TableHead className="">Tools Assigned</TableHead>
+                <TableHead className="w-[100px]">Agent Run</TableHead>
                 <TableHead className="w-[100px] text-right">Created</TableHead>
                 <TableHead className="w-[100px] text-right">Status</TableHead>
                 <TableHead className="w-[100px] text-right">Result</TableHead>
@@ -67,10 +69,7 @@ export default function Runs() {
               {runs.map((run) => (
                 <TableRow key={run.id}>
                   <TableCell className="font-medium">
-                    <UUIDDisplay uuid={run.id} href={`/tasks/${taskId}/runs/${run.id}`} />
-                  </TableCell>
-                  <TableCell>
-                    <ToolsBadgeList runId={run.id} />
+                    {runs.indexOf(run) + 1}
                   </TableCell>
                   <TableCell className="text-right">
                     <CreatedAgo datetime={run.created_at} label='' />
@@ -86,8 +85,13 @@ export default function Runs() {
                         runId={run.id}
                       />
                     }
+                    {project && project.run_result_tags && run.status !== 'completed' &&
+                      <p className="text-sm text-muted-foreground">
+                        {run.status}
+                      </p>
+                    }
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-right">
                     <Link to={`/tasks/${taskId}/runs/${run.id}`}>
                       <Button variant="ghost"><ArrowRightIcon className="h-4 w-4" /></Button>
                     </Link>
@@ -98,7 +102,7 @@ export default function Runs() {
             <TableFooter>
               <TableRow>
                 <TableCell className="text-xs text-muted-foreground" colSpan={7}>
-                  {runs.length} runs found for this project
+                  {runs.length} runs found for this agent
                 </TableCell>
               </TableRow>
             </TableFooter>

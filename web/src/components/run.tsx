@@ -13,8 +13,12 @@ export default function Run() {
   const { runId } = useParams();
   const [tools, setTools] = useState<Tool[]>([]);
   const [selectedToolCallId, setSelectedToolCallId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<AsteroidMessage[]>([]);
 
   const { data: toolsData, isLoading: toolsLoading } = useGetRunTools(runId || '');
+  const { data: messageData } = useGetRunMessages(runId || '', {
+    query: { enabled: !!runId, refetchInterval: 1000 }
+  });
 
   useEffect(() => {
     if (toolsData?.data) {
@@ -28,9 +32,6 @@ export default function Run() {
       index === self.findIndex((t) => t.id === tool.id)
     );
   }
-
-  const { data: messageData } = useGetRunMessages(runId || '', { query: { enabled: !!runId, refetchInterval: 1000 } });
-  const [messages, setMessages] = useState<AsteroidMessage[]>([]);
 
   useEffect(() => {
     if (messageData?.data) {
