@@ -116,7 +116,6 @@ func (c *OpenAIConverter) ConvertMessage(
 	// {Role:user Content: Refusal: MultiContent:[{Type:image_url Text: ImageURL:0xc000220320}] Name: FunctionCall:<nil> ToolCalls:[] ToolCallID:}
 	// We need to convert this to a SentinelMessage with a type of ImageURL
 	// and the content being the image URL
-
 	var msgType MessageType
 	var msgContent string
 	if message.MultiContent != nil {
@@ -147,10 +146,6 @@ func (c *OpenAIConverter) ConvertMessage(
 		Content:   msgContent,
 		Data:      &b64,
 	}
-
-	// fmt.Printf("\n\nMessage ID: %+v\n", message.ToolCallID)
-	// fmt.Printf("Message content: %+v\n", message.Content)
-	// fmt.Printf("Sentinel message: %+v\n", sMsg.Content)
 
 	return sMsg, nil
 }
