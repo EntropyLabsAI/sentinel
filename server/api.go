@@ -198,8 +198,12 @@ func (s Server) CreateNewChat(w http.ResponseWriter, r *http.Request, runId uuid
 	apiCreateNewChatHandler(w, r, runId, s.Store)
 }
 
-func (s Server) GetRunMessages(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
-	apiGetRunMessagesHandler(w, r, runId, s.Store)
+func (s Server) GetRunMessages(w http.ResponseWriter, r *http.Request, runId uuid.UUID, index int) {
+	apiGetRunMessagesHandler(w, r, runId, index, s.Store)
+}
+
+func (s Server) GetRunChatCount(w http.ResponseWriter, r *http.Request, runId uuid.UUID) {
+	apiGetRunChatCountHandler(w, r, runId, s.Store)
 }
 
 func enableCorsMiddleware(handler http.Handler) http.Handler {

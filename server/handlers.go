@@ -777,7 +777,8 @@ func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	requestData, responseData, err := store.GetLatestChat(ctx, tool.RunId)
+	// Get the latest chat
+	requestData, responseData, err := store.GetChat(ctx, tool.RunId, 0)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting messages for run", err.Error())
 		return
@@ -1090,11 +1091,28 @@ func extractChatIds(chatId uuid.UUID, choices []AsteroidChoice) ChatIds {
 	return result
 }
 
-// GetRunMessagesHandler gets the messages for a run
-func apiGetRunMessagesHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
+func apiGetRunChatCountHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
 	ctx := r.Context()
 
-	requestData, responseData, err := store.GetLatestChat(ctx, runId)
+	count, err := store.GetRunChatCount(ctx, runId)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "error getting chat count", err.Error())
+		return
+	}
+
+	respondJSON(w, count, http.StatusOK)
+}
+
+// GetRunMessagesHandler gets the messages for a run
+func apiGetRunMessagesHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, index int, store Store) {
+	ctx := r.Context()
+
+	if index < 0 {
+		sendErrorResponse(w, http.StatusBadRequest, "index must be greater than 0", "")
+		return
+	}
+
+	requestData, responseData, err := store.GetChat(ctx, runId, index)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting messages for run", err.Error())
 		return

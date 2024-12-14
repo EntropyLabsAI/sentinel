@@ -108,7 +108,8 @@ type ChatStore interface {
 		requestMessages []AsteroidMessage,
 	) (*uuid.UUID, error)
 	// GetMessagesForRun(ctx context.Context, runId uuid.UUID, includeInvalidated bool) ([]AsteroidMessage, error)
-	GetLatestChat(ctx context.Context, runId uuid.UUID) ([]byte, []byte, error)
+	GetChat(ctx context.Context, runId uuid.UUID, index int) ([]byte, []byte, error)
 	GetMessage(ctx context.Context, id uuid.UUID) (*AsteroidMessage, error)
 	UpdateMessage(ctx context.Context, id uuid.UUID, message AsteroidMessage) error
+	GetRunChatCount(ctx context.Context, runId uuid.UUID) (int, error)
 }

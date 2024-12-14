@@ -2190,36 +2190,39 @@ export const useCreateNewChat = <TError = AxiosError<ErrorResponse>,
  * @summary Get the messages for a run
  */
 export const getRunMessages = (
-    runId: string, options?: AxiosRequestConfig
+    runId: string,
+    index: number, options?: AxiosRequestConfig
  ): Promise<AxiosResponse<AsteroidMessage[]>> => {
     
     return axios.get(
-      `/run/${runId}/messages`,options
+      `/run/${runId}/messages/${index}`,options
     );
   }
 
 
-export const getGetRunMessagesQueryKey = (runId: string,) => {
-    return [`/run/${runId}/messages`] as const;
+export const getGetRunMessagesQueryKey = (runId: string,
+    index: number,) => {
+    return [`/run/${runId}/messages/${index}`] as const;
     }
 
     
-export const getGetRunMessagesQueryOptions = <TData = Awaited<ReturnType<typeof getRunMessages>>, TError = AxiosError<ErrorResponse>>(runId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunMessages>>, TError, TData>, axios?: AxiosRequestConfig}
+export const getGetRunMessagesQueryOptions = <TData = Awaited<ReturnType<typeof getRunMessages>>, TError = AxiosError<ErrorResponse>>(runId: string,
+    index: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunMessages>>, TError, TData>, axios?: AxiosRequestConfig}
 ) => {
 
 const {query: queryOptions, axios: axiosOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetRunMessagesQueryKey(runId);
+  const queryKey =  queryOptions?.queryKey ?? getGetRunMessagesQueryKey(runId,index);
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRunMessages>>> = ({ signal }) => getRunMessages(runId, { signal, ...axiosOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRunMessages>>> = ({ signal }) => getRunMessages(runId,index, { signal, ...axiosOptions });
 
       
 
       
 
-   return  { queryKey, queryFn, enabled: !!(runId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRunMessages>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, enabled: !!(runId && index), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRunMessages>>, TError, TData> & { queryKey: QueryKey }
 }
 
 export type GetRunMessagesQueryResult = NonNullable<Awaited<ReturnType<typeof getRunMessages>>>
@@ -2229,11 +2232,71 @@ export type GetRunMessagesQueryError = AxiosError<ErrorResponse>
  * @summary Get the messages for a run
  */
 export const useGetRunMessages = <TData = Awaited<ReturnType<typeof getRunMessages>>, TError = AxiosError<ErrorResponse>>(
- runId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunMessages>>, TError, TData>, axios?: AxiosRequestConfig}
+ runId: string,
+    index: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunMessages>>, TError, TData>, axios?: AxiosRequestConfig}
 
   ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
 
-  const queryOptions = getGetRunMessagesQueryOptions(runId,options)
+  const queryOptions = getGetRunMessagesQueryOptions(runId,index,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Count the number of chat entries for a run
+ */
+export const getRunChatCount = (
+    runId: string, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<number>> => {
+    
+    return axios.get(
+      `/run/${runId}/chat_count`,options
+    );
+  }
+
+
+export const getGetRunChatCountQueryKey = (runId: string,) => {
+    return [`/run/${runId}/chat_count`] as const;
+    }
+
+    
+export const getGetRunChatCountQueryOptions = <TData = Awaited<ReturnType<typeof getRunChatCount>>, TError = AxiosError<unknown>>(runId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunChatCount>>, TError, TData>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRunChatCountQueryKey(runId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRunChatCount>>> = ({ signal }) => getRunChatCount(runId, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(runId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRunChatCount>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRunChatCountQueryResult = NonNullable<Awaited<ReturnType<typeof getRunChatCount>>>
+export type GetRunChatCountQueryError = AxiosError<unknown>
+
+/**
+ * @summary Count the number of chat entries for a run
+ */
+export const useGetRunChatCount = <TData = Awaited<ReturnType<typeof getRunChatCount>>, TError = AxiosError<unknown>>(
+ runId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRunChatCount>>, TError, TData>, axios?: AxiosRequestConfig}
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getGetRunChatCountQueryOptions(runId,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

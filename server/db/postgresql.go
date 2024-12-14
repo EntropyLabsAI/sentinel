@@ -1636,25 +1636,42 @@ func (s *PostgresqlStore) UpdateMessage(ctx context.Context, id uuid.UUID, messa
 	return nil
 }
 
-func (s *PostgresqlStore) GetLatestChat(
+func (s *PostgresqlStore) GetChat(
 	ctx context.Context,
 	runId uuid.UUID,
+	index int,
 ) ([]byte, []byte, error) {
 	query := `
 		SELECT request_data, response_data
 		FROM chat
 		WHERE run_id = $1
 		ORDER BY created_at DESC
-		LIMIT 1
+		LIMIT 1 OFFSET $2
 	`
 
 	var requestData, responseData []byte
-	err := s.db.QueryRowContext(ctx, query, runId).Scan(&requestData, &responseData)
+	err := s.db.QueryRowContext(ctx, query, runId, index).Scan(&requestData, &responseData)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error getting message: %w", err)
 	}
 
 	return requestData, responseData, nil
+}
+
+func (s *PostgresqlStore) GetRunChatCount(ctx context.Context, runId uuid.UUID) (int, error) {
+	query := `
+		SELECT COUNT(*) 
+		FROM chat 
+		WHERE run_id = $1
+	`
+
+	var count int
+	err := s.db.QueryRowContext(ctx, query, runId).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("error getting chat count: %w", err)
+	}
+
+	return count, nil
 }
 
 func (s *PostgresqlStore) createChatChoices(

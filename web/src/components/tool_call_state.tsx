@@ -1,16 +1,14 @@
-import { RunExecution, useGetToolCallState } from '@/types';
+import { useGetToolCallState } from '@/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@radix-ui/react-accordion';
 import { Card } from '@radix-ui/themes';
-import { DrillIcon, MessagesSquareIcon } from 'lucide-react';
+import { DrillIcon } from 'lucide-react';
 import * as React from 'react';
 import { CardContent } from './ui/card';
 import RunExecutionViewer from './chain_execution_viewer';
 import ToolCallCard from './tool_call_card';
 import JsonDisplay from './util/json_display';
-import { UUIDDisplay } from './util/uuid_display';
 import { useEffect } from 'react';
 import { useState } from 'react';
-import { Button } from './ui/button';
 
 interface ToolCallStateProps {
   toolCallId: string | undefined

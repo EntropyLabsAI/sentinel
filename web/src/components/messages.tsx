@@ -1,21 +1,32 @@
 import { AsteroidMessage, MessageType } from "@/types";
 import React, { useRef, useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Key, MessagesSquareIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, Key, MessagesSquareIcon } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { Button } from "./ui/button";
 
-// Props
 interface MessagesDisplayProps {
   expanded: boolean;
   messages: AsteroidMessage[];
   onToolCallClick: (toolCallId: string) => void;
   selectedToolCallId?: string;
+  index?: number;
+  setIndex?: (index: number) => void;
+  chatCount?: number;
 }
 
-export function MessagesDisplay({ expanded, messages, onToolCallClick, selectedToolCallId }: MessagesDisplayProps) {
+export function MessagesDisplay({
+  expanded,
+  messages,
+  onToolCallClick,
+  selectedToolCallId,
+  index,
+  setIndex,
+  chatCount
+}: MessagesDisplayProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -23,17 +34,33 @@ export function MessagesDisplay({ expanded, messages, onToolCallClick, selectedT
     setIsLoaded(true);
   }, []);
 
-  // useEffect(() => {
-  //   if (isLoaded && scrollAreaRef.current) {
-  //     setTimeout(() => {
-  //       if (scrollAreaRef.current) {
-  //         scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
-  //       }
-  //     }, 100);
-  //   }
-  // }, [messages, isLoaded]);
+  function handlePrevious() {
+    if (!setIndex || !chatCount || index === undefined) return;
 
-  // If the selectedToolCallId is set, highlight the tool call in the messages
+    if (index < chatCount - 1) {
+      setIndex(index + 1);
+    } else {
+      setIndex(0);
+    }
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    }
+  }
+
+  function handleNext() {
+    if (!setIndex || !chatCount || index === undefined) return;
+
+    if (index > 0) {
+      setIndex(index - 1);
+    } else {
+      setIndex(chatCount - 1);
+    }
+
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    }
+  }
+
   const highlightedToolCallId = selectedToolCallId ? selectedToolCallId : undefined;
 
   return (
@@ -45,7 +72,27 @@ export function MessagesDisplay({ expanded, messages, onToolCallClick, selectedT
             Messages
           </div>
         </AccordionTrigger>
-        <AccordionContent className="">
+        <AccordionContent>
+          {index !== undefined && setIndex && chatCount && (
+            <div className="flex flex-row gap-2 justify-end p-4">
+              <Button
+                onClick={handlePrevious}
+                disabled={index >= chatCount - 1}
+                className={cn("hover:bg-gray-500 bg-gray-400 text-black", index >= chatCount - 1 && "opacity-50 cursor-not-allowed")}
+              >
+                <ChevronLeftIcon className="w-4 h-4" />
+                Previous
+              </Button>
+              <Button
+                onClick={handleNext}
+                disabled={index === 0}
+                className={cn("hover:bg-gray-500 bg-gray-400 text-black", index === 0 && "opacity-50 cursor-not-allowed")}
+              >
+                Next
+                <ChevronRightIcon className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
           <Card className="border-none">
             <CardContent>
               <div className="max-h-[1000px] overflow-y-auto" ref={scrollAreaRef}>
@@ -90,8 +137,6 @@ export function MessageDisplay({ message, index, highlightedToolCallId, onToolCa
         return `${baseStyle} bg-amber-400 text-white`;
     }
   };
-
-  console.log(message);
 
   return (
     <div key={index} className={`flex flex-col ${message.role.toLowerCase() === 'user' ? 'items-end' : 'items-start'} mb-4 pr-4 last:mb-0`}>

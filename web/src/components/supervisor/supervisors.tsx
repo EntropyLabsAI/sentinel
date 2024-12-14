@@ -36,7 +36,6 @@ const SupervisorSelection: React.FC = () => {
   if (!selectedProject) {
     return <div>Please select a project first</div>;
   }
-  console.log(supervisors);
 
   return (
     <Page title="Supervisors" subtitle={`${supervisors.length ? `${supervisors.length} supervisors` : 'No supervisors'} registered against runs in project ${projectData?.data?.name ?? ''}`} icon={<ScanEyeIcon className="w-6 h-6" />}>

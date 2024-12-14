@@ -74,13 +74,13 @@ function RunToolSupervisors({ runId, toolId }: { runId: string, toolId: string }
     <div className="flex flex-col gap-2">
       <p className="text-sm font-semibold">Supervisors configured for this tool</p>
       {supervisorChain.map((chain, index) => (
-        <div className="flex flex-row overflow-scroll gap-2 bg-muted p-2 rounded-md items-center" key={index}>
+        <div className="flex flex-row overflow-scroll gap-2 bg-muted p-2 rounded-md items-center" key={chain.chain_id}>
           <p className="text-sm font-semibold text-muted-foreground">Chain {index + 1}</p>
           {chain.supervisors.map((supervisor, index) => (
-            <>
+            <div key={supervisor.id} className="flex flex-row gap-2 items-center">
               {index > 0 && <ArrowRightIcon className="w-4 h-4" />}
-              {supervisor.id && <SupervisorBadge supervisorId={supervisor.id} key={index} />}
-            </>
+              {supervisor.id && <SupervisorBadge supervisorId={supervisor.id} />}
+            </div>
           ))}
         </div>
       ))}

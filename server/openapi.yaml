@@ -886,7 +886,7 @@ paths:
       tags:
         - Run
 
-  /run/{run_id}/messages:
+  /run/{run_id}/messages/{index}:
     parameters:
       - name: run_id
         in: path
@@ -894,6 +894,11 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: index
+        in: path
+        required: true
+        schema:
+          type: integer
     get:
       summary: Get the messages for a run
       operationId: GetRunMessages
@@ -912,6 +917,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - Run
+
+  /run/{run_id}/chat_count:
+    parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Count the number of chat entries for a run
+      operationId: GetRunChatCount
+      responses:
+        "200":
+          description: Number of chat entries for the run
+          content:
+            application/json:
+              schema:
+                type: integer
       tags:
         - Run
 
