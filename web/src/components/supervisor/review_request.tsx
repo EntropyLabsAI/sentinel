@@ -1,18 +1,14 @@
-import { Check, X, SkullIcon, MessagesSquareIcon, ClockIcon, CodeIcon, Copy } from "lucide-react"
-import { ReviewPayload, Decision, SentinelToolCall } from "@/types"
-// import ToolChoiceDisplay from "../tool_call"
+import { Check, X, SkullIcon } from "lucide-react"
+import { ReviewPayload, Decision, AsteroidToolCall } from "@/types"
 import React, { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import ToolsDisplay from "../tool_display"
 import { MessagesDisplay } from "../messages"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../ui/accordion"
 import ChainStateDisplay from "../chain_state_display"
-import CopyButton from "../util/copy_button"
 import { ToolCallState } from "../tool_call_state"
 
 interface ReviewRequestProps {
   reviewPayload: ReviewPayload;
-  sendResponse: (decision: Decision, toolcall: SentinelToolCall, feedback?: string) => void;
+  sendResponse: (decision: Decision, toolcall: AsteroidToolCall, feedback?: string) => void;
 }
 
 export default function ReviewRequestDisplay({ reviewPayload, sendResponse }: ReviewRequestProps) {

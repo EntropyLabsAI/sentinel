@@ -78,7 +78,7 @@ const SupervisorSelection: React.FC = () => {
       }
       <div className="mb-12 space-y-12 col-span-3">
         <p className="text-lg text-gray-700">
-          Supervisors are used to review agent actions. To get started, ensure that your agent is running and making requests to the Sentinel API when it wants to take an action. Requests will be paused until a supervisor approves the action.
+          Supervisors are used to review agent actions. To get started, ensure that your agent is running and making requests to the Asteroid API when it wants to take an action. Requests will be paused until a supervisor approves the action.
         </p>
         <p>Supervisors will then return one of the following responses to your agent:
         </p>

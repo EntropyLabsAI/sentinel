@@ -5,7 +5,7 @@ import {
   ReviewPayload,
   SupervisionRequest,
   useGetSupervisionReviewPayload,
-  SentinelToolCall
+  AsteroidToolCall
 } from '@/types';
 import ReviewRequestDisplay from '@/components/supervisor/review_request';
 import { HubStatsAccordion } from '../util/hub_stats';
@@ -52,7 +52,7 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
 
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
-  const [pendingToolCall, setPendingToolCall] = useState<SentinelToolCall | null>(null);
+  const [pendingToolCall, setPendingToolCall] = useState<AsteroidToolCall | null>(null);
 
   // Hook to fetch payload for the next request in queue
   const nextRequestId = requestQueue[0];
@@ -138,7 +138,7 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
   }, [WEBSOCKET_BASE_URL, API_BASE_URL]);
 
   // Send response and remove the review
-  const sendResponse = (decision: Decision, requestId: string, toolCall: SentinelToolCall, feedback?: string) => {
+  const sendResponse = (decision: Decision, requestId: string, toolCall: AsteroidToolCall, feedback?: string) => {
     if (socket?.readyState === WebSocket.OPEN) {
 
       var feedbackText = "Human decided via interface";
@@ -223,7 +223,7 @@ const HumanReviews: React.FC<ReviewSectionProps> = ({ supervisor }) => {
               <div id="content" className="space-y-6 break-words">
                 <ReviewRequestDisplay
                   reviewPayload={selectedReviewPayload}
-                  sendResponse={(decision: Decision, toolCall: SentinelToolCall, feedback?: string) => {
+                  sendResponse={(decision: Decision, toolCall: AsteroidToolCall, feedback?: string) => {
                     if (decision === Decision.reject) {
                       setShowFeedbackDialog(true);
                       setPendingToolCall(toolCall);

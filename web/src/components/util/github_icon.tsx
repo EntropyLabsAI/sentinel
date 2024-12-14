@@ -3,7 +3,7 @@ import React from 'react';
 export default function GitHubIcon() {
   return (
     <a
-      href="https://github.com/EntropyLabsAI/sentinel"
+      href="https://github.com/asteroidai/asteroid"
       target="_blank"
       rel="noopener noreferrer"
       className="ml-4"

@@ -2,14 +2,14 @@ import * as React from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Clock, CheckCircle2, XCircle } from 'lucide-react'
-import { SentinelToolCall } from '@/types';
+import { AsteroidToolCall } from '@/types';
 import { CreatedAgo } from './util/created_ago';
 import { StatusBadge } from './util/status_badge';
 import { UUIDDisplay } from './util/uuid_display';
 
 interface ToolCallCardProps {
   status: "completed" | "failed" | "pending";
-  toolCall: SentinelToolCall | undefined;
+  toolCall: AsteroidToolCall | undefined;
 }
 
 export default function ToolCallCard({ status, toolCall }: ToolCallCardProps) {

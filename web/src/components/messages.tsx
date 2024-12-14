@@ -1,17 +1,16 @@
-import { Message, MessageType } from "@/types";
+import { AsteroidMessage, MessageType } from "@/types";
 import React, { useRef, useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Key, MessagesSquareIcon } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { SentinelMessage } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 // Props
 interface MessagesDisplayProps {
   expanded: boolean;
-  messages: SentinelMessage[];
+  messages: AsteroidMessage[];
   onToolCallClick: (toolCallId: string) => void;
   selectedToolCallId?: string;
 }
@@ -69,7 +68,7 @@ export function MessagesDisplay({ expanded, messages, onToolCallClick, selectedT
 }
 
 interface MessageDisplayProps {
-  message: SentinelMessage;
+  message: AsteroidMessage;
   index: number;
   highlightedToolCallId?: string;
   onToolCallClick: (toolCallId: string) => void;
@@ -85,7 +84,7 @@ export function MessageDisplay({ message, index, highlightedToolCallId, onToolCa
         return `${baseStyle} bg-gray-200 text-gray-800`;
       case 'system':
         return `${baseStyle} bg-gray-300 text-gray-800 italic`;
-      case 'sentinel':
+      case 'asteroid':
         return `${baseStyle} bg-teal-800 text-white`;
       default:
         return `${baseStyle} bg-amber-400 text-white`;
@@ -120,7 +119,7 @@ export function MessageDisplay({ message, index, highlightedToolCallId, onToolCa
   )
 }
 
-const MessageTypeDisplay = ({ message }: { message: SentinelMessage }) => {
+const MessageTypeDisplay = ({ message }: { message: AsteroidMessage }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const MAX_CHARS = 1000;
 
