@@ -15,12 +15,15 @@ DROP TABLE IF EXISTS run CASCADE;
 DROP TABLE IF EXISTS chain CASCADE;
 DROP TABLE IF EXISTS supervisor CASCADE;
 DROP TABLE IF EXISTS project CASCADE;
-DROP TABLE IF EXISTS sentinel_user CASCADE;
+DROP TABLE IF EXISTS asteroid_user CASCADE;
 DROP TABLE IF EXISTS task CASCADE;
 
 -- Create tables in dependency order (tables with no foreign keys first)
-CREATE TABLE sentinel_user (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+CREATE TABLE asteroid_user (
+    id UUID PRIMARY KEY,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    name TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE
 );
 
 CREATE TABLE project (
@@ -72,7 +75,7 @@ CREATE TABLE tool (
 );
 
 CREATE TABLE user_project (
-    user_id UUID REFERENCES sentinel_user(id),
+    user_id UUID REFERENCES asteroid_user(id),
     project_id UUID REFERENCES project(id),
     PRIMARY KEY (user_id, project_id)
 );

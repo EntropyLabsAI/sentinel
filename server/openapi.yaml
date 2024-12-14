@@ -1,12 +1,12 @@
 openapi: 3.0.1
 info:
-  title: Sentinel API
+  title: Asteroid API
   version: v1.0.0
-  description: Version 1 of the Sentinel API
+  description: Version 1 of the Asteroid API
 
 servers:
   - url: /api/v1
-    description: Version 1 of the Sentinel API
+    description: Version 1 of the Asteroid API
 
 paths:
   /openapi.yaml:
@@ -478,7 +478,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SentinelToolCall"
+                $ref: "#/components/schemas/AsteroidToolCall"
         "404":
           description: Tool call not found
           content:
@@ -863,7 +863,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SentinelChat"
+              $ref: "#/components/schemas/AsteroidChat"
       responses:
         "200":
           description: New chat completion created
@@ -905,7 +905,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/SentinelMessage"
+                  $ref: "#/components/schemas/AsteroidMessage"
         "404":
           description: Run not found
           content:
@@ -956,7 +956,7 @@ components:
       type: object
       properties:
         toolcall:
-          $ref: "#/components/schemas/SentinelToolCall"
+          $ref: "#/components/schemas/AsteroidToolCall"
         chains:
           type: array
           items:
@@ -1302,7 +1302,7 @@ components:
 
     SupervisorType:
       type: string
-      description: The type of supervisor. ClientSupervisor means that the supervision is done client side and the server is merely informed. Other supervisor types are handled serverside, e.g. HumanSupervisor means that a human will review the request via the Sentinel UI.
+      description: The type of supervisor. ClientSupervisor means that the supervision is done client side and the server is merely informed. Other supervisor types are handled serverside, e.g. HumanSupervisor means that a human will review the request via the Asteroid UI.
       enum: [client_supervisor, human_supervisor, no_supervisor]
 
     # Task State Begin
@@ -1439,7 +1439,7 @@ components:
           $ref: "#/components/schemas/ChainExecutionState"
           description: The state of the entire supervision chain, including previous supervision results
         toolcall:
-          $ref: "#/components/schemas/SentinelToolCall"
+          $ref: "#/components/schemas/AsteroidToolCall"
           description: The tool call being supervised
         run_id:
           type: string
@@ -1448,8 +1448,8 @@ components:
         messages:
           type: array
           items:
-            $ref: "#/components/schemas/SentinelMessage"
-          description: The messages in the run 
+            $ref: "#/components/schemas/AsteroidMessage"
+          description: The messages in the run
       required:
         - supervision_request
         - chain_state
@@ -1479,7 +1479,7 @@ components:
         - name
         - created_at
 
-    SentinelChat:
+    AsteroidChat:
       description: The raw b64 encoded JSON of the request and response data sent/received from the LLM.
       type: object
       properties:
@@ -1493,7 +1493,7 @@ components:
         - request_data
         - response_data
 
-    SentinelMessage:
+    AsteroidMessage:
       type: object
       properties:
         id:
@@ -1501,13 +1501,13 @@ components:
           format: uuid
         role:
           type: string
-          enum: [system, user, assistant, function, tool, sentinel]
+          enum: [system, user, assistant, function, tool, asteroid]
         content:
           type: string
         tool_calls:
           type: array
           items:
-            $ref: "#/components/schemas/SentinelToolCall"
+            $ref: "#/components/schemas/AsteroidToolCall"
         type:
           description: The type of content in the message, either text or b64 encoded audio
           $ref: "#/components/schemas/MessageType"
@@ -1522,7 +1522,7 @@ components:
         - role
         - content
 
-    SentinelToolCall:
+    AsteroidToolCall:
       type: object
       properties:
         id:
@@ -1547,20 +1547,20 @@ components:
         - type
         - function
 
-    SentinelChoice:
+    AsteroidChoice:
       type: object
       properties:
-        sentinel_id:
+        asteroid_id:
           type: string
         index:
           type: integer
         message:
-          $ref: "#/components/schemas/SentinelMessage"
+          $ref: "#/components/schemas/AsteroidMessage"
         finish_reason:
           type: string
           enum: [stop, length, function_call, tool_calls, content_filter, null]
       required:
-        - sentinel_id
+        - asteroid_id
         - index
         - message
         - finish_reason

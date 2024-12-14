@@ -4,8 +4,8 @@ import (
 	"log"
 	"os"
 
-	sentinel "github.com/entropylabsai/sentinel/server"
-	database "github.com/entropylabsai/sentinel/server/db"
+	asteroid "github.com/asteroidai/asteroid/server"
+	database "github.com/asteroidai/asteroid/server/db"
 )
 
 func main() {
@@ -15,5 +15,5 @@ func main() {
 	}
 	defer db.Close()
 
-	sentinel.InitAPI(db)
+	asteroid.InitAPI(db)
 }

@@ -1,4 +1,4 @@
-module github.com/entropylabsai/sentinel/server
+module github.com/asteroidai/asteroid/server
 
 go 1.23.1
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Stop all containers and remove volumes
-docker compose down -v
+# Stop any running containers
+docker compose down
 
-# Remove the postgres volume explicitly
-docker volume rm -f sentinel_postgres_data || true
+# Remove the volume
+docker volume rm -f asteroid_postgres_data || true

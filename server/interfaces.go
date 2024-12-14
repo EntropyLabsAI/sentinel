@@ -1,4 +1,4 @@
-package sentinel
+package asteroid
 
 import (
 	"context"
@@ -65,8 +65,8 @@ type ToolRequestStore interface {
 	// GetRunRequestGroups(ctx context.Context, runId uuid.UUID, includeArgs bool) ([]ToolRequestGroup, error)
 	// GetRequestGroup(ctx context.Context, id uuid.UUID, includeArgs bool) (*ToolRequestGroup, error)
 	// CreateToolCall(ctx context.Context, toolCallId uuid.UUID, request ToolRequest) (*uuid.UUID, error)
-	GetToolCall(ctx context.Context, id uuid.UUID) (*SentinelToolCall, error)
-	GetToolCallFromCallId(ctx context.Context, id string) (*SentinelToolCall, error)
+	GetToolCall(ctx context.Context, id uuid.UUID) (*AsteroidToolCall, error)
+	GetToolCallFromCallId(ctx context.Context, id string) (*AsteroidToolCall, error)
 }
 
 type ToolStore interface {
@@ -103,12 +103,12 @@ type ChatStore interface {
 		runId uuid.UUID,
 		request []byte,
 		response []byte,
-		choices []SentinelChoice,
+		choices []AsteroidChoice,
 		format string,
-		requestMessages []SentinelMessage,
+		requestMessages []AsteroidMessage,
 	) (*uuid.UUID, error)
-	// GetMessagesForRun(ctx context.Context, runId uuid.UUID, includeInvalidated bool) ([]SentinelMessage, error)
+	// GetMessagesForRun(ctx context.Context, runId uuid.UUID, includeInvalidated bool) ([]AsteroidMessage, error)
 	GetLatestChat(ctx context.Context, runId uuid.UUID) ([]byte, []byte, error)
-	GetMessage(ctx context.Context, id uuid.UUID) (*SentinelMessage, error)
-	UpdateMessage(ctx context.Context, id uuid.UUID, message SentinelMessage) error
+	GetMessage(ctx context.Context, id uuid.UUID) (*AsteroidMessage, error)
+	UpdateMessage(ctx context.Context, id uuid.UUID, message AsteroidMessage) error
 }

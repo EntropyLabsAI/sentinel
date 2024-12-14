@@ -1,4 +1,4 @@
-package sentinel
+package asteroid
 
 import (
 	"context"
@@ -10,9 +10,9 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-type SentinelConverter interface {
-	ToSentinelMessages(requestData, responseData []byte) ([]SentinelMessage, error)
-	ToSentinelChoices(responseData []byte) ([]SentinelChoice, error)
+type AsteroidConverter interface {
+	ToAsteroidMessages(requestData, responseData []byte) ([]AsteroidMessage, error)
+	ToAsteroidChoices(responseData []byte) ([]AsteroidChoice, error)
 	ValidateB64EncodedRequest(encodedData string) ([]byte, error)
 	ValidateB64EncodedResponse(encodedData string) ([]byte, error)
 }
@@ -21,11 +21,11 @@ type OpenAIConverter struct {
 	store ToolStore
 }
 
-func (c *OpenAIConverter) ToSentinelMessages(
+func (c *OpenAIConverter) ToAsteroidMessages(
 	ctx context.Context,
 	requestData, responseData []byte,
 	runId uuid.UUID,
-) ([]SentinelMessage, error) {
+) ([]AsteroidMessage, error) {
 	var chatRequest openai.ChatCompletionRequest
 	if err := json.Unmarshal(requestData, &chatRequest); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal chat request: %w", err)
@@ -38,14 +38,14 @@ func (c *OpenAIConverter) ToSentinelMessages(
 
 	openaiMessages := chatRequest.Messages
 
-	sentinelMsgs := make([]SentinelMessage, 0)
+	asteroidMsgs := make([]AsteroidMessage, 0)
 	for _, msg := range openaiMessages {
 		converted, err := c.ConvertMessage(ctx, msg, runId)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert message: %w", err)
 		}
 
-		sentinelMsgs = append(sentinelMsgs, converted)
+		asteroidMsgs = append(asteroidMsgs, converted)
 	}
 
 	// TODO support multiple choices
@@ -55,16 +55,16 @@ func (c *OpenAIConverter) ToSentinelMessages(
 		return nil, fmt.Errorf("failed to convert message: %w", err)
 	}
 
-	sentinelMsgs = append(sentinelMsgs, converted)
+	asteroidMsgs = append(asteroidMsgs, converted)
 
-	return sentinelMsgs, nil
+	return asteroidMsgs, nil
 }
 
-func (c *OpenAIConverter) ToSentinelChoices(
+func (c *OpenAIConverter) ToAsteroidChoices(
 	ctx context.Context,
 	responseData []byte,
 	runId uuid.UUID,
-) ([]SentinelChoice, error) {
+) ([]AsteroidChoice, error) {
 	var chatResponse openai.ChatCompletionResponse
 	if err := json.Unmarshal(responseData, &chatResponse); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal chat response: %w", err)
@@ -82,8 +82,8 @@ func (c *OpenAIConverter) ConvertChoices(
 	ctx context.Context,
 	choices []openai.ChatCompletionChoice,
 	runId uuid.UUID,
-) ([]SentinelChoice, error) {
-	var result []SentinelChoice
+) ([]AsteroidChoice, error) {
+	var result []AsteroidChoice
 	for _, choice := range choices {
 		message, err := c.ConvertMessage(ctx, choice.Message, runId)
 		if err != nil {
@@ -91,11 +91,11 @@ func (c *OpenAIConverter) ConvertChoices(
 		}
 
 		id := uuid.New().String()
-		result = append(result, SentinelChoice{
-			SentinelId:   id,
+		result = append(result, AsteroidChoice{
+			AsteroidId:   id,
 			Index:        choice.Index,
 			Message:      message,
-			FinishReason: SentinelChoiceFinishReason(choice.FinishReason),
+			FinishReason: AsteroidChoiceFinishReason(choice.FinishReason),
 		})
 	}
 
@@ -106,15 +106,15 @@ func (c *OpenAIConverter) ConvertMessage(
 	ctx context.Context,
 	message openai.ChatCompletionMessage,
 	runId uuid.UUID,
-) (SentinelMessage, error) {
+) (AsteroidMessage, error) {
 	toolCalls, err := c.ConvertToolCalls(ctx, message.ToolCalls, runId)
 	if err != nil {
-		return SentinelMessage{}, fmt.Errorf("error converting tool calls: %w", err)
+		return AsteroidMessage{}, fmt.Errorf("error converting tool calls: %w", err)
 	}
 
 	// If the message has an image in it, it will look like this:
 	// {Role:user Content: Refusal: MultiContent:[{Type:image_url Text: ImageURL:0xc000220320}] Name: FunctionCall:<nil> ToolCalls:[] ToolCallID:}
-	// We need to convert this to a SentinelMessage with a type of ImageURL
+	// We need to convert this to a AsteroidMessage with a type of ImageURL
 	// and the content being the image URL
 	var msgType MessageType
 	var msgContent string
@@ -132,15 +132,15 @@ func (c *OpenAIConverter) ConvertMessage(
 
 	originalMessageJSON, err := json.Marshal(message)
 	if err != nil {
-		return SentinelMessage{}, fmt.Errorf("error marshalling original message: %w", err)
+		return AsteroidMessage{}, fmt.Errorf("error marshalling original message: %w", err)
 	}
 	b64 := base64.StdEncoding.EncodeToString(originalMessageJSON)
 
 	id := uuid.New()
 
-	sMsg := SentinelMessage{
+	sMsg := AsteroidMessage{
 		Id:        &id,
-		Role:      SentinelMessageRole(message.Role),
+		Role:      AsteroidMessageRole(message.Role),
 		ToolCalls: &toolCalls,
 		Type:      &msgType,
 		Content:   msgContent,
@@ -154,8 +154,8 @@ func (c *OpenAIConverter) ConvertToolCalls(
 	ctx context.Context,
 	toolCalls []openai.ToolCall,
 	runId uuid.UUID,
-) ([]SentinelToolCall, error) {
-	var result []SentinelToolCall
+) ([]AsteroidToolCall, error) {
+	var result []AsteroidToolCall
 	for _, toolCall := range toolCalls {
 		toolCall, err := c.ConvertToolCall(ctx, toolCall, runId)
 		if err != nil {
@@ -172,7 +172,7 @@ func (c *OpenAIConverter) ConvertToolCall(
 	ctx context.Context,
 	toolCall openai.ToolCall,
 	runId uuid.UUID,
-) (*SentinelToolCall, error) {
+) (*AsteroidToolCall, error) {
 	tool, err := c.store.GetToolFromNameAndRunId(ctx, toolCall.Function.Name, runId)
 	if err != nil {
 		return nil, fmt.Errorf("error getting tool: %w", err)
@@ -183,7 +183,7 @@ func (c *OpenAIConverter) ConvertToolCall(
 
 	id := uuid.New()
 
-	return &SentinelToolCall{
+	return &AsteroidToolCall{
 		CallId:    &toolCall.ID,
 		Id:        id,
 		ToolId:    *tool.Id,

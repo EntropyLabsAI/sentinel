@@ -1,4 +1,4 @@
-package sentinel
+package asteroid
 
 import (
 	"context"
@@ -785,7 +785,7 @@ func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Reques
 
 	converter := OpenAIConverter{store}
 
-	sentinelMsgs, err := converter.ToSentinelMessages(ctx, requestData, responseData, tool.RunId)
+	asteroidMsgs, err := converter.ToAsteroidMessages(ctx, requestData, responseData, tool.RunId)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error converting messages", err.Error())
 		return
@@ -797,7 +797,7 @@ func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Reques
 		ChainState:         *chainState,
 		Toolcall:           *toolCall,
 		RunId:              tool.RunId,
-		Messages:           sentinelMsgs,
+		Messages:           asteroidMsgs,
 	}
 
 	respondJSON(w, reviewPayload, http.StatusOK)
@@ -1013,7 +1013,7 @@ func apiGetToolCallHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID,
 func apiCreateNewChatHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
 	ctx := r.Context()
 
-	var payload SentinelChat
+	var payload AsteroidChat
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
 		return
@@ -1033,8 +1033,8 @@ func apiCreateNewChatHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 		return
 	}
 
-	// Parse out the choices into SentinelChoice objects
-	sentinelChoices, err := converter.ToSentinelChoices(ctx, jsonResponse, runId)
+	// Parse out the choices into AsteroidChoice objects
+	asteroidChoices, err := converter.ToAsteroidChoices(ctx, jsonResponse, runId)
 	if err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Error converting choices: %s", err.Error()), "")
 		return
@@ -1045,9 +1045,9 @@ func apiCreateNewChatHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 		runId,
 		jsonRequest,
 		jsonResponse,
-		sentinelChoices,
+		asteroidChoices,
 		"openai",
-		[]SentinelMessage{},
+		[]AsteroidMessage{},
 	)
 	if err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Error creating chat request: %s", err.Error()), "")
@@ -1055,12 +1055,12 @@ func apiCreateNewChatHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 	}
 
 	// Extract all IDs from the created chat structure
-	chatIds := extractChatIds(*id, sentinelChoices)
+	chatIds := extractChatIds(*id, asteroidChoices)
 
 	respondJSON(w, chatIds, http.StatusOK)
 }
 
-func extractChatIds(chatId uuid.UUID, choices []SentinelChoice) ChatIds {
+func extractChatIds(chatId uuid.UUID, choices []AsteroidChoice) ChatIds {
 	result := ChatIds{
 		ChatId:    chatId,
 		ChoiceIds: make([]ChoiceIds, 0, len(choices)),
@@ -1068,7 +1068,7 @@ func extractChatIds(chatId uuid.UUID, choices []SentinelChoice) ChatIds {
 
 	for _, choice := range choices {
 		choiceIds := ChoiceIds{
-			ChoiceId:    choice.SentinelId,
+			ChoiceId:    choice.AsteroidId,
 			MessageId:   choice.Message.Id.String(),
 			ToolCallIds: make([]ToolCallIds, 0),
 		}
@@ -1102,20 +1102,20 @@ func apiGetRunMessagesHandler(w http.ResponseWriter, r *http.Request, runId uuid
 
 	converter := OpenAIConverter{store}
 
-	sentinelMsgs, err := converter.ToSentinelMessages(ctx, requestData, responseData, runId)
+	asteroidMsgs, err := converter.ToAsteroidMessages(ctx, requestData, responseData, runId)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error converting messages", err.Error())
 		return
 	}
 
-	respondJSON(w, sentinelMsgs, http.StatusOK)
+	respondJSON(w, asteroidMsgs, http.StatusOK)
 }
 
 func apiGetToolCallStateHandler(w http.ResponseWriter, r *http.Request, toolCallId string, store Store) {
 	ctx := r.Context()
 
 	// First verify the run exists by using the toolCallId (provided by OpenAI) to get our ToolCall object
-	// which will have our Sentinel-generated UUID (Id)
+	// which will have our Asteroid-generated UUID (Id)
 	toolCall, err := store.GetToolCallFromCallId(ctx, toolCallId)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting tool call", err.Error())

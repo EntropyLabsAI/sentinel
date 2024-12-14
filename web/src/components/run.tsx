@@ -1,4 +1,4 @@
-import { Tool, useGetRunTools, useGetRunMessages, SentinelMessage } from "@/types";
+import { Tool, useGetRunTools, useGetRunMessages, AsteroidMessage } from "@/types";
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import Page from "./util/page";
@@ -30,7 +30,7 @@ export default function Run() {
   }
 
   const { data: messageData } = useGetRunMessages(runId || '', { query: { enabled: !!runId, refetchInterval: 1000 } });
-  const [messages, setMessages] = useState<SentinelMessage[]>([]);
+  const [messages, setMessages] = useState<AsteroidMessage[]>([]);
 
   useEffect(() => {
     if (messageData?.data) {

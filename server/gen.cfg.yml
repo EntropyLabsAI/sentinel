@@ -1,4 +1,4 @@
-package: sentinel
+package: asteroid
 output: gen.go
 generate:
   models: true
