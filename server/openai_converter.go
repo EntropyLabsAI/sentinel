@@ -10,13 +10,6 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-type AsteroidConverter interface {
-	ToAsteroidMessages(requestData, responseData []byte) ([]AsteroidMessage, error)
-	ToAsteroidChoices(responseData []byte) ([]AsteroidChoice, error)
-	ValidateB64EncodedRequest(encodedData string) ([]byte, error)
-	ValidateB64EncodedResponse(encodedData string) ([]byte, error)
-}
-
 type OpenAIConverter struct {
 	store ToolStore
 }

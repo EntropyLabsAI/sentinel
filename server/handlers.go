@@ -778,13 +778,22 @@ func apiGetSupervisionReviewPayloadHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Get the latest chat
-	requestData, responseData, err := store.GetChat(ctx, tool.RunId, 0)
+	requestData, responseData, format, err := store.GetChat(ctx, tool.RunId, 0)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting messages for run", err.Error())
 		return
 	}
 
-	converter := OpenAIConverter{store}
+	var converter AsteroidConverter
+	switch format {
+	case "openai":
+		converter = &OpenAIConverter{store}
+	case "anthropic":
+		converter = &AnthropicConverter{store}
+	default:
+		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("invalid chat format: %s", format), "")
+		return
+	}
 
 	asteroidMsgs, err := converter.ToAsteroidMessages(ctx, requestData, responseData, tool.RunId)
 	if err != nil {
@@ -1020,7 +1029,16 @@ func apiCreateNewChatHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 		return
 	}
 
-	converter := OpenAIConverter{store}
+	var converter AsteroidConverter
+	switch payload.Format {
+	case "openai":
+		converter = &OpenAIConverter{store}
+	case "anthropic":
+		converter = &AnthropicConverter{store}
+	default:
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid chat type", "")
+		return
+	}
 
 	jsonRequest, err := converter.ValidateB64EncodedRequest(payload.RequestData)
 	if err != nil {
@@ -1047,7 +1065,7 @@ func apiCreateNewChatHandler(w http.ResponseWriter, r *http.Request, runId uuid.
 		jsonRequest,
 		jsonResponse,
 		asteroidChoices,
-		"openai",
+		payload.Format,
 		[]AsteroidMessage{},
 	)
 	if err != nil {
@@ -1112,13 +1130,22 @@ func apiGetRunMessagesHandler(w http.ResponseWriter, r *http.Request, runId uuid
 		return
 	}
 
-	requestData, responseData, err := store.GetChat(ctx, runId, index)
+	requestData, responseData, format, err := store.GetChat(ctx, runId, index)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "error getting messages for run", err.Error())
 		return
 	}
 
-	converter := OpenAIConverter{store}
+	var converter AsteroidConverter
+	switch format {
+	case "openai":
+		converter = &OpenAIConverter{store}
+	case "anthropic":
+		converter = &AnthropicConverter{store}
+	default:
+		sendErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("invalid chat format: %s", format), "")
+		return
+	}
 
 	asteroidMsgs, err := converter.ToAsteroidMessages(ctx, requestData, responseData, runId)
 	if err != nil {

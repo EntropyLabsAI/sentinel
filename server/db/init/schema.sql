@@ -38,7 +38,7 @@ CREATE TABLE supervisor (
     name TEXT DEFAULT '',
     description TEXT DEFAULT '',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    type TEXT DEFAULT 'no_supervisor' CHECK (type in ('human_supervisor', 'client_supervisor', 'no_supervisor')),
+    type TEXT DEFAULT 'no_supervisor' CHECK (type in ('human_supervisor', 'client_supervisor', 'no_supervisor', 'chat_supervisor')),
     code TEXT DEFAULT '',
     attributes JSONB DEFAULT '{}' NOT NULL
 );
@@ -99,7 +99,7 @@ CREATE TABLE chat (
     request_data JSONB DEFAULT '{}' NOT NULL,
     response_data JSONB DEFAULT '{}' NOT NULL,
     run_id UUID REFERENCES run(id) NOT NULL,
-    format TEXT DEFAULT 'openai' CHECK (format IN ('openai', 'anthropic')) NOT NULL
+    format TEXT CHECK (format IN ('openai', 'anthropic')) NOT NULL
 );
 
 CREATE TABLE choice (

@@ -1345,9 +1345,16 @@ components:
         response_data:
           type: string
           format: base64
+        format:
+          $ref: "#/components/schemas/ChatFormat"
       required:
         - request_data
         - response_data
+        - format
+
+    ChatFormat:
+      type: string
+      enum: [openai, anthropic]
 
     AsteroidMessage:
       type: object
