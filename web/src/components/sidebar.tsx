@@ -136,14 +136,14 @@ export default function SidebarComponent({ children }: SidebarProps) {
           },
           {
             title: "GitHub",
-            url: "https://github.com/EntropyLabsAI/sentinel",
+            url: "https://github.com/asteroidai/asteroid",
             isActive: false,
             disabled: false,
             icon: <GithubIcon />
           },
           {
             title: "Documentation",
-            url: "https://docs.entropy-labs.ai",
+            url: "https://docs.asteroid.ai",
             isActive: false,
             disabled: false,
             icon: <BookIcon />
@@ -166,10 +166,10 @@ export default function SidebarComponent({ children }: SidebarProps) {
                     className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                   >
                     <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                      <LucideBuilding className="size-4" />
+                      <img src="/logo-128.png" alt="Asteroid" className="size-8 rounded-lg" />
                     </div>
                     <div className="flex flex-col gap-0.5 leading-none">
-                      <span className="font-semibold">Sentinel</span>
+                      <span className="font-semibold">Asteroid Platform</span>
                       <span className="text-xs">
                         {projects && selectedProject ?
                           projects?.find(p => p.id === selectedProject)?.name || 'Select Project'
@@ -288,7 +288,7 @@ export default function SidebarComponent({ children }: SidebarProps) {
           <div className="ml-auto">
             <Card className="bg-muted px-3 py-1 shadow-none">
               <div className="flex items-center gap-2">
-                <LucideBuilding className="h-4 w-4 text-muted-foreground" />
+                <img src="/logo-128.png" alt="Asteroid" className="h-4 w-4 rounded-lg" />
                 <span className="text-sm text-muted-foreground">
                   Selected Project: {` `}
                   {projects && selectedProject ?

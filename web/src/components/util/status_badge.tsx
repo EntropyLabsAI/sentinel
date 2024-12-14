@@ -79,7 +79,7 @@ export function TaskBadge({ taskId }: { taskId: string }) {
   if (isLoading) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Loading...</Badge>;
   if (error) return <Badge className="text-white bg-gray-400 shadow-none whitespace-nowrap">Error: {error.message}</Badge>;
   return (
-    <Badge className="text-white bg-teal-800 shadow-none whitespace-nowrap gap-2 items-center">
+    <Badge className="text-white bg-teal-800 shadow-none whitespace-nowrap gap-2 items-center ml-1">
       <CpuIcon className="w-3 h-3 flex-shrink-0" />
       <Link to={`/tasks/${taskId}`}>{data?.data.name ?? 'Task'}</Link>
     </Badge>

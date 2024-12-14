@@ -3,7 +3,7 @@
 
 # # AI Assistant with Supervisors Demo
 # 
-# Welcome to the AI Assistant with Supervisors demo! This notebook is designed to demonstrate how to use **Entropy Labs Supervisors** to supervise tool executions within an AI assistant. We'll walk through the code, explain key components, and show how to run the assistant.
+# Welcome to the AI Assistant with Supervisors demo! This notebook is designed to demonstrate how to use **Asteroid Supervisors** to supervise tool executions within an AI assistant. We'll walk through the code, explain key components, and show how to run the assistant.
 # 
 # ## Table of Contents
 # 
@@ -29,14 +29,14 @@
 # 
 # ## Introduction
 # 
-# In this demo, we'll create an AI assistant that can perform tasks like searching the internet, sending emails, creating calendar events, and booking flights. We'll use **Entropy Labs Supervisors** to supervise these tool executions, ensuring they comply with specified policies or require human approval when necessary.
+# In this demo, we'll create an AI assistant that can perform tasks like searching the internet, sending emails, creating calendar events, and booking flights. We'll use **Asteroid Supervisors** to supervise these tool executions, ensuring they comply with specified policies or require human approval when necessary.
 # 
-# **Important:** Before running the notebook, make sure that the Entropy Labs backend is running. You can start it with `docker compose up` in the root directory.
+# **Important:** Before running the notebook, make sure that the Asteroid server is running. Contact Asteroid to get access!
 
 # ## Setup
 # First let's install the necessary libraries.
 
-# get_ipython().run_line_magic('pip', 'install entropy-labs inspect-ai openai duckduckgo-search bs4 ipywidgets')
+# get_ipython().run_line_magic('pip', 'install asteroid-sdk inspect-ai openai duckduckgo-search bs4 ipywidgets')
 
 
 # 
@@ -54,23 +54,24 @@ from bs4 import BeautifulSoup
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessage
 from duckduckgo_search import DDGS
+import os
 
-from entropy_labs.supervision import supervise
-from entropy_labs.api import register_project, create_run, register_task, submit_run_status, submit_run_result, Status
-from entropy_labs.supervision.supervisors import human_supervisor, llm_supervisor, Supervisor
-from entropy_labs.supervision.config import (
+os.environ["ASTEROID_API_URL"] = "http://localhost:8080/api/v1"
+# os.environ["OPENAI_API_KEY"] = "your-api-key"
+
+from asteroid_sdk.supervision import supervise
+from asteroid_sdk.supervision.supervisors import human_supervisor, llm_supervisor, ToolCallSupervisor
+from asteroid_sdk.wrappers.openai import asteroid_end, asteroid_openai_client, asteroid_init
+from asteroid_sdk.supervision.config import (
     SupervisionDecision,
     SupervisionDecisionType,
-    SupervisionContext,
-    get_supervision_context,
+    SupervisionContext
 )
-# Initialize the OpenAI client
-client = OpenAI()
 
 
 # ## Supervisors
 # 
-# In Entropy Labs, **supervisors** are functions that can approve, modify, or escalate tool calls based on certain policies or checks.
+# In Asteroid, **supervisors** are functions that can approve, modify, or escalate tool calls based on certain policies or checks.
 
 # ### The `supervise()` Decorator
 # 
@@ -94,12 +95,12 @@ client = OpenAI()
 
 # ### Custom Supervisor: `check_email_address_supervisor`
 # 
-# Entropy labs provide multiple configurable supervisors, but you can also define your own specific to your application. Here we define a custom supervisor to check if an email address is in an email whitelist before sending an email.
+# Asteroid provide multiple configurable supervisors, but you can also define your own specific to your application. Here we define a custom supervisor to check if an email address is in an email whitelist before sending an email.
 
 # Constants
-ENTROPY_LABS_EMAIL = "devs@entropy-labs.ai"
+ASTEROID_EMAIL = "founders@asteroid.ai"
 
-def check_email_address_supervisor(whitelisted_emails: List[str]) -> Supervisor:
+def check_email_address_supervisor(whitelisted_emails: List[str]) -> ToolCallSupervisor:
     """
     Factory function that creates a supervisor function to check if the email address
     is in the whitelist.
@@ -157,7 +158,7 @@ def check_email_address_supervisor(whitelisted_emails: List[str]) -> Supervisor:
 # - **`human_supervisor`**: Requires human approval for the tool call.
 # 
 # ```python
-# def llm_supervisor(instructions: str, **kwargs) -> Supervisor:
+# def llm_supervisor(instructions: str, **kwargs) -> ToolCallSupervisor:
 #     """
 #     Supervisor that uses an LLM to make a decision based on the provided instructions.
 # 
@@ -167,7 +168,7 @@ def check_email_address_supervisor(whitelisted_emails: List[str]) -> Supervisor:
 #     """
 #     # Implementation...
 # 
-# def human_supervisor(**kwargs) -> Supervisor:
+# def human_supervisor(**kwargs) -> ToolCallSupervisor:
 #     """
 #     Supervisor that requires human approval.
 # 
@@ -256,7 +257,6 @@ EMAIL_INVITATION_POLICY = (
 
 
 @supervise(supervision_functions=[
-    [check_email_address_supervisor(whitelisted_emails=[ENTROPY_LABS_EMAIL])],
     [llm_supervisor(instructions=EMAIL_INVITATION_POLICY), human_supervisor()]
 ])
 def send_email(to: str, subject: str, body: str):
@@ -413,7 +413,7 @@ def create_openai_tool(func: Callable) -> dict:
 # 
 # Handles interaction with the OpenAI GPT model.
 
-def chat_with_openai(messages: List[Dict], tools: List[Callable]):
+def chat_with_openai(messages: List[Dict], tools: List[Callable], client: OpenAI):
     """
     Interact with the OpenAI GPT model.
 
@@ -463,110 +463,36 @@ def execute_tool_call(tool_call, tools):
     return "Function not found."
 
 
-# ### Updating Messages
-# 
-# Updates the conversation messages and the supervision context.
-
-def update_messages(
-    messages: List[Dict],
-    new_message: Dict[str, Any] | ChatCompletionMessage,
-    run_id: UUID
-) -> List[Dict]:
-    """
-    Update the conversation messages and supervision context.
-
-    Parameters:
-        messages (List[Dict]): The current list of messages.
-        new_message (Dict[str, Any] | ChatCompletionMessage): The new message to add.
-        run_id (UUID): The ID of the current run.
-
-    Returns:
-        List[Dict]: The updated list of messages.
-    """
-    supervision_context = get_supervision_context(run_id)
-    if isinstance(new_message, ChatCompletionMessage):
-        new_message = new_message.to_dict()
-    supervision_context.update_messages(messages + [new_message])
-    return messages + [new_message]
-
-
 # ### Starting the Chatbot
 # 
 # The main loop that starts the chatbot and handles user interaction.
-
-def in_jupyter_notebook():
-    try:
-        from IPython import get_ipython
-        shell = get_ipython().__class__.__name__
-        if shell == 'ZMQInteractiveShell':
-            return True   # Jupyter notebook or qtconsole
-        else:
-            return False  # Other type (likely standard Python interpreter)
-    except NameError:
-        return False      # Probably standard Python interpreter
-
 
 def start_chatbot(
     start_prompt: str,
     tools: List[Callable],
     run_id: UUID,
-):
+    client: OpenAI
+) -> List[Dict]:  # Modified to return messages
     """
-    Start the chatbot interaction, working both in Jupyter Notebook and standard Python script.
+    Run the chatbot interaction without CLI/Jupyter interface.
 
     Parameters:
         start_prompt (str): The initial prompt for the assistant.
         tools (List[Callable]): The list of available tool functions.
         run_id (UUID): The ID of the current run.
+        client (OpenAI): The OpenAI client instance.
 
     Returns:
-        None
+        List[Dict]: The conversation history
     """
-    # Detect environment
-    is_jupyter = in_jupyter_notebook()
-
-    if is_jupyter:
-        # Import Jupyter-specific modules inside the conditional block
-        import ipywidgets as widgets
-        from IPython.display import display
-
-        # Create the output and input widgets
-        output_widget = widgets.Output(layout={'border': '1px solid black'})
-        input_widget = widgets.Text(
-            value='',
-            placeholder='Type your message here...',
-            description='You:',
-            disabled=False,
-            continuous_update=False  # Update value only when Enter is pressed
-        )
-
-        # Display the widgets
-        display(output_widget)
-        display(input_widget)
-
-        # Clear the output widget to avoid duplicate messages
-        output_widget.clear_output()
-    else:
-        output_widget = None
-        input_widget = None
-
     # Initialize conversation messages
     messages = [{"role": "system", "content": "You are a helpful assistant."}]
 
     # Create OpenAI tool definitions
     openai_tools = [create_openai_tool(func) for func in tools]
 
-    waiting_for_user_input = False
-
     def process_assistant_response(assistant_message):
-        nonlocal messages, waiting_for_user_input
-
-        if assistant_message.content:
-            if is_jupyter and output_widget:
-                with output_widget:
-                    print(f"Assistant: {assistant_message.content}\n")
-            else:
-                print(f"Assistant: {assistant_message.content}\n")
+        nonlocal messages
 
         # Check if the assistant is making a tool call
         if assistant_message.tool_calls:
@@ -581,111 +507,27 @@ def start_chatbot(
                 "tool_call_id": tool_call.id
             }
 
-            messages = update_messages(messages, tool_response, run_id)
+            messages = messages + [tool_response]
 
             # Now get the assistant's response to the tool execution
-            response = chat_with_openai(messages, openai_tools)
+            response = chat_with_openai(messages, openai_tools, client)
             assistant_message = response.choices[0].message
-            messages = update_messages(messages, assistant_message, run_id)
+            messages = messages + [assistant_message]
 
             # Process the assistant's response recursively
             process_assistant_response(assistant_message)
-        else:
-            # Assistant is not making a tool call, wait for user input
-            waiting_for_user_input = True
 
     # Start the conversation
     user_message = {"role": "user", "content": start_prompt}
-    messages = update_messages(messages, user_message, run_id)
-    if is_jupyter and output_widget:
-        with output_widget:
-            print(f"You: {start_prompt}\n")
-    else:
-        print(f"You: {start_prompt}\n")
+    messages = messages + [user_message]
 
     # Get assistant's initial response
-    response = chat_with_openai(messages, openai_tools)
+    response = chat_with_openai(messages, openai_tools, client)
     assistant_message = response.choices[0].message
-    messages = update_messages(messages, assistant_message, run_id)
+    messages = messages + [assistant_message]
     process_assistant_response(assistant_message)
 
-    # Input handling
-    if is_jupyter and input_widget:
-        # Remove existing event handlers to prevent multiple triggers
-        input_widget.unobserve_all()
-
-        def handle_submit(change):
-            nonlocal messages, waiting_for_user_input
-
-            # Proceed only if value changed (Enter was pressed)
-            if not waiting_for_user_input or not change['new']:
-                return  # Ignore input if not waiting for user or empty input
-
-            user_input = change['new']
-            input_widget.value = ''  # Clear input box
-
-            if user_input.lower() == 'exit':
-                input_widget.disabled = True
-                if output_widget:
-                    with output_widget:
-                        print("Goodbye! 👋")
-                else:
-                    print("Goodbye! 👋")
-                return
-
-            # Add user message to conversation
-            user_message = {"role": "user", "content": user_input}
-            messages = update_messages(messages, user_message, run_id)
-
-            if output_widget:
-                with output_widget:
-                    print(f"You: {user_input}\n")
-            else:
-                print(f"You: {user_input}\n")
-
-            waiting_for_user_input = False
-
-            # Get assistant response
-            response = chat_with_openai(messages, openai_tools)
-            assistant_message = response.choices[0].message
-            messages = update_messages(messages, assistant_message, run_id)
-
-            process_assistant_response(assistant_message)
-
-        # Register the event handler
-        input_widget.observe(handle_submit, names='value')
-    else:
-        # Standard input/output loop
-        while True:
-            if waiting_for_user_input:
-                user_input = input("You: ").strip()
-                if user_input.lower() == 'exit':
-                    print("Goodbye! 👋")
-                    break
-                if not user_input:
-                    continue  # Ignore empty input
-
-                # Add user message to conversation
-                user_message = {"role": "user", "content": user_input}
-                messages = update_messages(messages, user_message, run_id)
-
-                print(f"You: {user_input}\n")
-                waiting_for_user_input = False
-
-                # Get assistant response
-                response = chat_with_openai(messages, openai_tools)
-                assistant_message = response.choices[0].message
-                messages = update_messages(messages, assistant_message, run_id)
-
-                process_assistant_response(assistant_message)
-            else:
-                # If the assistant is processing, wait until it's ready for user input
-                pass
-    submit_run_status(run_id=run_id, status=Status.COMPLETED)
-    submit_run_result(run_id=run_id, result="passed")
-
-
-
+    return messages
 
 
 # ## Running the Assistant
@@ -695,9 +537,10 @@ def start_chatbot(
 # Define the initial prompt for the chatbot
 start_prompt = (
     "Go and find the most interesting events happening in AI next week in San Francisco. "
-    "Then create a calendar event for the most interesting one. When done, ask me email addresses "
-    "where you should send invitations for that event. After the email is sent, book me a flight ticket "
+    "Then create a calendar event for the most interesting one. When done, invite joe@asteroid.ai to the event."
+    "where you should send invitations for that event. After the email is sent, submit a flight booking request for me"
     "from London to San Francisco to attend that event. Make sure that the flight price is less than 1000 GBP."
+    "You don't need to ask permission for the flight booking, just book it using your best judgement."
 )
 
 # List of tools available to the assistant
@@ -708,21 +551,18 @@ tools = [
     book_flight
 ]
 
-# Register project, task, and run with Entropy Labs
-entropy_labs_backend_url = "http://localhost:8080"
+# Initialize the OpenAI client
+client = OpenAI()
 
-# Entropy Labs backend needs to be running
-project_id = register_project(
-    project_name="Email Assistant",
-    entropy_labs_backend_url=entropy_labs_backend_url
-)
-task_id = register_task(project_id=project_id, task_name="Email Assistant")
-run_id = create_run(project_id=project_id, task_id=task_id, tools=tools)
+# Important! For this to work, Asteroid server needs to be running, contact Asteroid to get access
+run_id = asteroid_init(project_name="Email Assistant")
+# When you wrap the client, all supervised functions will be registered
+wrapped_client = asteroid_openai_client(client, run_id)
 
 # Start the chatbot
-start_chatbot(start_prompt, tools, run_id)
+start_chatbot(start_prompt, tools, run_id, wrapped_client)
 
-
+asteroid_end(run_id)
 # In the web browser, you should see the supervisors in action at http://localhost:3000/.
 # 1. Click on Projects
 # 2. Click on the View Project button for "Email Assistant"
@@ -741,4 +581,4 @@ start_chatbot(start_prompt, tools, run_id)
 
 # # Conclusion
 # 
-# In this notebook, we've demonstrated how to create basic AI assistant with calendar event creation, email sending, and flight booking with supervised tool executions using Entropy Labs Supervisors. By defining custom supervisors and utilizing built-in ones, we can ensure that tool calls conform to specified policies, enhancing the safety and reliability of AI assistants.
+# In this notebook, we've demonstrated how to create basic AI assistant with calendar event creation, email sending, and flight booking with supervised tool executions using Asteroid Supervisors. By defining custom supervisors and utilizing built-in ones, we can ensure that tool calls conform to specified policies, enhancing the safety and reliability of AI assistants.

@@ -1,5 +1,5 @@
-# Sentinel Web
-This is a React app that provides a UI for interacting with the Sentinel server. 
+# Asteroid Web
+This is a React app that provides a UI for interacting with the Asteroid server. 
 
 Currently, the frontend supports:
 - Reviewing requests made to the Human-in-the-loop Supervisor 

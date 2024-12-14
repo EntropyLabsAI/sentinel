@@ -1,11 +1,21 @@
-import { Message, MessageType } from "@/types";
+import { AsteroidMessage, MessageType } from "@/types";
 import React, { useRef, useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { MessagesSquareIcon } from "lucide-react";
+import { Key, MessagesSquareIcon } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
-export function MessagesDisplay({ messages }: { messages: Message[] }) {
+// Props
+interface MessagesDisplayProps {
+  expanded: boolean;
+  messages: AsteroidMessage[];
+  onToolCallClick: (toolCallId: string) => void;
+  selectedToolCallId?: string;
+}
+
+export function MessagesDisplay({ expanded, messages, onToolCallClick, selectedToolCallId }: MessagesDisplayProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -13,21 +23,24 @@ export function MessagesDisplay({ messages }: { messages: Message[] }) {
     setIsLoaded(true);
   }, []);
 
-  useEffect(() => {
-    if (isLoaded && scrollAreaRef.current) {
-      setTimeout(() => {
-        if (scrollAreaRef.current) {
-          scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
-        }
-      }, 100);
-    }
-  }, [messages, isLoaded]);
+  // useEffect(() => {
+  //   if (isLoaded && scrollAreaRef.current) {
+  //     setTimeout(() => {
+  //       if (scrollAreaRef.current) {
+  //         scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+  //       }
+  //     }, 100);
+  //   }
+  // }, [messages, isLoaded]);
+
+  // If the selectedToolCallId is set, highlight the tool call in the messages
+  const highlightedToolCallId = selectedToolCallId ? selectedToolCallId : undefined;
 
   return (
-    <Accordion type="single" collapsible className="w-full">
+    <Accordion type="single" collapsible className="w-full" defaultValue={expanded ? "messages" : undefined}>
       <AccordionItem value="messages" className="border border-gray-200 rounded-md">
         <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
-          <div className="flex flex-row gap-4">
+          <div className="flex flex-row gap-4 items-center">
             <MessagesSquareIcon className="w-4 h-4" />
             Messages
           </div>
@@ -37,7 +50,13 @@ export function MessagesDisplay({ messages }: { messages: Message[] }) {
             <CardContent>
               <div className="max-h-[1000px] overflow-y-auto" ref={scrollAreaRef}>
                 {messages.map((message, index) => (
-                  <MessageDisplay key={index} message={message} index={index} />
+                  <MessageDisplay
+                    key={`${index}-${highlightedToolCallId}`}
+                    message={message}
+                    index={index}
+                    highlightedToolCallId={highlightedToolCallId}
+                    onToolCallClick={onToolCallClick}
+                  />
                 ))}
               </div>
             </CardContent>
@@ -49,11 +68,13 @@ export function MessagesDisplay({ messages }: { messages: Message[] }) {
 }
 
 interface MessageDisplayProps {
-  message: Message;
+  message: AsteroidMessage;
   index: number;
+  highlightedToolCallId?: string;
+  onToolCallClick: (toolCallId: string) => void;
 }
 
-export function MessageDisplay({ message, index }: MessageDisplayProps) {
+export function MessageDisplay({ message, index, highlightedToolCallId, onToolCallClick }: MessageDisplayProps) {
   const getBubbleStyle = (role: string) => {
     const baseStyle = "rounded-2xl p-3 mb-2 break-words";
     switch (role.toLowerCase()) {
@@ -63,30 +84,34 @@ export function MessageDisplay({ message, index }: MessageDisplayProps) {
         return `${baseStyle} bg-gray-200 text-gray-800`;
       case 'system':
         return `${baseStyle} bg-gray-300 text-gray-800 italic`;
+      case 'asteroid':
+        return `${baseStyle} bg-teal-800 text-white`;
       default:
         return `${baseStyle} bg-amber-400 text-white`;
-
     }
   };
 
+  console.log(message);
+
   return (
-    <div key={index} className={`flex flex-col ${message.role.toLowerCase() === 'user' ? 'items-end' : 'items-start'} mb-4 last:mb-0`}>
+    <div key={index} className={`flex flex-col ${message.role.toLowerCase() === 'user' ? 'items-end' : 'items-start'} mb-4 pr-4 last:mb-0`}>
       <div className={getBubbleStyle(message.role)}>
         <p className="text-sm font-semibold mb-1">{message.role}</p>
         <MessageTypeDisplay message={message} />
-        {message.source && (
-          <p className="text-xs opacity-70 mt-1">Source: {message.source}</p>
-        )}
-        {message.tool_calls && (
+        {message.tool_calls && message.tool_calls.length > 0 && (
           <div className="mt-2">
-            <p className="text-xs font-semibold">Tool Calls:</p>
-            <code>
+            <p className="text-xs font-semibold">{message.tool_calls.length} tool call{message.tool_calls.length === 1 ? "" : "s"} in this message</p>
+            <div className="flex flex-wrap mt-2">
               {message.tool_calls.map((toolCall, idx) => (
-                <div key={idx} className="ml-2 text-xs">
-                  <span className="font-semibold">{toolCall.function}:</span> {JSON.stringify(toolCall.arguments)}
-                </div>
+                <Badge
+                  key={`${index}-${idx}`}
+                  className={cn(`mr-2 mb-2 cursor-pointer`, highlightedToolCallId === toolCall.call_id ? "bg-teal-100 text-teal-800" : "bg-gray-100 text-gray-800")}
+                  onClick={() => onToolCallClick(toolCall.call_id || '')}
+                >
+                  {toolCall.name || 'No name provided'}
+                </Badge>
               ))}
-            </code>
+            </div>
           </div>
         )}
       </div>
@@ -94,16 +119,46 @@ export function MessageDisplay({ message, index }: MessageDisplayProps) {
   )
 }
 
-const MessageTypeDisplay = ({ message }: { message: Message }) => {
+const MessageTypeDisplay = ({ message }: { message: AsteroidMessage }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const MAX_CHARS = 1000;
+
   if (!message.type) {
     return null;
   }
 
   const formatContent = (content: string) => {
-    // Split the content by newlines and wrap each line in a <p> tag
-    return content.split('\n').map((line, index) => (
-      <p key={index} className="whitespace-pre-wrap">{line}</p>
-    ));
+    if (message.type === MessageType.text && content.length > MAX_CHARS && !isExpanded) {
+      // Show truncated content with "Show More" button
+      return (
+        <>
+          <p className="whitespace-pre-wrap">
+            {content.slice(0, MAX_CHARS)}...
+          </p>
+          <button
+            onClick={() => setIsExpanded(true)}
+            className="text-sm underline mt-1 opacity-80 hover:opacity-100"
+          >
+            Show More
+          </button>
+        </>
+      );
+    }
+
+    // Show full content with "Show Less" button if expanded
+    return (
+      <>
+        <p className="whitespace-pre-wrap">{content}</p>
+        {message.type === MessageType.text && content.length > MAX_CHARS && (
+          <button
+            onClick={() => setIsExpanded(false)}
+            className="text-sm underline mt-2 opacity-80 hover:opacity-100"
+          >
+            Show Less
+          </button>
+        )}
+      </>
+    );
   };
 
   switch (message.type) {

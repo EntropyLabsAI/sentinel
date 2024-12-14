@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	sentinel "github.com/entropylabsai/sentinel/server"
+	asteroid "github.com/asteroidai/asteroid/server"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
@@ -18,8 +18,8 @@ type PostgresqlStore struct {
 	db *sql.DB
 }
 
-// Check if PostgresqlStore implements sentinel.Store
-var _ sentinel.Store = &PostgresqlStore{}
+// Check if PostgresqlStore implements asteroid.Store
+var _ asteroid.Store = &PostgresqlStore{}
 
 // NewPostgresqlStore creates a new PostgreSQL store
 func NewPostgresqlStore(connStr string) (*PostgresqlStore, error) {
@@ -41,7 +41,7 @@ func (s *PostgresqlStore) Close() error {
 }
 
 // ProjectStore implementation
-func (s *PostgresqlStore) CreateProject(ctx context.Context, project sentinel.Project) error {
+func (s *PostgresqlStore) CreateProject(ctx context.Context, project asteroid.Project) error {
 	query := `
 		INSERT INTO project (id, name, created_at, run_result_tags)
 		VALUES ($1, $2, $3, $4)`
@@ -54,13 +54,13 @@ func (s *PostgresqlStore) CreateProject(ctx context.Context, project sentinel.Pr
 	return nil
 }
 
-func (s *PostgresqlStore) GetProject(ctx context.Context, id uuid.UUID) (*sentinel.Project, error) {
+func (s *PostgresqlStore) GetProject(ctx context.Context, id uuid.UUID) (*asteroid.Project, error) {
 	query := `
 		SELECT id, name, created_at, run_result_tags
 		FROM project
 		WHERE id = $1`
 
-	var project sentinel.Project
+	var project asteroid.Project
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&project.Id,
 		&project.Name,
@@ -77,13 +77,13 @@ func (s *PostgresqlStore) GetProject(ctx context.Context, id uuid.UUID) (*sentin
 	return &project, nil
 }
 
-func (s *PostgresqlStore) GetProjectFromName(ctx context.Context, name string) (*sentinel.Project, error) {
+func (s *PostgresqlStore) GetProjectFromName(ctx context.Context, name string) (*asteroid.Project, error) {
 	query := `
 		SELECT id, name, created_at, run_result_tags
 		FROM project
 		WHERE name = $1`
 
-	var project sentinel.Project
+	var project asteroid.Project
 	err := s.db.QueryRowContext(ctx, query, name).Scan(
 		&project.Id,
 		&project.Name,
@@ -100,7 +100,46 @@ func (s *PostgresqlStore) GetProjectFromName(ctx context.Context, name string) (
 	return &project, nil
 }
 
-func (s *PostgresqlStore) GetToolFromValues(ctx context.Context, attributes map[string]interface{}, name string, description string, ignoredAttributes []string, code string) (*sentinel.Tool, error) {
+func (s *PostgresqlStore) GetToolFromNameAndRunId(ctx context.Context, name string, runId uuid.UUID) (*asteroid.Tool, error) {
+	query := `
+		SELECT id, name, description, attributes, ignored_attributes, code
+		FROM tool
+		WHERE name = $1
+		AND run_id = $2`
+
+	var tool asteroid.Tool
+	var attributesJSON []byte
+	var toolIgnoredAttributes []string
+	err := s.db.QueryRowContext(ctx, query, name, runId).Scan(
+		&tool.Id,
+		&tool.Name,
+		&tool.Description,
+		&attributesJSON,
+		pq.Array(&toolIgnoredAttributes),
+		&tool.Code,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error getting tool from name: %w", err)
+	}
+
+	// Parse the JSON attributes if they exist
+	if len(attributesJSON) > 0 {
+		var attrs map[string]interface{}
+		if err := json.Unmarshal(attributesJSON, &attrs); err != nil {
+			return nil, fmt.Errorf("error parsing tool attributes: %w", err)
+		}
+		tool.Attributes = attrs
+	}
+
+	tool.IgnoredAttributes = &toolIgnoredAttributes
+
+	return &tool, nil
+}
+
+func (s *PostgresqlStore) GetToolFromValues(ctx context.Context, attributes map[string]interface{}, name string, description string, ignoredAttributes []string, code string) (*asteroid.Tool, error) {
 	query := `
 		SELECT id, name, description, attributes, ignored_attributes, code
 		FROM tool
@@ -114,7 +153,7 @@ func (s *PostgresqlStore) GetToolFromValues(ctx context.Context, attributes map[
 		return nil, fmt.Errorf("error marshalling attributes: %w", err)
 	}
 
-	var tool sentinel.Tool
+	var tool asteroid.Tool
 	var attributesJSON []byte
 	var toolIgnoredAttributes []string
 	err = s.db.QueryRowContext(ctx, query, name, description, attrJSON, pq.Array(ignoredAttributes)).Scan(
@@ -150,9 +189,9 @@ func (s *PostgresqlStore) GetSupervisorFromValues(
 	code string,
 	name string,
 	desc string,
-	t sentinel.SupervisorType,
+	t asteroid.SupervisorType,
 	attributes map[string]interface{},
-) (*sentinel.Supervisor, error) {
+) (*asteroid.Supervisor, error) {
 	query := `
 		SELECT id, code, name, description, type, created_at
 		FROM supervisor
@@ -167,7 +206,7 @@ func (s *PostgresqlStore) GetSupervisorFromValues(
 		return nil, fmt.Errorf("error marshalling attributes: %w", err)
 	}
 
-	var supervisor sentinel.Supervisor
+	var supervisor asteroid.Supervisor
 	err = s.db.QueryRowContext(
 		ctx, query, code, name, desc, t, attrJSON,
 	).Scan(
@@ -186,7 +225,7 @@ func (s *PostgresqlStore) GetSupervisorFromValues(
 	return &supervisor, nil
 }
 
-func (s *PostgresqlStore) GetProjects(ctx context.Context) ([]sentinel.Project, error) {
+func (s *PostgresqlStore) GetProjects(ctx context.Context) ([]asteroid.Project, error) {
 	query := `
 		SELECT id, name, created_at, run_result_tags
 		FROM project
@@ -198,9 +237,9 @@ func (s *PostgresqlStore) GetProjects(ctx context.Context) ([]sentinel.Project, 
 	}
 	defer rows.Close()
 
-	projects := make([]sentinel.Project, 0)
+	projects := make([]asteroid.Project, 0)
 	for rows.Next() {
-		var project sentinel.Project
+		var project asteroid.Project
 		if err := rows.Scan(
 			&project.Id,
 			&project.Name,
@@ -215,7 +254,7 @@ func (s *PostgresqlStore) GetProjects(ctx context.Context) ([]sentinel.Project, 
 	return projects, nil
 }
 
-func (s *PostgresqlStore) GetRuns(ctx context.Context, taskId uuid.UUID) ([]sentinel.Run, error) {
+func (s *PostgresqlStore) GetRuns(ctx context.Context, taskId uuid.UUID) ([]asteroid.Run, error) {
 	query := `
 		SELECT id, task_id, created_at, status, result
 		FROM run
@@ -227,9 +266,9 @@ func (s *PostgresqlStore) GetRuns(ctx context.Context, taskId uuid.UUID) ([]sent
 	}
 	defer rows.Close()
 
-	var runs []sentinel.Run
+	var runs []asteroid.Run
 	for rows.Next() {
-		var run sentinel.Run
+		var run asteroid.Run
 		if err := rows.Scan(&run.Id, &run.TaskId, &run.CreatedAt, &run.Status, &run.Result); err != nil {
 			return nil, fmt.Errorf("error scanning run: %w", err)
 		}
@@ -240,7 +279,7 @@ func (s *PostgresqlStore) GetRuns(ctx context.Context, taskId uuid.UUID) ([]sent
 	return runs, nil
 }
 
-func (s *PostgresqlStore) GetTaskRuns(ctx context.Context, taskId uuid.UUID) ([]sentinel.Run, error) {
+func (s *PostgresqlStore) GetTaskRuns(ctx context.Context, taskId uuid.UUID) ([]asteroid.Run, error) {
 	query := `
 		SELECT id, task_id, created_at, status, result
 		FROM run
@@ -252,9 +291,9 @@ func (s *PostgresqlStore) GetTaskRuns(ctx context.Context, taskId uuid.UUID) ([]
 	}
 	defer rows.Close()
 
-	runs := make([]sentinel.Run, 0)
+	runs := make([]asteroid.Run, 0)
 	for rows.Next() {
-		var run sentinel.Run
+		var run asteroid.Run
 		if err := rows.Scan(&run.Id, &run.TaskId, &run.CreatedAt, &run.Status, &run.Result); err != nil {
 			return nil, fmt.Errorf("error scanning run: %w", err)
 		}
@@ -289,7 +328,7 @@ func (s *PostgresqlStore) getChainsForTool(ctx context.Context, toolId uuid.UUID
 	return chainIds, nil
 }
 
-func (s *PostgresqlStore) CreateSupervisorChain(ctx context.Context, toolId uuid.UUID, chain sentinel.ChainRequest) (*uuid.UUID, error) {
+func (s *PostgresqlStore) CreateSupervisorChain(ctx context.Context, toolId uuid.UUID, chain asteroid.ChainRequest) (*uuid.UUID, error) {
 	ids := *chain.SupervisorIds
 	if ids == nil {
 		return nil, fmt.Errorf("supervisor IDs are required to make a chain of supervisors")
@@ -343,7 +382,7 @@ func (s *PostgresqlStore) CreateSupervisorChain(ctx context.Context, toolId uuid
 	return &chainId, nil
 }
 
-func (s *PostgresqlStore) GetSupervisorChain(ctx context.Context, chainId uuid.UUID) (*sentinel.SupervisorChain, error) {
+func (s *PostgresqlStore) GetSupervisorChain(ctx context.Context, chainId uuid.UUID) (*asteroid.SupervisorChain, error) {
 	// Order by the position column in chain_supervisor table
 	query := `
 		SELECT s.id, s.name, s.description, s.type, s.attributes, s.created_at, s.code
@@ -358,11 +397,11 @@ func (s *PostgresqlStore) GetSupervisorChain(ctx context.Context, chainId uuid.U
 	}
 	defer rows.Close()
 
-	supervisors := make([]sentinel.Supervisor, 0)
+	supervisors := make([]asteroid.Supervisor, 0)
 	for rows.Next() {
 		// Parse out the attributes bytes into json
 		var attributesJSON []byte
-		var supervisor sentinel.Supervisor
+		var supervisor asteroid.Supervisor
 		if err := rows.Scan(
 			&supervisor.Id,
 			&supervisor.Name,
@@ -387,19 +426,19 @@ func (s *PostgresqlStore) GetSupervisorChain(ctx context.Context, chainId uuid.U
 		supervisors = append(supervisors, supervisor)
 	}
 
-	return &sentinel.SupervisorChain{
+	return &asteroid.SupervisorChain{
 		ChainId:     chainId,
 		Supervisors: supervisors,
 	}, nil
 }
 
-func (s *PostgresqlStore) GetSupervisorChains(ctx context.Context, toolId uuid.UUID) ([]sentinel.SupervisorChain, error) {
+func (s *PostgresqlStore) GetSupervisorChains(ctx context.Context, toolId uuid.UUID) ([]asteroid.SupervisorChain, error) {
 	chainIds, err := s.getChainsForTool(ctx, toolId)
 	if err != nil {
 		return nil, fmt.Errorf("error getting chains for tool: %w", err)
 	}
 
-	chains := make([]sentinel.SupervisorChain, 0)
+	chains := make([]asteroid.SupervisorChain, 0)
 	for _, chainId := range chainIds {
 		chain, err := s.GetSupervisorChain(ctx, chainId)
 		if err != nil {
@@ -411,65 +450,20 @@ func (s *PostgresqlStore) GetSupervisorChains(ctx context.Context, toolId uuid.U
 	return chains, nil
 }
 
-func (s *PostgresqlStore) CreateToolRequestGroup(ctx context.Context, toolId uuid.UUID, request sentinel.ToolRequestGroup) (*sentinel.ToolRequestGroup, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error starting transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	groupId := uuid.New()
-	trg := sentinel.ToolRequestGroup{
-		Id:           &groupId,
-		ToolRequests: make([]sentinel.ToolRequest, 0, len(request.ToolRequests)),
-	}
-
-	// Create a new requestgroup
+func (s *PostgresqlStore) GetToolCallFromCallId(ctx context.Context, id string) (*asteroid.AsteroidToolCall, error) {
 	query := `
-		INSERT INTO requestgroup (id)
-		VALUES ($1)`
-	_, err = tx.ExecContext(ctx, query, groupId)
-	if err != nil {
-		return nil, fmt.Errorf("error creating requestgroup: %w", err)
-	}
+		SELECT id, call_id, created_at, tool_id, tool_call_data
+		FROM toolcall
+		WHERE call_id = $1`
 
-	// For each tool request, create a tool request
-	for _, toolRequest := range request.ToolRequests {
-		id := uuid.New()
-		toolRequest.Id = &id
-		toolRequest.RequestgroupId = &groupId
-		err = s.createToolRequest(ctx, tx, toolRequest)
-		if err != nil {
-			return nil, fmt.Errorf("error creating tool request: %w", err)
-		}
-		trg.ToolRequests = append(trg.ToolRequests, toolRequest)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("error committing transaction: %w", err)
-	}
-
-	return &trg, nil
-}
-
-func (s *PostgresqlStore) GetToolRequest(ctx context.Context, id uuid.UUID) (*sentinel.ToolRequest, error) {
-	query := `
-		SELECT tr.id, tr.tool_id, m.role, m.content, tr.arguments, tr.task_state, tr.requestgroup_id
-		FROM toolrequest tr 
-		INNER JOIN message m ON tr.message_id = m.id
-		WHERE tr.id = $1`
-
-	var toolRequest sentinel.ToolRequest
-	var taskStateJSON []byte
-	var argumentsJSON []byte
+	var toolCall asteroid.AsteroidToolCall
+	var toolCallDataJSON []byte
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
-		&toolRequest.Id,
-		&toolRequest.ToolId,
-		&toolRequest.Message.Role,
-		&toolRequest.Message.Content,
-		&argumentsJSON,
-		&taskStateJSON,
-		&toolRequest.RequestgroupId,
+		&toolCall.Id,
+		&toolCall.CallId,
+		&toolCall.CreatedAt,
+		&toolCall.ToolId,
+		&toolCallDataJSON,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -478,30 +472,48 @@ func (s *PostgresqlStore) GetToolRequest(ctx context.Context, id uuid.UUID) (*se
 		return nil, fmt.Errorf("error getting tool request: %w", err)
 	}
 
-	// Parse the arguments JSON if it exists
-	if len(argumentsJSON) > 0 {
-		if err := json.Unmarshal(argumentsJSON, &toolRequest.Arguments); err != nil {
-			return nil, fmt.Errorf("error parsing tool request arguments: %w", err)
-		}
-	}
+	args := string(toolCallDataJSON)
+	toolCall.Arguments = &args
+	toolCall.CallId = &id
 
-	// Parse the task state JSON if it exists
-	if len(taskStateJSON) > 0 {
-		if err := json.Unmarshal(taskStateJSON, &toolRequest.TaskState); err != nil {
-			return nil, fmt.Errorf("error parsing tool request task state: %w", err)
-		}
-	}
-
-	return &toolRequest, nil
+	return &toolCall, nil
 }
 
-func (s *PostgresqlStore) GetChainExecutionsFromRequestGroup(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {
+func (s *PostgresqlStore) GetToolCall(ctx context.Context, id uuid.UUID) (*asteroid.AsteroidToolCall, error) {
 	query := `
-			SELECT id FROM chainexecution WHERE requestgroup_id = $1`
+		SELECT id, call_id, created_at, tool_id, tool_call_data
+		FROM toolcall
+		WHERE id = $1`
+
+	var toolCall asteroid.AsteroidToolCall
+	var toolCallDataJSON []byte
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
+		&toolCall.Id,
+		&toolCall.CallId,
+		&toolCall.CreatedAt,
+		&toolCall.ToolId,
+		&toolCallDataJSON,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error getting tool request: %w", err)
+	}
+
+	args := string(toolCallDataJSON)
+	toolCall.Arguments = &args
+
+	return &toolCall, nil
+}
+
+func (s *PostgresqlStore) GetChainExecutionsFromToolCall(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {
+	query := `
+			SELECT id FROM chainexecution WHERE toolcall_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, query, id)
 	if err != nil {
-		return nil, fmt.Errorf("error getting chain executions from requestgroup ID: %w", err)
+		return nil, fmt.Errorf("error getting chain executions from tool call ID: %w", err)
 	}
 	defer rows.Close()
 
@@ -517,111 +529,6 @@ func (s *PostgresqlStore) GetChainExecutionsFromRequestGroup(ctx context.Context
 	}
 
 	return ids, nil
-}
-
-func (s *PostgresqlStore) GetRequestGroup(ctx context.Context, id uuid.UUID, includeArgs bool) (*sentinel.ToolRequestGroup, error) {
-	// Sometimes we don't need the arguments, and loading them kills performance on large runs
-	var query string
-	if includeArgs {
-		query = `
-			SELECT tr.id, tr.tool_id, tr.arguments, tr.task_state, tr.requestgroup_id, m.role, m.content, rg.created_at
-			FROM toolrequest tr
-			INNER JOIN message m ON tr.message_id = m.id
-			INNER JOIN requestgroup rg ON tr.requestgroup_id = rg.id
-			WHERE tr.requestgroup_id = $1`
-	} else {
-		query = `
-			SELECT tr.id, tr.tool_id, NULL as arguments, tr.task_state, tr.requestgroup_id, m.role, m.content, rg.created_at
-			FROM toolrequest tr
-			INNER JOIN message m ON tr.message_id = m.id
-			INNER JOIN requestgroup rg ON tr.requestgroup_id = rg.id
-			WHERE tr.requestgroup_id = $1`
-	}
-
-	var createdAt time.Time
-	toolRequestGroup := sentinel.ToolRequestGroup{
-		Id:           &id,
-		CreatedAt:    &createdAt,
-		ToolRequests: make([]sentinel.ToolRequest, 0),
-	}
-
-	rows, err := s.db.QueryContext(ctx, query, id)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("error getting request group: %w", err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var toolRequest sentinel.ToolRequest
-		var taskStateJSON []byte
-		var argumentsJSON []byte
-		if err := rows.Scan(
-			&toolRequest.Id,
-			&toolRequest.ToolId,
-			&argumentsJSON,
-			&taskStateJSON,
-			&toolRequest.RequestgroupId,
-			&toolRequest.Message.Role,
-			&toolRequest.Message.Content,
-			&createdAt,
-		); err != nil {
-			return nil, fmt.Errorf("error scanning tool request: %w", err)
-		}
-
-		// Parse the task state JSON if it exists
-		if len(taskStateJSON) > 0 {
-			if err := json.Unmarshal(taskStateJSON, &toolRequest.TaskState); err != nil {
-				return nil, fmt.Errorf("error parsing task state: %w", err)
-			}
-		}
-
-		// Parse the arguments JSON if it exists
-		if len(argumentsJSON) > 0 {
-			if err := json.Unmarshal(argumentsJSON, &toolRequest.Arguments); err != nil {
-				return nil, fmt.Errorf("error parsing tool request arguments: %w", err)
-			}
-		}
-
-		toolRequestGroup.ToolRequests = append(toolRequestGroup.ToolRequests, toolRequest)
-	}
-
-	return &toolRequestGroup, nil
-}
-
-func (s *PostgresqlStore) GetRunRequestGroups(ctx context.Context, runId uuid.UUID, withToolRequestArgs bool) ([]sentinel.ToolRequestGroup, error) {
-	// First get all of the tool request groups for the run by linking through the tool request table to the run table
-	query := `
-		SELECT rg.id
-		FROM requestgroup rg
-		INNER JOIN toolrequest tr ON rg.id = tr.requestgroup_id
-		INNER JOIN tool t ON tr.tool_id = t.id
-		WHERE t.run_id = $1`
-
-	rows, err := s.db.QueryContext(ctx, query, runId)
-	if err != nil {
-		return nil, fmt.Errorf("error getting run request groups: %w", err)
-	}
-	defer rows.Close()
-
-	requestGroups := make([]sentinel.ToolRequestGroup, 0)
-	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
-			return nil, fmt.Errorf("error scanning request group: %w", err)
-		}
-
-		requestGroup, err := s.GetRequestGroup(ctx, id, withToolRequestArgs)
-		if err != nil {
-			return nil, fmt.Errorf("error getting request group: %w", err)
-		}
-
-		requestGroups = append(requestGroups, *requestGroup)
-	}
-
-	return requestGroups, nil
 }
 
 func (s *PostgresqlStore) GetExecutionFromChainId(ctx context.Context, chainId uuid.UUID) (*uuid.UUID, error) {
@@ -645,15 +552,15 @@ func (s *PostgresqlStore) GetExecutionFromChainId(ctx context.Context, chainId u
 func (s *PostgresqlStore) createChainExecution(
 	ctx context.Context,
 	chainId uuid.UUID,
-	requestGroupId uuid.UUID,
+	toolCallId uuid.UUID,
 	tx *sql.Tx,
 ) (*uuid.UUID, error) {
 	query := `
-		INSERT INTO chainexecution (id, chain_id, requestgroup_id)
+		INSERT INTO chainexecution (id, chain_id, toolcall_id)
 		VALUES ($1, $2, $3)`
 
 	id := uuid.New()
-	_, err := tx.ExecContext(ctx, query, id, chainId, requestGroupId)
+	_, err := tx.ExecContext(ctx, query, id, chainId, toolCallId)
 	if err != nil {
 		return nil, fmt.Errorf("error creating chain execution: %w", err)
 	}
@@ -663,9 +570,9 @@ func (s *PostgresqlStore) createChainExecution(
 
 func (s *PostgresqlStore) CreateSupervisionRequest(
 	ctx context.Context,
-	request sentinel.SupervisionRequest,
+	request asteroid.SupervisionRequest,
 	chainId uuid.UUID,
-	requestGroupId uuid.UUID,
+	toolCallId uuid.UUID,
 ) (*uuid.UUID, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -676,7 +583,7 @@ func (s *PostgresqlStore) CreateSupervisionRequest(
 	// Sanity check that we're recording this against a valid chain execution group that already exists
 	if request.ChainexecutionId == nil && request.PositionInChain == 0 {
 		// Create a new chain execution for the first supervisor in the chain
-		ceId, err := s.createChainExecution(ctx, chainId, requestGroupId, tx)
+		ceId, err := s.createChainExecution(ctx, chainId, toolCallId, tx)
 		if err != nil {
 			return nil, fmt.Errorf("error creating chain execution: %w", err)
 		}
@@ -698,8 +605,8 @@ func (s *PostgresqlStore) CreateSupervisionRequest(
 		return nil, fmt.Errorf("error creating supervision request: %w", err)
 	}
 
-	status := sentinel.SupervisionStatus{
-		Status:    sentinel.Pending,
+	status := asteroid.SupervisionStatus{
+		Status:    asteroid.Pending,
 		CreatedAt: time.Now(),
 	}
 
@@ -717,86 +624,7 @@ func (s *PostgresqlStore) CreateSupervisionRequest(
 	return &requestID, nil
 }
 
-func (s *PostgresqlStore) createMessage(ctx context.Context, tx *sql.Tx, message sentinel.Message) (*uuid.UUID, error) {
-	query := `
-		INSERT INTO message (id, role, content, type)
-		VALUES ($1, $2, $3, $4)`
-
-	id := uuid.New()
-	_, err := tx.ExecContext(ctx, query, id, message.Role, message.Content, message.Type)
-	if err != nil {
-		return nil, fmt.Errorf("error creating message: %w", err)
-	}
-
-	return &id, nil
-}
-
-// CreateToolRequest
-func (s *PostgresqlStore) CreateToolRequest(ctx context.Context, requestGroupId uuid.UUID, request sentinel.ToolRequest) (*uuid.UUID, error) {
-	if requestGroupId == uuid.Nil {
-		return nil, fmt.Errorf("request group ID is required")
-	}
-
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error starting transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	if request.RequestgroupId == nil {
-		request.RequestgroupId = &requestGroupId
-	}
-
-	if request.Id == nil {
-		id := uuid.New()
-		request.Id = &id
-	}
-
-	err = s.createToolRequest(ctx, tx, request)
-	if err != nil {
-		return nil, fmt.Errorf("error creating tool request: %w", err)
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return nil, fmt.Errorf("error committing transaction: %w", err)
-	}
-
-	return request.Id, nil
-}
-
-func (s *PostgresqlStore) createToolRequest(ctx context.Context, tx *sql.Tx, request sentinel.ToolRequest) error {
-
-	query := `
-		INSERT INTO toolrequest (id, tool_id, message_id, arguments, task_state, requestgroup_id)
-		VALUES ($1, $2, $3, $4, $5, $6)`
-
-	messageID, err := s.createMessage(ctx, tx, request.Message)
-	if err != nil {
-		return fmt.Errorf("error creating message: %w", err)
-	}
-
-	taskStateJSON, err := json.Marshal(request.TaskState)
-	if err != nil {
-		return fmt.Errorf("error marshalling task state: %w", err)
-	}
-
-	argumentsJSON, err := json.Marshal(request.Arguments)
-	if err != nil {
-		return fmt.Errorf("error marshalling tool request arguments: %w", err)
-	}
-
-	_, err = tx.ExecContext(
-		ctx, query, request.Id, request.ToolId, messageID, argumentsJSON, taskStateJSON, request.RequestgroupId,
-	)
-	if err != nil {
-		return fmt.Errorf("error creating tool request: %w", err)
-	}
-
-	return nil
-}
-
-func (s *PostgresqlStore) CreateSupervisionStatus(ctx context.Context, requestID uuid.UUID, status sentinel.SupervisionStatus) error {
+func (s *PostgresqlStore) CreateSupervisionStatus(ctx context.Context, requestID uuid.UUID, status asteroid.SupervisionStatus) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("error starting transaction: %w", err)
@@ -816,7 +644,7 @@ func (s *PostgresqlStore) CreateSupervisionStatus(ctx context.Context, requestID
 	return nil
 }
 
-func (s *PostgresqlStore) createSupervisionStatus(ctx context.Context, requestID uuid.UUID, status sentinel.SupervisionStatus, tx *sql.Tx) error {
+func (s *PostgresqlStore) createSupervisionStatus(ctx context.Context, requestID uuid.UUID, status asteroid.SupervisionStatus, tx *sql.Tx) error {
 	query := `
 		INSERT INTO supervisionrequest_status (supervisionrequest_id, status, created_at)
 		VALUES ($1, $2, $3)`
@@ -829,13 +657,13 @@ func (s *PostgresqlStore) createSupervisionStatus(ctx context.Context, requestID
 	return nil
 }
 
-func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*sentinel.Tool, error) {
+func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*asteroid.Tool, error) {
 	query := `
 		SELECT id, run_id, name, description, attributes, ignored_attributes, code
 		FROM tool
 		WHERE id = $1`
 
-	var tool sentinel.Tool
+	var tool asteroid.Tool
 	var attributesJSON []byte
 	var ignoredAttributes []string
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
@@ -867,9 +695,12 @@ func (s *PostgresqlStore) GetTool(ctx context.Context, id uuid.UUID) (*sentinel.
 	return &tool, nil
 }
 
-func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UUID) ([]sentinel.Tool, error) {
+func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UUID) ([]asteroid.Tool, error) {
 	query := `
-		SELECT id FROM run WHERE project_id = $1`
+		SELECT DISTINCT r.id
+		FROM run r
+		INNER JOIN task t ON t.id = r.task_id
+		WHERE t.project_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, query, projectId)
 	if err != nil {
@@ -877,7 +708,7 @@ func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UU
 	}
 	defer rows.Close()
 
-	tools := make([]sentinel.Tool, 0)
+	tools := make([]asteroid.Tool, 0)
 	for rows.Next() {
 		var id uuid.UUID
 		if err := rows.Scan(
@@ -897,7 +728,7 @@ func (s *PostgresqlStore) GetProjectTools(ctx context.Context, projectId uuid.UU
 	return tools, nil
 }
 
-func (s *PostgresqlStore) GetProjectTasks(ctx context.Context, projectId uuid.UUID) ([]sentinel.Task, error) {
+func (s *PostgresqlStore) GetProjectTasks(ctx context.Context, projectId uuid.UUID) ([]asteroid.Task, error) {
 	query := `
 		SELECT id, project_id, name, description, created_at
 		FROM task
@@ -909,9 +740,9 @@ func (s *PostgresqlStore) GetProjectTasks(ctx context.Context, projectId uuid.UU
 	}
 	defer rows.Close()
 
-	tasks := make([]sentinel.Task, 0)
+	tasks := make([]asteroid.Task, 0)
 	for rows.Next() {
-		var task sentinel.Task
+		var task asteroid.Task
 		if err := rows.Scan(&task.Id, &task.ProjectId, &task.Name, &task.Description, &task.CreatedAt); err != nil {
 			return nil, fmt.Errorf("error scanning task: %w", err)
 		}
@@ -922,7 +753,7 @@ func (s *PostgresqlStore) GetProjectTasks(ctx context.Context, projectId uuid.UU
 	return tasks, nil
 }
 
-func (s *PostgresqlStore) CountSupervisionRequests(ctx context.Context, status sentinel.Status) (int, error) {
+func (s *PostgresqlStore) CountSupervisionRequests(ctx context.Context, status asteroid.Status) (int, error) {
 	query := `
         SELECT COUNT(*)
         FROM (
@@ -947,7 +778,7 @@ func (s *PostgresqlStore) CountSupervisionRequests(ctx context.Context, status s
 	return count, nil
 }
 
-func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result sentinel.SupervisionResult, requestId uuid.UUID) (*uuid.UUID, error) {
+func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result asteroid.SupervisionResult, requestId uuid.UUID) (*uuid.UUID, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error starting transaction: %w", err)
@@ -955,7 +786,7 @@ func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result se
 	defer func() { _ = tx.Rollback() }()
 
 	query := `
-		INSERT INTO supervisionresult (id, supervisionrequest_id, created_at, decision, reasoning, chosen_toolrequest_id)
+		INSERT INTO supervisionresult (id, supervisionrequest_id, created_at, decision, reasoning, toolcall_id)
 		VALUES ($1, $2, $3, $4, $5, $6)`
 
 	id := uuid.New()
@@ -967,15 +798,15 @@ func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result se
 		result.CreatedAt,
 		result.Decision,
 		result.Reasoning,
-		result.ChosenToolrequestId,
+		result.ToolcallId,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error creating supervision result: %w", err)
 	}
 
 	// Create a supervisionrequest_status
-	err = s.createSupervisionStatus(ctx, requestId, sentinel.SupervisionStatus{
-		Status:    sentinel.Completed,
+	err = s.createSupervisionStatus(ctx, requestId, asteroid.SupervisionStatus{
+		Status:    asteroid.Completed,
 		CreatedAt: result.CreatedAt,
 	}, tx)
 	if err != nil {
@@ -990,7 +821,7 @@ func (s *PostgresqlStore) CreateSupervisionResult(ctx context.Context, result se
 	return &id, nil
 }
 
-func (s *PostgresqlStore) GetSupervisionRequestsForStatus(ctx context.Context, status sentinel.Status) ([]sentinel.SupervisionRequest, error) {
+func (s *PostgresqlStore) GetSupervisionRequestsForStatus(ctx context.Context, status asteroid.Status) ([]asteroid.SupervisionRequest, error) {
 	// Get IDs of supervision requests with the given status (excluding client supervisors)
 	query := `
 		SELECT sr.id
@@ -1004,7 +835,7 @@ func (s *PostgresqlStore) GetSupervisionRequestsForStatus(ctx context.Context, s
 		JOIN supervisionrequest_status srs ON srs.id = latest.latest_status_id
 		WHERE s.type != $1 AND srs.status = $2
 	`
-	rows, err := s.db.QueryContext(ctx, query, sentinel.ClientSupervisor, status)
+	rows, err := s.db.QueryContext(ctx, query, asteroid.ClientSupervisor, status)
 	if err != nil {
 		return nil, fmt.Errorf("error getting supervision request IDs: %w", err)
 	}
@@ -1025,7 +856,7 @@ func (s *PostgresqlStore) GetSupervisionRequestsForStatus(ctx context.Context, s
 	}
 
 	// Get full details for each supervision request
-	requests := make([]sentinel.SupervisionRequest, 0, len(requestIds))
+	requests := make([]asteroid.SupervisionRequest, 0, len(requestIds))
 	for _, id := range requestIds {
 		request, err := s.GetSupervisionRequest(ctx, id)
 		if err != nil {
@@ -1043,20 +874,20 @@ func (s *PostgresqlStore) GetSupervisionRequestsForStatus(ctx context.Context, s
 	return requests, nil
 }
 
-func (s *PostgresqlStore) GetSupervisionResultFromRequestID(ctx context.Context, requestId uuid.UUID) (*sentinel.SupervisionResult, error) {
+func (s *PostgresqlStore) GetSupervisionResultFromRequestID(ctx context.Context, requestId uuid.UUID) (*asteroid.SupervisionResult, error) {
 	query := `
-		SELECT id, supervisionrequest_id, created_at, decision, reasoning, chosen_toolrequest_id
+		SELECT id, supervisionrequest_id, created_at, decision, reasoning, toolcall_id
 		FROM supervisionresult
 		WHERE supervisionrequest_id = $1`
 
-	var result sentinel.SupervisionResult
+	var result asteroid.SupervisionResult
 	err := s.db.QueryRowContext(ctx, query, requestId).Scan(
 		&result.Id,
 		&result.SupervisionRequestId,
 		&result.CreatedAt,
 		&result.Decision,
 		&result.Reasoning,
-		&result.ChosenToolrequestId,
+		&result.ToolcallId,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -1068,13 +899,13 @@ func (s *PostgresqlStore) GetSupervisionResultFromRequestID(ctx context.Context,
 	return &result, nil
 }
 
-func (s *PostgresqlStore) GetSupervisionRequest(ctx context.Context, id uuid.UUID) (*sentinel.SupervisionRequest, error) {
+func (s *PostgresqlStore) GetSupervisionRequest(ctx context.Context, id uuid.UUID) (*asteroid.SupervisionRequest, error) {
 	query := `
 		SELECT id, supervisor_id, position_in_chain, chainexecution_id
 		FROM supervisionrequest
 		WHERE id = $1`
 
-	var request sentinel.SupervisionRequest
+	var request asteroid.SupervisionRequest
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&request.Id,
 		&request.SupervisorId,
@@ -1098,7 +929,7 @@ func (s *PostgresqlStore) GetSupervisionRequest(ctx context.Context, id uuid.UUI
 	return &request, nil
 }
 
-func (s *PostgresqlStore) CreateSupervisor(ctx context.Context, supervisor sentinel.Supervisor) (uuid.UUID, error) {
+func (s *PostgresqlStore) CreateSupervisor(ctx context.Context, supervisor asteroid.Supervisor) (uuid.UUID, error) {
 	// Try to find an existing supervisor with the same values
 	if existingSupervisor, err := s.GetSupervisorFromValues(
 		ctx, supervisor.Code, supervisor.Name, supervisor.Description, supervisor.Type, supervisor.Attributes,
@@ -1127,7 +958,7 @@ func (s *PostgresqlStore) CreateSupervisor(ctx context.Context, supervisor senti
 	return id, nil
 }
 
-func (s *PostgresqlStore) CreateTask(ctx context.Context, task sentinel.Task) (*uuid.UUID, error) {
+func (s *PostgresqlStore) CreateTask(ctx context.Context, task asteroid.Task) (*uuid.UUID, error) {
 	// First check if a task with the same values already exists
 	query := `
 		SELECT id 
@@ -1160,13 +991,13 @@ func (s *PostgresqlStore) CreateTask(ctx context.Context, task sentinel.Task) (*
 	return &id, nil
 }
 
-func (s *PostgresqlStore) GetTask(ctx context.Context, id uuid.UUID) (*sentinel.Task, error) {
+func (s *PostgresqlStore) GetTask(ctx context.Context, id uuid.UUID) (*asteroid.Task, error) {
 	query := `
 		SELECT id, project_id, name, description, created_at
 		FROM task
 		WHERE id = $1`
 
-	var task sentinel.Task
+	var task asteroid.Task
 	err := s.db.QueryRowContext(ctx, query, id).Scan(&task.Id, &task.ProjectId, &task.Name, &task.Description, &task.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -1177,7 +1008,7 @@ func (s *PostgresqlStore) GetTask(ctx context.Context, id uuid.UUID) (*sentinel.
 	return &task, nil
 }
 
-func (s *PostgresqlStore) CreateRun(ctx context.Context, run sentinel.Run) (uuid.UUID, error) {
+func (s *PostgresqlStore) CreateRun(ctx context.Context, run asteroid.Run) (uuid.UUID, error) {
 	// First check if the task exists
 	p, err := s.GetTask(ctx, run.TaskId)
 	if err != nil {
@@ -1193,7 +1024,7 @@ func (s *PostgresqlStore) CreateRun(ctx context.Context, run sentinel.Run) (uuid
 		INSERT INTO run (id, task_id, created_at, status)
 		VALUES ($1, $2, $3, $4)`
 
-	_, err = s.db.ExecContext(ctx, query, id, run.TaskId, run.CreatedAt, sentinel.Pending)
+	_, err = s.db.ExecContext(ctx, query, id, run.TaskId, run.CreatedAt, asteroid.Pending)
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("error creating run: %w", err)
 	}
@@ -1208,11 +1039,11 @@ func (s *PostgresqlStore) CreateTool(
 	description string,
 	ignoredAttributes []string,
 	code string,
-) (uuid.UUID, error) {
+) (*asteroid.Tool, error) {
 	// Convert attributes to JSON if it's not already
 	attributesJSON, err := json.Marshal(attributes)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("error marshaling tool attributes: %w", err)
+		return nil, fmt.Errorf("error marshaling tool attributes: %w", err)
 	}
 
 	if ignoredAttributes == nil {
@@ -1234,19 +1065,29 @@ func (s *PostgresqlStore) CreateTool(
 		code,
 	)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("error creating tool: %w", err)
+		return nil, fmt.Errorf("error creating tool: %w", err)
 	}
 
-	return id, nil
+	tool := asteroid.Tool{
+		Id:                &id,
+		RunId:             runId,
+		Name:              name,
+		Description:       description,
+		Attributes:        attributes,
+		IgnoredAttributes: &ignoredAttributes,
+		Code:              code,
+	}
+
+	return &tool, nil
 }
 
-func (s *PostgresqlStore) GetRun(ctx context.Context, id uuid.UUID) (*sentinel.Run, error) {
+func (s *PostgresqlStore) GetRun(ctx context.Context, id uuid.UUID) (*asteroid.Run, error) {
 	query := `
 		SELECT id, task_id, created_at, status, result
 		FROM run
 		WHERE id = $1`
 
-	var run sentinel.Run
+	var run asteroid.Run
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&run.Id,
 		&run.TaskId,
@@ -1264,7 +1105,7 @@ func (s *PostgresqlStore) GetRun(ctx context.Context, id uuid.UUID) (*sentinel.R
 	return &run, nil
 }
 
-func (s *PostgresqlStore) GetRunTools(ctx context.Context, runId uuid.UUID) ([]sentinel.Tool, error) {
+func (s *PostgresqlStore) GetRunTools(ctx context.Context, runId uuid.UUID) ([]asteroid.Tool, error) {
 	query := `
 		SELECT tool.id, tool.run_id, tool.name, tool.description, tool.attributes, COALESCE(tool.ignored_attributes, '{}') as ignored_attributes, tool.code
 		FROM tool 
@@ -1276,9 +1117,9 @@ func (s *PostgresqlStore) GetRunTools(ctx context.Context, runId uuid.UUID) ([]s
 	}
 	defer rows.Close()
 
-	tools := make([]sentinel.Tool, 0)
+	tools := make([]asteroid.Tool, 0)
 	for rows.Next() {
-		var tool sentinel.Tool
+		var tool asteroid.Tool
 		var attributesJSON []byte
 		var ignoredAttributes []string
 
@@ -1312,13 +1153,13 @@ func (s *PostgresqlStore) GetRunTools(ctx context.Context, runId uuid.UUID) ([]s
 	return tools, nil
 }
 
-func (s *PostgresqlStore) GetSupervisor(ctx context.Context, id uuid.UUID) (*sentinel.Supervisor, error) {
+func (s *PostgresqlStore) GetSupervisor(ctx context.Context, id uuid.UUID) (*asteroid.Supervisor, error) {
 	query := `
 		SELECT id, description, name, created_at, type, attributes
 		FROM supervisor
 		WHERE id = $1`
 
-	var supervisor sentinel.Supervisor
+	var supervisor asteroid.Supervisor
 	var attributesJSON []byte
 	err := s.db.QueryRowContext(ctx, query, id).Scan(&supervisor.Id, &supervisor.Description, &supervisor.Name, &supervisor.CreatedAt, &supervisor.Type, &attributesJSON)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -1338,7 +1179,7 @@ func (s *PostgresqlStore) GetSupervisor(ctx context.Context, id uuid.UUID) (*sen
 	return &supervisor, nil
 }
 
-func (s *PostgresqlStore) GetSupervisors(ctx context.Context, projectId uuid.UUID) ([]sentinel.Supervisor, error) {
+func (s *PostgresqlStore) GetSupervisors(ctx context.Context, projectId uuid.UUID) ([]asteroid.Supervisor, error) {
 	query := `
 		SELECT s.id, s.description, s.name, s.code, s.created_at, s.type, s.attributes
 		FROM supervisor s 
@@ -1359,9 +1200,9 @@ func (s *PostgresqlStore) GetSupervisors(ctx context.Context, projectId uuid.UUI
 	}
 	defer rows.Close()
 
-	supervisors := make([]sentinel.Supervisor, 0)
+	supervisors := make([]asteroid.Supervisor, 0)
 	for rows.Next() {
-		var supervisor sentinel.Supervisor
+		var supervisor asteroid.Supervisor
 		var attributesJSON []byte
 		if err := rows.Scan(
 			&supervisor.Id,
@@ -1388,7 +1229,7 @@ func (s *PostgresqlStore) GetSupervisors(ctx context.Context, projectId uuid.UUI
 	return supervisors, nil
 }
 
-func (s *PostgresqlStore) GetSupervisionStatusesForRequest(ctx context.Context, requestId uuid.UUID) ([]sentinel.SupervisionStatus, error) {
+func (s *PostgresqlStore) GetSupervisionStatusesForRequest(ctx context.Context, requestId uuid.UUID) ([]asteroid.SupervisionStatus, error) {
 	query := `
         SELECT ss.id, ss.supervisionrequest_id, ss.status, ss.created_at
         FROM supervisionrequest_status ss
@@ -1400,9 +1241,9 @@ func (s *PostgresqlStore) GetSupervisionStatusesForRequest(ctx context.Context, 
 	}
 	defer rows.Close()
 
-	var statuses []sentinel.SupervisionStatus
+	var statuses []asteroid.SupervisionStatus
 	for rows.Next() {
-		var status sentinel.SupervisionStatus
+		var status asteroid.SupervisionStatus
 		if err := rows.Scan(&status.Id, &status.SupervisionRequestId, &status.Status, &status.CreatedAt); err != nil {
 			return nil, fmt.Errorf("error scanning supervision status: %w", err)
 		}
@@ -1412,9 +1253,9 @@ func (s *PostgresqlStore) GetSupervisionStatusesForRequest(ctx context.Context, 
 	return statuses, nil
 }
 
-func (s *PostgresqlStore) GetSupervisionResultsForChainExecution(ctx context.Context, executionId uuid.UUID) ([]sentinel.SupervisionResult, error) {
+func (s *PostgresqlStore) GetSupervisionResultsForChainExecution(ctx context.Context, executionId uuid.UUID) ([]asteroid.SupervisionResult, error) {
 	query := `
-        SELECT sr.id, sr.supervisionrequest_id, sr.created_at, sr.decision, sr.reasoning, sr.chosen_toolrequest_id
+        SELECT sr.id, sr.supervisionrequest_id, sr.created_at, sr.decision, sr.reasoning, sr.toolcall_id
         FROM supervisionresult sr
         INNER JOIN supervisionrequest sreq ON sr.supervisionrequest_id = sreq.id
         WHERE sreq.chainexecution_id = $1`
@@ -1425,16 +1266,16 @@ func (s *PostgresqlStore) GetSupervisionResultsForChainExecution(ctx context.Con
 	}
 	defer rows.Close()
 
-	var results []sentinel.SupervisionResult
+	var results []asteroid.SupervisionResult
 	for rows.Next() {
-		var result sentinel.SupervisionResult
+		var result asteroid.SupervisionResult
 		err := rows.Scan(
 			&result.Id,
 			&result.SupervisionRequestId,
 			&result.CreatedAt,
 			&result.Decision,
 			&result.Reasoning,
-			&result.ChosenToolrequestId,
+			&result.ToolcallId,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning supervision result: %w", err)
@@ -1446,7 +1287,7 @@ func (s *PostgresqlStore) GetSupervisionResultsForChainExecution(ctx context.Con
 	return results, nil
 }
 
-func (s *PostgresqlStore) GetSupervisionStatusesForChainExecution(ctx context.Context, executionId uuid.UUID) ([]sentinel.SupervisionStatus, error) {
+func (s *PostgresqlStore) GetSupervisionStatusesForChainExecution(ctx context.Context, executionId uuid.UUID) ([]asteroid.SupervisionStatus, error) {
 	query := `
         SELECT ss.id, ss.supervisionrequest_id, ss.status, ss.created_at
         FROM supervisionrequest_status ss
@@ -1459,9 +1300,9 @@ func (s *PostgresqlStore) GetSupervisionStatusesForChainExecution(ctx context.Co
 	}
 	defer rows.Close()
 
-	var statuses []sentinel.SupervisionStatus
+	var statuses []asteroid.SupervisionStatus
 	for rows.Next() {
-		var status sentinel.SupervisionStatus
+		var status asteroid.SupervisionStatus
 		err := rows.Scan(
 			&status.Id,
 			&status.SupervisionRequestId,
@@ -1479,7 +1320,7 @@ func (s *PostgresqlStore) GetSupervisionStatusesForChainExecution(ctx context.Co
 }
 
 // GetChainExecutionSupervisionRequests gets all supervision requests for a specific chain execution
-func (s *PostgresqlStore) GetChainExecutionSupervisionRequests(ctx context.Context, chainExecutionId uuid.UUID) ([]sentinel.SupervisionRequest, error) {
+func (s *PostgresqlStore) GetChainExecutionSupervisionRequests(ctx context.Context, chainExecutionId uuid.UUID) ([]asteroid.SupervisionRequest, error) {
 	query := `
         SELECT sr.id, sr.supervisor_id, sr.chainexecution_id, position_in_chain
         FROM supervisionrequest sr
@@ -1493,9 +1334,9 @@ func (s *PostgresqlStore) GetChainExecutionSupervisionRequests(ctx context.Conte
 	}
 	defer rows.Close()
 
-	requests := make([]sentinel.SupervisionRequest, 0)
+	requests := make([]asteroid.SupervisionRequest, 0)
 	for rows.Next() {
-		var request sentinel.SupervisionRequest
+		var request asteroid.SupervisionRequest
 		if err := rows.Scan(
 			&request.Id,
 			&request.SupervisorId,
@@ -1521,7 +1362,7 @@ func (s *PostgresqlStore) GetChainExecutionSupervisionRequests(ctx context.Conte
 }
 
 // GetSupervisionRequestStatus gets the latest status for a supervision request
-func (s *PostgresqlStore) GetSupervisionRequestStatus(ctx context.Context, requestId uuid.UUID) (*sentinel.SupervisionStatus, error) {
+func (s *PostgresqlStore) GetSupervisionRequestStatus(ctx context.Context, requestId uuid.UUID) (*asteroid.SupervisionStatus, error) {
 	query := `
         SELECT ss.id, ss.supervisionrequest_id, ss.status, ss.created_at
         FROM supervisionrequest_status ss
@@ -1529,7 +1370,7 @@ func (s *PostgresqlStore) GetSupervisionRequestStatus(ctx context.Context, reque
         ORDER BY ss.created_at DESC
         LIMIT 1`
 
-	var status sentinel.SupervisionStatus
+	var status asteroid.SupervisionStatus
 	err := s.db.QueryRowContext(ctx, query, requestId).Scan(
 		&status.Id,
 		&status.SupervisionRequestId,
@@ -1547,10 +1388,10 @@ func (s *PostgresqlStore) GetSupervisionRequestStatus(ctx context.Context, reque
 }
 
 func (s *PostgresqlStore) GetChainExecution(ctx context.Context, executionId uuid.UUID) (*uuid.UUID, *uuid.UUID, error) {
-	query := `SELECT chain_id, requestgroup_id FROM chainexecution WHERE id = $1`
+	query := `SELECT chain_id, toolcall_id FROM chainexecution WHERE id = $1`
 
-	var chainId, requestGroupId uuid.UUID
-	err := s.db.QueryRowContext(ctx, query, executionId).Scan(&chainId, &requestGroupId)
+	var chainId, toolCallId uuid.UUID
+	err := s.db.QueryRowContext(ctx, query, executionId).Scan(&chainId, &toolCallId)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil, nil
 	}
@@ -1558,21 +1399,21 @@ func (s *PostgresqlStore) GetChainExecution(ctx context.Context, executionId uui
 		return nil, nil, fmt.Errorf("error getting chain ID from execution ID: %w", err)
 	}
 
-	return &chainId, &requestGroupId, nil
+	return &chainId, &toolCallId, nil
 }
 
 // GetChainExecutionState returns the chain state for a given chain execution ID
-func (s *PostgresqlStore) GetChainExecutionState(ctx context.Context, executionId uuid.UUID) (*sentinel.ChainExecutionState, error) {
+func (s *PostgresqlStore) GetChainExecutionState(ctx context.Context, executionId uuid.UUID) (*asteroid.ChainExecutionState, error) {
 	// First, get the chain execution record
-	var chainExecution sentinel.ChainExecution
+	var chainExecution asteroid.ChainExecution
 	err := s.db.QueryRowContext(ctx, `
-        SELECT id, requestgroup_id, chain_id, created_at
+        SELECT id, toolcall_id, chain_id, created_at
         FROM chainexecution
         WHERE id = $1
 				ORDER BY id ASC
     `, executionId).Scan(
 		&chainExecution.Id,
-		&chainExecution.RequestGroupId,
+		&chainExecution.ToolcallId,
 		&chainExecution.ChainId,
 		&chainExecution.CreatedAt,
 	)
@@ -1596,10 +1437,10 @@ func (s *PostgresqlStore) GetChainExecutionState(ctx context.Context, executionI
 	}
 
 	// For each supervision request, get the latest status and result
-	var supervisionRequestStates []sentinel.SupervisionRequestState
+	var supervisionRequestStates []asteroid.SupervisionRequestState
 	for _, request := range supervisionRequests {
 		// Get the latest status
-		var status sentinel.SupervisionStatus
+		var status asteroid.SupervisionStatus
 		err := s.db.QueryRowContext(ctx, `
             SELECT id, supervisionrequest_id, created_at, status FROM supervisionrequest_status WHERE supervisionrequest_id = $1 ORDER BY created_at DESC LIMIT 1
         `, request.Id).Scan(
@@ -1613,9 +1454,9 @@ func (s *PostgresqlStore) GetChainExecutionState(ctx context.Context, executionI
 		}
 
 		// Get the result, if any
-		result := &sentinel.SupervisionResult{}
+		result := &asteroid.SupervisionResult{}
 		err = s.db.QueryRowContext(ctx, `
-            SELECT id, supervisionrequest_id, created_at, decision, reasoning, chosen_toolrequest_id
+            SELECT id, supervisionrequest_id, created_at, decision, reasoning, toolcall_id
             FROM supervisionresult
             WHERE supervisionrequest_id = $1
         `, request.Id).Scan(
@@ -1624,7 +1465,7 @@ func (s *PostgresqlStore) GetChainExecutionState(ctx context.Context, executionI
 			&result.CreatedAt,
 			&result.Decision,
 			&result.Reasoning,
-			&result.ChosenToolrequestId,
+			&result.ToolcallId,
 		)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -1634,7 +1475,7 @@ func (s *PostgresqlStore) GetChainExecutionState(ctx context.Context, executionI
 			}
 		}
 
-		supervisionRequestState := sentinel.SupervisionRequestState{
+		supervisionRequestState := asteroid.SupervisionRequestState{
 			SupervisionRequest: request,
 			Status:             status,
 			Result:             result,
@@ -1643,7 +1484,7 @@ func (s *PostgresqlStore) GetChainExecutionState(ctx context.Context, executionI
 	}
 
 	// Build and return the ChainExecutionState
-	state := sentinel.ChainExecutionState{
+	state := asteroid.ChainExecutionState{
 		Chain:               *supervisorChain,
 		ChainExecution:      chainExecution,
 		SupervisionRequests: supervisionRequestStates,
@@ -1652,27 +1493,27 @@ func (s *PostgresqlStore) GetChainExecutionState(ctx context.Context, executionI
 	return &state, nil
 }
 
-// GetChainExecutionFromChainAndRequestGroup gets the chain execution ID for a given chain ID and request group ID
-func (s *PostgresqlStore) GetChainExecutionFromChainAndRequestGroup(ctx context.Context, chainId uuid.UUID, requestGroupId uuid.UUID) (*uuid.UUID, error) {
+// GetChainExecutionFromChainAndToolCall gets the chain execution ID for a given chain ID and tool call ID
+func (s *PostgresqlStore) GetChainExecutionFromChainAndToolCall(ctx context.Context, chainId uuid.UUID, toolCallId uuid.UUID) (*uuid.UUID, error) {
 	query := `
         SELECT id FROM chainexecution
         WHERE chain_id = $1 
-				AND requestgroup_id = $2
+				AND toolcall_id = $2
     `
 
 	var executionId uuid.UUID
-	err := s.db.QueryRowContext(ctx, query, chainId, requestGroupId).Scan(&executionId)
+	err := s.db.QueryRowContext(ctx, query, chainId, toolCallId).Scan(&executionId)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get chain execution from chain and request group: %w", err)
+		return nil, fmt.Errorf("failed to get chain execution from chain and tool call: %w", err)
 	}
 
 	return &executionId, nil
 }
 
-func (s *PostgresqlStore) UpdateRunStatus(ctx context.Context, runId uuid.UUID, status sentinel.Status) error {
+func (s *PostgresqlStore) UpdateRunStatus(ctx context.Context, runId uuid.UUID, status asteroid.Status) error {
 	query := `UPDATE run SET status = $1 WHERE id = $2`
 	_, err := s.db.ExecContext(ctx, query, status, runId)
 	if err != nil {
@@ -1689,6 +1530,222 @@ func (s *PostgresqlStore) UpdateRunResult(ctx context.Context, runId uuid.UUID, 
 	_, err := s.db.ExecContext(ctx, query, result, runId)
 	if err != nil {
 		return fmt.Errorf("error creating run result: %w", err)
+	}
+
+	return nil
+}
+
+func (s *PostgresqlStore) CreateChatRequest(
+	ctx context.Context,
+	runId uuid.UUID,
+	request []byte,
+	response []byte,
+	choices []asteroid.AsteroidChoice,
+	format string,
+	requestMessages []asteroid.AsteroidMessage,
+) (*uuid.UUID, error) {
+	if len(request) == 0 {
+		return nil, fmt.Errorf("request is empty")
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error starting transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	query := `
+		INSERT INTO chat (request_data, response_data, run_id, format)
+		VALUES ($1, $2, $3, $4) RETURNING id
+	`
+	var id uuid.UUID
+	err = tx.QueryRowContext(ctx, query, request, response, runId, format).Scan(&id)
+	if err != nil {
+		return nil, fmt.Errorf("error creating chat entry: %w", err)
+	}
+
+	// Store the choices
+	err = s.createChatChoices(ctx, tx, id, choices, requestMessages)
+	if err != nil {
+		return nil, fmt.Errorf("error creating chat choices: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("error committing transaction: %w", err)
+	}
+
+	return &id, nil
+}
+
+func (s *PostgresqlStore) createChatRequestMessages(
+	ctx context.Context,
+	tx *sql.Tx,
+	choiceId uuid.UUID,
+	requestMessages []asteroid.AsteroidMessage,
+) error {
+	// For each message, store it in the DB
+	for _, message := range requestMessages {
+		query := `
+			INSERT INTO msg (id, choice_id, msg_data)
+			VALUES ($1, $2, $3)
+		`
+		msgData, err := json.Marshal(message)
+		if err != nil {
+			return fmt.Errorf("error marshalling message data: %w", err)
+		}
+		_, err = tx.ExecContext(ctx, query, message.Id, choiceId, msgData)
+		if err != nil {
+			return fmt.Errorf("error creating chat message: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (s *PostgresqlStore) GetMessage(ctx context.Context, id uuid.UUID) (*asteroid.AsteroidMessage, error) {
+	query := `
+		SELECT msg_data FROM msg WHERE id = $1
+	`
+	var msgData []byte
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&msgData)
+	if err != nil {
+		return nil, fmt.Errorf("error getting message: %w", err)
+	}
+
+	var message asteroid.AsteroidMessage
+	err = json.Unmarshal(msgData, &message)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshalling message: %w", err)
+	}
+
+	return &message, nil
+}
+
+func (s *PostgresqlStore) UpdateMessage(ctx context.Context, id uuid.UUID, message asteroid.AsteroidMessage) error {
+	query := `
+		UPDATE msg SET msg_data = $1 WHERE id = $2	
+	`
+	msgData, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("error marshalling message data: %w", err)
+	}
+	_, err = s.db.ExecContext(ctx, query, msgData, id)
+	if err != nil {
+		return fmt.Errorf("error updating message: %w", err)
+	}
+	return nil
+}
+
+func (s *PostgresqlStore) GetLatestChat(
+	ctx context.Context,
+	runId uuid.UUID,
+) ([]byte, []byte, error) {
+	query := `
+		SELECT request_data, response_data
+		FROM chat
+		WHERE run_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+
+	var requestData, responseData []byte
+	err := s.db.QueryRowContext(ctx, query, runId).Scan(&requestData, &responseData)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error getting message: %w", err)
+	}
+
+	return requestData, responseData, nil
+}
+
+func (s *PostgresqlStore) createChatChoices(
+	ctx context.Context,
+	tx *sql.Tx,
+	chatId uuid.UUID,
+	choices []asteroid.AsteroidChoice,
+	requestMessages []asteroid.AsteroidMessage,
+) error {
+	// Store the choices in the DB
+	for _, choice := range choices {
+		query := `
+			INSERT INTO choice (id, chat_id, choice_data)
+			VALUES ($1, $2, $3)
+		`
+
+		choiceData, err := json.Marshal(choice)
+		if err != nil {
+			return fmt.Errorf("error marshalling choice data: %w", err)
+		}
+
+		_, err = tx.ExecContext(ctx, query, choice.AsteroidId, chatId, choiceData)
+		if err != nil {
+			return fmt.Errorf("error creating chat choice: %w", err)
+		}
+
+		// Convert the AsteroidId to a uuid
+		choiceId, err := uuid.Parse(choice.AsteroidId)
+		if err != nil {
+			return fmt.Errorf("error parsing AsteroidId: %w", err)
+		}
+
+		// Store the request messages which are unique to the request that generated this choice
+		err = s.createChatRequestMessages(ctx, tx, choiceId, requestMessages)
+		if err != nil {
+			return fmt.Errorf("error creating chat request messages: %w", err)
+		}
+
+		fmt.Printf("Choice message: %+v\n", choice.Message)
+		// Store the message
+		query = `
+			INSERT INTO msg (id, choice_id, msg_data)
+			VALUES ($1, $2, $3)
+		`
+		messageData, err := json.Marshal(choice.Message)
+		if err != nil {
+			return fmt.Errorf("error marshalling message data: %w", err)
+		}
+
+		msgId := choice.Message.Id
+		if msgId == nil {
+			return fmt.Errorf("message ID is nil")
+		}
+
+		_, err = tx.ExecContext(ctx, query, *msgId, choice.AsteroidId, messageData)
+		if err != nil {
+			return fmt.Errorf("error creating chat message: %w", err)
+		}
+
+		if choice.Message.ToolCalls != nil {
+			// Store the tool calls
+			err = s.createToolCalls(ctx, tx, *msgId, *choice.Message.ToolCalls)
+			if err != nil {
+				return fmt.Errorf("error creating tool calls: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *PostgresqlStore) createToolCalls(
+	ctx context.Context,
+	tx *sql.Tx,
+	msgId uuid.UUID,
+	toolCalls []asteroid.AsteroidToolCall,
+) error {
+	// Store the tool calls in the DB
+	for _, toolCall := range toolCalls {
+		query := `
+			INSERT INTO toolcall (id, call_id, msg_id, tool_call_data, tool_id)
+			VALUES ($1, $2, $3, $4, $5)
+		`
+		toolCallData, err := json.Marshal(toolCall)
+		if err != nil {
+			return fmt.Errorf("error marshalling tool call data: %w", err)
+		}
+		_, err = tx.ExecContext(ctx, query, toolCall.Id, toolCall.CallId, msgId, toolCallData, toolCall.ToolId)
+		if err != nil {
+			return fmt.Errorf("error creating tool call: %w", err)
+		}
 	}
 
 	return nil

@@ -1,10 +1,15 @@
 openapi: 3.0.1
 info:
-  title: Sentinel API
-  version: 1.0.0
+  title: Asteroid API
+  version: v1.0.0
+  description: Version 1 of the Asteroid API
+
+servers:
+  - url: /api/v1
+    description: Version 1 of the Asteroid API
 
 paths:
-  /api/openapi.yaml:
+  /openapi.yaml:
     get:
       summary: Get the OpenAPI schema
       operationId: GetOpenAPI
@@ -13,7 +18,7 @@ paths:
           description: OpenAPI schema
       tags:
         - API
-  /api/swagger-ui:
+  /swagger-ui:
     get:
       summary: Get the Swagger UI
       operationId: GetSwaggerDocs
@@ -23,7 +28,7 @@ paths:
       tags:
         - API
 
-  /api/project:
+  /project:
     get:
       summary: Get all projects
       operationId: GetProjects
@@ -81,7 +86,7 @@ paths:
       tags:
         - Project
 
-  /api/project/{projectId}:
+  /project/{projectId}:
     parameters:
       - name: projectId
         in: path
@@ -108,7 +113,7 @@ paths:
       tags:
         - Project
 
-  /api/project/{projectId}/tasks:
+  /project/{projectId}/tasks:
     parameters:
       - name: projectId
         in: path
@@ -163,7 +168,7 @@ paths:
       tags:
         - Task
 
-  /api/task/{taskId}:
+  /task/{taskId}:
     parameters:
       - name: taskId
         in: path
@@ -184,7 +189,7 @@ paths:
       tags:
         - Task
 
-  /api/task/{taskId}/run:
+  /task/{taskId}/run:
     parameters:
       - name: taskId
         in: path
@@ -220,7 +225,7 @@ paths:
       tags:
         - Run
 
-  /api/run/{runId}/tool:
+  /run/{runId}/tool:
     parameters:
       - name: runId
         in: path
@@ -275,19 +280,17 @@ paths:
           content:
             application/json:
               schema:
-                type: string
-                format: uuid
+                $ref: "#/components/schemas/Tool"
         "201":
           description: Tool created
           content:
             application/json:
               schema:
-                type: string
-                format: uuid
+                $ref: "#/components/schemas/Tool"
       tags:
         - Tool
 
-  /api/supervisor/{supervisorId}:
+  /supervisor/{supervisorId}:
     parameters:
       - name: supervisorId
         in: path
@@ -308,7 +311,7 @@ paths:
       tags:
         - Supervisor
 
-  /api/project/{projectId}/supervisor:
+  /project/{projectId}/supervisor:
     parameters:
       - name: projectId
         in: path
@@ -356,7 +359,7 @@ paths:
       tags:
         - Supervisor
 
-  /api/tool/{toolId}/supervisors:
+  /tool/{toolId}/supervisors:
     parameters:
       - name: toolId
         in: path
@@ -402,161 +405,138 @@ paths:
       tags:
         - Supervisor
 
-  /api/tool/{toolId}/request_group:
+  # /tool/{toolId}/request_group:
+  #   parameters:
+  #     - name: toolId
+  #       in: path
+  #       required: true
+  #       schema:
+  #         type: string
+  #         format: uuid
+  #   post:
+  #     summary: Create a new tool call for a tool
+  #     operationId: CreateToolCall
+  #     requestBody:
+  #       required: true
+  #       content:
+  #         application/json:
+  #           schema:
+  #             $ref: "#/components/schemas/ToolCall"
+  #     responses:
+  #       "201":
+  #         description: Request group created
+  #         content:
+  #           application/json:
+  #             schema:
+  #               $ref: "#/components/schemas/ToolCall"
+  #       "400":
+  #         description: Bad request
+  #         content:
+  #           application/json:
+  #             schema:
+  #               $ref: "#/components/schemas/ErrorResponse"
+  #     tags:
+  #       - ToolCall
+
+  # /run/{runId}/request_groups:
+  #   parameters:
+  #     - name: runId
+  #       in: path
+  #       required: true
+  #       schema:
+  #         type: string
+  #         format: uuid
+  #   get:
+  #     summary: Get all request groups for a run
+  #     operationId: GetRunRequestGroups
+  #     responses:
+  #       "200":
+  #         description: List of request groups
+  #         content:
+  #           application/json:
+  #             schema:
+  #               type: array
+  #               items:
+  #                 $ref: "#/components/schemas/ToolRequestGroup"
+  # tags:
+  #   - ToolCall
+
+  /tool_call/{toolCallId}:
     parameters:
-      - name: toolId
+      - name: toolCallId
         in: path
         required: true
         schema:
           type: string
           format: uuid
-    post:
-      summary: Create a new request group for a tool
-      operationId: CreateToolRequestGroup
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ToolRequestGroup"
+    get:
+      summary: Get a tool call
+      operationId: GetToolCall
       responses:
-        "201":
-          description: Request group created
+        "200":
+          description: Tool call
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ToolRequestGroup"
-        "400":
-          description: Bad request
+                $ref: "#/components/schemas/AsteroidToolCall"
+        "404":
+          description: Tool call not found
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       tags:
-        - RequestGroup
+        - ToolCall
 
-  /api/run/{runId}/request_groups:
+  /tool_call/{toolCallId}/status:
     parameters:
-      - name: runId
+      - name: toolCallId
         in: path
         required: true
         schema:
           type: string
           format: uuid
     get:
-      summary: Get all request groups for a run
-      operationId: GetRunRequestGroups
+      summary: Get a tool call status
+      operationId: GetToolCallStatus
       responses:
         "200":
-          description: List of request groups
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/ToolRequestGroup"
-      tags:
-        - RequestGroup
-
-  /api/request_group/{requestGroupId}:
-    parameters:
-      - name: requestGroupId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    get:
-      summary: Get a request group
-      operationId: GetRequestGroup
-      responses:
-        "200":
-          description: Request group
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ToolRequestGroup"
-      tags:
-        - RequestGroup
-
-  /api/request_group/{requestGroupId}/status:
-    parameters:
-      - name: requestGroupId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    get:
-      summary: Get a request group status
-      operationId: GetRequestGroupStatus
-      responses:
-        "200":
-          description: Request group
+          description: Tool call
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Status"
       tags:
-        - RequestGroup
+        - ToolCall
 
-  /api/request_group/{requestGroupId}/tool_requests:
-    parameters:
-      - name: requestGroupId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    post:
-      summary: Create a new tool request for a request group
-      operationId: CreateToolRequest
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ToolRequest"
-      responses:
-        "201":
-          description: Tool request added to request group
-          content:
-            application/json:
-              schema:
-                type: string
-                format: uuid
-      tags:
-        - RequestGroup
+  # /tool_request/{toolRequestId}:
+  #   parameters:
+  #     - name: toolRequestId
+  #       in: path
+  #       required: true
+  #       schema:
+  #         type: string
+  #         format: uuid
+  #   get:
+  #     summary: Get a tool request
+  #     operationId: GetToolRequest
+  #     responses:
+  #       "200":
+  #         description: Tool request
+  #         content:
+  #           application/json:
+  #             schema:
+  #               $ref: "#/components/schemas/ToolRequest"
+  #       "404":
+  #         description: Tool request not found
+  #         content:
+  #           application/json:
+  #             schema:
+  #               $ref: "#/components/schemas/ErrorResponse"
+  #     tags:
+  #       - RequestGroup
 
-  /api/tool_request/{toolRequestId}:
-    parameters:
-      - name: toolRequestId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    get:
-      summary: Get a tool request
-      operationId: GetToolRequest
-      responses:
-        "200":
-          description: Tool request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ToolRequest"
-        "404":
-          description: Tool request not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-      tags:
-        - RequestGroup
-
-
-  /api/tool/{toolId}:
+  /tool/{toolId}:
     parameters:
       - name: toolId
         in: path
@@ -583,7 +563,7 @@ paths:
       tags:
         - Tool
 
-  /api/project/{projectId}/tools:
+  /project/{projectId}/tools:
     parameters:
       - name: projectId
         in: path
@@ -606,36 +586,9 @@ paths:
       tags:
         - Tool
 
-  # /api/request_group/{requestGroupId}/chain/{chainId}/execution:
-  #   parameters:
-  #     - name: requestGroupId
-  #       in: path
-  #       required: true
-  #       schema:
-  #         type: string
-  #         format: uuid
-  #     - name: chainId
-  #       in: path
-  #       required: true
-  #       schema:
-  #         type: string
-  #         format: uuid
-  #   post:
-  #     summary: Create a new execution for a request group and chain
-  #     operationId: CreateChainExecution
-  #     responses:
-  #       "201":
-  #         description: Chain execution created
-  #       "400":
-  #         description: Bad request
-  #         content:
-  #           application/json:
-  #             schema:
-  #               $ref: "#/components/schemas/ErrorResponse"
-
-  ? /api/request_group/{requestGroupId}/chain/{chainId}/supervisor/{supervisorId}/supervision_request
+  ? /tool_call/{toolCallId}/chain/{chainId}/supervisor/{supervisorId}/supervision_request
   : parameters:
-      - name: requestGroupId
+      - name: toolCallId
         in: path
         required: true
         schema:
@@ -654,7 +607,7 @@ paths:
           type: string
           format: uuid
     post:
-      summary: Create a supervision request for a supervisor in a chain on a request group
+      summary: Create a supervision request for a supervisor in a chain on a tool call
       operationId: CreateSupervisionRequest
       requestBody:
         required: true
@@ -685,7 +638,7 @@ paths:
       tags:
         - Supervision
 
-  /api/supervision_request/{supervisionRequestId}/status:
+  /supervision_request/{supervisionRequestId}/status:
     parameters:
       - name: supervisionRequestId
         in: path
@@ -706,7 +659,7 @@ paths:
       tags:
         - Supervision
 
-  /api/supervision_request/{supervisionRequestId}/result:
+  /supervision_request/{supervisionRequestId}/result:
     parameters:
       - name: supervisionRequestId
         in: path
@@ -746,28 +699,7 @@ paths:
       tags:
         - Supervision
 
-  /api/run/{runId}/state:
-    parameters:
-      - name: runId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    get:
-      summary: Get the state of a run
-      operationId: GetRunState
-      responses:
-        "200":
-          description: Run state
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RunState"
-      tags:
-        - Run
-
-  /api/run/{runId}:
+  /run/{runId}:
     parameters:
       - name: runId
         in: path
@@ -794,7 +726,7 @@ paths:
       tags:
         - Run
 
-  /api/run/{runId}/status:
+  /run/{runId}/status:
     parameters:
       - name: runId
         in: path
@@ -835,7 +767,7 @@ paths:
       tags:
         - Run
 
-  /api/run/{runId}/result:
+  /run/{runId}/result:
     parameters:
       - name: runId
         in: path
@@ -867,7 +799,7 @@ paths:
       tags:
         - Run
 
-  /api/stats:
+  /stats:
     get:
       summary: Get hub stats
       operationId: GetHubStats
@@ -887,7 +819,7 @@ paths:
       tags:
         - Stats
 
-  /api/supervision_request/{supervisionRequestId}/review_payload:
+  /supervision_request/{supervisionRequestId}/review_payload:
     parameters:
       - name: supervisionRequestId
         in: path
@@ -914,24 +846,94 @@ paths:
       tags:
         - Supervision
 
-  # /api/chain_execution/{chainExecutionId}:
-  #   parameters:
-  #     - name: chainExecutionId
-  #       in: path
-  #       required: true
-  #       schema:
-  #         type: string
-  #         format: uuid
-  #   get:
-  #     summary: Get the state of a chain execution
-  #     operationId: GetChainExecutionState
-  #     responses:
-  #       "200":
-  #         description: Chain execution state
-  #         content:
-  #           application/json:
-  #             schema:
-  #               $ref: "#/components/schemas/ChainExecutionState"
+  # Unreleased routes
+  /run/{run_id}/chat:
+    parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      summary: Create a new chat completion request from an existing run
+      operationId: CreateNewChat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AsteroidChat"
+      responses:
+        "200":
+          description: New chat completion created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatIds"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - Run
+
+  /run/{run_id}/messages:
+    parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get the messages for a run
+      operationId: GetRunMessages
+      responses:
+        "200":
+          description: Run messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AsteroidMessage"
+        "404":
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      tags:
+        - Run
+
+  /tool_call/{toolCallId}/state:
+    parameters:
+      - name: toolCallId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Get the state of a tool call
+      operationId: GetToolCallState
+      responses:
+        "200":
+          description: Tool call state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunExecution"
+      tags:
+        - ToolCall
 
 components:
   schemas:
@@ -953,8 +955,8 @@ components:
     RunExecution:
       type: object
       properties:
-        request_group:
-          $ref: "#/components/schemas/ToolRequestGroup"
+        toolcall:
+          $ref: "#/components/schemas/AsteroidToolCall"
         chains:
           type: array
           items:
@@ -962,7 +964,7 @@ components:
         status:
           $ref: "#/components/schemas/Status"
       required:
-        - request_group
+        - toolcall
         - chains
         - status
 
@@ -988,7 +990,7 @@ components:
         id:
           type: string
           format: uuid
-        request_group_id:
+        toolcall_id:
           type: string
           format: uuid
         chain_id:
@@ -999,7 +1001,7 @@ components:
           format: date-time
       required:
         - id
-        - request_group_id
+        - toolcall_id
         - chain_id
         - created_at
 
@@ -1137,76 +1139,9 @@ components:
         - chain_id
         - supervisors
 
-    ToolRequestGroup:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        created_at:
-          type: string
-          format: date-time
-        tool_requests:
-          type: array
-          items:
-            $ref: "#/components/schemas/ToolRequest"
-      required:
-        - tool_requests
-
-    ToolRequest:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        requestgroup_id:
-          type: string
-          format: uuid
-        tool_id:
-          type: string
-          format: uuid
-        message:
-          $ref: "#/components/schemas/Message"
-        arguments:
-          $ref: "#/components/schemas/Arguments"
-        task_state:
-          $ref: "#/components/schemas/TaskState"
-      required:
-        - tool_id
-        - arguments
-        - message
-        - task_state
-
-    Message:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        role:
-          $ref: "#/components/schemas/MessageRole"
-        content:
-          type: string
-        type:
-          description: The type of content in the message, either text or b64 encoded audio
-          $ref: "#/components/schemas/MessageType"
-        source:
-          type: string
-        tool_calls:
-          type: array
-          items:
-            $ref: "#/components/schemas/ToolCall"
-      required:
-        - content
-        - role
-
     MessageType:
       type: string
       enum: [text, audio, image, image_url]
-
-    Arguments:
-      type: object
-      additionalProperties: true
 
     SupervisionRequest:
       type: object
@@ -1255,7 +1190,7 @@ components:
         supervision_request_id:
           type: string
           format: uuid
-        chosen_toolrequest_id:
+        toolcall_id:
           type: string
           format: uuid
         created_at:
@@ -1281,112 +1216,8 @@ components:
 
     SupervisorType:
       type: string
-      description: The type of supervisor. ClientSupervisor means that the supervision is done client side and the server is merely informed. Other supervisor types are handled serverside, e.g. HumanSupervisor means that a human will review the request via the Sentinel UI.
+      description: The type of supervisor. ClientSupervisor means that the supervision is done client side and the server is merely informed. Other supervisor types are handled serverside, e.g. HumanSupervisor means that a human will review the request via the Asteroid UI.
       enum: [client_supervisor, human_supervisor, no_supervisor]
-
-    # Task State Begin
-    TaskState:
-      type: object
-      properties:
-        messages:
-          type: array
-          items:
-            $ref: "#/components/schemas/Message"
-        tools:
-          type: array
-          items:
-            $ref: "#/components/schemas/Tool"
-        tool_choice:
-          $ref: "#/components/schemas/ToolChoice"
-        store:
-          type: object
-          additionalProperties: true
-        output:
-          $ref: "#/components/schemas/Output"
-        completed:
-          type: boolean
-        metadata:
-          type: object
-          additionalProperties: true
-      required:
-        - messages
-        - tools
-        - output
-        - completed
-
-    ToolChoice:
-      type: object
-      properties:
-        id:
-          type: string
-        function:
-          type: string
-        arguments:
-          $ref: "#/components/schemas/Arguments"
-        type:
-          type: string
-      required:
-        - id
-        - function
-        - arguments
-        - type
-
-    Output:
-      type: object
-      properties:
-        model:
-          type: string
-        choices:
-          type: array
-          items:
-            $ref: "#/components/schemas/Choice"
-        usage:
-          $ref: "#/components/schemas/Usage"
-
-    Choice:
-      type: object
-      properties:
-        message:
-          $ref: "#/components/schemas/Message"
-        stop_reason:
-          type: string
-      required:
-        - message
-
-    ToolCall:
-      type: object
-      properties:
-        id:
-          type: string
-        function:
-          type: string
-        arguments:
-          type: object
-          additionalProperties: true
-        type:
-          type: string
-        parse_error:
-          type: string
-      required:
-        - id
-        - function
-        - arguments
-        - type
-
-    Usage:
-      type: object
-      properties:
-        input_tokens:
-          type: integer
-        output_tokens:
-          type: integer
-        total_tokens:
-          type: integer
-      required:
-        - input_tokens
-        - output_tokens
-        - total_tokens
-    # Task State End
 
     HubStats:
       type: object
@@ -1437,18 +1268,24 @@ components:
         chain_state:
           $ref: "#/components/schemas/ChainExecutionState"
           description: The state of the entire supervision chain, including previous supervision results
-        request_group:
-          $ref: "#/components/schemas/ToolRequestGroup"
-          description: The tool request group being supervised
+        toolcall:
+          $ref: "#/components/schemas/AsteroidToolCall"
+          description: The tool call being supervised
         run_id:
           type: string
           format: uuid
           description: The ID of the run this review is for
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/AsteroidMessage"
+          description: The messages in the run
       required:
         - supervision_request
         - chain_state
-        - request_group
+        - toolcall
         - run_id
+        - messages
 
     Task:
       type: object
@@ -1471,3 +1308,128 @@ components:
         - project_id
         - name
         - created_at
+
+    AsteroidChat:
+      description: The raw b64 encoded JSON of the request and response data sent/received from the LLM.
+      type: object
+      properties:
+        request_data:
+          type: string
+          format: base64
+        response_data:
+          type: string
+          format: base64
+      required:
+        - request_data
+        - response_data
+
+    AsteroidMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [system, user, assistant, function, tool, asteroid]
+        content:
+          type: string
+        tool_calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/AsteroidToolCall"
+        type:
+          description: The type of content in the message, either text or b64 encoded audio
+          $ref: "#/components/schemas/MessageType"
+        created_at:
+          type: string
+          format: date-time
+        data:
+          type: string
+          format: base64
+          description: The raw b64 encoded JSON of the message objects in its original form
+      required:
+        - role
+        - content
+
+    AsteroidToolCall:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        call_id:
+          type: string
+        tool_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        arguments:
+          type: string
+          description: Arguments in JSON format
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - tool_id
+        - type
+        - function
+
+    AsteroidChoice:
+      type: object
+      properties:
+        asteroid_id:
+          type: string
+        index:
+          type: integer
+        message:
+          $ref: "#/components/schemas/AsteroidMessage"
+        finish_reason:
+          type: string
+          enum: [stop, length, function_call, tool_calls, content_filter, null]
+      required:
+        - asteroid_id
+        - index
+        - message
+        - finish_reason
+
+    ChatIds:
+      type: object
+      properties:
+        chat_id:
+          type: string
+          format: uuid
+        choice_ids:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChoiceIds"
+      required:
+        - chat_id
+        - choice_ids
+
+    ChoiceIds:
+      type: object
+      properties:
+        choice_id:
+          type: string
+        message_id:
+          type: string
+        tool_call_ids:
+          type: array
+          # Each item is a Tool call ID along with the Tool ID
+          items:
+            $ref: "#/components/schemas/ToolCallIds"
+      required:
+        - choice_id
+        - message_id
+        - tool_call_ids
+
+    ToolCallIds:
+      type: object
+      properties:
+        tool_call_id:
+          type: string
+        tool_id:
+          type: string
