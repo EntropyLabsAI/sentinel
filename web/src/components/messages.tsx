@@ -209,12 +209,17 @@ const MessageTypeDisplay = ({ message }: { message: AsteroidMessage }) => {
   switch (message.type) {
     case MessageType.image_url:
     case MessageType.image:
+      console.log("Image message: ", message);
+      // Check if the content already has data:image/jpeg;base64, in it
+      const imgSrc = message.content.startsWith("data:image/jpeg;base64,")
+        ? message.content
+        : `data:image/jpeg;base64,${message.content}`;
       return (
         <Dialog>
           <DialogTrigger asChild>
             <img
               className="max-w-[500px] cursor-pointer hover:opacity-90 transition-opacity"
-              src={message.content}
+              src={imgSrc}
               alt="Image"
             />
           </DialogTrigger>
@@ -222,7 +227,7 @@ const MessageTypeDisplay = ({ message }: { message: AsteroidMessage }) => {
             <div className="w-full h-full max-h-[85vh] overflow-auto">
               <img
                 className="w-full h-auto"
-                src={message.content}
+                src={imgSrc}
                 alt="Image"
               />
             </div>

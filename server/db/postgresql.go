@@ -1541,7 +1541,7 @@ func (s *PostgresqlStore) CreateChatRequest(
 	request []byte,
 	response []byte,
 	choices []asteroid.AsteroidChoice,
-	format string,
+	format asteroid.ChatFormat,
 	requestMessages []asteroid.AsteroidMessage,
 ) (*uuid.UUID, error) {
 	if len(request) == 0 {
@@ -1640,9 +1640,9 @@ func (s *PostgresqlStore) GetChat(
 	ctx context.Context,
 	runId uuid.UUID,
 	index int,
-) ([]byte, []byte, error) {
+) ([]byte, []byte, asteroid.ChatFormat, error) {
 	query := `
-		SELECT request_data, response_data
+		SELECT request_data, response_data, format
 		FROM chat
 		WHERE run_id = $1
 		ORDER BY created_at DESC
@@ -1650,12 +1650,13 @@ func (s *PostgresqlStore) GetChat(
 	`
 
 	var requestData, responseData []byte
-	err := s.db.QueryRowContext(ctx, query, runId, index).Scan(&requestData, &responseData)
+	var format asteroid.ChatFormat
+	err := s.db.QueryRowContext(ctx, query, runId, index).Scan(&requestData, &responseData, &format)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error getting message: %w", err)
+		return nil, nil, "", fmt.Errorf("error getting message: %w", err)
 	}
 
-	return requestData, responseData, nil
+	return requestData, responseData, format, nil
 }
 
 func (s *PostgresqlStore) GetRunChatCount(ctx context.Context, runId uuid.UUID) (int, error) {
