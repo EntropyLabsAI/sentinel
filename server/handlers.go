@@ -1023,11 +1023,15 @@ func apiGetToolCallHandler(w http.ResponseWriter, r *http.Request, id uuid.UUID,
 func apiCreateNewChatHandler(w http.ResponseWriter, r *http.Request, runId uuid.UUID, store Store) {
 	ctx := r.Context()
 
+	fmt.Println("Creating new chat")
+
 	var payload AsteroidChat
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, "Invalid JSON format", err.Error())
 		return
 	}
+
+	fmt.Println("Payload: ", payload)
 
 	var converter AsteroidConverter
 	switch payload.Format {

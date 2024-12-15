@@ -22,8 +22,8 @@ func (c *AnthropicConverter) ToAsteroidMessages(
 	var messageRequest struct {
 		Model    string `json:"model"`
 		Messages []struct {
-			Role    string `json:"role"`
-			Content string `json:"content"`
+			Role    string          `json:"role"`
+			Content json.RawMessage `json:"content"`
 		} `json:"messages"`
 	}
 	if err := json.Unmarshal(requestData, &messageRequest); err != nil {
@@ -40,14 +40,51 @@ func (c *AnthropicConverter) ToAsteroidMessages(
 	// Convert request messages
 	for _, msg := range messageRequest.Messages {
 		id := uuid.New()
-		msgType := Text
-		b64 := base64.StdEncoding.EncodeToString([]byte(msg.Content))
+		var msgType MessageType
+		var msgContent string
+		var b64 string
+
+		// Try to unmarshal as string first
+		var strContent string
+		if err := json.Unmarshal(msg.Content, &strContent); err != nil {
+			// If not a string, try to unmarshal as array of content blocks
+			var arrayContent []struct {
+				Type   string `json:"type"`
+				Text   string `json:"text,omitempty"`
+				Source struct {
+					Type      string `json:"type"`
+					MediaType string `json:"media_type,omitempty"`
+					Data      string `json:"data,omitempty"`
+				} `json:"source,omitempty"`
+			}
+			if err := json.Unmarshal(msg.Content, &arrayContent); err != nil {
+				return nil, fmt.Errorf("content must be either string or valid content array: %w", err)
+			}
+
+			// Process array content
+			for _, content := range arrayContent {
+				switch content.Type {
+				case "image":
+					msgType = ImageUrl
+					msgContent = content.Source.Data
+				case "text":
+					msgType = Text
+					msgContent = content.Text
+				}
+			}
+		} else {
+			// Handle simple string content
+			msgType = Text
+			msgContent = strContent
+		}
+
+		b64 = base64.StdEncoding.EncodeToString([]byte(msgContent))
 
 		converted := AsteroidMessage{
 			Id:        &id,
 			Role:      AsteroidMessageRole(msg.Role),
 			Type:      &msgType,
-			Content:   msg.Content,
+			Content:   msgContent,
 			Data:      &b64,
 			ToolCalls: &[]AsteroidToolCall{},
 		}
@@ -99,13 +136,31 @@ func (c *AnthropicConverter) ValidateB64EncodedRequest(encodedData string) ([]by
 	var request struct {
 		Model    string `json:"model"`
 		Messages []struct {
-			Role    string `json:"role"`
-			Content string `json:"content"`
+			Role    string          `json:"role"`
+			Content json.RawMessage `json:"content"`
 		} `json:"messages"`
 	}
 
 	if err = json.Unmarshal(decodedRequest, &request); err != nil {
 		return nil, fmt.Errorf("invalid request format: %w", err)
+	}
+
+	for _, msg := range request.Messages {
+		var strContent string
+		if err := json.Unmarshal(msg.Content, &strContent); err != nil {
+			var arrayContent []struct {
+				Type   string `json:"type"`
+				Text   string `json:"text,omitempty"`
+				Source struct {
+					Type      string `json:"type"`
+					MediaType string `json:"media_type,omitempty"`
+					Data      string `json:"data,omitempty"`
+				} `json:"source,omitempty"`
+			}
+			if err := json.Unmarshal(msg.Content, &arrayContent); err != nil {
+				return nil, fmt.Errorf("content must be either string or valid content array: %w", err)
+			}
+		}
 	}
 
 	b, err := json.Marshal(request)
