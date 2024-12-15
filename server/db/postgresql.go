@@ -6,10 +6,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
+	"net"
+	"os"
 	"time"
 
+	"cloud.google.com/go/cloudsqlconn"
 	asteroid "github.com/asteroidai/asteroid/server"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )
@@ -22,10 +28,27 @@ type PostgresqlStore struct {
 var _ asteroid.Store = &PostgresqlStore{}
 
 // NewPostgresqlStore creates a new PostgreSQL store
-func NewPostgresqlStore(connStr string) (*PostgresqlStore, error) {
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		return nil, fmt.Errorf("error opening database: %w", err)
+func NewPostgresqlStore() (*PostgresqlStore, error) {
+	var db *sql.DB
+	var err error
+
+	if os.Getenv("ENVIRONMENT") == "production" {
+		// Production: Use Cloud SQL connector
+		db, err = connectWithCloudSQL()
+		if err != nil {
+			return nil, fmt.Errorf("error connecting to Cloud SQL: %w", err)
+		}
+	} else {
+		// Development: Use direct connection
+		connStr := os.Getenv("DATABASE_URL")
+		if connStr == "" {
+			return nil, fmt.Errorf("DATABASE_URL is not set")
+		}
+
+		db, err = sql.Open("postgres", connStr)
+		if err != nil {
+			return nil, fmt.Errorf("error opening database: %w", err)
+		}
 	}
 
 	if err := db.Ping(); err != nil {
@@ -33,6 +56,53 @@ func NewPostgresqlStore(connStr string) (*PostgresqlStore, error) {
 	}
 
 	return &PostgresqlStore{db: db}, nil
+}
+
+// connectWithCloudSQL handles Cloud SQL connection in production
+func connectWithCloudSQL() (*sql.DB, error) {
+	mustGetenv := func(k string) string {
+		v := os.Getenv(k)
+		if v == "" {
+			log.Fatalf("Fatal Error: %s environment variable not set.\n", k)
+		}
+		return v
+	}
+
+	var (
+		dbUser                 = mustGetenv("DB_USER")
+		dbPwd                  = mustGetenv("DB_PASS")
+		dbName                 = mustGetenv("DB_NAME")
+		instanceConnectionName = mustGetenv("INSTANCE_CONNECTION_NAME")
+		usePrivate             = os.Getenv("PRIVATE_IP")
+	)
+
+	dsn := fmt.Sprintf("user=%s password=%s database=%s", dbUser, dbPwd, dbName)
+	config, err := pgx.ParseConfig(dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	var opts []cloudsqlconn.Option
+	if usePrivate != "" {
+		opts = append(opts, cloudsqlconn.WithDefaultDialOptions(cloudsqlconn.WithPrivateIP()))
+	}
+
+	d, err := cloudsqlconn.NewDialer(context.Background(), opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	config.DialFunc = func(ctx context.Context, network, instance string) (net.Conn, error) {
+		return d.Dial(ctx, instanceConnectionName)
+	}
+
+	dbURI := stdlib.RegisterConnConfig(config)
+	dbPool, err := sql.Open("pgx", dbURI)
+	if err != nil {
+		return nil, fmt.Errorf("sql.Open: %w", err)
+	}
+
+	return dbPool, nil
 }
 
 // Close closes the database connection
