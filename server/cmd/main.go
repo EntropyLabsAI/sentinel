@@ -9,9 +9,14 @@ import (
 )
 
 func main() {
-	db, err := database.NewPostgresqlStore(os.Getenv("DATABASE_URL"))
+	url := os.Getenv("DATABASE_URL")
+	if url == "" {
+		log.Fatalf("DATABASE_URL is not set")
+	}
+
+	db, err := database.NewPostgresqlStore(url)
 	if err != nil {
-		log.Fatalf("Failed to connect to the database: %v", err)
+		log.Fatalf("Failed to connect to the database with URL %s: %v", url, err)
 	}
 	defer db.Close()
 
