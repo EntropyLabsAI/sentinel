@@ -10,6 +10,7 @@ import { UUIDDisplay } from "./util/uuid_display";
 interface ChainStateDisplayProps {
   chainState: ChainExecutionState;
   currentRequestId?: string;
+  index: number;
 }
 
 const getStatusIcon = (state: SupervisionRequestState) => {
@@ -38,16 +39,16 @@ const getStatusColor = (state: SupervisionRequestState) => {
   }
 };
 
-export default function ChainStateDisplay({ chainState, currentRequestId }: ChainStateDisplayProps) {
+export default function ChainStateDisplay({ chainState, currentRequestId, index }: ChainStateDisplayProps) {
   return (
-    <Accordion type="single" collapsible className="w-full">
+    <Accordion type="single" collapsible className="w-full" key={index}>
       <AccordionItem value="messages" className="border border-gray-200 rounded-md">
         <AccordionTrigger className="w-full p-4 rounded-md cursor-pointer focus:outline-none">
           <div className="flex flex-row gap-4 items-center">
             <ClockIcon className="w-4 h-4" />
-            <span>Chain Execution Details</span>
+            <span>Chain {index + 1} Execution Details</span>
             <Badge variant="outline" className="ml-2">
-              {chainState.supervision_requests.length} requests
+              {chainState.supervision_requests ? chainState.supervision_requests.length : 0} requests
             </Badge>
           </div>
         </AccordionTrigger>
@@ -91,7 +92,7 @@ export default function ChainStateDisplay({ chainState, currentRequestId }: Chai
                 <div>
                   <h3 className="font-semibold mb-4">Supervision Timeline</h3>
                   <div className="flex flex-col space-y-4">
-                    {chainState.supervision_requests.map((request, index) => (
+                    {chainState.supervision_requests ? chainState.supervision_requests.map((request, index) => (
                       <Card key={request.supervision_request.id}
                         className={`border ${request.supervision_request.id === currentRequestId ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
                         <CardContent className="p-4">
@@ -141,7 +142,7 @@ export default function ChainStateDisplay({ chainState, currentRequestId }: Chai
                           </div>
                         </CardContent>
                       </Card>
-                    ))}
+                    )) : <div>No supervision requests found</div>}
                   </div>
                 </div>
               </div>

@@ -619,6 +619,17 @@ func (s *PostgresqlStore) GetExecutionFromChainId(ctx context.Context, chainId u
 	return &id, nil
 }
 
+func (s *PostgresqlStore) createChainExecutions(ctx context.Context, tx *sql.Tx, toolCallId uuid.UUID, chainIds []uuid.UUID) error {
+	for _, chainId := range chainIds {
+		_, err := s.createChainExecution(ctx, chainId, toolCallId, tx)
+		if err != nil {
+			return fmt.Errorf("error creating chain execution: %w", err)
+		}
+	}
+
+	return nil
+}
+
 func (s *PostgresqlStore) createChainExecution(
 	ctx context.Context,
 	chainId uuid.UUID,
@@ -652,10 +663,14 @@ func (s *PostgresqlStore) CreateSupervisionRequest(
 
 	// Sanity check that we're recording this against a valid chain execution group that already exists
 	if request.ChainexecutionId == nil && request.PositionInChain == 0 {
-		// Create a new chain execution for the first supervisor in the chain
-		ceId, err := s.createChainExecution(ctx, chainId, toolCallId, tx)
+		// These chain executions should be initialised when the tool call is created
+		ceId, err := s.getChainExecutionForToolCall(ctx, chainId, toolCallId, tx)
 		if err != nil {
 			return nil, fmt.Errorf("error creating chain execution: %w", err)
+		}
+
+		if ceId == nil {
+			return nil, fmt.Errorf("chain execution not found for tool call %s and chain %s", toolCallId, chainId)
 		}
 
 		request.ChainexecutionId = ceId
@@ -692,6 +707,21 @@ func (s *PostgresqlStore) CreateSupervisionRequest(
 	}
 
 	return &requestID, nil
+}
+
+func (s *PostgresqlStore) getChainExecutionForToolCall(ctx context.Context, chainId uuid.UUID, toolCallId uuid.UUID, tx *sql.Tx) (*uuid.UUID, error) {
+	query := `
+		SELECT id 
+		FROM chainexecution 
+		WHERE chain_id = $1 AND toolcall_id = $2`
+
+	var id uuid.UUID
+	err := tx.QueryRowContext(ctx, query, chainId, toolCallId).Scan(&id)
+	if err != nil {
+		return nil, fmt.Errorf("error getting chain execution for tool call: %w", err)
+	}
+
+	return &id, nil
 }
 
 func (s *PostgresqlStore) CreateSupervisionStatus(ctx context.Context, requestID uuid.UUID, status asteroid.SupervisionStatus) error {
@@ -1832,6 +1862,18 @@ func (s *PostgresqlStore) createToolCalls(
 		_, err = tx.ExecContext(ctx, query, toolCall.Id, toolCall.CallId, msgId, toolCallData, toolCall.ToolId)
 		if err != nil {
 			return fmt.Errorf("error creating tool call: %w", err)
+		}
+
+		// Get the chains configured for this tool
+		chains, err := s.getChainsForTool(ctx, toolCall.ToolId)
+		if err != nil {
+			return fmt.Errorf("error getting chains configured for tool call: %w", err)
+		}
+
+		// Init the chain executions
+		err = s.createChainExecutions(ctx, tx, toolCall.Id, chains)
+		if err != nil {
+			return fmt.Errorf("error creating chain executions: %w", err)
 		}
 	}
 

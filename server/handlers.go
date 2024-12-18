@@ -600,14 +600,8 @@ func apiCreateSupervisionRequestHandler(
 		return
 	}
 
-	// Sanity check: this is the first supervisor in the chain, we shouldn't have already created a chain execution
-	if foundExecutionId != nil && pos == 0 {
-		sendErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("chain execution already exists for chain %s, yet supervisor is position 0. Curious.", chainId), "")
-		return
-	}
-
-	if foundExecutionId == nil && pos > 0 {
-		sendErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("no ongoing chain execution found for chain %s, yet supervisor allegedly not a position 0. Curious.", chainId), "")
+	if foundExecutionId == nil {
+		sendErrorResponse(w, http.StatusNotFound, fmt.Sprintf("chain execution not found for chain %s, tool call %s, and supervisor %s", chainId, toolCallId, supervisorId), "")
 		return
 	}
 
@@ -1161,6 +1155,11 @@ func apiGetToolCallStateHandler(w http.ResponseWriter, r *http.Request, toolCall
 		chainExecutionId, err := store.GetChainExecutionFromChainAndToolCall(ctx, chain.ChainId, toolCall.Id)
 		if err != nil {
 			sendErrorResponse(w, http.StatusInternalServerError, "error getting chain execution", err.Error())
+			return
+		}
+
+		if chainExecutionId == nil {
+			sendErrorResponse(w, http.StatusNotFound, fmt.Sprintf("Chain execution not found for tool call %s and chain %s", toolCall.Id, chain.ChainId), "")
 			return
 		}
 

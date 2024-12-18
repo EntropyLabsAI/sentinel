@@ -18,9 +18,11 @@ export default function RunExecutionViewer({ runExecution }: RunExecutionViewerP
         <CardTitle>Chain Details</CardTitle>
       </CardHeader>
       <CardContent>
-        {runExecution.chains.map((chain) => (
-          <ChainStateDisplay chainState={chain} />
-        ))}
+        <div className="flex flex-col gap-2">
+          {runExecution.chains.map((chain, index) => (
+            <ChainStateDisplay chainState={chain} index={index} />
+          ))}
+        </div>
       </CardContent>
     </Card>
   )
